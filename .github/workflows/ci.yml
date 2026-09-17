@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, release/gcp]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.15'
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: make setup check test build eval
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run test:e2e
+        working-directory: apps/web
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.16.3'
+      - run: terraform -chdir=infra/gcp fmt -check
+      - run: terraform -chdir=infra/gcp init -backend=false -lockfile=readonly
+      - run: terraform -chdir=infra/gcp validate
+      - run: docker build -t builder-cup:ci .
+      - run: bash scripts/container-smoke.sh builder-cup:ci
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure
+          path: apps/web/test-results/
+          retention-days: 7

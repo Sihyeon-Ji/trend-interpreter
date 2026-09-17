@@ -1,0 +1,10 @@
+project_id           = "stunning-crane-508614-c1"
+region               = "asia-northeast3"
+github_repository    = "Sihyeon-Ji/2026-google-ai-builder-cup"
+# bootstrap-gcp.sh looks up the numeric IDs, preventing repository-name reuse attacks.
+github_repository_id = "REPLACE"
+github_owner_id      = "REPLACE"
+# Optional: requires billing-account budget permissions. Match its currency.
+# billing_account = "XXXXXX-XXXXXX-XXXXXX"
+# monthly_budget = 20
+# budget_currency = "USD"

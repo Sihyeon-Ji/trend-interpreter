@@ -1,0 +1,21 @@
+name: Team task
+description: A bounded task with a reviewable outcome
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Who benefits, and what should change?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What observable evidence means this is done?
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Research and evidence
