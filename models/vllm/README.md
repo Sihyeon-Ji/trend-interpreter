@@ -39,7 +39,7 @@ VLLM_MODEL=google/gemma-4-E2B-it
 VLLM_API_KEY=THE_SAME_PRIVATE_KEY
 ```
 
-Restart `make api`, test the UI, and run `MODEL_PROVIDER=vllm make eval`.
+Restart `make api`, test the UI, and run `MODEL_PROVIDER=vllm make eval-live`.
 The application uses the OpenAI-compatible chat-completions protocol directly through httpx;
 this does not require an OpenAI account. JSON output is constrained server-side and validated again
 by the API. If the model/image combination does not support the schema, failure is surfaced.

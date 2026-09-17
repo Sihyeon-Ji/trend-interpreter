@@ -43,8 +43,8 @@ cd apps/web && npx playwright install chromium && npm run test:e2e
 ```
 
 Evaluation fixtures in `evals/` check the output contract and basic term retention, **not** factual
-correctness or domain quality. They use whichever provider is configured; ordinary CI uses mock.
-For a real-model smoke evaluation: `MODEL_PROVIDER=gemini make eval`.
+correctness or domain quality. `make eval` always uses mock, even if `.env` selects a live provider.
+For a real-model smoke evaluation: `MODEL_PROVIDER=gemini make eval-live` (may incur API charges).
 Generated results go to ignored `artifacts/evaluation.json`.
 
 ## Repository layout
@@ -80,6 +80,10 @@ git switch develop
 See [GCP setup and operations](docs/operations.md) for the one-time bootstrap.
 See [local Gemma](models/vllm/README.md) for GPU requirements and connectivity.
 See [architecture](docs/architecture.md) for ownership boundaries and extension points.
+
+Running `make` alone shows help. `make infra-check` validates Terraform locally without creating
+cloud resources. `make infra-apply` provisions resources and requires enabled billing; the old
+`infra-init` name stops with instructions rather than applying anything.
 
 ## Team links
 

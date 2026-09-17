@@ -8,6 +8,11 @@ REPO=Sihyeon-Ji/2026-google-ai-builder-cup
 STATE_BUCKET="$PROJECT_ID-tfstate"
 for command in gcloud gh terraform python3; do command -v "$command" >/dev/null; done
 gcloud projects describe "$PROJECT_ID" --format='value(projectId)' >/dev/null
+billing_enabled=$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)')
+if [[ "$billing_enabled" != "True" && "$billing_enabled" != "true" ]]; then
+  printf '%s\n' 'Billing is disabled. No resources were changed. Use make infra-check for local validation.' >&2
+  exit 2
+fi
 gh api "repos/$REPO" --jq '.permissions.push' | python3 -c 'import sys; assert sys.stdin.read().strip() == "true", "GitHub write access required"'
 gcloud services enable serviceusage.googleapis.com storage.googleapis.com --project="$PROJECT_ID"
 if ! gcloud storage buckets describe "gs://$STATE_BUCKET" --project="$PROJECT_ID" >/dev/null 2>&1; then

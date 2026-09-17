@@ -10,12 +10,13 @@ Gemini location: `global`; this is not a Korea-only data residency promise.
    The Google account needs project permissions for API enablement, IAM/service accounts,
    federation, secrets, storage, Artifact Registry and monitoring.
 3. Install Terraform >=1.6 (the local setup uses `.tools/terraform` 1.16.3).
-4. Run `make infra-init`. It prints a Terraform plan before applying the prepared infrastructure.
+4. When cloud deployment is desired and billing is enabled, run `make infra-apply`. It prints a Terraform plan before applying the prepared infrastructure.
    It does not change the active gcloud project or account.
 5. Set GitHub's default branch to `develop` after pushing it.
 6. Push `release/gcp` to run CI and deploy.
 
 The bootstrap can be rerun: it preserves the existing demo secret version and uses remote state.
+Before enabling any API or creating resources, it checks that project billing is enabled.
 It writes only public repository IDs to ignored `infra/gcp/github.auto.tfvars.json`.
 The GitHub environment is named `gcp`; no approval gate is configured, so branch pushes deploy automatically.
 For future collaborators, protect release pushes and require successful CI on release PRs.
@@ -44,6 +45,19 @@ If the organization disallows `allUsers`, the public-invoker step fails visibly.
 private access architecture rather than removing authentication. Do not claim the deployment is ready.
 
 ## Budget
+
+Current project preference: keep billing disabled and perform validation only. CLI login, ADC
+token refresh, project/IAM/API inventory reads, application tests, Docker builds and `make infra-check`
+can be verified now. Actual Cloud Run deployment and Vertex AI inference remain unverified until
+the user resumes deployment. Authentication alone does not enable billing.
+
+Cloud Run Tokyo (`asia-northeast1`) and Osaka (`asia-northeast2`) use Tier 1 pricing; Seoul
+(`asia-northeast3`) uses Tier 2. Tokyo is a cost-oriented candidate for the future CPU application.
+The current configuration remains Seoul; no regional migration has been performed. These tiers
+are specific to Cloud Run pricing and do not establish the price of Gemini or every GCP service.
+Keep regional application dependencies together when selecting the final region.
+See [Cloud Run locations](https://docs.cloud.google.com/run/docs/locations) and
+[pricing](https://cloud.google.com/run/pricing).
 
 No billing budget is silently assumed. Set `billing_account`, `monthly_budget`, and `budget_currency`
 in an ignored `infra/gcp/terraform.tfvars`, matching the billing account's currency; then plan/apply.
