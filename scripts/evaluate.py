@@ -14,7 +14,7 @@ async def main():
     provider = create_provider(settings)
     rows = []
     try:
-        for line in Path("evals/cases.jsonl").read_text().splitlines():
+        for line in Path("evaluation-cases/cases.jsonl").read_text().splitlines():
             case = json.loads(line)
             try:
                 result = await analyze(case["text"], case["id"], provider, settings)

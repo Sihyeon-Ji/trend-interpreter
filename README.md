@@ -3,6 +3,9 @@
 A theme-independent foundation for a four-person team with one developer.
 React + TypeScript, FastAPI, Gemini on Google Cloud, and an optional local Gemma/vLLM service.
 
+Start with the [session handoff and remaining work](docs/session-handoff.md) for the current
+project status, operating constraints, and next steps.
+
 ## Start locally
 
 Prerequisites: Python 3.12 (managed by uv), uv, Node 22.12+, npm, Git.
@@ -42,7 +45,7 @@ make check test build eval
 cd apps/web && npx playwright install chromium && npm run test:e2e
 ```
 
-Evaluation fixtures in `evals/` check the output contract and basic term retention, **not** factual
+Evaluation fixtures in `evaluation-cases/` check the output contract and basic term retention, **not** factual
 correctness or domain quality. `make eval` always uses mock, even if `.env` selects a live provider.
 For a real-model smoke evaluation: `MODEL_PROVIDER=gemini make eval-live` (may incur API charges).
 Generated results go to ignored `artifacts/evaluation.json`.
@@ -57,7 +60,7 @@ infra/gcp/                   Terraform infrastructure foundation
 .github/workflows/           CI and release/gcp deployment
 scripts/                     Bootstrap, deployment, rollback, evaluation
 tests/                       API and failure-mode tests
-evals/                       Team-owned evaluation fixtures
+evaluation-cases/            Team-owned evaluation fixtures
 docs/                        Architecture, operations, team workflow
 ```
 
