@@ -2,6 +2,7 @@
 
 Team members use Docker Compose from the repository root. These files implement specific
 operations; they are not a second task-runner interface.
+For copyable everyday commands, see the [Korean command reference](../docs/commands.md).
 
 | File | Caller | Responsibility |
 | --- | --- | --- |

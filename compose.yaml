@@ -1,3 +1,9 @@
+# Run from the repository root. Command guide (Korean) is in docs/commands.md.
+# Start development with docker compose up -d, then open http://localhost:5173.
+# Source edits reload automatically; dependency changes need docker compose up -d --build.
+# Run application checks with docker compose run --rm --build check.
+# Run browser tests with docker compose run --rm --build e2e.
+# Stop development with docker compose down.
 x-development: &development
   build:
     context: .
@@ -50,6 +56,7 @@ services:
       timeout: 5s
       retries: 15
 
+  # One-off validation; excluded from the default startup by the tools profile.
   check:
     <<: *development
     profiles: [tools]
@@ -64,6 +71,7 @@ services:
         npm --prefix apps/web run typecheck &&
         npm --prefix apps/web run build
 
+  # Browser tests start the development services they depend on.
   e2e:
     <<: *development
     profiles: [tools]
@@ -80,6 +88,7 @@ services:
       web:
         condition: service_healthy
 
+  # Local validation only, without cloud credentials or resource provisioning.
   infra-check:
     profiles: [tools]
     image: hashicorp/terraform:1.16.3
@@ -92,6 +101,8 @@ services:
     command:
       - terraform fmt -check && terraform init -backend=false -lockfile=readonly && terraform validate
 
+  # Production-style mock preview on port 8080, without source reload.
+  # Start with docker compose up -d --build preview; stop with docker compose stop preview.
   preview:
     profiles: [preview]
     build: .

@@ -43,6 +43,7 @@ This development server is exposed only on host loopback; it is not a production
 
 Run these from the repository root. Compose is the single entry point; there is no Makefile
 or extra task runner to install.
+See the [Korean command reference](docs/commands.md) for commands by task, expected effects and option meanings.
 
 | Command | Purpose |
 | --- | --- |

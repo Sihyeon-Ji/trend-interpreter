@@ -2,6 +2,8 @@
 
 [한국어 README](../README.kr.md) | [English README](../README.md)
 
+이미 설치를 마쳤다면 [개발 명령어 모음](commands.md)에서 필요한 명령만 찾아 실행하세요.
+
 **Git과 Docker 설치 → 저장소 클론 → `docker compose up -d` → 화면 확인**이면 시작할 수 있습니다.
 Node, Python, uv, Make를 PC에 따로 설치하거나 터미널 두 개를 켤 필요가 없습니다.
 개발 도구와 의존성은 컨테이너 안에 준비됩니다.
