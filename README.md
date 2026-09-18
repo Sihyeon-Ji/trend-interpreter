@@ -58,7 +58,7 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`check`, `e2e`, `infra-check` and `preview` are opt-in services; plain `up -d` only starts
+`check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` only starts
 `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
@@ -66,6 +66,21 @@ Mock evaluation checks the output contract and basic term retention, **not** fac
 or AI quality. The validation containers are removed after `--rm`; generated test/evaluation
 files inside them are temporary. For diagnosis, omit `--rm`, name the container, and copy its
 results before removing it. CI retains browser failure artifacts automatically.
+
+## Dependency changes
+
+Use the Compose `npm` and `uv` tools to edit the checkout's manifests and lockfiles together:
+
+```bash
+docker compose run --rm --build npm install zod
+docker compose run --rm --build uv add httpx
+```
+
+Package names above are examples; add only what the feature needs. These tools do not install host
+`node_modules` or `.venv`. Rebuild with `docker compose up -d --build`, run `check` and `e2e`, then
+commit both `package.json` / `package-lock.json` or `pyproject.toml` / `uv.lock` in the same commit.
+See the [Korean command reference](docs/commands.md) for removal and targeted upgrade commands.
+Production and development builds reject out-of-date lockfiles.
 
 ## Production preview
 
@@ -111,7 +126,8 @@ A future real-model configuration needs deliberate credential injection, project
 model access, quota and billing; successful mock tests do not establish these.
 See [operations](docs/operations.md) and [Gemma/vLLM](models/vllm/README.md).
 
-Develop on `develop`; pushes run CI. A push to `release/gcp` triggers real image publishing
+Develop on `develop`; code/configuration pushes run CI. Markdown-only pushes are skipped.
+PRs always run CI, and superseded development/PR runs are canceled. CI can also be started manually. A push to `release/gcp` triggers real image publishing
 and deployment. Do not push that branch or run `scripts/bootstrap-gcp.sh` until deployment resumes.
 Never commit credentials, `.env`, model weights, Terraform state or generated evaluation data.
 

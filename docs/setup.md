@@ -12,48 +12,19 @@ Node, Python, uv, Make를 PC에 따로 설치하거나 터미널 두 개를 켤 
 `prototype/`의 주제 후보, GPU 모델 서버, GCP 배포는 기본 실행에 포함되지 않습니다.
 기본 모델은 Mock이므로 계정·API 키·결제 등록 없이 동작합니다.
 
-## 1. 처음 한 번만 도구 설치
+## 1. 운영체제별로 도구 설치
 
-### macOS
+팀의 기본 환경은 Mac입니다. 혹시 Windows에서 작업할 경우를 위해 설치 절차를 따로 준비했습니다.
+**본인 운영체제의 문서 하나만 따라 한 뒤**, 이 문서의 도구 확인부터 이어가세요.
 
-1. 터미널에서 `git --version`을 실행합니다. 설치 창이 나타나면 완료합니다.
-   설치되지 않았다면 `xcode-select --install`을 실행하세요.
-2. [Docker Desktop 공식 설치 페이지](https://docs.docker.com/desktop/setup/install/mac-install/)에서
-   본인의 Mac에 맞는 Apple Silicon 또는 Intel 버전을 설치합니다.
-3. 응용 프로그램에서 Docker를 열고 초기 설정을 완료합니다. 엔진이 실행될 때까지 기다립니다.
+| 운영체제 | 설치 가이드 | 이후 명령을 실행할 곳 |
+| --- | --- | --- |
+| Mac | [Mac 설치 가이드](setup-macos.md) | macOS 터미널 |
+| Windows | [Windows·WSL2 설치 가이드](setup-windows.md) | Ubuntu 터미널 |
 
-### Windows
-
-WSL2의 Ubuntu 안에 저장소를 두고 작업하는 절차입니다.
-
-1. 관리자 PowerShell에서 `wsl --install -d Ubuntu`를 실행합니다. 안내에 따라 재부팅하고
-   Ubuntu를 열어 Linux 사용자명과 비밀번호를 만듭니다.
-2. [Docker Desktop 공식 설치 페이지](https://docs.docker.com/desktop/setup/install/windows-install/)를
-   따라 설치하고 Linux 컨테이너를 사용하는 WSL2 환경으로 실행합니다.
-3. Docker Desktop의 WSL Integration 설정에서 사용할 Ubuntu를 활성화합니다.
-4. Ubuntu 터미널에서 다음을 실행합니다.
-
-```bash
-sudo apt update
-sudo apt install -y git
-```
-
-이후 명령은 Ubuntu 터미널에서 실행하세요. `~/workspace`에 클론하고, 편집기도 WSL의 저장소 폴더를
-열어 사용하면 됩니다. Windows용 Node나 Python을 추가로 설치할 필요는 없습니다.
-
-### Ubuntu Linux
-
-Git과 Docker Engine, Docker Compose 플러그인을 설치합니다.
-[Docker 공식 Ubuntu 설치 안내](https://docs.docker.com/engine/install/ubuntu/)를 따라 설치하고
-현재 계정에서 Docker 명령을 실행할 수 있도록 설정하세요.
-
-```bash
-sudo apt update
-sudo apt install -y git
-```
-
-호스트 macOS + Linux ARM64 컨테이너에서 실행과 자동 반영을 검증했습니다.
-Windows·WSL 및 별도 Ubuntu PC의 전체 설치 과정은 아직 직접 검증하지 않았습니다.
+Mac에서는 Apple Silicon과 Intel에 맞는 Docker Desktop을 선택합니다. 실제 검증한 로컬 환경은
+Apple Silicon Mac이며, Windows 전체 설치 과정과 Intel Mac은 별도 기기에서 직접 검증하지 않았습니다.
+기본 앱 컨테이너는 Linux ARM64에서, GitHub CI는 Linux x64에서 검증됩니다.
 
 ### 도구 확인
 
@@ -153,7 +124,8 @@ Compose에 정의한 Mock 설정으로 실행합니다. 기존 `.venv`나 `node_
 docker compose up -d --build
 ```
 
-새 라이브러리를 추가했다면 패키지 목록과 lockfile도 함께 갱신해야 합니다.
+새 라이브러리는 [명령어 모음의 패키지 관리 절차](commands.md)를 따라 추가하세요.
+전용 `npm`·`uv` 서비스가 패키지 목록과 lockfile을 호스트 저장소에 함께 갱신합니다.
 재빌드는 lockfile에 기록된 패키지를 설치하며 새로운 버전을 임의로 선택하지 않습니다.
 Compose 설정을 수정했을 때도 위 명령을 실행해 컨테이너를 갱신하세요.
 

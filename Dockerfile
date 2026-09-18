@@ -12,7 +12,7 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
 COPY pyproject.toml uv.lock ./
 COPY apps/api/ apps/api/
-RUN uv sync --frozen --no-dev && useradd --uid 10001 --create-home app
+RUN uv sync --locked --no-dev && useradd --uid 10001 --create-home app
 COPY --from=web /build/dist apps/web/dist
 USER app
 ENV PATH="/app/.venv/bin:$PATH"

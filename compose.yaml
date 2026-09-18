@@ -88,6 +88,38 @@ services:
       web:
         condition: service_healthy
 
+  # Dependency tools write manifests and lockfiles back to the checkout without installing locally.
+  npm:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: tooling
+    working_dir: /workspace/apps/web
+    entrypoint: [npm]
+    command: [--help]
+    environment:
+      NPM_CONFIG_PACKAGE_LOCK_ONLY: "true"
+      NPM_CONFIG_IGNORE_SCRIPTS: "true"
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+    volumes:
+      - ./apps/web:/workspace/apps/web
+
+  uv:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: tooling
+    entrypoint: [uv]
+    command: [--help]
+    environment:
+      UV_NO_SYNC: "true"
+      UV_PROJECT_ENVIRONMENT: /tmp/dependency-venv
+    volumes:
+      - .:/workspace
+
   # Local validation only, without cloud credentials or resource provisioning.
   infra-check:
     profiles: [tools]

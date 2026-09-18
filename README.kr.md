@@ -65,6 +65,13 @@ docker compose up -d --build
 최상위에 새로운 소스·정적 파일 폴더를 만들면 Docker 이미지와 Compose 연결 설정도 추가해야 합니다.
 호스트의 `node_modules`나 `.venv`는 컨테이너와 공유하지 않습니다.
 
+## 패키지를 추가하거나 업데이트할 때
+
+`docker compose run --rm --build npm install 패키지명` 또는
+`docker compose run --rm --build uv add 패키지명`을 사용하면 목록과 lockfile이 로컬 저장소에 함께 기록됩니다.
+호스트에 Node·Python을 설치하지 않아도 됩니다. 재빌드와 검증 후 두 파일을 같은 커밋에 포함하세요.
+제거·개발용 패키지·업데이트 예시는 [명령어 모음](docs/commands.md)에 정리했습니다.
+
 ## 개발 화면과 배포 미리보기의 차이
 
 | 구분 | 개발 | 배포 미리보기 |
@@ -102,7 +109,8 @@ docs/                        설치, 구조, 운영, 협업 문서
 
 ## 협업과 배포
 
-공통 개발 브랜치는 `develop`이고 push하면 CI가 실행됩니다.
+공통 개발 브랜치는 `develop`입니다. 코드·설정 push와 PR은 CI를 실행하고,
+Markdown 문서만 바꾼 `develop` push는 제외합니다. 같은 브랜치·PR의 오래된 검증은 취소합니다.
 **GCP 배포와 과금 활성화는 보류 중입니다.** 기본 개발 Compose는 실제 모델 호출용 환경이 아닙니다.
 실제 Gemini 연결은 프로젝트 권한·인증 주입·모델 접근·할당량·과금 준비를 별도로 합의한 뒤 진행합니다.
 

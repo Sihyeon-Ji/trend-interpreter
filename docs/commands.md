@@ -59,6 +59,55 @@ docker compose exec api pytest -q
 이 명령은 전체 `check`의 대체가 아닙니다. 실패한 브라우저 테스트의 파일을 보관하는 방법은
 [설치 가이드](setup.md#verify)를 참고하세요.
 
+## 패키지 추가·제거·업데이트
+
+실행 중인 컨테이너에 `exec`로 설치하면 저장소의 목록·lockfile이 바뀌지 않습니다.
+아래 전용 명령은 **호스트 저장소에 두 파일을 함께 기록**합니다. 로컬 Node·Python 설치는 필요 없습니다.
+Mac과 Windows·WSL2에서 동일하며, 반드시 저장소 루트에서 실행하세요.
+
+| 대상 | 함께 커밋할 파일 |
+| --- | --- |
+| 프런트엔드 | `apps/web/package.json`, `apps/web/package-lock.json` |
+| Python | `pyproject.toml`, `uv.lock` |
+
+다음 패키지명은 사용법 예시입니다. 실제 필요한 패키지로 바꿔 실행하세요.
+아직 필요하지 않은 패키지를 미리 추가할 필요는 없습니다.
+
+| 할 일 | 명령어 예시 |
+| --- | --- |
+| 프런트엔드 패키지 추가 | `docker compose run --rm --build npm install zod` |
+| 프런트엔드 개발용 패키지 추가 | `docker compose run --rm --build npm install --save-dev prettier` |
+| 프런트엔드 패키지 제거 | `docker compose run --rm npm uninstall zod` |
+| 프런트엔드 패키지의 허용 범위 내 업데이트 | `docker compose run --rm npm update react` |
+| 프런트엔드 목록을 직접 수정한 뒤 lockfile 갱신 | `docker compose run --rm npm install` |
+| Python 패키지 추가 | `docker compose run --rm --build uv add httpx` |
+| Python 개발용 패키지 추가 | `docker compose run --rm --build uv add --dev pytest` |
+| Python 패키지 제거 | `docker compose run --rm uv remove httpx` |
+| Python 개발용 패키지 제거 | `docker compose run --rm uv remove --dev pytest` |
+| Python 패키지의 허용 범위 내 업데이트 | `docker compose run --rm uv lock --upgrade-package httpx` |
+| Python 목록을 직접 수정한 뒤 lockfile 갱신 | `docker compose run --rm uv lock` |
+
+`npm` 작업은 lockfile만 갱신하고 설치 스크립트를 실행하지 않습니다. `uv add/remove`도 로컬 가상환경을
+설치하지 않습니다. 따라서 작업 컨테이너를 지워도 두 설정 파일의 변경은 저장소에 남고,
+호스트에 `node_modules`나 `.venv`를 만들지 않습니다. 전용 도구 이미지는 현재 앱의 의존성 설치에
+의존하지 않으므로 목록과 lockfile이 일시적으로 맞지 않아도 복구 명령을 실행할 수 있습니다.
+
+`npm` 서비스는 `apps/web`용입니다. `prototype/`의 패키지를 수정하지 않습니다.
+여러 패키지 수정 명령을 동시에 실행하지 말고 하나씩 완료하세요. 패키지 제거는 사용처도 수정해야 합니다.
+
+변경 후에는 차이를 확인하고 이미지를 재빌드합니다.
+
+```bash
+git diff -- pyproject.toml uv.lock apps/web/package.json apps/web/package-lock.json
+docker compose up -d --build
+docker compose run --rm --build check
+docker compose run --rm --build e2e
+```
+
+검증이 통과하면 변경한 목록과 lockfile을 **같은 커밋**에 포함하세요.
+lockfile의 버전이나 해시는 손으로 편집하지 않습니다. 빌드는 `npm ci`와 `uv sync --locked`로
+목록·lockfile 불일치를 거부합니다. 명령 실패 시 일부 파일이 바뀌었을 수 있으므로 `git diff`를 확인하세요.
+
 ## 배포 형태 미리보기
 
 | 하고 싶은 일 | 실행할 명령 |
@@ -112,3 +161,22 @@ docker compose run --rm --build e2e
 
 GCP 배포와 과금 활성화는 현재 보류 중입니다. `scripts/bootstrap-gcp.sh`, 배포·롤백 스크립트,
 `release/gcp` push는 평소 개발 명령이 아닙니다. 재개가 결정되면 [운영 문서](operations.md)를 따릅니다.
+
+## GitHub CI는 언제 실행되나요?
+
+- `develop`에 코드·설정 변경을 push하면 전체 검증을 실행합니다.
+- 변경 파일이 Markdown 문서뿐인 `develop` push는 실행하지 않습니다.
+- `develop`, `release/gcp` 대상 PR은 문서 변경이어도 검증을 실행합니다. 필수 PR 검사 상태가 대기 상태로 남는 것을 피하기 위해서입니다.
+- 같은 브랜치나 PR에 새 변경이 들어오면 이전 검증을 취소하고 최신 변경을 검증합니다.
+- GitHub Actions의 CI 화면에서 `Run workflow`로 수동 실행할 수도 있습니다.
+- `release/gcp` 배포에서 호출하는 검증은 문서 필터로 생략하지 않고, 새 실행 때문에 취소하지 않습니다.
+
+`verify`는 작업 이름입니다. 그 안에서 코드 검사·Python 테스트·Mock 평가·브라우저 테스트·Terraform
+검증·배포 이미지 빌드·컨테이너 smoke test를 실행합니다. `develop`은 실제 GCP 배포를 하지 않습니다.
+
+팀원의 PC가 Mac이어도 CI는 Docker의 Linux 실행 환경을 확인하므로 Ubuntu runner를 사용합니다.
+공개 저장소의 표준 runner는 무료이고, 비공개 저장소는 소유자 계정의 요금제별 무료 시간을 사용합니다.
+GitHub Free 기준 월 2,000분이며 다른 비공개 저장소 사용량과 공유됩니다.
+[공식 Actions 과금 안내](https://docs.github.com/en/billing/concepts/product-billing/github-actions)를 기준으로,
+GitHub 계정의 Billing and licensing에서 실제 사용량과 예산·초과 사용 차단 설정을 확인하세요.
+이 저장소의 CI 설정만으로 계정 전체의 과금을 막지는 못합니다.
