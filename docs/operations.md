@@ -97,9 +97,9 @@ Add a new Secret Manager version, then trigger a new release so instances reload
 Deployments currently reference `latest`; rollback to an old revision is not a secret rollback.
 Keep old versions until all old instances have drained. Do not paste secret values in issues or CI logs.
 
-## Docker on this Mac
+## Local Docker setup
 
-Docker Desktop is installed. Its engine must be running before `make docker` or local image tests.
-The initial context pointed to `/Users/sihyeon`; starting Docker Desktop changed it to `/Users/sean`.
-If the engine does not start, complete Docker Desktop's local onboarding and check `docker info`.
-Do not delete existing Docker data to repair a context.
+Install and start Docker Desktop before `make docker` or local image tests. Verify the engine with
+`docker info`. If it does not start, complete Docker Desktop's local onboarding and inspect
+`docker context ls`. An old account-path repair is recorded in the session handoff as history;
+it is not a required setup step on another Mac. Do not delete existing Docker data to repair a context.

@@ -59,28 +59,15 @@ Their revocation/replacement has not been verified. Do not reproduce them in doc
 
 ## Continue development without GCP billing
 
-Prerequisites: Git, uv, Node 22.12+ and npm. Docker is needed for container checks; Terraform >=1.6 is
-needed for infrastructure validation. On the original Mac, Makefile handles the Homebrew Node path
-and a project-local Terraform executable. A fresh clone must install these tools independently.
+Follow the maintained [local development guide](../README.en.md#local-development) in order:
+install required tools, run `make setup`, verify, then start the API and web servers.
+Node is pinned to **24.21.0** in `.nvmrc`, read by CI, and matched by the Docker images and app
+engine declarations. Make uses the active shell's Node rather than a machine-specific Homebrew path.
 
-```bash
-git switch develop
-git pull --ff-only
-make setup
-make api       # terminal 1: http://127.0.0.1:8000
-make web       # terminal 2: http://127.0.0.1:5173
-```
-
-For the built UI on port 8000, run `make build` before starting the API. Local `.env` starts with mock.
-
-```bash
-make check test build eval
-cd apps/web && npx playwright install chromium && npm run test:e2e
-```
-
-Run the browser test command without an existing API server on port 8000; the test runner starts its
-own server. From the repository root, `make infra-check` performs local Terraform validation without
-creating cloud resources. `make docker` builds and runs the mock application on port 8080.
+The earlier Docker account-path repair above is historical, not a prerequisite for another Mac.
+Even when both Macs use the same `/Users/sean` home path, install tools and recreate ignored local
+environments independently. Previous CLI authentication and validation results describe the earlier
+session, not the state of every clone.
 
 `evaluation-cases/` contains JSON test data, not executable code. `make eval` always uses mock.
 `make eval-live` uses the configured provider and can incur API charges. Results under `artifacts/`
