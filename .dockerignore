@@ -1,5 +1,6 @@
 **
 !Dockerfile
+!Dockerfile.dev
 !pyproject.toml
 !uv.lock
 !apps/
@@ -11,9 +12,18 @@
 !apps/web/package-lock.json
 !apps/web/tsconfig.json
 !apps/web/vite.config.ts
+!apps/web/playwright.config.ts
+!apps/web/e2e/
+!apps/web/e2e/**
 !apps/web/index.html
 !apps/web/src/
 !apps/web/src/**
+!tests/
+!tests/**
+!scripts/
+!scripts/**
+!evaluation-cases/
+!evaluation-cases/**
 **/__pycache__
 **/node_modules
 **/dist

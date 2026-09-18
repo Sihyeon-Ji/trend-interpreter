@@ -9,8 +9,9 @@ Gemini location: `global`; this is not a Korea-only data residency promise.
 2. The GitHub account needs repository administration to configure variables and environments.
    The Google account needs project permissions for API enablement, IAM/service accounts,
    federation, secrets, storage, Artifact Registry and monitoring.
-3. Install Terraform >=1.6 (the local setup uses `.tools/terraform` 1.16.3).
-4. When cloud deployment is desired and billing is enabled, run `make infra-apply`. It prints a Terraform plan before applying the prepared infrastructure.
+3. The deployment operator needs Bash, Python 3 and Terraform >=1.6, <2.0 (validation uses 1.16.3)
+   alongside the authenticated CLIs. These host tools are not required for the Compose development stack.
+4. When cloud deployment is desired and billing is enabled, run `bash scripts/bootstrap-gcp.sh`. It prints a Terraform plan before applying the prepared infrastructure.
    It does not change the active gcloud project or account.
 5. Set GitHub's default branch to `develop` after pushing it.
 6. Push `release/gcp` to run CI and deploy.
@@ -47,7 +48,7 @@ private access architecture rather than removing authentication. Do not claim th
 ## Budget
 
 Current project preference: keep billing disabled and perform validation only. CLI login, ADC
-token refresh, project/IAM/API inventory reads, application tests, Docker builds and `make infra-check`
+token refresh, project/IAM/API inventory reads, application tests, Docker builds and `docker compose run --rm infra-check`
 can be verified now. Actual Cloud Run deployment and Vertex AI inference remain unverified until
 the user resumes deployment. Authentication alone does not enable billing.
 
@@ -99,7 +100,7 @@ Keep old versions until all old instances have drained. Do not paste secret valu
 
 ## Local Docker setup
 
-Install and start Docker Desktop before `make docker` or local image tests. Verify the engine with
+Install and start Docker Desktop before `docker compose up -d` or local image tests. Verify the engine with
 `docker info`. If it does not start, complete Docker Desktop's local onboarding and inspect
 `docker context ls`. An old account-path repair is recorded in the session handoff as history;
 it is not a required setup step on another Mac. Do not delete existing Docker data to repair a context.

@@ -1,142 +1,72 @@
 # 팀원용 처음 설치 가이드
 
-[프로젝트 소개로 돌아가기](../README.kr.md) | [English README](../README.md)
+[한국어 README](../README.kr.md) | [English README](../README.md)
 
-개발 도구가 없는 PC에서 저장소를 받아 공통 앱의 첫 화면을 확인하는 안내입니다.
-**필수 도구 설치 → 저장소 클론 → Node 선택 → `make setup` → 검증 → 실행** 순서로 진행합니다.
+**Git과 Docker 설치 → 저장소 클론 → `docker compose up -d` → 화면 확인**이면 시작할 수 있습니다.
+Node, Python, uv, Make를 PC에 따로 설치하거나 터미널 두 개를 켤 필요가 없습니다.
+개발 도구와 의존성은 컨테이너 안에 준비됩니다.
 
-이 가이드는 `apps/web`과 `apps/api`를 대상으로 합니다. `prototype/disease` 등 후보 프로젝트는
-여기서 설치하거나 실행하지 않습니다. 기본 Mock 모드에서는 실제 AI를 호출하지 않으므로
-GCP 계정, 결제 등록, API 키, GPU 없이 시작할 수 있습니다.
+이 가이드는 공통 앱인 `apps/web`과 `apps/api`를 실행합니다.
+`prototype/`의 주제 후보, GPU 모델 서버, GCP 배포는 기본 실행에 포함되지 않습니다.
+기본 모델은 Mock이므로 계정·API 키·결제 등록 없이 동작합니다.
 
-## 시작 전에
-
-- 인터넷이 연결되어 있어야 합니다. 최초 설치에서는 개발 도구와 패키지, 테스트용 브라우저를 받습니다.
-- GitHub에서 저장소 페이지를 열 수 있는지 확인하세요. 비공개 저장소라면 초대 수락과 Git 인증이 필요합니다.
-- 검증한 환경은 Apple Silicon macOS입니다. Ubuntu와 Windows의 WSL2는 아래 절차를 제공하지만
-  이 저장소의 전체 실행을 해당 환경에서 직접 검증하지는 않았습니다.
-- 명령어 블록은 위에서부터 차례로 실행하세요. `#` 뒤는 설명이며 함께 복사해도 됩니다.
-- `~`는 **본인의 홈 폴더**입니다. 다른 팀원과 사용자명이나 경로를 맞출 필요가 없습니다.
-
-| 도구 | 역할 | 준비 방법 |
-| --- | --- | --- |
-| Git | 저장소 다운로드와 변경 이력 관리 | 운영체제별 설치 |
-| Make | 프로젝트 명령어 실행 | macOS Command Line Tools 또는 Ubuntu 패키지 |
-| uv | Python과 Python 패키지 관리 | 운영체제별 설치 |
-| fnm | 프로젝트에 맞는 Node 버전 선택 | 이미 nvm을 쓰면 대체 가능 |
-| Node.js 24.21.0·npm | 웹 개발 도구 실행과 패키지 설치 | 저장소를 받은 뒤 fnm으로 설치 |
-| Python 3.12 | API 실행 | `make setup`에서 uv가 자동 설치 |
-
-Docker, Terraform, gcloud, GitHub CLI는 처음 실행할 때 필수가 아닙니다.
-이미 nvm을 사용하는 팀원은 아래에서 fnm 설치·셸 설정을 건너뛰고 3단계의 nvm 명령을 사용하세요.
-
-## 1. 내 운영체제의 도구 설치
-
-아래에서 **본인 운영체제에 해당하는 부분만** 진행하세요.
+## 1. 처음 한 번만 도구 설치
 
 ### macOS
 
-Spotlight에서 `터미널`을 찾아 엽니다.
-
-먼저 아래 명령을 실행하고 설치 창이 나타나면 완료될 때까지 기다립니다.
-이미 설치되어 있다는 메시지는 정상이며 다음으로 넘어가면 됩니다.
-
-```bash
-xcode-select --install
-```
-
-다음으로 Homebrew가 있는지 확인합니다.
-
-```bash
-brew --version
-```
-
-`command not found`가 나오면 [Homebrew 공식 홈페이지](https://brew.sh/)의 설치 명령을 실행하세요.
-설치 마지막에 출력되는 **Next steps**의 명령도 실행해야 `brew`를 사용할 수 있습니다.
-Apple Silicon과 Intel Mac의 Homebrew 경로는 다를 수 있으므로 설치 프로그램이 안내한 경로를 사용하세요.
-
-이제 필요한 도구를 설치합니다.
-
-```bash
-brew install git uv fnm
-```
-
-macOS 기본 셸인 zsh에서 fnm을 사용할 수 있도록 설정합니다. 아래 명령은 설정 줄이 없을 때만
-추가하므로 여러 번 실행해도 같은 줄을 중복 추가하지 않습니다.
-
-```bash
-touch ~/.zshrc
-grep -Fqx 'eval "$(fnm env --use-on-cd --shell zsh)"' ~/.zshrc || \
-  printf '\n%s\n' 'eval "$(fnm env --use-on-cd --shell zsh)"' >> ~/.zshrc
-eval "$(fnm env --use-on-cd --shell zsh)"
-```
-
-이 설정은 새 터미널에서도 Node 버전을 선택할 수 있게 합니다.
-[fnm 공식 셸 설정 안내](https://github.com/Schniz/fnm#shell-setup)를 기준으로 작성했습니다.
-Bash 등 다른 셸을 사용하는 경우 공식 문서에서 해당 셸의 설정을 확인하세요.
+1. 터미널에서 `git --version`을 실행합니다. 설치 창이 나타나면 완료합니다.
+   설치되지 않았다면 `xcode-select --install`을 실행하세요.
+2. [Docker Desktop 공식 설치 페이지](https://docs.docker.com/desktop/setup/install/mac-install/)에서
+   본인의 Mac에 맞는 Apple Silicon 또는 Intel 버전을 설치합니다.
+3. 응용 프로그램에서 Docker를 열고 초기 설정을 완료합니다. 엔진이 실행될 때까지 기다립니다.
 
 ### Windows
 
-이 프로젝트의 명령은 Bash와 Make를 사용합니다. Windows에서는 **WSL2의 Ubuntu 안에서**
-설치와 실행을 진행하세요. 일반 PowerShell이나 명령 프롬프트에서 `make setup`을 실행하는 절차가 아닙니다.
+WSL2의 Ubuntu 안에 저장소를 두고 작업하는 절차입니다.
 
-관리자 권한으로 PowerShell을 열어 다음을 실행합니다.
-
-```powershell
-wsl --install -d Ubuntu
-```
-
-재시작 안내가 나오면 재부팅하고, 시작 메뉴에서 Ubuntu를 실행해 Linux 사용자명과 비밀번호를 만듭니다.
-기존 설치가 있다면 `wsl --list --verbose`에서 Ubuntu의 VERSION이 `2`인지 확인하세요.
-설치가 지원되지 않거나 오류가 발생하면 [Microsoft 공식 WSL 설치 안내](https://learn.microsoft.com/en-us/windows/wsl/install)를 확인하세요.
-
-**이후 모든 명령은 Ubuntu 터미널에서 실행합니다.** 도구도 Windows와 별개로 Ubuntu 안에 설치해야 합니다.
-다음 Ubuntu 절차로 이어가세요. 저장소는 아래 예시처럼 Linux 홈의 `~/workspace`에 받습니다.
-
-### Ubuntu / Windows의 WSL2 Ubuntu
-
-Bash 터미널에서 실행합니다.
+1. 관리자 PowerShell에서 `wsl --install -d Ubuntu`를 실행합니다. 안내에 따라 재부팅하고
+   Ubuntu를 열어 Linux 사용자명과 비밀번호를 만듭니다.
+2. [Docker Desktop 공식 설치 페이지](https://docs.docker.com/desktop/setup/install/windows-install/)를
+   따라 설치하고 Linux 컨테이너를 사용하는 WSL2 환경으로 실행합니다.
+3. Docker Desktop의 WSL Integration 설정에서 사용할 Ubuntu를 활성화합니다.
+4. Ubuntu 터미널에서 다음을 실행합니다.
 
 ```bash
 sudo apt update
-sudo apt install -y git make curl unzip ca-certificates build-essential
+sudo apt install -y git
 ```
 
-uv와 fnm은 각각의 공식 설치 스크립트로 설치합니다.
-스크립트 내용을 확인하고 싶다면 [uv 설치 문서](https://docs.astral.sh/uv/getting-started/installation/)와
-[fnm 설치 문서](https://github.com/Schniz/fnm#installation)를 먼저 열어 보세요.
+이후 명령은 Ubuntu 터미널에서 실행하세요. `~/workspace`에 클론하고, 편집기도 WSL의 저장소 폴더를
+열어 사용하면 됩니다. Windows용 Node나 Python을 추가로 설치할 필요는 없습니다.
+
+### Ubuntu Linux
+
+Git과 Docker Engine, Docker Compose 플러그인을 설치합니다.
+[Docker 공식 Ubuntu 설치 안내](https://docs.docker.com/engine/install/ubuntu/)를 따라 설치하고
+현재 계정에서 Docker 명령을 실행할 수 있도록 설정하세요.
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+sudo apt update
+sudo apt install -y git
 ```
 
-fnm의 경로와 Bash 초기화를 설정합니다. 기본 설치 경로를 사용하는 명령입니다.
-설치 프로그램에 다른 경로가 표시되면 그 안내를 따르세요.
+호스트 macOS + Linux ARM64 컨테이너에서 실행과 자동 반영을 검증했습니다.
+Windows·WSL 및 별도 Ubuntu PC의 전체 설치 과정은 아직 직접 검증하지 않았습니다.
 
-```bash
-touch ~/.bashrc
-grep -Fqx 'export PATH="$HOME/.local/bin:${XDG_DATA_HOME:-$HOME/.local/share}/fnm:$PATH"' ~/.bashrc || \
-  printf '\n%s\n' 'export PATH="$HOME/.local/bin:${XDG_DATA_HOME:-$HOME/.local/share}/fnm:$PATH"' >> ~/.bashrc
-grep -Fqx 'eval "$(fnm env --use-on-cd --shell bash)"' ~/.bashrc || \
-  printf '\n%s\n' 'eval "$(fnm env --use-on-cd --shell bash)"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-다른 Linux 배포판은 패키지 설치 명령이 다르므로 위 `apt` 명령을 그대로 사용하지 마세요.
-
-## 2. 설치 확인과 저장소 클론
-
-먼저 아래 명령이 각각 버전을 출력하는지 확인합니다. nvm 사용자는 마지막 명령을 `nvm --version`으로 바꿉니다.
+### 도구 확인
 
 ```bash
 git --version
-make --version
-uv --version
-fnm --version
+docker compose version
+docker info
 ```
 
-이제 저장소를 받습니다.
+세 명령이 오류 없이 실행되어야 합니다. Compose는 v2 이상의 `docker compose` 명령을 사용합니다.
+`docker info`에서 엔진 연결 오류가 나면 먼저 Docker Desktop을 실행하세요.
+
+## 2. 저장소 받기
+
+터미널에서 다음을 순서대로 실행합니다.
 
 ```bash
 mkdir -p ~/workspace
@@ -145,201 +75,209 @@ git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-
 cd 2026-google-ai-builder-cup
 ```
 
-이미 클론했다면 `git clone`은 다시 실행하지 말고 해당 폴더로 이동하세요.
-본인이 원하는 다른 경로에 받아도 됩니다. 이후 **저장소 루트**라는 표현은 `Makefile`, `README.md`,
-`apps`가 들어 있는 이 폴더를 의미합니다.
+`~`는 본인의 홈 폴더입니다. `/Users/sean` 같은 다른 사람의 경로를 맞출 필요가 없습니다.
+이미 클론했다면 다시 클론하지 말고 해당 폴더로 이동하세요.
+이후 모든 명령은 **`compose.yaml`이 있는 저장소 루트**에서 실행합니다.
 
 ```bash
 pwd
 git branch --show-current
 ```
 
-현재 폴더가 저장소이고 브랜치가 `develop`인지 확인하세요.
+현재 브랜치가 `develop`인지 확인합니다.
+`Repository not found`나 인증 오류가 나오면 GitHub에서 저장소 초대를 수락했는지,
+해당 계정으로 저장소를 열 수 있는지 확인하세요. 비공개 저장소는 별도 Git 인증이 필요합니다.
+[GitHub 인증 안내](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github)를 참고하고,
+토큰을 저장소 URL이나 공유 로그에 넣지 마세요.
 
-`Repository not found` 또는 인증 오류가 나오면 브라우저에서 해당 GitHub 계정의 저장소 접근 권한을
-먼저 확인하세요. 비공개 저장소의 HTTPS 인증에는 GitHub 비밀번호 대신 지원되는 Git 인증 방식이
-필요합니다. [GitHub 인증 안내](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github)를 참고하고,
-접근 권한이 없으면 저장소 관리자에게 초대를 요청하세요. 토큰을 저장소 URL이나 공유 로그에 넣지 마세요.
-
-## 3. 프로젝트의 Node 버전 선택
-
-저장소 루트에서 실행합니다.
+## 3. 개발 환경 켜기
 
 ```bash
-fnm install
-fnm use
-node --version
-npm --version
+docker compose up -d
 ```
 
-fnm이 `.nvmrc`를 읽어 필요한 Node를 설치하고 선택합니다.
-Node 출력은 **`v24.21.0`**이어야 합니다. npm은 Node와 함께 설치됩니다.
-다른 버전이면 아직 `make setup`을 실행하지 말고 아래 문제 해결 항목을 확인하세요.
-
-이미 nvm을 쓰는 팀원은 fnm 대신 아래 명령을 사용하면 됩니다.
-이 가이드의 나머지 `fnm use`도 `nvm use`로 바꾸세요.
+첫 실행에서는 Node 24.21.0, Python 3.12 기반 개발 이미지를 빌드하고 패키지를 설치합니다.
+인터넷 속도와 PC에 따라 몇 분 걸릴 수 있습니다. 이후 실행에서는 만들어 둔 이미지를 재사용합니다.
+`-d`는 백그라운드 실행이라는 뜻이므로 명령이 끝나도 서버는 계속 켜져 있습니다.
 
 ```bash
-nvm install
-nvm use
-node --version
+docker compose ps
 ```
 
-## 4. 프로젝트 설치 — make setup
+`api`, `web` 두 서비스가 `Up` 상태이고 준비가 완료되면 `healthy`로 표시됩니다.
+아직 준비 중이면 다음 명령으로 로그를 보세요.
 
 ```bash
-make setup
+docker compose logs -f
 ```
 
-다음 작업이 자동으로 진행됩니다.
+로그를 그만 보려면 `Ctrl+C`를 누릅니다. 서버는 종료되지 않습니다.
+이전 버전의 `app` 컨테이너가 남았다는 경고가 뜨면 이 저장소의 예전 컨테이너인지 확인한 뒤
+한 번만 `docker compose up -d --remove-orphans`로 정리할 수 있습니다.
 
-1. 현재 Node가 `24.21.0`인지 확인합니다.
-2. Python 3.12가 없으면 uv가 내려받고, `.venv`에 프로젝트 전용 환경을 구성합니다.
-3. `uv.lock`과 `apps/web/package-lock.json`에 기록된 의존성을 설치합니다.
-4. `.env`가 없으면 `.env.example`을 복사합니다. 기존 `.env`는 유지합니다.
+## 4. 첫 화면 확인
 
-최초 실행은 다운로드 때문에 시간이 걸릴 수 있습니다. 별도로 `pip install`을 하거나
-`.venv`를 활성화할 필요는 없습니다. 명령이 오류 없이 끝나면 다음으로 진행합니다.
-
-새로 생성한 `.env`는 이미 로컬 실행에 맞춰져 있습니다. GCP 프로젝트 ID나 모델 이름이 들어 있어도
-`MODEL_PROVIDER=mock`인 동안 실제 모델을 호출하지 않습니다. 설정을 수정했다면 최초 검증에는
-`MODEL_PROVIDER=mock`, 빈 `DEMO_API_KEY`를 사용하세요.
-
-`.env`는 로컬 설정 파일이며 Git에서 제외됩니다. 팀원에게 실제 키가 들어 있는 `.env`를 보내지 마세요.
-
-<a id="verify"></a>
-
-## 5. 정상 설치 검증
-
-개발 서버를 켜기 전에 실행합니다.
-
-```bash
-make check test build eval
-```
-
-코드 스타일·타입 검사, Python 테스트, 웹 빌드, Mock 평가를 순서대로 실행합니다.
-앞 단계가 실패하면 중단되므로 오류를 해결한 뒤 다시 실행하세요.
-현재 기준 Python 테스트는 7개, Mock 평가 사례는 2개이며 이후 개발에 따라 개수는 달라질 수 있습니다.
-
-다음으로 테스트용 Chromium을 설치합니다. 평소 사용하는 Chrome과는 별개입니다.
-
-macOS
-
-```bash
-(cd apps/web && npx playwright install chromium)
-```
-
-Ubuntu·WSL2 Ubuntu
-
-```bash
-(cd apps/web && npx playwright install --with-deps chromium)
-```
-
-Linux에서는 시스템 라이브러리 설치를 위해 관리자 비밀번호를 요청할 수 있습니다.
-이후 저장소 루트에서 브라우저 테스트를 실행합니다.
-
-```bash
-make e2e
-```
-
-현재 테스트 2개가 통과하면 브라우저와 API의 기본 연결 검증이 완료됩니다.
-테스트가 포트 8000에 자체 API 서버를 띄우므로 기존 `make api` 서버가 있다면 먼저 `Ctrl+C`로 종료하세요.
-테스트 서버는 검증 후 자동으로 종료됩니다. 이 결과는 실제 Gemini 연결이나 AI 답변 품질을 검증한 것은 아닙니다.
-
-## 6. 앱 실행과 첫 화면 확인
-
-터미널을 **두 개** 엽니다. 아래 경로는 2단계의 예시 위치입니다.
-다른 위치에 클론했다면 `cd` 경로를 본인의 저장소 위치로 바꿔 주세요.
-
-터미널 1에서 API 서버를 실행합니다.
-
-```bash
-cd ~/workspace/2026-google-ai-builder-cup
-make api
-```
-
-이 터미널은 서버가 실행되는 동안 그대로 열어 두세요. 명령 입력 상태로 돌아오지 않는 것이 정상입니다.
-
-터미널 2에서 웹 서버를 실행합니다.
-
-```bash
-cd ~/workspace/2026-google-ai-builder-cup
-fnm use
-make web
-```
-
-브라우저에서 **http://127.0.0.1:5173**을 엽니다. WSL을 사용해도 Windows 브라우저에서 같은 주소로
-접속을 시도할 수 있습니다. 포트가 이미 사용 중이면 웹 서버가 다른 주소를 안내할 수 있으므로
-터미널에 출력된 `Local` 주소를 확인하세요.
+브라우저에서 **http://localhost:5173**을 엽니다.
 
 1. `AI BUILDER CUP / 2026` 화면이 나타납니다.
 2. `Your text`에 기본 문장을 그대로 두거나 간단한 문장을 입력합니다.
-3. 기본 `.env`를 사용한다면 `Team access code`는 비워 둡니다.
-4. `Analyze text →` 버튼을 누릅니다.
-5. `Summary`, `Key points`, `Demo data · no AI model was called`가 보이면 성공입니다.
+3. `Team access code`는 비워 둡니다.
+4. `Analyze text →`를 누릅니다.
+5. `Summary`, `Key points`, `Demo data · no AI model was called`가 나타나면 성공입니다.
 
 | 주소 | 용도 |
 | --- | --- |
-| http://127.0.0.1:5173 | 개발 중인 웹 화면 |
-| http://127.0.0.1:8000/api/health | API 서버 응답 확인 |
-| http://127.0.0.1:8000/docs | API 요청을 살펴볼 수 있는 자동 문서 |
+| http://localhost:5173 | 개발 화면, 파일 수정 자동 반영 |
+| http://localhost:8000/api/health | API 응답 확인 |
+| http://localhost:8000/docs | API 요청을 살펴보는 자동 문서 |
 
-종료할 때는 두 터미널에서 각각 `Ctrl+C`를 누릅니다.
-`.env`를 변경한 경우에는 API 서버를 껐다가 다시 실행하세요.
+`.env` 생성이나 인증정보 복사가 필요하지 않습니다. 개발 서비스는 호스트 `.env`를 읽지 않고
+Compose에 정의한 Mock 설정으로 실행합니다. 기존 `.venv`나 `node_modules`가 있어도 공유하지 않습니다.
 
-## 7. 다음 날 다시 시작할 때
+## 5. 코드를 수정하면 어떻게 반영되나요?
 
-도구 설치나 `git clone`을 반복하지 않습니다. 저장소에 들어가 Node를 선택하고 서버 두 개를 실행하면 됩니다.
+웹과 API가 별도 컨테이너에서 실행되며, 로컬 소스 폴더가 컨테이너에 연결되어 있습니다.
 
-최신 변경을 받을 때는 먼저 개발 서버를 종료한 뒤 다음을 실행하세요.
+| 수정한 것 | 반영 방식 |
+| --- | --- |
+| `apps/web/src/`의 React·TypeScript·CSS | 저장하면 열린 브라우저에 자동 반영 |
+| `apps/api/src/`의 Python | 저장하면 API 자동 재시작, 다음 요청부터 변경 적용 |
+| 연결된 소스 폴더 안의 새 파일 | 자동 감지 |
+| `apps/web/index.html`, Vite 설정 | Vite가 변경 감지, 필요 시 개발 서버 자동 재시작 |
+| 패키지 목록·lockfile·Dockerfile·Python 도구 설정 | 아래 명령으로 다시 빌드 |
+| 새로운 최상위 소스·정적 파일 폴더 | Docker 이미지와 Compose 연결 설정 추가 필요 |
 
 ```bash
-cd ~/workspace/2026-google-ai-builder-cup
-git status
+docker compose up -d --build
 ```
 
-본인이 수정한 파일이 있다면 변경을 정리한 뒤 다음 명령을 실행하세요.
+새 라이브러리를 추가했다면 패키지 목록과 lockfile도 함께 갱신해야 합니다.
+재빌드는 lockfile에 기록된 패키지를 설치하며 새로운 버전을 임의로 선택하지 않습니다.
+Compose 설정을 수정했을 때도 위 명령을 실행해 컨테이너를 갱신하세요.
+
+API 자동 재시작 중에는 잠깐 요청이 실패할 수 있습니다. 로그에서 시작 완료를 확인한 뒤 다시 요청하세요.
+실제 AI 호출이나 공유 환경 배포는 개발용 자동 반영 설정과 별개입니다.
+
+<a id="verify"></a>
+
+## 6. 검사와 테스트
+
+기본 검사·테스트·Mock 평가·웹 빌드를 한 번에 실행합니다.
+
+```bash
+docker compose run --rm --build check
+```
+
+현재 Python 테스트 7개와 Mock 평가 2개가 있으며 이후 개발에 따라 개수는 바뀔 수 있습니다.
+앞 단계가 실패하면 중단됩니다. 이 명령은 개발 서버를 켜지 않아도 실행할 수 있습니다.
+
+브라우저에서 실제 화면과 API 연결을 검사하려면 다음을 실행합니다.
+
+```bash
+docker compose run --rm --build e2e
+```
+
+필요한 `api`, `web`을 자동으로 시작하고, 별도 테스트 컨테이너에서 Chromium 테스트를 실행합니다.
+호스트에 Playwright나 Chrome을 따로 설치할 필요는 없습니다. 최초 브라우저 이미지 빌드에는 시간이 걸립니다.
+기존 개발 서버를 종료할 필요도 없습니다. 현재 브라우저 테스트는 2개입니다.
+
+`--rm`은 끝난 **검사 컨테이너만** 제거합니다. 개발 서버는 계속 실행됩니다.
+검사 컨테이너 안의 평가 JSON·실패 추적 파일도 제거되므로, 실패 증거를 보관하려면 다음처럼 실행합니다.
+
+```bash
+docker compose run --build --name builder-cup-debug e2e
+```
+
+실패했다면 다른 터미널에서 파일을 꺼낸 뒤 검사 컨테이너를 지울 수 있습니다.
+
+```bash
+mkdir -p artifacts
+docker cp builder-cup-debug:/workspace/apps/web/test-results ./artifacts/browser-test-results
+docker rm builder-cup-debug
+```
+
+같은 이름의 이전 검사 컨테이너가 있으면
+먼저 결과를 확인하고 제거한 뒤 새 검사를 실행합니다. CI에서는 실패 파일을 자동 보관합니다.
+Mock 검증은 실제 Gemini 연결이나 AI 답변 품질을 증명하지 않습니다.
+
+## 7. 종료와 다음 날 시작
+
+개발 환경을 끄려면 다음을 실행합니다. 소스 파일과 빌드 이미지는 삭제하지 않습니다.
+
+```bash
+docker compose down
+```
+
+다음 날에는 Docker Desktop을 켜고 저장소 루트에서 다시 실행하면 됩니다.
+
+```bash
+docker compose up -d
+```
+
+최신 코드를 받을 때는 `git status`로 본인이 수정한 파일이 있는지 먼저 확인하세요.
+변경을 정리한 뒤 다음을 실행합니다.
 
 ```bash
 git pull --ff-only
-fnm install
-fnm use
-make setup
+docker compose up -d --build
 ```
 
-pull이 충돌이나 브랜치 분기로 중단되면 강제로 덮어쓰지 말고 개발 담당자에게 확인하세요.
-Node 버전이나 의존성이 바뀌었을 수 있어 업데이트 후에는 위 설치 명령을 다시 실행합니다.
-확인이 필요하면 5단계 검증을 다시 실행한 뒤 6단계처럼 서버를 켜세요.
+pull이 충돌이나 브랜치 분기로 멈추면 강제로 덮어쓰지 말고 개발 담당자에게 확인하세요.
+
+## 8. 배포할 형태로도 확인하고 싶다면
+
+```bash
+docker compose up -d --build preview
+```
+
+**http://localhost:8080**에서 배포용 이미지의 Mock 앱을 확인합니다.
+이 컨테이너는 빌드된 화면과 API를 함께 제공하고 소스 자동 반영은 하지 않습니다.
+코드를 수정한 뒤에는 같은 명령으로 다시 빌드하세요. 개발 서버와 동시에 실행할 수 있습니다.
+
+```bash
+docker compose stop preview
+```
+
+개발과 미리보기 컨테이너까지 모두 제거하려면 `docker compose --profile preview down`을 실행합니다.
+클라우드 리소스를 생성하거나 GCP에 배포하는 명령은 아닙니다.
+
+## 9. Makefile과 scripts는 어떻게 달라졌나요?
+
+Makefile은 제거했습니다. 별도 `just`나 `task`도 설치하지 않습니다.
+
+- **`compose.yaml`** — 팀원과 CI가 사용하는 실행·검증 명령의 진입점
+- **`apps/web/package.json`** — 컨테이너가 호출하는 Vite·TypeScript·Playwright 명령
+- **`scripts/`** — 평가·컨테이너 검증·배포·롤백 작업의 구현
+
+예를 들어 `check`가 평가 스크립트를 호출하므로, 평소에는 스크립트 이름을 기억할 필요가 없습니다.
+파일별 역할은 [scripts 안내](../scripts/README.md)에 정리했습니다.
 
 ## 자주 만나는 문제
 
 | 증상 | 확인과 해결 |
 | --- | --- |
-| `brew`, `uv`, `fnm`을 찾을 수 없음 | 도구 설치와 셸 초기화가 완료되었는지 확인하고 새 터미널을 엽니다. Homebrew는 설치 마지막의 Next steps도 실행해야 합니다. |
-| `Can't find the necessary environment variables` | fnm 셸 설정이 적용되지 않은 상태입니다. macOS zsh에서는 `eval "$(fnm env --use-on-cd --shell zsh)"`를 실행합니다. Ubuntu Bash에서는 `--shell bash`를 사용합니다. |
-| `Select the Node version...` 또는 Node 버전 불일치 | 저장소 루트에서 `fnm install`, `fnm use`, `node --version`을 순서대로 실행합니다. 출력은 `v24.21.0`이어야 합니다. |
-| `No rule to make target 'setup'` | 현재 폴더에 `Makefile`이 있는지 확인합니다. `apps/web` 안이 아니라 저장소 루트에서 실행해야 합니다. |
-| `uv sync` 또는 `npm ci` 다운로드 실패 | 인터넷·프록시·패키지 서버 접근 상태와 첫 오류를 확인합니다. 연결 문제가 해결되면 `make setup`을 다시 실행합니다. |
-| Chromium 실행 파일이 없음 | 5단계의 Playwright 브라우저 설치 명령을 실행합니다. Ubuntu·WSL은 `--with-deps`가 포함된 명령을 사용합니다. |
-| `Address already in use` 또는 E2E 포트 충돌 | 포트 8000을 사용 중인 기존 개발 서버를 해당 터미널에서 `Ctrl+C`로 종료합니다. 모르는 프로세스를 임의로 종료하지 마세요. |
-| 화면은 열리는데 분석 요청이 실패함 | 터미널 1의 `make api`가 실행 중인지, `/api/health`에 접속되는지 확인합니다. `.env`의 `MODEL_PROVIDER=mock`도 확인합니다. |
-| `Enter the team access code to continue.` | 로컬 `.env`의 `DEMO_API_KEY`가 설정되어 있는지 확인합니다. 최초 Mock 실행이라면 비운 뒤 API를 재시작합니다. |
-| 포트 8000에서 화면이 안 보이거나 예전 화면이 보임 | 개발 화면은 5173으로 접속합니다. 8000에서 웹 화면을 보려면 `make build`로 최신 파일을 생성해야 합니다. |
-| WSL에서는 서버가 떴는데 Windows 브라우저가 연결되지 않음 | 먼저 `http://localhost:5173`을 시도하고 WSL 네트워크·방화벽 설정을 확인합니다. [공식 네트워크 안내](https://learn.microsoft.com/en-us/windows/wsl/networking)를 참고하세요. |
+| Docker 엔진에 연결할 수 없음 | Docker Desktop이 실행 중인지 확인하고 `docker info`를 다시 실행합니다. |
+| `no configuration file provided` | `compose.yaml`이 있는 저장소 루트로 이동합니다. |
+| 이미지·패키지 다운로드 실패 | 네트워크·프록시와 처음 발생한 오류를 확인한 뒤 `docker compose up -d --build`를 다시 실행합니다. |
+| 포트 5173 또는 8000이 이미 사용 중 | 예전에 실행한 호스트 Vite·API 서버를 해당 터미널에서 종료합니다. 모르는 프로세스는 임의로 종료하지 마세요. |
+| 수정해도 화면이 그대로임 | 8080 미리보기가 아닌 5173 개발 화면인지 확인합니다. 실제로 열린 저장소와 Compose를 실행한 폴더가 같은지도 확인합니다. |
+| 새 라이브러리가 없다는 오류 | lockfile 갱신 후 `docker compose up -d --build`로 의존성을 다시 설치합니다. |
+| 분석 요청 실패 | `docker compose ps`, `docker compose logs api web`로 상태를 확인합니다. API 재시작 중이면 잠시 뒤 다시 요청합니다. |
+| Windows에서 변경 감지가 느리거나 안 됨 | WSL의 Linux 홈에 클론하고 그 폴더를 편집하고 있는지, Docker Desktop WSL Integration이 켜져 있는지 확인합니다. |
+| 예전 `make` 명령을 찾을 수 없음 | 이번 설정부터 Compose 명령으로 바뀌었습니다. README의 명령 표를 확인합니다. |
 
-해결되지 않으면 **운영체제, 실행한 명령, 처음 발생한 오류, `node --version`, `uv --version` 출력**을
-개발 담당자에게 전달하세요. `.env` 내용이나 토큰·인증정보는 첨부하지 마세요.
+해결되지 않으면 운영체제, 실행한 명령, 첫 오류, `docker compose version`, `docker compose ps` 결과를
+개발 담당자에게 전달하세요. `.env`, 토큰, 인증정보는 첨부하지 마세요.
 
-## 필요할 때만 준비하는 기능
+## 선택 사항과 배포 제한
 
-| 기능 | 추가 준비 | 안내 |
-| --- | --- | --- |
-| 앱을 컨테이너로 실행 | Docker Desktop 또는 해당 OS의 Docker 환경 | 엔진 실행 후 `make docker`, 포트 8080 접속 |
-| 인프라 설정 로컬 검증 | Terraform >=1.6, <2.0 | `make infra-check` |
-| GitHub PR·Actions CLI 작업 | GitHub CLI와 별도 인증 | `gh auth login` |
-| 실제 Gemini 호출 | Google Cloud CLI·ADC·프로젝트 권한·모델 접근·과금 준비 | [운영 문서](operations.md), 담당자와 먼저 협의 |
-| Gemma/vLLM 실행 | 별도 Linux·NVIDIA GPU 환경 | [모델 실행 안내](../models/vllm/README.md) |
+Terraform도 컨테이너로 검증할 수 있습니다.
 
-현재 GCP는 검증만 하는 상태입니다. 배포를 재개하기로 결정하기 전에는 과금을 활성화하거나
-`make infra-apply`, `git push origin release/gcp`를 실행하지 마세요.
-`make eval-live` 역시 실제 모델을 호출할 수 있으므로 설치 확인에는 `make eval`을 사용합니다.
+```bash
+docker compose run --rm infra-check
+```
+
+설정을 검사할 뿐 클라우드 리소스를 생성하지 않습니다.
+실제 Gemini·Gemma 연결은 [운영 문서](operations.md)와 [모델 안내](../models/vllm/README.md)를 참고해
+담당자와 별도로 준비합니다. 현재 GCP 배포와 과금 활성화는 보류 중이며,
+배포 재개 전에는 `scripts/bootstrap-gcp.sh` 실행이나 `release/gcp` push를 하지 마세요.

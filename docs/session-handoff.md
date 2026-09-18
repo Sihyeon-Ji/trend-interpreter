@@ -59,19 +59,21 @@ Their revocation/replacement has not been verified. Do not reproduce them in doc
 
 ## Continue development without GCP billing
 
-Follow the maintained [local development guide](../README.md#local-development) in order:
-install required tools, run `make setup`, verify, then start the API and web servers.
-Node is pinned to **24.21.0** in `.nvmrc`, read by CI, and matched by the Docker images and app
-engine declarations. Make uses the active shell's Node rather than a machine-specific Homebrew path.
+The earlier Make-based setup above is historical and has been replaced. Follow the maintained
+[local development guide](../README.md#local-development) or [Korean onboarding guide](setup.md).
+Install Git and Docker, clone `develop`, then run `docker compose up -d`. The web and API reload
+when their mounted source files change. Node 24.21.0 and Python 3.12 are installed in the image;
+no host language tools or `.env` are required for the mock stack.
 
-The earlier Docker account-path repair above is historical, not a prerequisite for another Mac.
-Even when both Macs use the same `/Users/sean` home path, install tools and recreate ignored local
-environments independently. Previous CLI authentication and validation results describe the earlier
-session, not the state of every clone.
+Run `docker compose run --rm --build check` for checks, tests, frontend build and mock contract
+verification. Run `docker compose run --rm --build e2e` for browser tests, and
+`docker compose run --rm infra-check` for local Terraform validation. No cloud resources are created.
+Use `docker compose up -d --build preview` for the production-style mock app on port 8080.
+The Makefile was removed; `scripts/` now documents its internal evaluation and operator responsibilities.
 
-`evaluation-cases/` contains JSON test data, not executable code. `make eval` always uses mock.
-`make eval-live` uses the configured provider and can incur API charges. Results under `artifacts/`
-are ignored by Git and may contain generated output; use synthetic data for shared examples.
+The earlier Docker account-path repair is historical, not a prerequisite for another Mac.
+Even when both Macs use the same home path, installed tools and credentials are machine-local.
+Mock verification does not establish real Gemini access or AI quality.
 
 ## Resume cloud deployment later
 
@@ -80,8 +82,7 @@ are ignored by Git and may contain generated output; use synthetic data for shar
    pricing candidate; it has **not** been selected or applied. See [operations](operations.md).
 2. Connect an active billing account and confirm permissions/API/model availability. Do not commit
    credentials, Terraform state or secret values.
-3. Run `make infra-apply`. This provisions infrastructure and configures GitHub deployment variables.
-   The old `make infra-init` command now stops with guidance rather than applying resources.
+3. Run `bash scripts/bootstrap-gcp.sh`. This provisions infrastructure and configures GitHub deployment variables.
 4. Promote the current code, then return to development:
 
    ```bash

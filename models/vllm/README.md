@@ -30,16 +30,21 @@ From the Mac, if the GPU host is remote:
 ssh -N -L 8001:127.0.0.1:8001 USER@GPU_HOST
 ```
 
-Set the root `.env`:
+The default development Compose stack stays on mock and does not load the root `.env`.
+After verifying the GPU service, set the private `VLLM_API_KEY` in the host shell through your
+secret-handling workflow. On Docker Desktop for Mac, explicitly run a one-off evaluation from
+the repository root; `host.docker.internal` reaches the host's forwarded port from the container:
 
-```dotenv
-MODEL_PROVIDER=vllm
-VLLM_BASE_URL=http://127.0.0.1:8001/v1
-VLLM_MODEL=google/gemma-4-E2B-it
-VLLM_API_KEY=THE_SAME_PRIVATE_KEY
+```bash
+docker compose run --rm -e MODEL_PROVIDER=vllm \
+  -e VLLM_BASE_URL=http://host.docker.internal:8001/v1 \
+  -e VLLM_MODEL=google/gemma-4-E2B-it -e VLLM_API_KEY \
+  api python scripts/evaluate.py
 ```
 
-Restart `make api`, test the UI, and run `MODEL_PROVIDER=vllm make eval-live`.
+This does not change the running UI/API provider. An interactive live-model UI needs a deliberate
+Compose override for provider, connectivity and credentials. Linux hosts need their own host-network
+connectivity setup; container `localhost` is not the GPU host or SSH tunnel.
 The application uses the OpenAI-compatible chat-completions protocol directly through httpx;
 this does not require an OpenAI account. JSON output is constrained server-side and validated again
 by the API. If the model/image combination does not support the schema, failure is surfaced.

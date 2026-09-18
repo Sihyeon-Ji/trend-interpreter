@@ -1,5 +1,99 @@
+x-development: &development
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+    target: development
+  init: true
+  environment: &development-environment
+    MODEL_PROVIDER: mock
+    DEMO_API_KEY: ""
+  volumes:
+    - ./apps/api/src:/workspace/apps/api/src:ro
+    - ./apps/web/src:/workspace/apps/web/src:ro
+    - ./apps/web/index.html:/workspace/apps/web/index.html:ro
+    - ./apps/web/vite.config.ts:/workspace/apps/web/vite.config.ts:ro
+    - ./apps/web/tsconfig.json:/workspace/apps/web/tsconfig.json:ro
+    - ./apps/web/playwright.config.ts:/workspace/apps/web/playwright.config.ts:ro
+    - ./apps/web/e2e:/workspace/apps/web/e2e:ro
+    - ./tests:/workspace/tests:ro
+    - ./scripts:/workspace/scripts:ro
+    - ./evaluation-cases:/workspace/evaluation-cases:ro
+
 services:
-  app:
+  api:
+    <<: *development
+    command: uvicorn builder_cup.main:create_app --factory --reload --reload-dir apps/api/src --host 0.0.0.0 --port 8000
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      <<: *development-environment
+      WATCHFILES_FORCE_POLLING: "true"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  web:
+    <<: *development
+    command: npm --prefix apps/web run dev -- --host 0.0.0.0 --port 5173 --strictPort
+    ports: ["127.0.0.1:5173:5173"]
+    environment:
+      <<: *development-environment
+      API_PROXY_TARGET: http://api:8000
+      VITE_USE_POLLING: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  check:
+    <<: *development
+    profiles: [tools]
+    command:
+      - sh
+      - -c
+      - >-
+        ruff check apps/api tests scripts &&
+        ruff format --check apps/api tests scripts &&
+        mypy && pytest -q &&
+        python scripts/evaluate.py &&
+        npm --prefix apps/web run typecheck &&
+        npm --prefix apps/web run build
+
+  e2e:
+    <<: *development
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: browser-tests
+    command: npm --prefix apps/web run test:e2e
+    shm_size: 1gb
+    environment:
+      <<: *development-environment
+      PLAYWRIGHT_BASE_URL: http://web:5173
+    depends_on:
+      web:
+        condition: service_healthy
+
+  infra-check:
+    profiles: [tools]
+    image: hashicorp/terraform:1.16.3
+    working_dir: /infra
+    volumes:
+      - ./infra/gcp:/infra:ro
+    environment:
+      TF_DATA_DIR: /tmp/terraform
+    entrypoint: [sh, -c]
+    command:
+      - terraform fmt -check && terraform init -backend=false -lockfile=readonly && terraform validate
+
+  preview:
+    profiles: [preview]
     build: .
     ports: ["127.0.0.1:8080:8080"]
     environment:

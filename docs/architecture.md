@@ -19,6 +19,18 @@ flowchart LR
   Registry --> Run[Cloud Run candidate then promotion]
 ```
 
+## Local development and validation
+
+`docker compose up -d` starts separate Vite (`web`, port 5173) and Uvicorn (`api`, port 8000)
+services. Vite proxies `/api` to the Compose service hostname. Read-only source bind mounts and
+polling enable frontend HMR and Python reload on Docker Desktop/WSL without sharing host dependencies.
+A common development image contains Node and Python tools; the two runtime responsibilities remain
+separate services. The production image remains the smaller, single application container above.
+
+Compose profiles keep validation (`check`, `e2e`, `infra-check`) and production-style `preview`
+out of the default startup. The same validation commands run locally and in CI. Development always
+uses mock, does not mount cloud credentials, and binds published ports only to host loopback.
+
 ## Code boundaries
 
 - `schemas.py`: application input/output contracts.

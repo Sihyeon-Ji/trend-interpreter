@@ -10,7 +10,7 @@ for command in gcloud gh terraform python3; do command -v "$command" >/dev/null;
 gcloud projects describe "$PROJECT_ID" --format='value(projectId)' >/dev/null
 billing_enabled=$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)')
 if [[ "$billing_enabled" != "True" && "$billing_enabled" != "true" ]]; then
-  printf '%s\n' 'Billing is disabled. No resources were changed. Use make infra-check for local validation.' >&2
+  printf '%s\n' 'Billing is disabled. No resources were changed. Use docker compose run --rm infra-check for local validation.' >&2
   exit 2
 fi
 gh api "repos/$REPO" --jq '.permissions.push' | python3 -c 'import sys; assert sys.stdin.read().strip() == "true", "GitHub write access required"'

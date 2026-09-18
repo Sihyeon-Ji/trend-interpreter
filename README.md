@@ -1,178 +1,128 @@
 # AI Builder Cup 2026
 
-[한국어](README.kr.md) | English | [팀원용 처음 설치 가이드](docs/setup.md)
+English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/setup.md)
 
-A theme-independent foundation for a four-person team with one developer.
-React + TypeScript, FastAPI, Gemini on Google Cloud, and an optional local Gemma/vLLM service.
-
-Start with the [session handoff and remaining work](docs/session-handoff.md) for the current
-project status, operating constraints, and next steps.
+A theme-independent foundation for a four-person team: React + TypeScript, FastAPI,
+Gemini on Google Cloud, and an optional separate Gemma/vLLM runtime.
+Candidate projects in `prototype/` are independent; the team's final theme is not selected.
 
 ## Local development
 
-These steps set up the shared React/FastAPI foundation. Candidate projects under `prototype/`
-are independent and are not installed by `make setup`. Cloud deployment remains paused; local
-mock development needs no cloud account, billing, API key or GPU.
-
-### 1. Install required tools
-
-Required: Git, Make, uv, Node.js **24.21.0**, and the npm bundled with that Node release.
-Python 3.12 is selected by `.python-version`; uv installs it automatically during setup.
-
-On macOS, install [Homebrew](https://brew.sh/) if needed and follow its shell setup instructions,
-then install the development tools:
+Install Git and Docker with Compose v2. No host Node, Python, uv, Make, model key or GPU is
+required for the default workflow. Docker Desktop must be running.
 
 ```bash
-xcode-select --install  # only if Command Line Tools, including make, are missing
-brew install git uv fnm
+git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup.git
+cd 2026-google-ai-builder-cup
+docker compose up -d
 ```
 
-For zsh, add the following line once to `~/.zshrc`, then run it in the current terminal too:
+Open **http://localhost:5173**. Compose builds the development images on the first run and
+starts the API and Vite web server. The API is available at http://localhost:8000/docs.
+Use `docker compose ps` to check readiness; initial image downloads may take several minutes.
+
+- Changes in `apps/web/src/` update the open browser through Vite HMR.
+- Changes in `apps/api/src/` automatically restart the API through Uvicorn reload.
+- Both services use source bind mounts, with polling enabled for Docker Desktop/WSL.
+- Dependencies stay inside the images, separate from host `.venv` and `node_modules`.
+- Node is **24.21.0**; Python is **3.12**. `Dockerfile.dev` prepares both toolchains.
+- The stack explicitly uses **mock** and an empty local access code. No `.env` is needed;
+  the development services do not load the host `.env` or cloud credentials.
+
+Changing dependency manifests/lockfiles, Dockerfiles or Python tool configuration requires a rebuild:
 
 ```bash
-eval "$(fnm env --use-on-cd --shell zsh)"
+docker compose up -d --build
 ```
 
-From the repository root, select the pinned Node version:
+New files inside the mounted source directories are picked up automatically. A new top-level
+source or asset directory must also be added to the image and Compose mounts.
+This development server is exposed only on host loopback; it is not a production deployment.
+
+## Everyday commands
+
+Run these from the repository root. Compose is the single entry point; there is no Makefile
+or extra task runner to install.
+
+| Command | Purpose |
+| --- | --- |
+| `docker compose up -d` | Start the development API and web server |
+| `docker compose ps` | Check service status |
+| `docker compose logs -f` | Follow logs; Ctrl-C stops following, not the services |
+| `docker compose down` | Stop and remove the development containers |
+| `docker compose up -d --build` | Rebuild after dependency/configuration changes |
+| `docker compose run --rm --build check` | Python lint/format/types/tests, mock evaluation, frontend types and build |
+| `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
+| `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
+| `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
+| `docker compose stop preview` | Stop the production preview |
+
+`check`, `e2e`, `infra-check` and `preview` are opt-in services; plain `up -d` only starts
+`api` and `web`. E2E starts its dependent development services if necessary. Its first build
+also installs Chromium and system libraries inside the test image.
+
+Mock evaluation checks the output contract and basic term retention, **not** factual correctness
+or AI quality. The validation containers are removed after `--rm`; generated test/evaluation
+files inside them are temporary. For diagnosis, omit `--rm`, name the container, and copy its
+results before removing it. CI retains browser failure artifacts automatically.
+
+## Production preview
 
 ```bash
-git switch develop
-fnm install
-fnm use
-node --version  # expected v24.21.0
-npm --version
-uv --version
-make --version
+docker compose up -d --build preview
 ```
 
-`fnm install` and `fnm use` read `.nvmrc`. If you already use nvm, use `nvm install` and
-`nvm use` instead; a second version manager is unnecessary. See the official
-[fnm setup](https://github.com/Schniz/fnm#shell-setup) and
-[uv installation](https://docs.astral.sh/uv/getting-started/installation/) instructions for other systems.
+Open **http://localhost:8080**. This uses the original production `Dockerfile`: one container
+serves the compiled web app and API. It does not mount source or reload after edits. Re-run the
+command to build updated code. Development on 5173 and preview on 8080 can run together.
+Use `docker compose --profile preview down` to stop both development and preview services.
 
-Make uses Node from the active shell's `PATH`; it does not force a Homebrew Node installation.
-The clone can live anywhere. Matching home-directory paths across Macs do not transfer installed
-tools, `.env`, dependencies or credentials.
+## Commands and scripts
 
-### 2. Set up the project
-
-```bash
-make setup
-```
-
-This checks the Node version, installs Python dependencies from `uv.lock` into `.venv`, installs
-web dependencies from `apps/web/package-lock.json`, and creates `.env` from `.env.example` only
-when `.env` is absent. An existing `.env` is preserved. No global Python installation or manual
-virtual-environment activation is needed.
-
-The generated `.env` selects the deterministic **mock** provider. Keep `MODEL_PROVIDER=mock`
-for local setup verification. Credentials, dependency directories and generated artifacts stay
-outside Git.
-
-### 3. Verify
-
-```bash
-make check test build eval
-(cd apps/web && npx playwright install chromium)
-make e2e
-```
-
-The checks cover Python lint/format/types, frontend types, API tests, the frontend build, mock
-contract evaluation, and browser flows. Leave port 8000 free for E2E; Playwright starts and stops
-its own mock API server. Run these checks before starting the development servers.
-
-Evaluation fixtures in `evaluation-cases/` check the output contract and basic term retention,
-**not** factual correctness or domain quality. `make eval` always uses mock, even if `.env`
-selects a live provider. Generated results go to ignored `artifacts/evaluation.json`.
-
-Optional checks require additional tools:
-
-| Tool | When needed | Check |
-| --- | --- | --- |
-| Docker Desktop with its engine running | Container build and local container execution | `docker info`, then `make docker` |
-| Terraform >=1.6 and <2.0 (CI uses 1.16.3) | Infrastructure validation | `make infra-check` |
-| GitHub CLI (`gh`) | CLI access to PRs, Actions and repository settings | `gh auth status` |
-| Google Cloud CLI (`gcloud`) | Future real Gemini access and deployment | See [operations](docs/operations.md) |
-
-`make infra-check` downloads the locked provider and validates locally without applying resources.
-Docker and cloud CLIs are not required for the mock application checks above.
-
-### 4. Run
-
-Run each command from the repository root in a separate terminal with Node 24.21.0 selected:
-
-```bash
-make api       # terminal 1: http://127.0.0.1:8000
-make web       # terminal 2: http://127.0.0.1:5173
-```
-
-Open port 5173 for frontend development; Vite proxies `/api` to port 8000. Stop each server with
-Ctrl-C. After changing `.env`, restart the API.
-
-For a single process serving the built UI, run `make build`, then `make api` and open port 8000.
-For a container, run `make docker` and open http://127.0.0.1:8080. The container demonstration
-intentionally uses mock, not host credentials.
-
-## Real Gemini
-
-Resume this only when real-model access is requested; it is not part of local setup.
-
-```bash
-gcloud auth login
-gcloud auth application-default login
-gcloud auth application-default set-quota-project stunning-crane-508614-c1
-```
-
-Set `MODEL_PROVIDER=gemini` in `.env`. The project must have billing, the Vertex AI API,
-model access and quota enabled. Local credentials need Vertex AI permissions.
-Cloud Run uses its own runtime service account; no API key or credentials file is embedded in the image.
-`GEMINI_MODEL` and `GOOGLE_CLOUD_LOCATION` are configurable.
-If access fails, the API reports an error rather than silently returning mock data.
-For a real-model smoke evaluation, use `MODEL_PROVIDER=gemini make eval-live` (may incur API charges).
+- `compose.yaml` defines the commands team members and CI run.
+- `apps/web/package.json` contains the native frontend commands used inside those containers.
+- `scripts/` contains implementation for evaluation, container smoke checks and cloud operations.
+  It is not a second everyday command menu. See [script responsibilities](scripts/README.md).
+- Cloud operations remain explicit operator actions, outside the development Compose stack.
 
 ## Repository layout
 
 ```text
-apps/web/                    React application, browser tests
-apps/api/src/builder_cup/     API, validation, workflow, model adapters
-models/vllm/                 GPU-host Gemma service, separate dependencies
-infra/gcp/                   Terraform infrastructure foundation
+compose.yaml                 Development services and opt-in validation/preview tools
+Dockerfile.dev               Development toolchain and browser-test image
+Dockerfile                   Production application image
+apps/web/                    React application and browser tests
+apps/api/src/builder_cup/     API, validation, workflow and model adapters
+models/vllm/                 Separate GPU-host Gemma runtime
+infra/gcp/                   Terraform infrastructure
 .github/workflows/           CI and release/gcp deployment
-scripts/                     Bootstrap, deployment, rollback, evaluation
+scripts/                     Evaluation and operational implementation
 tests/                       API and failure-mode tests
 evaluation-cases/            Team-owned evaluation fixtures
-docs/                        Architecture, operations, team workflow
+prototype/                   Independent candidate projects
+docs/                        Setup, architecture, operations and team workflow
 ```
 
-## Branches and release
+## Real Gemini and release
 
-- `develop`: ongoing development; every push runs CI.
-- PRs to `develop` and `release/gcp`: CI only, no cloud credentials.
-- `release/gcp`: every push runs CI, builds an immutable image, deploys a candidate,
-  checks its health and authentication, then promotes it to receive traffic.
-- No `main` branch is required. Use `develop` as the GitHub default branch.
-- Never merge `develop` into `release/gcp` automatically. Release when the team is ready.
+**GCP deployment and billing activation remain paused.** The development stack always uses mock.
+A future real-model configuration needs deliberate credential injection, project permissions,
+model access, quota and billing; successful mock tests do not establish these.
+See [operations](docs/operations.md) and [Gemma/vLLM](models/vllm/README.md).
 
-```bash
-git switch release/gcp
-git merge --ff-only develop
-git push origin release/gcp
-git switch develop
-```
+Develop on `develop`; pushes run CI. A push to `release/gcp` triggers real image publishing
+and deployment. Do not push that branch or run `scripts/bootstrap-gcp.sh` until deployment resumes.
+Never commit credentials, `.env`, model weights, Terraform state or generated evaluation data.
 
-See [GCP setup and operations](docs/operations.md) for the one-time bootstrap.
-See [local Gemma](models/vllm/README.md) for GPU requirements and connectivity.
-See [architecture](docs/architecture.md) for ownership boundaries and extension points.
+## Team and documentation
 
-Running `make` alone shows help. `make infra-check` validates Terraform locally without creating
-cloud resources. `make infra-apply` provisions resources and requires enabled billing; the old
-`infra-init` name stops with instructions rather than applying anything.
-
-## Team links
-
+- [First-time setup in Korean](docs/setup.md)
+- [Session history and remaining work](docs/session-handoff.md)
+- [Architecture](docs/architecture.md)
+- [Operations](docs/operations.md)
+- [Team workflow](docs/team-workflow.md)
 
 - [Repository](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup)
 - [Project board](https://github.com/users/Sihyeon-Ji/projects/1)
-- [Google Cloud project](https://console.cloud.google.com/home/dashboard?project=stunning-crane-508614-c1)
 
-These are workspace references, not automatically connected MCP integrations.
+External workspace links do not automatically authenticate a clone or connect an MCP integration.
