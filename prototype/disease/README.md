@@ -6,7 +6,8 @@ The interface is organized into three workspaces: **Dashboard**, **Diseases & sc
 
 ## Run locally
 
-Requires Node.js 24 or later and npm.
+Requires Node.js 24.21.0 and its bundled npm. Select the version from the repository-root `.nvmrc`
+before entering this directory.
 
 ```sh
 npm ci

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export PATH="$PWD/.tools:/opt/homebrew/opt/node@22/bin:$PATH"
+export PATH="$PWD/.tools:$PATH"
 PROJECT_ID=stunning-crane-508614-c1
 REGION=asia-northeast3
 REPO=Sihyeon-Ji/2026-google-ai-builder-cup

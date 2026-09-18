@@ -1,13 +1,13 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
-# Homebrew's Node 22 is keg-only; do not alter the user's global shell config.
-export PATH := $(CURDIR)/.tools:/opt/homebrew/opt/node@22/bin:$(PATH)
+export PATH := $(CURDIR)/.tools:$(PATH)
 TERRAFORM := $(if $(wildcard $(CURDIR)/.tools/terraform),$(CURDIR)/.tools/terraform,terraform)
 
 .PHONY: help setup api web check test build e2e eval eval-live docker infra-check infra-init infra-apply infra-plan
 help:
 	@printf '%s\n' 'Local: setup api web check test build e2e docker' 'Evaluation: eval (mock only), eval-live (configured provider; may incur API charges)' 'Infrastructure: infra-check (local validation), infra-plan (reads cloud state), infra-apply (creates/changes cloud resources)'
 setup:
+	@test "$$(node --version)" = "v$$(cat .nvmrc)" || { printf '%s\n' 'Select the Node version in .nvmrc with fnm use or nvm use before running make setup.' >&2; exit 1; }
 	uv sync --frozen
 	cd apps/web && npm ci
 	test -f .env || cp .env.example .env
