@@ -1,6 +1,6 @@
 # 팀원용 처음 설치 가이드
 
-[프로젝트 소개로 돌아가기](../README.md) | [English README](../README.en.md)
+[프로젝트 소개로 돌아가기](../README.kr.md) | [English README](../README.md)
 
 개발 도구가 없는 PC에서 저장소를 받아 공통 앱의 첫 화면을 확인하는 안내입니다.
 **필수 도구 설치 → 저장소 클론 → Node 선택 → `make setup` → 검증 → 실행** 순서로 진행합니다.

@@ -59,7 +59,7 @@ Their revocation/replacement has not been verified. Do not reproduce them in doc
 
 ## Continue development without GCP billing
 
-Follow the maintained [local development guide](../README.en.md#local-development) in order:
+Follow the maintained [local development guide](../README.md#local-development) in order:
 install required tools, run `make setup`, verify, then start the API and web servers.
 Node is pinned to **24.21.0** in `.nvmrc`, read by CI, and matched by the Docker images and app
 engine declarations. Make uses the active shell's Node rather than a machine-specific Homebrew path.
