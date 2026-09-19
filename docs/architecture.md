@@ -31,6 +31,23 @@ Compose profiles keep validation (`check`, `e2e`, `infra-check`) and production-
 out of the default startup. The same validation commands run locally and in CI. Development always
 uses mock, does not mount cloud credentials, and binds published ports only to host loopback.
 
+### Local PostgreSQL lab
+
+The default stack also starts PostgreSQL 18.6 and runs `db-init` before the API. The initializer
+creates the initial `lab.records` schema and restricted `builder_lab` role transactionally.
+It is repeatable initialization, not a migration engine for future schema changes; evolve populated
+tables through explicit migrations rather than deleting the volume.
+
+PostgreSQL data is mounted at `/var/lib/postgresql` for the version 18 image. Two other named volumes
+hold independently generated admin/app passwords. Only DB initialization sees the administrator secret.
+The API role can SELECT and INSERT records but cannot create schema objects or delete records.
+
+When explicitly enabled in local mock mode, `POST /api/lab/records` inserts a synthetic record and
+`GET /api/lab/records/{id}` reads it. Synchronous handlers run DB work in FastAPI's thread pool, with
+bounded connection/statement timeouts and sanitized HTTP 503 errors. General `/api/health` still checks
+application liveness, not database readiness. `db-check` verifies actual API-to-PostgreSQL persistence.
+The lab is disabled for production preview and rejected on Cloud Run; it introduces no cloud database.
+
 ## Code boundaries
 
 - `schemas.py`: application input/output contracts.
@@ -81,7 +98,7 @@ Use billing reports for accounting.
 
 ## Deferred until the theme requires them
 
-Persistent domain storage, migrations, durable jobs, scheduler, retrieval, real-time media, and
+Persistent domain storage, general schema migrations, durable jobs, scheduler, retrieval, real-time media, and
 human approval policies are not invented ahead of requirements. Long jobs must move to Cloud Run
 Jobs or queued workers with durable state and idempotency; do not launch fire-and-forget tasks inside
-request-scoped FastAPI handlers. PostgreSQL is the first relational database candidate.
+request-scoped FastAPI handlers. PostgreSQL currently stores synthetic lab records only.

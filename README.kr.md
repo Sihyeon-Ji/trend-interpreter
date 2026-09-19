@@ -19,7 +19,8 @@ docker compose up -d
 
 브라우저에서 **http://localhost:5173**을 엽니다.
 첫 실행은 이미지를 내려받고 의존성을 설치하므로 몇 분 걸릴 수 있습니다.
-`docker compose ps`에서 `api`, `web` 상태를 확인하세요.
+`docker compose ps`에서 `db`, `api`, `web` 상태를 확인하세요.
+`db-init`은 실습 테이블 초기화 후 `Exited (0)`으로 끝나는 정상적인 일회성 작업입니다.
 
 - **화면 코드 수정** — `apps/web/src/`를 저장하면 Vite가 열린 브라우저에 자동 반영합니다.
 - **API 코드 수정** — `apps/api/src/`를 저장하면 API가 자동 재시작됩니다.
@@ -44,12 +45,13 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | 개발 환경 끄기 | `docker compose down` |
 | 의존성·이미지 설정 변경 반영 | `docker compose up -d --build` |
 | 코드 검사·테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` |
+| PostgreSQL 실습 기록 생성·조회 | `docker compose run --rm --build db-check` |
 | 브라우저 연동 테스트 | `docker compose run --rm --build e2e` |
 | 인프라 설정 로컬 검증 | `docker compose run --rm infra-check` |
 | 배포 형태 미리보기 | `docker compose up -d --build preview` |
 | 미리보기 종료 | `docker compose stop preview` |
 
-`up -d`는 `api`, `web`만 켭니다. 검사·브라우저 테스트·미리보기는 명령으로 지정할 때만 실행됩니다.
+`up -d`는 PostgreSQL과 초기화 작업을 거쳐 `api`, `web`을 켭니다. 검사·브라우저 테스트·미리보기는 명령으로 지정할 때만 실행됩니다.
 E2E는 필요한 개발 서버를 자동으로 시작합니다. 첫 E2E 빌드에서는 테스트용 Chromium도 컨테이너에 설치합니다.
 Mock 평가는 입출력 규칙을 확인하며 실제 AI 답변 품질을 평가하는 것은 아닙니다.
 
@@ -71,6 +73,17 @@ docker compose up -d --build
 `docker compose run --rm --build uv add 패키지명`을 사용하면 목록과 lockfile이 로컬 저장소에 함께 기록됩니다.
 호스트에 Node·Python을 설치하지 않아도 됩니다. 재빌드와 검증 후 두 파일을 같은 커밋에 포함하세요.
 제거·개발용 패키지·업데이트 예시는 [명령어 모음](docs/commands.md)에 정리했습니다.
+
+## PostgreSQL 첫 실습
+
+`docker compose run --rm db-check`를 실행하면 합성 기록을 하나 생성하고 같은 ID로 조회합니다.
+출력된 `Read again` 명령은 기존 기록만 조회하며, `Open` 주소는 브라우저에서 열 수 있습니다.
+DB 재시작 후 같은 ID·이름·생성 시각이 유지되는지 [실습 기록](docs/ai-lab-plan.md)에서 확인하세요.
+기존 5173 화면은 문서 요약용이며 DB 실습 전용 화면은 아직 없습니다.
+
+DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 남습니다. 일반 `down`은 보존하지만
+볼륨 삭제 옵션은 실습 기록과 비밀번호를 지웁니다. DB는 호스트 포트를 공개하지 않으며
+앱에는 실습 테이블의 조회·추가 권한만 부여합니다. 배포 미리보기에서는 실습 API가 비활성화됩니다.
 
 ## 개발 화면과 배포 미리보기의 차이
 

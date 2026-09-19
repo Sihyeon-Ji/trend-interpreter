@@ -18,7 +18,8 @@ docker compose up -d
 ```
 
 Open **http://localhost:5173**. Compose builds the development images on the first run and
-starts the API and Vite web server. The API is available at http://localhost:8000/docs.
+starts PostgreSQL, initializes the lab schema, then starts the API and Vite web server.
+The API is available at http://localhost:8000/docs. `db-init` normally exits with code 0 after initialization.
 Use `docker compose ps` to check readiness; initial image downloads may take several minutes.
 
 - Changes in `apps/web/src/` update the open browser through Vite HMR.
@@ -53,13 +54,14 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose down` | Stop and remove the development containers |
 | `docker compose up -d --build` | Rebuild after dependency/configuration changes |
 | `docker compose run --rm --build check` | Python lint/format/types/tests, mock evaluation, frontend types and build |
+| `docker compose run --rm --build db-check` | Create and read a synthetic PostgreSQL lab record through the API |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` only starts
-`api` and `web`. E2E starts its dependent development services if necessary. Its first build
+`check`, `db-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
 Mock evaluation checks the output contract and basic term retention, **not** factual correctness
@@ -81,6 +83,18 @@ Package names above are examples; add only what the feature needs. These tools d
 commit both `package.json` / `package-lock.json` or `pyproject.toml` / `uv.lock` in the same commit.
 See the [Korean command reference](docs/commands.md) for removal and targeted upgrade commands.
 Production and development builds reject out-of-date lockfiles.
+
+## PostgreSQL lab
+
+Run `docker compose run --rm db-check` to insert a synthetic record and read it back by ID.
+The output includes a read-only replay command and a browser URL. Use that same ID after restarting
+the database to verify persistence. See the [lab plan and recorded results](docs/ai-lab-plan.md).
+
+PostgreSQL 18.6 data and generated administrator/application passwords live in separate named volumes.
+Normal `docker compose down` preserves them; deleting volumes removes the corresponding data or credentials.
+The database has no published host port. The application role has only schema usage and record SELECT/INSERT;
+the administrator credential is mounted only into the DB and initializer. The lab API is disabled by default
+and cannot be enabled in Cloud Run or with a non-mock provider. The production preview does not require a DB.
 
 ## Production preview
 

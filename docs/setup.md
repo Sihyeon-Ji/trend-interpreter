@@ -77,7 +77,8 @@ docker compose up -d
 docker compose ps
 ```
 
-`api`, `web` 두 서비스가 `Up` 상태이고 준비가 완료되면 `healthy`로 표시됩니다.
+`db`, `api`, `web` 세 서비스가 `Up` 상태이고 준비가 완료되면 `healthy`로 표시됩니다.
+`docker compose ps -a`에 보이는 `db-init`의 `Exited (0)`은 실습 테이블 초기화가 완료됐다는 뜻입니다.
 아직 준비 중이면 다음 명령으로 로그를 보세요.
 
 ```bash
@@ -103,6 +104,10 @@ docker compose logs -f
 | http://localhost:5173 | 개발 화면, 파일 수정 자동 반영 |
 | http://localhost:8000/api/health | API 응답 확인 |
 | http://localhost:8000/docs | API 요청을 살펴보는 자동 문서 |
+
+PostgreSQL 실습은 `docker compose run --rm db-check`로 시작합니다.
+합성 기록을 생성·조회한 뒤 재조회 명령과 브라우저 주소를 출력합니다.
+문서나 모델 API 키는 필요하지 않습니다. 자세한 과정은 [실습 기록](ai-lab-plan.md)에 있습니다.
 
 `.env` 생성이나 인증정보 복사가 필요하지 않습니다. 개발 서비스는 호스트 `.env`를 읽지 않고
 Compose에 정의한 Mock 설정으로 실행합니다. 기존 `.venv`나 `node_modules`가 있어도 공유하지 않습니다.
@@ -142,7 +147,7 @@ API 자동 재시작 중에는 잠깐 요청이 실패할 수 있습니다. 로�
 docker compose run --rm --build check
 ```
 
-현재 Python 테스트 7개와 Mock 평가 2개가 있으며 이후 개발에 따라 개수는 바뀔 수 있습니다.
+현재 Python 테스트 11개와 Mock 평가 2개가 있으며 이후 개발에 따라 개수는 바뀔 수 있습니다.
 앞 단계가 실패하면 중단됩니다. 이 명령은 개발 서버를 켜지 않아도 실행할 수 있습니다.
 
 브라우저에서 실제 화면과 API 연결을 검사하려면 다음을 실행합니다.
@@ -177,6 +182,7 @@ Mock 검증은 실제 Gemini 연결이나 AI 답변 품질을 증명하지 않�
 ## 7. 종료와 다음 날 시작
 
 개발 환경을 끄려면 다음을 실행합니다. 소스 파일과 빌드 이미지는 삭제하지 않습니다.
+PostgreSQL 데이터와 접속 비밀번호 볼륨도 유지됩니다. 실습 중에는 볼륨 삭제 옵션을 추가하지 마세요.
 
 ```bash
 docker compose down

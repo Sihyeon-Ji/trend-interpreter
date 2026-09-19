@@ -41,6 +41,7 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 | 확인할 것 | 실행할 명령 | 실행 조건 |
 | --- | --- | --- |
 | 코드 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
+| PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -58,6 +59,41 @@ docker compose exec api pytest -q
 
 이 명령은 전체 `check`의 대체가 아닙니다. 실패한 브라우저 테스트의 파일을 보관하는 방법은
 [설치 가이드](setup.md#verify)를 참고하세요.
+
+## PostgreSQL 저장·조회 실습
+
+```bash
+docker compose run --rm db-check
+```
+
+합성 기록 한 개를 만들어 DB에 저장하고, 같은 ID로 조회해서 결과를 비교합니다.
+`id`, `label`, `created_at`과 `PASS`가 나오면 성공입니다.
+출력 하단의 `Read again` 명령을 복사하면 **기존 ID만 조회**할 수 있습니다.
+`Open` 주소는 브라우저에서 같은 기록을 보는 주소입니다.
+
+데이터 유지를 확인하려면 위에서 생성한 ID를 보관한 뒤 다음을 실행합니다.
+
+```bash
+docker compose restart db
+```
+
+DB가 다시 준비되면 보관한 `Read again` 명령을 실행합니다.
+처음 `db-check`를 다시 실행하면 새 기록을 생성하므로, 반드시 기존 ID로 읽어야 합니다.
+`docker compose down` 후 `docker compose up -d --wait`로 재생성해도 같은 방법으로 확인합니다.
+
+| 서비스·볼륨 | 역할 |
+| --- | --- |
+| `db` | PostgreSQL 18.6, 호스트에 포트 공개하지 않음 |
+| `db-init` | 실습 테이블·계정 초기화. `Exited (0)`은 정상 완료 |
+| `db-check` | API를 통해 합성 기록 저장·조회 검증 |
+| `postgres_data` | DB 데이터 유지 |
+| `postgres_admin_password`, `postgres_app_password` | 자동 생성한 관리자·앱 접속 비밀번호 유지 |
+
+일반 `down`은 볼륨을 보존합니다. 볼륨 삭제 옵션을 붙이거나 Docker Desktop에서 해당 볼륨을 삭제하면
+기록이나 접속 비밀번호가 없어집니다. 비밀번호 볼륨도 데이터 볼륨과 함께 보존하세요.
+DB 중단 시 실습 API는 `503 database_unavailable`을 반환합니다.
+일반 `/api/health`는 앱 생존 상태이므로 DB 연결 성공을 뜻하지 않습니다.
+실제 검증 결과는 [실습 계획과 기록](ai-lab-plan.md)에 있습니다.
 
 ## 패키지 추가·제거·업데이트
 
