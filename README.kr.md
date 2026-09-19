@@ -120,6 +120,8 @@ Markdown 문서만 바꾼 `develop` push는 제외합니다. 같은 브랜치·P
 
 ## 문서와 팀 링크
 
+- [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
+- [5단계 AI 실습 계획과 준비물](docs/ai-lab-plan.md)
 - [팀원용 처음 설치 가이드](docs/setup.md)
 - [이전 작업과 남은 일](docs/session-handoff.md)
 - [아키텍처](docs/architecture.md)
