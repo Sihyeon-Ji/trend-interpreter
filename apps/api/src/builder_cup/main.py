@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from builder_cup import database
 from builder_cup.config import Settings
 from builder_cup.providers import Provider, ProviderFailure, create_provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
@@ -41,6 +42,8 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
     config = settings or Settings()
     if os.getenv("K_SERVICE") and not config.demo_api_key:
         raise RuntimeError("DEMO_API_KEY is required on Cloud Run")
+    if config.database_lab_enabled and (os.getenv("K_SERVICE") or config.model_provider != "mock"):
+        raise RuntimeError("Database lab is only available in local mock mode")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -130,6 +133,31 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         )
         logger.info("analysis_completed", extra={"fields": result.model_dump(exclude={"result"})})
         return result
+
+    if config.database_lab_enabled:
+
+        @app.exception_handler(database.DatabaseUnavailable)
+        async def database_error(request: Request, _exc: database.DatabaseUnavailable):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": {
+                        "code": "database_unavailable",
+                        "request_id": request.state.request_id,
+                    }
+                },
+            )
+
+        @app.post("/api/lab/records", response_model=database.LabRecord, status_code=201)
+        def create_lab_record():
+            return database.create_record(config)
+
+        @app.get("/api/lab/records/{record_id}", response_model=database.LabRecord)
+        def read_lab_record(record_id: uuid.UUID):
+            record = database.read_record(config, record_id)
+            if record is None:
+                raise HTTPException(status_code=404, detail="Lab record not found")
+            return record
 
     # Keep unknown API routes from falling through to the static site.
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

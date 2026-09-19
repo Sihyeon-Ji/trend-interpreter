@@ -20,3 +20,8 @@ class Settings(BaseSettings):
     vllm_model: str = "google/gemma-4-E2B-it"
     vllm_api_key: str = "local-development-only"
     web_dist: str = "apps/web/dist"
+    database_lab_enabled: bool = False
+    database_host: str = "db"
+    database_name: str = "builder_cup"
+    database_password_file: str = "/run/db-app/password"
+    database_admin_password_file: str = "/run/db-admin/password"
