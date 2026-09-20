@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     vllm_api_key: str = "local-development-only"
     web_dist: str = "apps/web/dist"
     database_lab_enabled: bool = False
+    workflow_lab_enabled: bool = False
     database_host: str = "db"
     database_name: str = "builder_cup"
     database_password_file: str = "/run/db-app/password"

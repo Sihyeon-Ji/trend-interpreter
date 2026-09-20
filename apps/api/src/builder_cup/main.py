@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from builder_cup import database
 from builder_cup.config import Settings
+from builder_cup.graph_lab import GraphResult, run_graph
 from builder_cup.providers import Provider, ProviderFailure, create_provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
 from builder_cup.workflow import analyze
@@ -44,6 +45,8 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         raise RuntimeError("DEMO_API_KEY is required on Cloud Run")
     if config.database_lab_enabled and (os.getenv("K_SERVICE") or config.model_provider != "mock"):
         raise RuntimeError("Database lab is only available in local mock mode")
+    if config.workflow_lab_enabled and (os.getenv("K_SERVICE") or config.model_provider != "mock"):
+        raise RuntimeError("Workflow lab is only available in local mock mode")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -158,6 +161,14 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
             if record is None:
                 raise HTTPException(status_code=404, detail="Lab record not found")
             return record
+
+    if config.workflow_lab_enabled:
+
+        @app.post("/api/lab/workflow", response_model=GraphResult)
+        async def workflow_lab(body: AnalyzeRequest, request: Request):
+            return await run_graph(
+                body.text, request.state.request_id, request.app.state.provider, config
+            )
 
     # Keep unknown API routes from falling through to the static site.
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

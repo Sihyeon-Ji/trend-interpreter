@@ -78,6 +78,7 @@ services:
       <<: *development-environment
       WATCHFILES_FORCE_POLLING: "true"
       DATABASE_LAB_ENABLED: "true"
+      WORKFLOW_LAB_ENABLED: "true"
       DATABASE_PASSWORD_FILE: /run/db-app/password
     volumes:
       - ./apps/api/src:/workspace/apps/api/src:ro
@@ -149,6 +150,15 @@ services:
     profiles: [tools]
     entrypoint: [python, scripts/db_lab.py]
     command: [check]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Run synthetic documents through input validation, fan-out, join and rule-based routing.
+  workflow-check:
+    <<: *development
+    profiles: [tools]
+    command: python scripts/workflow_lab.py
     depends_on:
       api:
         condition: service_healthy

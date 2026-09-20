@@ -1,0 +1,20 @@
+[
+  {
+    "id": "complete-meeting-note",
+    "text": "## 일정\n팀 회의는 금요일 오후 3시에 진행한다.\n## 준비\n발표 자료는 목요일까지 준비한다.\n## 담당자\n발표 담당자는 아직 정하지 않았다.",
+    "expected_outcome": "accepted",
+    "expected_reason_codes": []
+  },
+  {
+    "id": "missing-preparation-section",
+    "text": "## 일정\n팀 회의는 금요일 오후 3시에 진행한다.\n## 담당자\n발표 담당자는 아직 정하지 않았다.",
+    "expected_outcome": "needs_revision",
+    "expected_reason_codes": ["missing_required_sections"]
+  },
+  {
+    "id": "empty-preparation-section",
+    "text": "## 일정\n팀 회의는 금요일 오후 3시에 진행한다.\n## 준비\n\n## 담당자\n발표 담당자는 아직 정하지 않았다.",
+    "expected_outcome": "needs_revision",
+    "expected_reason_codes": ["empty_required_sections"]
+  }
+]
