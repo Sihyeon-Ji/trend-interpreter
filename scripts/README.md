@@ -8,6 +8,7 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | --- | --- | --- |
 | `evaluate.py` | Compose `check` | Run contract cases against the configured provider; Compose forces mock |
 | `db_lab.py` | Compose `db-init` / `db-check` | Initialize the local lab schema; create/read a synthetic record through the API |
+| `workflow_lab.py` | Compose `workflow-check` | Exercise synthetic documents through graph validation, parallel branches, join and routing |
 | `container-smoke.sh` | CI | Verify a production image's UI, health and mock analysis |
 | `bootstrap-gcp.sh` | Deployment operator, only after deployment resumes | Provision GCP infrastructure and configure GitHub deployment variables |
 | `deploy-gcp.sh` | `release/gcp` workflow | Deploy a candidate, verify it and promote traffic |

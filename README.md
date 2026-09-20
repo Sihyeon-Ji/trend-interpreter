@@ -55,12 +55,13 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose up -d --build` | Rebuild after dependency/configuration changes |
 | `docker compose run --rm --build check` | Python lint/format/types/tests, mock evaluation, frontend types and build |
 | `docker compose run --rm --build db-check` | Create and read a synthetic PostgreSQL lab record through the API |
+| `docker compose run --rm --build workflow-check` | Exercise fan-out, join and deterministic routing with synthetic documents |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`check`, `db-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`check`, `db-check`, `workflow-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
 `db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
@@ -95,6 +96,13 @@ Normal `docker compose down` preserves them; deleting volumes removes the corres
 The database has no published host port. The application role has only schema usage and record SELECT/INSERT;
 the administrator credential is mounted only into the DB and initializer. The lab API is disabled by default
 and cannot be enabled in Cloud Run or with a non-mock provider. The production preview does not require a DB.
+
+## Workflow lab
+
+The independent workflow lab is available through `docker compose run --rm workflow-check`.
+It checks three synthetic meeting notes and prints the mock result, routing decision and node events.
+`accepted` means the required document sections are present and nonempty, not that the content is factual.
+Its events are returned in the response only; persisted workflow history is a later lab stage.
 
 ## Production preview
 

@@ -152,7 +152,7 @@ API가 응답하는 것, 모델이 추론하는 것, 답변 품질이 충분한 
 | Docker Compose 웹·API, 소스 자동 반영, 검사·E2E | 기존 기반에 있음 |
 | Mock·Gemini·vLLM Provider와 결과 검증 | 코드가 있음. 기본 Compose는 Mock |
 | PostgreSQL 서비스와 DB 연결 | 1단계 완료. 합성 기록 저장·조회·재시작 후 유지 확인 |
-| Fan-out·Join·Router 실습 | 아직 없음 |
+| Fan-out·Join·Router 실습 | 2단계 완료. 합성 문서 3종의 입력 검사·병렬 실행·분기 검증 |
 | 노드별 실행 이력 조회 | 아직 없음 |
 | Ollama 연결 및 실제 로컬 추론 | 아직 없음 |
 | 그래프 DB | 미도입. 실행 그래프 실습에 필수 아님 |

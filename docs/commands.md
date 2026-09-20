@@ -42,6 +42,7 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 | --- | --- | --- |
 | 코드 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
 | PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
+| 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -94,6 +95,24 @@ DB가 다시 준비되면 보관한 `Read again` 명령을 실행합니다.
 DB 중단 시 실습 API는 `503 database_unavailable`을 반환합니다.
 일반 `/api/health`는 앱 생존 상태이므로 DB 연결 성공을 뜻하지 않습니다.
 실제 검증 결과는 [실습 계획과 기록](ai-lab-plan.md)에 있습니다.
+
+## 그래프 워크플로우 실습
+
+그래프 실습은 다음 명령으로 실행합니다.
+
+```bash
+docker compose run --rm workflow-check
+```
+
+추가 문서를 준비할 필요가 없습니다. `evaluation-cases/workflow-lab.json`에 있는 합성 입력 3개를
+실행하며 정상 문서는 `accepted`, 필수 항목이 없거나 비어 있으면 `needs_revision`을 출력합니다.
+`EVENTS`는 실제 노드 시작·완료 순서입니다. Mock은 즉시 응답하므로 두 분기가 화면상 순서대로
+끝날 수 있습니다. 병렬 스케줄링 자체는 한 분기가 다른 분기의 시작을 기다리는 테스트로 검증합니다.
+
+직접 다른 문장을 보내려면 http://localhost:8000/docs 에서 `POST /api/lab/workflow`를 사용하세요.
+`text`에는 `## 일정`, `## 준비`라는 제목과 각 제목 아래 내용이 있어야 형식 검사를 통과합니다.
+일반 Markdown 전체를 파싱하거나 내용의 사실성을 판단하는 규칙은 아닙니다.
+현재는 실행 결과를 API 응답과 터미널에서 확인하고, DB 저장은 다음 단계에서 추가합니다.
 
 ## 패키지 추가·제거·업데이트
 

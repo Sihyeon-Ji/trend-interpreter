@@ -48,6 +48,20 @@ bounded connection/statement timeouts and sanitized HTTP 503 errors. General `/a
 application liveness, not database readiness. `db-check` verifies actual API-to-PostgreSQL persistence.
 The lab is disabled for production preview and rejected on Cloud Run; it introduces no cloud database.
 
+### Local workflow lab
+
+`POST /api/lab/workflow` is enabled separately from the database lab, only in local mock mode.
+`graph_lab.py` validates input, schedules model extraction and pure document checks independently,
+joins typed results, then applies a deterministic router. Required sections are `일정` and `준비`;
+missing or empty sections produce `needs_revision`, not a factuality judgment.
+
+The model branch reuses the existing provider, timeout, retry and output-validation contract.
+Document checks run in a worker thread over bounded input. Pending async tasks are canceled on failure;
+a running pure check may finish in its worker thread but has no external side effects.
+Join and routing only run after both branches succeed. Start/completion events contain node metadata
+only and are returned in successful workflow responses; they are not persisted as run history yet.
+The function works without PostgreSQL and uses no graph database or additional agent framework.
+
 ## Code boundaries
 
 - `schemas.py`: application input/output contracts.
