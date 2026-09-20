@@ -16,6 +16,12 @@ from pydantic import ValidationError
 from builder_cup import database, history
 from builder_cup.config import Settings
 from builder_cup.graph_lab import GraphResult, WorkflowInput, run_graph
+from builder_cup.lab_scenarios import (
+    LAB_MAX_ATTEMPTS,
+    LAB_TIMEOUT_SECONDS,
+    DocumentCheckFailure,
+    ScenarioProvider,
+)
 from builder_cup.providers import Provider, ProviderFailure, create_provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
 from builder_cup.workflow import analyze
@@ -169,12 +175,38 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
 
     if config.workflow_lab_enabled:
 
+        @app.exception_handler(DocumentCheckFailure)
+        async def document_check_error(request: Request, _exc: DocumentCheckFailure):
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": {
+                        "code": "document_check_failed",
+                        "request_id": request.state.request_id,
+                    }
+                },
+            )
+
         @app.post("/api/lab/workflow", response_model=GraphResult)
         async def workflow_lab(body: WorkflowInput, request: Request):
             runner = history.run_with_history if config.database_lab_enabled else run_graph
+            run_provider = request.app.state.provider
+            run_config = config
+            if body.scenario != "normal":
+                run_provider = ScenarioProvider(body.scenario)
+                run_config = config.model_copy(
+                    update={
+                        "model_timeout_seconds": LAB_TIMEOUT_SECONDS,
+                        "model_max_attempts": LAB_MAX_ATTEMPTS,
+                    }
+                )
             try:
                 return await runner(
-                    body.text, request.state.request_id, request.app.state.provider, config
+                    body.text,
+                    request.state.request_id,
+                    run_provider,
+                    run_config,
+                    scenario=body.scenario,
                 )
             except ValidationError:
                 return JSONResponse(

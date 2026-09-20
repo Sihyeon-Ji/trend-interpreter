@@ -57,12 +57,13 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose run --rm --build db-check` | Create and read a synthetic PostgreSQL lab record through the API |
 | `docker compose run --rm --build workflow-check` | Exercise fan-out, join and deterministic routing with synthetic documents |
 | `docker compose run --rm --build history-check` | Verify successful/failed workflow history and metadata privacy |
+| `docker compose run --rm --build failure-check` | Reproduce Mock timeout, invalid JSON, branch failure and retry recovery |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`check`, `db-check`, `workflow-check`, `history-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
 `db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
@@ -109,6 +110,11 @@ Open **Workflow history** at http://localhost:5173 to run a sample, browse the l
 status, timing, model, reported tokens and safe error codes. Source text and generated output are not stored.
 Node snapshots are saved when execution ends; this is not live progress or automatic crash recovery.
 Run `docker compose run --rm --build history-check` for API and persistence checks.
+
+Choose **Practice scenario** in Workflow history to simulate a model timeout, invalid JSON, parallel
+branch failure or a transient connection error followed by recovery. Expectations are shown before running;
+the chosen scenario is stored with each run. `failure-check` verifies all scenarios, including a normal run.
+Expected HTTP errors are successful failure exercises, not AI quality results. Simulations are local Mock only.
 
 ## Production preview
 

@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from builder_cup.lab_scenarios import DocumentCheckFailure
 from builder_cup.providers import ProviderFailure
 
 NodeName = Literal["validate_input", "extract", "inspect_document", "join", "route"]
@@ -21,6 +22,8 @@ NodeOutcome = Literal["completed", "failed", "cancelled"]
 
 
 def safe_error_code(error: BaseException) -> str:
+    if isinstance(error, DocumentCheckFailure):
+        return "document_check_failed"
     if isinstance(error, asyncio.CancelledError):
         return "cancelled"
     if isinstance(error, ValidationError):

@@ -44,6 +44,7 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 | PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
 | 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |
 | 실행 이력 저장·조회 검사 | `docker compose run --rm --build history-check` | 성공·실패 실행과 단계별 메타데이터 확인 |
+| 오류·취소·재시도 재현 | `docker compose run --rm --build failure-check` | 예상 실패와 복구를 이력에서 검증 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -149,6 +150,37 @@ docker compose run --rm --build history-check
 DB 재시작 전후 같은 ID의 상태·시각·노드 정보가 유지되는지 비교할 수 있습니다.
 일반 `docker compose down`은 이력을 보존하지만 볼륨 삭제는 데이터를 지웁니다.
 API는 `GET /api/lab/runs`와 `GET /api/lab/runs/{id}`이며 http://localhost:8000/docs 에서 사용할 수 있습니다.
+
+## 실패 실습
+
+개발 환경을 켠 뒤 http://localhost:5173 의 **Workflow history → Practice scenario**에서
+시나리오를 선택하고 **Run workflow**를 누릅니다. 우선 기본 합성 문서를 유지하세요.
+예상 결과는 선택 상자 아래에 표시되며 실제 결과는 실행 상세의 `Scenario`, `Attempts`, 노드 상태로 비교합니다.
+
+| 선택 | 시나리오 값 | 기본 문서의 예상 결과 |
+| --- | --- | --- |
+| Normal workflow | `normal` | 정상 완료, 1회 호출 |
+| Model timeout | `timeout` | HTTP 504 `model_timeout`, 각 1초 제한으로 2회 시도 후 실패 |
+| Invalid model JSON | `invalid_json` | HTTP 502 `invalid_model_response`, 1회 호출 후 재시도 없이 실패 |
+| Parallel branch failure | `branch_failure` | HTTP 500 `document_check_failed`, 문서 검사 실패·추출 취소 |
+| Transient error then recovery | `transient_error` | 첫 연결 실패 후 두 번째 성공, HTTP 200·2회 호출 |
+
+실패하면 Join과 Router는 `skipped`입니다. 잘못된 JSON은 즉시 실패하므로 독립적인 문서 검사는
+그때까지 끝났으면 `completed`, 끝나지 않았으면 `cancelled`일 수 있습니다.
+각 요청은 독립적이며 실패 실습 후 `Normal workflow`로 바꾸면 정상 실행합니다.
+선택한 실패보다 입력 검사가 먼저이므로 공백 등 잘못된 입력은 `invalid_input`으로 거부합니다.
+
+```bash
+docker compose run --rm --build failure-check
+docker compose run --rm failure-check timeout
+docker compose run --rm failure-check branch_failure
+docker compose run --rm failure-check transient_error
+```
+
+첫 명령은 실패 3종·재시도 성공·정상 실행을 전부 확인합니다. `PASS`는 예상대로 실패하거나 복구했고
+이력까지 올바르게 저장됐다는 뜻입니다. 출력된 `Read again` 명령으로 기존 실행을 다시 조회할 수 있습니다.
+외부 모델·네트워크를 호출하지 않고 Mock 지연과 오류를 주입하며, DB나 컨테이너를 강제로 끄지 않습니다.
+DB 저장 오류 정책은 자동 테스트에서 시작 쓰기 실패·종료 쓰기 실패로 별도 검증합니다.
 
 ## 패키지 추가·제거·업데이트
 

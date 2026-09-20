@@ -48,6 +48,7 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | PostgreSQL 실습 기록 생성·조회 | `docker compose run --rm --build db-check` |
 | 병렬 작업·Join·Router 실습 | `docker compose run --rm --build workflow-check` |
 | 실행·단계별 이력 저장·조회 검사 | `docker compose run --rm --build history-check` |
+| Mock 오류·취소·재시도 실습 | `docker compose run --rm --build failure-check` |
 | 브라우저 연동 테스트 | `docker compose run --rm --build e2e` |
 | 인프라 설정 로컬 검증 | `docker compose run --rm infra-check` |
 | 배포 형태 미리보기 | `docker compose up -d --build preview` |
@@ -96,6 +97,10 @@ DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 
 http://localhost:5173 의 **Workflow history**에서 `Run workflow`를 누르고 실행 항목을 선택하면
 단계별 상태·시간·모델·토큰·오류 코드를 확인할 수 있습니다. 최근 20개를 조회하며 원문과 생성 결과는 저장하지 않습니다.
 이력은 DB에 남지만 중단된 작업을 자동 재개하지는 않습니다. [실습 기록](docs/ai-lab-plan.md)을 참고하세요.
+
+같은 화면의 **Practice scenario**에서 모델 시간 초과, 잘못된 JSON, 병렬 분기 실패, 재시도 복구를 선택할 수 있습니다.
+기본 문서로 실행한 뒤 예상 결과와 실제 단계별 상태를 비교하세요. 이 실습에서 의도한 오류는 정상적인 재현 결과입니다.
+터미널에서는 `docker compose run --rm --build failure-check`로 전체 시나리오를 검증합니다.
 
 ## 개발 화면과 배포 미리보기의 차이
 

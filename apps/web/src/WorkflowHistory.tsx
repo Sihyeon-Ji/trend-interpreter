@@ -4,6 +4,7 @@ import './workflow-history.css'
 
 interface WorkflowRun {
   id: string
+  scenario: string
   status: 'running' | 'completed' | 'failed' | 'cancelled'
   outcome: 'accepted' | 'needs_revision' | null
   started_at: string
@@ -36,6 +37,13 @@ interface RunDetail extends WorkflowRun { nodes: NodeRecord[] }
 const SAMPLE_TEXT = '## 일정\n팀 회의는 금요일 오후 3시에 진행한다.\n## 준비\n발표 자료는 목요일까지 준비한다.\n## 담당자\n발표 담당자는 아직 정하지 않았다.'
 const REQUEST_TIMEOUT_MS = 100_000
 const RUN_LIMIT = 20
+const SCENARIOS = [
+  { value: 'normal', label: 'Normal workflow', expected: 'All steps complete with the sample document.' },
+  { value: 'timeout', label: 'Model timeout', expected: 'Two calls time out after 1 second each. Extraction fails; join and route are skipped.' },
+  { value: 'invalid_json', label: 'Invalid model JSON', expected: 'Invalid JSON fails immediately without a retry. Join and route are skipped.' },
+  { value: 'branch_failure', label: 'Parallel branch failure', expected: 'Document inspection fails while extraction is waiting. Extraction is cancelled; join and route are skipped.' },
+  { value: 'transient_error', label: 'Transient error then recovery', expected: 'The first connection fails. The second attempt succeeds and the workflow completes.' },
+]
 
 class ApiError extends Error {
   constructor(message: string, readonly requestId?: string) { super(message) }
@@ -83,6 +91,7 @@ export default function WorkflowHistory() {
   const [detailBusy, setDetailBusy] = useState(false)
   const [detailError, setDetailError] = useState('')
   const [text, setText] = useState(SAMPLE_TEXT)
+  const [scenario, setScenario] = useState('normal')
   const [runBusy, setRunBusy] = useState(false)
   const [runError, setRunError] = useState('')
   const listRequest = useRef<AbortController | null>(null)
@@ -150,7 +159,7 @@ export default function WorkflowHistory() {
     setRunError('')
     try {
       const result = await requestJson<{ analysis: { request_id: string } }>(
-        '/api/lab/workflow', controller.signal, { text },
+        '/api/lab/workflow', controller.signal, { text, scenario },
       )
       if (!controller.signal.aborted) await Promise.all([loadRuns(), selectRun(result.analysis.request_id)])
     } catch (error) {
@@ -181,6 +190,11 @@ export default function WorkflowHistory() {
     </div>
     <p>Run a mock workflow and inspect its steps. History stores metadata only, without your input or generated text.</p>
     <form className="workflow-form" onSubmit={submit}>
+      <label htmlFor="workflow-scenario">Practice scenario</label>
+      <select id="workflow-scenario" value={scenario} onChange={event => setScenario(event.target.value)} disabled={runBusy} aria-describedby="scenario-expectation">
+        {SCENARIOS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+      <p id="scenario-expectation" className="history-note">Expected with valid input: {SCENARIOS.find(option => option.value === scenario)?.expected} These simulations only use Mock.</p>
       <label htmlFor="workflow-text">Workflow document</label>
       <textarea id="workflow-text" value={text} onChange={event => setText(event.target.value)} required maxLength={8000} disabled={runBusy} />
       <p className="history-note">Required sections: ## 일정 and ## 준비, each with content. Accepted means these rules passed, not factual accuracy.</p>
@@ -196,6 +210,7 @@ export default function WorkflowHistory() {
         <ul className="run-list">{runs.map(run => <li key={run.id}>
           <button aria-label={`View run ${run.id}`} aria-pressed={selectedId === run.id} onClick={() => void selectRun(run.id)}>
             <span className="run-status" data-status={run.status}>{status(run.status)}</span>
+            <span>{status(run.scenario)}</span>
             <span>{run.outcome ? status(run.outcome) : run.error_code ?? 'Awaiting completion'}</span>
             <time dateTime={run.started_at}>{time(run.started_at)}</time>
             <code>{run.id}</code>
@@ -210,6 +225,7 @@ export default function WorkflowHistory() {
         {detail && <>
           <dl>
             <dt>Run ID</dt><dd><code>{detail.id}</code></dd>
+            <dt>Scenario</dt><dd>{status(detail.scenario)}</dd>
             <dt>Status</dt><dd data-status={detail.status}>{status(detail.status)}</dd>
             <dt>Outcome</dt><dd>{detail.outcome ? status(detail.outcome) : '—'}</dd>
             <dt>Reason</dt><dd>{detail.error_code ?? (detail.reason_codes.join(', ') || 'None')}</dd>

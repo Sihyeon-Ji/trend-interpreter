@@ -5,8 +5,10 @@ import pytest
 from builder_cup import history
 from builder_cup.config import Settings
 from builder_cup.database import DatabaseUnavailable
+from builder_cup.main import create_app
 from builder_cup.providers import Generation, MockProvider, ProviderFailure
 from builder_cup.schemas import Usage
+from fastapi.testclient import TestClient
 
 SAMPLE_TEXT = "## 일정\n금요일 회의\n## 준비\n자료 준비 - source-must-not-be-stored"
 
@@ -168,3 +170,96 @@ async def test_unexpected_failure_does_not_store_exception_text(captured, monkey
     saved = captured["finish"]
     assert saved.error_code == "workflow_failed"
     assert "secret-must-not-be-stored" not in saved.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "scenario,http_status,error,attempts,extract_status,inspect_status",
+    [
+        ("timeout", 504, "model_timeout", 2, "failed", {"completed"}),
+        ("invalid_json", 502, "invalid_model_response", 1, "failed", {"completed", "cancelled"}),
+        ("branch_failure", 500, "document_check_failed", 1, "cancelled", {"failed"}),
+        ("transient_error", 200, None, 2, "completed", {"completed"}),
+    ],
+)
+def test_failure_scenarios_use_real_error_paths_and_reset(
+    captured, scenario, http_status, error, attempts, extract_status, inspect_status
+):
+    config = Settings(_env_file=None, database_lab_enabled=True, workflow_lab_enabled=True)
+    with TestClient(create_app(config, MockProvider())) as client:
+        response = client.post(
+            "/api/lab/workflow", json={"text": SAMPLE_TEXT, "scenario": scenario}
+        )
+        assert response.status_code == http_status
+        saved = captured["finish"]
+        assert saved.scenario == scenario
+        assert saved.error_code == error
+        assert saved.attempts == attempts
+        assert saved.nodes[1].status == extract_status
+        assert saved.nodes[2].status in inspect_status
+        assert all(n.status == ("skipped" if error else "completed") for n in saved.nodes[3:])
+        if error:
+            assert response.json()["error"]["code"] == error
+            assert saved.status == "failed" and saved.outcome is None
+        if scenario == "timeout":
+            assert 2000 <= saved.nodes[1].duration_ms < 6000
+        assert "source-must-not-be-stored" not in saved.model_dump_json()
+        assert client.post("/api/lab/workflow", json={"text": SAMPLE_TEXT}).status_code == 200
+        assert captured["finish"].scenario == "normal"
+        assert captured["finish"].attempts == 1
+    assert config.model_timeout_seconds == 30 and config.model_max_attempts == 2
+
+
+def test_unknown_scenario_is_rejected_before_history_creation(captured):
+    config = Settings(_env_file=None, database_lab_enabled=True, workflow_lab_enabled=True)
+    with TestClient(create_app(config, MockProvider())) as client:
+        response = client.post(
+            "/api/lab/workflow", json={"text": SAMPLE_TEXT, "scenario": "arbitrary"}
+        )
+        assert response.status_code == 422
+        assert captured == {}
+
+
+@pytest.mark.parametrize("provider", ["gemini", "vllm"])
+def test_failure_lab_cannot_enable_real_providers(provider):
+    config = Settings(_env_file=None, workflow_lab_enabled=True, model_provider=provider)
+    with pytest.raises(RuntimeError, match="Workflow lab is only available in local mock mode"):
+        create_app(config)
+
+
+def test_scenario_still_validates_input_before_injection(captured):
+    config = Settings(_env_file=None, database_lab_enabled=True, workflow_lab_enabled=True)
+    with TestClient(create_app(config, MockProvider())) as client:
+        response = client.post("/api/lab/workflow", json={"text": " ", "scenario": "timeout"})
+    assert response.status_code == 422
+    assert captured["finish"].attempts == 0
+    assert captured["finish"].error_code == "invalid_input"
+
+
+async def test_concurrent_scenarios_do_not_share_retry_state(monkeypatch):
+    import httpx
+
+    saved = []
+    monkeypatch.setattr(history, "start_run", lambda *args: None)
+    monkeypatch.setattr(
+        history, "finish_run", lambda config, run, trace: saved.append(run.model_copy())
+    )
+    config = Settings(_env_file=None, database_lab_enabled=True, workflow_lab_enabled=True)
+    app = create_app(config, MockProvider())
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app), base_url="http://test"
+        ) as client:
+            responses = await asyncio.gather(
+                *[
+                    client.post(
+                        "/api/lab/workflow", json={"text": SAMPLE_TEXT, "scenario": scenario}
+                    )
+                    for scenario in ("transient_error", "normal", "transient_error")
+                ]
+            )
+    assert all(response.status_code == 200 for response in responses)
+    assert sorted((run.scenario, run.attempts) for run in saved) == [
+        ("normal", 1),
+        ("transient_error", 2),
+        ("transient_error", 2),
+    ]

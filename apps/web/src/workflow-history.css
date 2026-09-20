@@ -24,3 +24,4 @@
 .node-table thead{background:#edf2e9}
 .node-table tbody tr:last-child>*{border-bottom:0}
 @media(max-width:720px){.history-grid{grid-template-columns:1fr}.history-heading{align-items:flex-start}.history-heading button{font-size:12px;padding:10px 12px}.run-detail{padding:18px}.run-list{max-height:330px;overflow:auto}.run-detail dl{grid-template-columns:95px minmax(0,1fr)}}
+.workflow-form select { width: 100%; padding: .7rem; border: 1px solid #ccd4cf; border-radius: .5rem; background: white; color: inherit; font: inherit; }

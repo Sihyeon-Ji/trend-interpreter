@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from builder_cup.config import Settings
 from builder_cup.graph_trace import GraphTrace, NodeEvent, NodeRecord
+from builder_cup.lab_scenarios import DocumentCheckFailure, Scenario
 from builder_cup.providers import Provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
 from builder_cup.workflow import ModelMetrics, analyze
@@ -21,6 +22,7 @@ class DocumentChecks(BaseModel):
 
 class WorkflowInput(BaseModel):
     text: str
+    scenario: Scenario = "normal"
 
 
 class RoutingDecision(BaseModel):
@@ -74,15 +76,19 @@ async def run_graph(
     provider: Provider,
     settings: Settings,
     trace: GraphTrace | None = None,
+    scenario: Scenario = "normal",
 ) -> GraphResult:
     trace = trace or GraphTrace()
     with trace.step("validate_input"):
         validated = AnalyzeRequest(text=text)
 
+    extraction_started = asyncio.Event()
+
     async def extract() -> AnalyzeResponse:
         with trace.step("extract") as record:
             metrics = ModelMetrics()
             try:
+                extraction_started.set()
                 return await analyze(validated.text, request_id, provider, settings, metrics)
             finally:
                 record.attempts = metrics.attempts
@@ -91,6 +97,9 @@ async def run_graph(
 
     async def inspect() -> DocumentChecks:
         with trace.step("inspect_document"):
+            if scenario == "branch_failure":
+                await extraction_started.wait()
+                raise DocumentCheckFailure()
             return await asyncio.to_thread(inspect_document, validated.text)
 
     extraction = asyncio.create_task(extract())

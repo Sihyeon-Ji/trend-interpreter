@@ -173,6 +173,16 @@ services:
       api:
         condition: service_healthy
 
+  # Reproduce bounded Mock failures and recovery; optionally supply one scenario name.
+  failure-check:
+    <<: *development
+    profiles: [tools]
+    entrypoint: [python, scripts/failure_lab.py]
+    command: [all]
+    depends_on:
+      api:
+        condition: service_healthy
+
   # Dependency tools write manifests and lockfiles back to the checkout without installing locally.
   npm:
     profiles: [tools]

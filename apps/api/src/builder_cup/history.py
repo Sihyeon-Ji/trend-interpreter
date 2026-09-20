@@ -11,11 +11,13 @@ from builder_cup.config import Settings
 from builder_cup.database import connection
 from builder_cup.graph_lab import GraphResult, run_graph
 from builder_cup.graph_trace import GraphTrace, NodeRecord, safe_error_code
+from builder_cup.lab_scenarios import Scenario
 from builder_cup.providers import PROMPT_VERSION, Provider
 
 
 class WorkflowRun(BaseModel):
     id: UUID
+    scenario: Scenario = "normal"
     started_at: datetime
     finished_at: datetime | None = None
     duration_ms: int | None = None
@@ -39,9 +41,17 @@ def start_run(settings: Settings, run: WorkflowRun, trace: GraphTrace) -> None:
     with connection(settings) as conn:
         conn.execute(
             """INSERT INTO lab.workflow_runs
-               (id, started_at, status, provider, model, prompt_version)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            (run.id, run.started_at, run.status, run.provider, run.model, run.prompt_version),
+               (id, started_at, status, provider, model, prompt_version, scenario)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (
+                run.id,
+                run.started_at,
+                run.status,
+                run.provider,
+                run.model,
+                run.prompt_version,
+                run.scenario,
+            ),
         )
         with conn.cursor() as cursor:
             cursor.executemany(
@@ -118,11 +128,16 @@ def read_run(settings: Settings, run_id: UUID) -> RunDetail | None:
 
 
 async def run_with_history(
-    text: str, request_id: str, provider: Provider, settings: Settings
+    text: str,
+    request_id: str,
+    provider: Provider,
+    settings: Settings,
+    scenario: Scenario = "normal",
 ) -> GraphResult:
     trace = GraphTrace()
     run = WorkflowRun(
         id=UUID(request_id),
+        scenario=scenario,
         started_at=trace.started_at,
         provider=settings.model_provider,
         model=provider.model,
@@ -130,7 +145,7 @@ async def run_with_history(
     )
     await asyncio.to_thread(start_run, settings, run, trace)
     try:
-        result = await run_graph(text, request_id, provider, settings, trace)
+        result = await run_graph(text, request_id, provider, settings, trace, scenario=scenario)
         run.status = "completed"
         run.outcome = result.decision.outcome
         run.reason_codes = result.decision.reason_codes

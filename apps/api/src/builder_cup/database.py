@@ -77,6 +77,7 @@ def initialize(settings: Settings) -> None:
             sql.SQL("GRANT SELECT, INSERT ON lab.records TO {}").format(sql.Identifier(LAB_ROLE))
         )
         conn.execute(Path(__file__).with_name("002_workflow_history.sql").read_text())
+        conn.execute(Path(__file__).with_name("003_workflow_scenario.sql").read_text())
         conn.execute(
             sql.SQL(
                 "GRANT SELECT, INSERT, UPDATE ON lab.workflow_runs, lab.workflow_nodes TO {}"

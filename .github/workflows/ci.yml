@@ -23,6 +23,7 @@ jobs:
       - run: docker compose run --rm --build db-check
       - run: docker compose run --rm --build workflow-check
       - run: docker compose run --rm --build history-check
+      - run: docker compose run --rm --build failure-check
       - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
       - run: docker compose run --rm infra-check
       - run: docker build -t builder-cup:ci .

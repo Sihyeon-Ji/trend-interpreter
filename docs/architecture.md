@@ -83,6 +83,22 @@ Node snapshots are saved at completion/failure, not streamed during execution. A
 DB write failure can leave a running parent with pending nodes. The UI labels it “Running / unfinished”;
 refresh only reads stored state. Durable checkpoints, automatic recovery and live progress are not implemented.
 
+### Local failure practice
+
+`WorkflowInput.scenario` defaults to `normal`. Non-normal scenarios create a request-local
+`ScenarioProvider` and a settings copy with a one-second timeout and at most two calls. No shared provider
+or configuration is mutated. Timeout uses actual asynchronous waiting, invalid JSON goes through the
+existing output validator, and transient connection errors go through the existing retry policy.
+For branch failure, document inspection waits for extraction to start, then raises a typed error;
+graph cleanup cancels extraction and skips join/routing. No external service is contacted by simulations.
+
+`003_workflow_scenario.sql` adds the scenario column with `normal` for existing rows without removing data.
+The history panel shows scenario expectations and saved scenarios. `failure-check` exercises the real API
+and PostgreSQL; expected HTTP errors count as passing only when saved run/node states match.
+The existing local Mock guard excludes all lab routes from production preview and rejects Cloud Run and
+real-provider configurations. DB write failures remain covered separately by persistence tests; failure
+practice does not interrupt the database or inject faults into other users' requests.
+
 ## Code boundaries
 
 - `schemas.py`: application input/output contracts.
