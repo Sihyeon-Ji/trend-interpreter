@@ -41,6 +41,7 @@ tables through explicit migrations rather than deleting the volume.
 PostgreSQL data is mounted at `/var/lib/postgresql` for the version 18 image. Two other named volumes
 hold independently generated admin/app passwords. Only DB initialization sees the administrator secret.
 The API role can SELECT and INSERT records but cannot create schema objects or delete records.
+It can also SELECT, INSERT and UPDATE workflow history tables, without administrator access.
 
 When explicitly enabled in local mock mode, `POST /api/lab/records` inserts a synthetic record and
 `GET /api/lab/records/{id}` reads it. Synchronous handlers run DB work in FastAPI's thread pool, with
@@ -58,9 +59,29 @@ missing or empty sections produce `needs_revision`, not a factuality judgment.
 The model branch reuses the existing provider, timeout, retry and output-validation contract.
 Document checks run in a worker thread over bounded input. Pending async tasks are canceled on failure;
 a running pure check may finish in its worker thread but has no external side effects.
-Join and routing only run after both branches succeed. Start/completion events contain node metadata
-only and are returned in successful workflow responses; they are not persisted as run history yet.
+Join and routing only run after both branches succeed. Events and node timings contain metadata
+only and are returned in successful workflow responses.
 The function works without PostgreSQL and uses no graph database or additional agent framework.
+
+### Workflow history
+
+When both local labs are enabled, `history.py` wraps graph execution with PostgreSQL persistence.
+`002_workflow_history.sql` additively creates `lab.workflow_runs` and `lab.workflow_nodes` during initialization.
+One transaction inserts a running parent and five pending nodes before execution; another commits their
+final snapshots together. DB calls run in worker threads. A start-write failure prevents model execution;
+a final-write failure returns an error rather than an unrecorded success.
+
+`GET /api/lab/runs` returns the latest 20 runs by default (limit 1–100).
+`GET /api/lab/runs/{id}` reads the parent and nodes in one SQL statement for a consistent snapshot.
+The React history panel uses `/api/capabilities` to hide itself when history is disabled.
+It exposes run status, routing outcome, timing, model/prompt version, attempts, reported tokens and
+allowlisted error codes. Neither source text nor generated output is persisted in these tables.
+Missing provider usage remains null; the UI displays “Not reported”. Reported usage is not a billing total
+and does not include unreported failed attempts. Mock explicitly reports zero tokens.
+
+Node snapshots are saved at completion/failure, not streamed during execution. A hard process stop or final
+DB write failure can leave a running parent with pending nodes. The UI labels it “Running / unfinished”;
+refresh only reads stored state. Durable checkpoints, automatic recovery and live progress are not implemented.
 
 ## Code boundaries
 
@@ -115,4 +136,4 @@ Use billing reports for accounting.
 Persistent domain storage, general schema migrations, durable jobs, scheduler, retrieval, real-time media, and
 human approval policies are not invented ahead of requirements. Long jobs must move to Cloud Run
 Jobs or queued workers with durable state and idempotency; do not launch fire-and-forget tasks inside
-request-scoped FastAPI handlers. PostgreSQL currently stores synthetic lab records only.
+request-scoped FastAPI handlers. PostgreSQL currently stores synthetic lab records and workflow metadata.

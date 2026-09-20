@@ -12,8 +12,8 @@ class Analysis(BaseModel):
 
 
 class Usage(BaseModel):
-    input_tokens: int = 0
-    output_tokens: int = 0
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
 
 
 class AnalyzeResponse(BaseModel):

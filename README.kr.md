@@ -47,6 +47,7 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | 코드 검사·테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` |
 | PostgreSQL 실습 기록 생성·조회 | `docker compose run --rm --build db-check` |
 | 병렬 작업·Join·Router 실습 | `docker compose run --rm --build workflow-check` |
+| 실행·단계별 이력 저장·조회 검사 | `docker compose run --rm --build history-check` |
 | 브라우저 연동 테스트 | `docker compose run --rm --build e2e` |
 | 인프라 설정 로컬 검증 | `docker compose run --rm infra-check` |
 | 배포 형태 미리보기 | `docker compose up -d --build preview` |
@@ -80,18 +81,21 @@ docker compose up -d --build
 `docker compose run --rm db-check`를 실행하면 합성 기록을 하나 생성하고 같은 ID로 조회합니다.
 출력된 `Read again` 명령은 기존 기록만 조회하며, `Open` 주소는 브라우저에서 열 수 있습니다.
 DB 재시작 후 같은 ID·이름·생성 시각이 유지되는지 [실습 기록](docs/ai-lab-plan.md)에서 확인하세요.
-기존 5173 화면은 문서 요약용이며 DB 실습 전용 화면은 아직 없습니다.
+합성 기록은 API로 조회하며, 5173 화면에서는 별도로 그래프 실행 이력을 볼 수 있습니다.
 
 DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 남습니다. 일반 `down`은 보존하지만
 볼륨 삭제 옵션은 실습 기록과 비밀번호를 지웁니다. DB는 호스트 포트를 공개하지 않으며
-앱에는 실습 테이블의 조회·추가 권한만 부여합니다. 배포 미리보기에서는 실습 API가 비활성화됩니다.
+앱에는 합성 기록의 조회·추가 권한과 실행 이력 테이블의 조회·추가·수정 권한을 부여합니다.
+배포 미리보기에서는 실습 API가 비활성화됩니다.
 
 ## 작은 그래프 워크플로우 실습
 
 합성 회의록의 그래프 실습은 `docker compose run --rm workflow-check`로 실행합니다.
 정상·필수 항목 누락·빈 항목의 세 입력에 대해 Mock 결과, 규칙 판단, 노드 실행 순서를 출력합니다.
 `accepted`는 실습의 형식 규칙 통과를 뜻하며 사실성이나 AI 품질 판정이 아닙니다.
-그래프 실행 이력을 DB에 보관하는 기능은 다음 단계입니다. [실습 기록](docs/ai-lab-plan.md)을 참고하세요.
+http://localhost:5173 의 **Workflow history**에서 `Run workflow`를 누르고 실행 항목을 선택하면
+단계별 상태·시간·모델·토큰·오류 코드를 확인할 수 있습니다. 최근 20개를 조회하며 원문과 생성 결과는 저장하지 않습니다.
+이력은 DB에 남지만 중단된 작업을 자동 재개하지는 않습니다. [실습 기록](docs/ai-lab-plan.md)을 참고하세요.
 
 ## 개발 화면과 배포 미리보기의 차이
 

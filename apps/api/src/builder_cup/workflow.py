@@ -1,28 +1,47 @@
 import asyncio
 import logging
 import time
+from dataclasses import dataclass, field
 
 import httpx
 from pydantic import ValidationError
 
 from builder_cup.config import Settings
 from builder_cup.providers import PROMPT_VERSION, Provider, ProviderFailure
-from builder_cup.schemas import Analysis, AnalyzeResponse
+from builder_cup.schemas import Analysis, AnalyzeResponse, Usage
 
 logger = logging.getLogger("builder_cup")
 
 
+@dataclass
+class ModelMetrics:
+    attempts: int = 0
+    usage: Usage = field(default_factory=Usage)
+
+
 async def analyze(
-    text: str, request_id: str, provider: Provider, settings: Settings
+    text: str,
+    request_id: str,
+    provider: Provider,
+    settings: Settings,
+    metrics: ModelMetrics | None = None,
 ) -> AnalyzeResponse:
     start = time.monotonic()
     for attempt in range(1, settings.model_max_attempts + 1):
+        if metrics is not None:
+            metrics.attempts = attempt
         try:
             async with asyncio.timeout(settings.model_timeout_seconds):
                 generation = await provider.generate(text)
+            if metrics is not None:
+                metrics.usage = generation.usage
             result = Analysis.model_validate_json(generation.text)
             cost = None
-            if settings.input_price_per_million or settings.output_price_per_million:
+            if (
+                (settings.input_price_per_million or settings.output_price_per_million)
+                and generation.usage.input_tokens is not None
+                and generation.usage.output_tokens is not None
+            ):
                 cost = (
                     generation.usage.input_tokens * settings.input_price_per_million
                     + generation.usage.output_tokens * settings.output_price_per_million

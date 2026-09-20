@@ -4,9 +4,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from builder_cup.config import Settings
+from builder_cup.graph_trace import GraphTrace, NodeEvent, NodeRecord
 from builder_cup.providers import Provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
-from builder_cup.workflow import analyze
+from builder_cup.workflow import ModelMetrics, analyze
 
 REQUIRED_SECTIONS = ("일정", "준비")
 HEADING_PREFIX = "## "
@@ -18,9 +19,8 @@ class DocumentChecks(BaseModel):
     empty_sections: list[str]
 
 
-class NodeEvent(BaseModel):
-    node: Literal["validate_input", "extract", "inspect_document", "join", "route"]
-    state: Literal["started", "completed"]
+class WorkflowInput(BaseModel):
+    text: str
 
 
 class RoutingDecision(BaseModel):
@@ -36,6 +36,7 @@ class JoinedData(BaseModel):
 class GraphResult(JoinedData):
     decision: RoutingDecision
     events: list[NodeEvent]
+    nodes: list[NodeRecord]
 
 
 def inspect_document(text: str) -> DocumentChecks:
@@ -68,23 +69,29 @@ def route(checks: DocumentChecks) -> RoutingDecision:
 
 
 async def run_graph(
-    text: str, request_id: str, provider: Provider, settings: Settings
+    text: str,
+    request_id: str,
+    provider: Provider,
+    settings: Settings,
+    trace: GraphTrace | None = None,
 ) -> GraphResult:
-    events = [NodeEvent(node="validate_input", state="started")]
-    validated = AnalyzeRequest(text=text)
-    events.append(NodeEvent(node="validate_input", state="completed"))
+    trace = trace or GraphTrace()
+    with trace.step("validate_input"):
+        validated = AnalyzeRequest(text=text)
 
     async def extract() -> AnalyzeResponse:
-        events.append(NodeEvent(node="extract", state="started"))
-        result = await analyze(validated.text, request_id, provider, settings)
-        events.append(NodeEvent(node="extract", state="completed"))
-        return result
+        with trace.step("extract") as record:
+            metrics = ModelMetrics()
+            try:
+                return await analyze(validated.text, request_id, provider, settings, metrics)
+            finally:
+                record.attempts = metrics.attempts
+                record.input_tokens = metrics.usage.input_tokens
+                record.output_tokens = metrics.usage.output_tokens
 
     async def inspect() -> DocumentChecks:
-        events.append(NodeEvent(node="inspect_document", state="started"))
-        result = await asyncio.to_thread(inspect_document, validated.text)
-        events.append(NodeEvent(node="inspect_document", state="completed"))
-        return result
+        with trace.step("inspect_document"):
+            return await asyncio.to_thread(inspect_document, validated.text)
 
     extraction = asyncio.create_task(extract())
     inspection = asyncio.create_task(inspect())
@@ -96,18 +103,14 @@ async def run_graph(
                 task.cancel()
         await asyncio.gather(extraction, inspection, return_exceptions=True)
 
-    events.append(NodeEvent(node="join", state="started"))
-    joined = JoinedData(
-        analysis=analysis_result,
-        document_checks=document_checks,
-    )
-    events.append(NodeEvent(node="join", state="completed"))
-    events.append(NodeEvent(node="route", state="started"))
-    decision = route(joined.document_checks)
-    events.append(NodeEvent(node="route", state="completed"))
+    with trace.step("join"):
+        joined = JoinedData(analysis=analysis_result, document_checks=document_checks)
+    with trace.step("route"):
+        decision = route(joined.document_checks)
     return GraphResult(
         analysis=joined.analysis,
         document_checks=joined.document_checks,
         decision=decision,
-        events=events,
+        events=trace.events,
+        nodes=list(trace.nodes.values()),
     )

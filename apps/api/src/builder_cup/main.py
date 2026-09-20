@@ -7,14 +7,15 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 
-from builder_cup import database
+from builder_cup import database, history
 from builder_cup.config import Settings
-from builder_cup.graph_lab import GraphResult, run_graph
+from builder_cup.graph_lab import GraphResult, WorkflowInput, run_graph
 from builder_cup.providers import Provider, ProviderFailure, create_provider
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
 from builder_cup.workflow import analyze
@@ -125,6 +126,10 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
     async def health():
         return {"status": "ok", "provider": config.model_provider}
 
+    @app.get("/api/capabilities")
+    async def capabilities():
+        return {"workflow_history": config.workflow_lab_enabled and config.database_lab_enabled}
+
     @app.post("/api/analyze", response_model=AnalyzeResponse)
     async def analyze_text(body: AnalyzeRequest, request: Request):
         expected = f"Bearer {config.demo_api_key}"
@@ -165,10 +170,32 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
     if config.workflow_lab_enabled:
 
         @app.post("/api/lab/workflow", response_model=GraphResult)
-        async def workflow_lab(body: AnalyzeRequest, request: Request):
-            return await run_graph(
-                body.text, request.state.request_id, request.app.state.provider, config
-            )
+        async def workflow_lab(body: WorkflowInput, request: Request):
+            runner = history.run_with_history if config.database_lab_enabled else run_graph
+            try:
+                return await runner(
+                    body.text, request.state.request_id, request.app.state.provider, config
+                )
+            except ValidationError:
+                return JSONResponse(
+                    status_code=422,
+                    content={
+                        "error": {"code": "invalid_input", "request_id": request.state.request_id}
+                    },
+                )
+
+        if config.database_lab_enabled:
+
+            @app.get("/api/lab/runs", response_model=list[history.WorkflowRun])
+            def workflow_runs(limit: int = Query(default=20, ge=1, le=100)):
+                return history.list_runs(config, limit)
+
+            @app.get("/api/lab/runs/{run_id}", response_model=history.RunDetail)
+            def workflow_run(run_id: uuid.UUID):
+                run = history.read_run(config, run_id)
+                if run is None:
+                    raise HTTPException(status_code=404, detail="Workflow run not found")
+                return run
 
     # Keep unknown API routes from falling through to the static site.
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

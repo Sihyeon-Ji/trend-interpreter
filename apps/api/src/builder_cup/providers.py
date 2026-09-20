@@ -44,7 +44,7 @@ class MockProvider:
     async def generate(self, text: str) -> Generation:
         return Generation(
             text=json.dumps({"summary": text[:500], "key_points": [text[:200]]}),
-            usage=Usage(),
+            usage=Usage(input_tokens=0, output_tokens=0),
         )
 
     async def close(self) -> None:
@@ -85,12 +85,12 @@ class GeminiProvider:
         return Generation(
             text=response.text or "",
             usage=Usage(
-                input_tokens=(usage.prompt_token_count or 0) if usage else 0,
+                input_tokens=usage.prompt_token_count if usage else None,
                 output_tokens=(
                     (usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0)
                 )
-                if usage
-                else 0,
+                if usage and usage.candidates_token_count is not None
+                else None,
             ),
         )
 
@@ -135,8 +135,8 @@ class VllmProvider:
             return Generation(
                 text=data["choices"][0]["message"]["content"],
                 usage=Usage(
-                    input_tokens=usage.get("prompt_tokens", 0),
-                    output_tokens=usage.get("completion_tokens", 0),
+                    input_tokens=usage.get("prompt_tokens"),
+                    output_tokens=usage.get("completion_tokens"),
                 ),
             )
         except (KeyError, IndexError, TypeError, ValueError) as exc:

@@ -78,7 +78,8 @@ def test_timeout_is_bounded_and_reported():
         assert response.json()["error"]["code"] == "model_timeout"
 
 
-async def test_vllm_contract_and_usage():
+@pytest.mark.parametrize("usage", [{"prompt_tokens": 10, "completion_tokens": 5}, {}, None])
+async def test_vllm_contract_and_usage(usage):
     def handler(request):
         assert request.url.path == "/v1/chat/completions"
         assert request.headers["Authorization"] == "Bearer local-development-only"
@@ -86,7 +87,7 @@ async def test_vllm_contract_and_usage():
             200,
             json={
                 "choices": [{"message": {"content": '{"summary":"Hi","key_points":["Hi"]}'}}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "usage": usage,
             },
         )
 
@@ -98,8 +99,12 @@ async def test_vllm_contract_and_usage():
         headers={"Authorization": "Bearer local-development-only"},
     )
     result = await analyze("Hi", "test", provider, settings(input_price_per_million=1))
-    assert result.usage.input_tokens == 10
-    assert result.estimated_cost_usd == pytest.approx(0.00001)
+    assert result.usage.input_tokens == (10 if usage else None)
+    assert result.usage.output_tokens == (5 if usage else None)
+    if usage:
+        assert result.estimated_cost_usd == pytest.approx(0.00001)
+    else:
+        assert result.estimated_cost_usd is None
     await provider.close()
 
 
@@ -109,7 +114,8 @@ def test_cloud_run_requires_access_code(monkeypatch):
         create_app(settings())
 
 
-async def test_gemini_sdk_contract_and_thinking_usage():
+@pytest.mark.parametrize("has_usage", [True, False])
+async def test_gemini_sdk_contract_and_thinking_usage(has_usage):
     def handler(request):
         assert "publishers/google/models/gemini-3.5-flash:generateContent" in request.url.path
         return httpx.Response(
@@ -128,7 +134,9 @@ async def test_gemini_sdk_contract_and_thinking_usage():
                     "promptTokenCount": 12,
                     "candidatesTokenCount": 8,
                     "thoughtsTokenCount": 3,
-                },
+                }
+                if has_usage
+                else None,
             },
         )
 
@@ -146,7 +154,7 @@ async def test_gemini_sdk_contract_and_thinking_usage():
     try:
         result = await analyze("Hello", "sdk-test", provider, settings())
         assert result.result.summary == "Hello"
-        assert result.usage.input_tokens == 12
-        assert result.usage.output_tokens == 11
+        assert result.usage.input_tokens == (12 if has_usage else None)
+        assert result.usage.output_tokens == (11 if has_usage else None)
     finally:
         await provider.close()

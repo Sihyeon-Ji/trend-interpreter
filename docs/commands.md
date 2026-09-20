@@ -43,6 +43,7 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 | 코드 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
 | PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
 | 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |
+| 실행 이력 저장·조회 검사 | `docker compose run --rm --build history-check` | 성공·실패 실행과 단계별 메타데이터 확인 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -112,7 +113,42 @@ docker compose run --rm workflow-check
 직접 다른 문장을 보내려면 http://localhost:8000/docs 에서 `POST /api/lab/workflow`를 사용하세요.
 `text`에는 `## 일정`, `## 준비`라는 제목과 각 제목 아래 내용이 있어야 형식 검사를 통과합니다.
 일반 Markdown 전체를 파싱하거나 내용의 사실성을 판단하는 규칙은 아닙니다.
-현재는 실행 결과를 API 응답과 터미널에서 확인하고, DB 저장은 다음 단계에서 추가합니다.
+기본 개발 환경에서는 실행·단계별 메타데이터를 DB에도 저장합니다.
+
+## 실행 이력 조회
+
+1. `docker compose up -d --build --wait`로 개발 환경을 켭니다.
+2. http://localhost:5173 에서 **Workflow history**로 내려갑니다.
+3. 합성 문서를 그대로 두고 **Run workflow**를 누릅니다.
+4. 최근 실행 목록에서 항목을 선택해 시간·모델·토큰·오류 코드와 5개 단계의 상태를 확인합니다.
+5. 다른 터미널에서 실행했다면 **Refresh history**로 목록과 선택한 상세를 갱신합니다.
+
+작은 화면에서는 단계별 표를 가로로 스크롤하세요. 목록은 최근 20개이며 실행 이력만으로
+입력이나 생성 결과를 복원할 수는 없습니다. 두 텍스트 모두 이력 DB에 저장하지 않습니다.
+
+| 표시 | 의미 |
+| --- | --- |
+| `completed` + `accepted` | 모든 단계 완료, 문서 형식 규칙 통과 |
+| `completed` + `needs_revision` | 실행은 완료했지만 필수 제목·내용 보완 필요 |
+| `failed` / `cancelled` | 실행 실패 / 비동기 작업 취소 |
+| `skipped` | 앞 단계 실패 등으로 실행하지 않은 노드 |
+| `Running / unfinished` | 실행 중이거나 종료 기록을 남기지 못한 실행 |
+| `Not reported` | 공급자가 토큰 수를 제공하지 않음. Mock은 명시적으로 0을 기록 |
+
+노드 정보는 실행 종료 시 한 번에 저장합니다. 실시간 진행 화면이 아니며 강제 종료나 DB 기록 실패로
+미완료 상태가 남을 수 있습니다. **Refresh history는 자동 재개 명령이 아닙니다.**
+`Attempts`는 모델 호출 시도 횟수입니다. 토큰 수는 공급자가 보고한 응답 기준이며 미보고 실패 호출까지 합산한 청구량이 아닙니다.
+
+터미널에서 성공·실패 저장과 원문 미포함을 자동 확인하려면 다음을 실행합니다.
+
+```bash
+docker compose run --rm --build history-check
+```
+
+출력된 기존 실행 ID를 조회하려면 `history-check` 뒤에 해당 UUID를 붙입니다. 이 경우 새 실행을 만들지 않습니다.
+DB 재시작 전후 같은 ID의 상태·시각·노드 정보가 유지되는지 비교할 수 있습니다.
+일반 `docker compose down`은 이력을 보존하지만 볼륨 삭제는 데이터를 지웁니다.
+API는 `GET /api/lab/runs`와 `GET /api/lab/runs/{id}`이며 http://localhost:8000/docs 에서 사용할 수 있습니다.
 
 ## 패키지 추가·제거·업데이트
 

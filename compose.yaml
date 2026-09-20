@@ -163,6 +163,16 @@ services:
       api:
         condition: service_healthy
 
+  # Verify persisted metadata, or supply an existing run ID to read it again.
+  history-check:
+    <<: *development
+    profiles: [tools]
+    entrypoint: [python, scripts/history_lab.py]
+    command: []
+    depends_on:
+      api:
+        condition: service_healthy
+
   # Dependency tools write manifests and lockfiles back to the checkout without installing locally.
   npm:
     profiles: [tools]

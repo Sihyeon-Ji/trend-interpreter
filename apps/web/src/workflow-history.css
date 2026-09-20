@@ -1,0 +1,26 @@
+.workflow-history{margin-top:48px;padding-top:32px;border-top:1px solid #d8dfd5}
+.history-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.history-heading h2{font-size:26px;margin:4px 0 8px}
+.history-heading .eyebrow{margin:0}
+.workflow-form{border:1px solid #d8dfd5;border-radius:12px;background:#fff;margin:24px 0}
+.workflow-form textarea{min-height:155px}
+.history-note{font-size:12px;color:#566b60;overflow-wrap:anywhere}
+.history-grid{display:grid;grid-template-columns:minmax(200px,270px) minmax(0,1fr);gap:24px;align-items:start}
+.history-grid h3{font-size:16px;margin:0 0 14px}
+.run-list{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.run-list button{display:grid;gap:5px;width:100%;padding:14px;text-align:left;background:#fff;color:#18352d;border:1px solid #d8dfd5}
+.run-list button[aria-pressed=true]{border:2px solid #214d3e;padding:13px;background:#edf2e9}
+.run-list time,.run-list code{font-size:11px;overflow-wrap:anywhere}
+.run-status{font-size:12px;font-weight:700;text-transform:capitalize}
+[data-status=failed]{color:#9c2c24}
+[data-status=cancelled],[data-status=skipped]{color:#66796f}
+[data-status=running]{color:#805b0e}
+.run-detail{min-width:0;padding:24px;background:#fff;border:1px solid #d8dfd5;border-radius:12px;overflow-wrap:anywhere}
+.run-detail dl{font-size:13px;grid-template-columns:110px minmax(0,1fr);margin-bottom:26px}
+.node-table-scroll{max-width:100%;overflow:auto;border:1px solid #d8dfd5;border-radius:7px}
+.node-table-scroll:focus-visible{outline:3px solid #98be56;outline-offset:3px}
+.node-table{width:100%;min-width:900px;border-collapse:collapse;font-size:12px;text-align:left}
+.node-table th,.node-table td{padding:10px 12px;border-bottom:1px solid #e3e8df;vertical-align:top}
+.node-table thead{background:#edf2e9}
+.node-table tbody tr:last-child>*{border-bottom:0}
+@media(max-width:720px){.history-grid{grid-template-columns:1fr}.history-heading{align-items:flex-start}.history-heading button{font-size:12px;padding:10px 12px}.run-detail{padding:18px}.run-list{max-height:330px;overflow:auto}.run-detail dl{grid-template-columns:95px minmax(0,1fr)}}

@@ -1,6 +1,7 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { FormEvent } from 'react'
+import WorkflowHistory from './WorkflowHistory'
 import './style.css'
 
 interface AnalysisResponse {
@@ -11,7 +12,7 @@ interface AnalysisResponse {
   result: { summary: string; key_points: string[] }
   duration_ms: number
   attempts: number
-  usage: { input_tokens: number; output_tokens: number }
+  usage: { input_tokens: number | null; output_tokens: number | null }
   estimated_cost_usd: number | null
 }
 
@@ -88,7 +89,7 @@ function App() {
           <details><summary>Run details</summary><dl>
             <dt>Model</dt><dd>{result.model}</dd>
             <dt>Time</dt><dd>{result.duration_ms} ms</dd>
-            <dt>Tokens in / out</dt><dd>{result.usage.input_tokens} / {result.usage.output_tokens}</dd>
+            <dt>Tokens in / out</dt><dd>{result.usage.input_tokens ?? 'Not reported'} / {result.usage.output_tokens ?? 'Not reported'}</dd>
             <dt>Attempts</dt><dd>{result.attempts}</dd>
             <dt>Estimated cost</dt><dd>{result.estimated_cost_usd === null ? 'Pricing not configured' : `$${result.estimated_cost_usd.toFixed(6)}`}</dd>
             <dt>Request</dt><dd>{result.request_id}</dd>
@@ -96,6 +97,7 @@ function App() {
         </> : <p className="placeholder">{busy ? 'Reading your text…' : 'Your summary will appear here.'}</p>}
       </section>
     </div>
+    <WorkflowHistory />
     <footer>Built together. One useful idea at a time.</footer>
   </main>
 }
