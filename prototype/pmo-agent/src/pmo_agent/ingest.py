@@ -22,7 +22,7 @@ import sys
 from pmo_agent import llm, schedule
 
 MAX_BYTES = 15 * 1024 * 1024  # inline attachment ceiling (past this you need the Files API)
-MIME = {
+SEEN = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -32,6 +32,19 @@ MIME = {
     ".heif": "image/heif",
     ".pdf": "application/pdf",
 }
+# A recording of the meeting, rather than somebody's notes from it. The model takes audio
+# natively, so the path is the same one photos already use — what is different is that
+# nobody can check it at a glance, so a transcript has to come back with the claims.
+HEARD = {
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".flac": "audio/flac",
+    ".aac": "audio/aac",
+    ".webm": "audio/webm",
+}
+MIME = {**SEEN, **HEARD}
 
 EXTRACT_SYSTEM = """You read meeting notes and handwritten notes and extract project changes. Rules:
 1) Extract only what is written. Do not guess or fill in. If something is unreadable, write what you
@@ -42,7 +55,10 @@ can read and lower the confidence.
    title text). Never invent a key.
 4) Do not compute schedules. How many days something slips, or what is on the
    critical path, is not your job.
-5) Anything that needs checking with an owner goes in question."""
+5) Anything that needs checking with an owner goes in question.
+6) If you are given audio, write down what was actually said in transcript, in the language
+   it was spoken. Mark anything you could not make out as [unclear] rather than guessing at
+   it, and lower the confidence of any update that rests on an unclear stretch."""
 
 SCHEMA = {
     "type": "object",
@@ -74,6 +90,10 @@ SCHEMA = {
             "items": {"type": "string"},
             "description": "questions to put to a person",
         },
+        "transcript": {
+            "type": "string",
+            "description": "what was said, for audio. Empty for text and images",
+        },
     },
     "required": ["updates"],
 }
@@ -103,16 +123,32 @@ def attach(path: str) -> dict:
         }
 
 
+def is_audio(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in HEARD
+
+
 def build_parts(text: str = "", images=(), today: dt.date | None = None, keys=()) -> list:
-    """The parts to send. Real task keys go along too, to cut down on invention."""
+    """The parts to send. Real task keys go along too, to cut down on invention.
+
+    `images` is any attachment — a photo, a PDF or a recording. They are named separately
+    in the prompt because reading and listening ask for different care: a blurred word is
+    visibly blurred, a misheard one is not.
+    """
     today = today or dt.date.today()
     head = [f"Today is {today.isoformat()}."]
     if keys:
         head.append("Task keys that really exist in this project: " + ", ".join(sorted(keys)[:200]))
     if text:
         head.append("Note:\n" + text)
-    if images:
-        head.append(f"Also take in what can be read from the {len(images)} attached image(s).")
+    seen = [p for p in images if not is_audio(p)]
+    heard = [p for p in images if is_audio(p)]
+    if seen:
+        head.append(f"Also take in what can be read from the {len(seen)} attached image(s).")
+    if heard:
+        head.append(
+            f"Also listen to the {len(heard)} attached recording(s). Write what was said in "
+            f"transcript, and mark anything you could not make out as [unclear]."
+        )
     return [{"text": "\n\n".join(head)}] + [attach(p) for p in images]
 
 
@@ -159,6 +195,9 @@ def parse(resp: dict) -> dict:
         "updates": list(data.get("updates") or []),
         "notes": list(data.get("notes") or []),
         "questions": list(data.get("questions") or []),
+        # For a recording this is the only thing a person can check the claims against.
+        # A photo can be squinted at; nobody re-listens to thirty minutes to audit a date.
+        "transcript": str(data.get("transcript") or ""),
     }
 
 
@@ -191,11 +230,19 @@ def resolve(name: str, tasks: dict) -> tuple:
     return None, f"no task matches '{s}'"
 
 
+UNCLEAR = "[unclear]"
+HEARD_FLOOR = 0.7  # a claim read off a recording has to be this sure to be a proposal
+
+
 def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int = 400) -> dict:
     """Model output → changes that can be applied (resolved) / things to ask about (unresolved).
     Only passes what names a real task, with an ISO date in a sensible range."""
     resolved, unresolved = [], []
     questions = list(extraction.get("questions") or [])
+    # A recording nobody could fully make out is a different kind of evidence from a clear
+    # one, and the difference is invisible downstream: both arrive as the same tidy JSON.
+    # A photo can be squinted at; nobody re-listens to thirty minutes to audit a date.
+    muddy = UNCLEAR in (extraction.get("transcript") or "").lower()
     for u in extraction.get("updates") or []:
         key, why = resolve(str(u.get("task") or ""), tasks)
         if not key:
@@ -230,6 +277,14 @@ def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int 
         if len(item) <= 4:  # key/summary/assignee/confidence only = nothing actually changes
             unresolved.append({"said": u.get("task"), "reason": "nothing to change", "raw": u})
             continue
+        if muddy and item["confidence"] < HEARD_FLOOR:
+            questions.append(
+                f"{key}: parts of the recording were unclear and this was read at "
+                f"{item['confidence']:.2f}. Check it before applying."
+            )
+            item["heard_poorly"] = True
+            unresolved.append({"said": u.get("task"), "reason": "unclear audio", "raw": u})
+            continue
         resolved.append(item)
     for r in unresolved:
         questions.append(f"{r['reason']} — from: '{r['said']}'. Which task is meant?")
@@ -238,6 +293,7 @@ def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int 
         "unresolved": unresolved,
         "notes": list(extraction.get("notes") or []),
         "questions": questions,
+        "transcript": extraction.get("transcript") or "",
     }
 
 

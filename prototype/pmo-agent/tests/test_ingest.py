@@ -12,6 +12,8 @@ import os
 import tempfile
 import unittest
 
+import pytest
+
 from pmo_agent import ingest, schedule  # noqa: E402
 from pmo_agent.schedule import to_tasks  # noqa: E402
 
@@ -349,3 +351,99 @@ class TestIngest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestListeningToARecording:
+    """Audio is the same path as a photo, with one difference that matters.
+
+    A blurred word is visibly blurred — a person looking at the photo sees what the model
+    was up against. A misheard word is not: the claim arrives as the same tidy JSON either
+    way, and nobody re-listens to thirty minutes to audit a date. So a recording has to
+    bring its transcript back, and a claim resting on a stretch nobody could make out has
+    to be demoted rather than applied.
+    """
+
+    def heard(self, transcript, updates, **kw):
+        return ingest.validate(
+            {"updates": updates, "notes": [], "questions": [], "transcript": transcript},
+            tasks(),
+            TODAY,
+            **kw,
+        )
+
+    def test_the_usual_audio_formats_are_accepted(self):
+        for ext in (".m4a", ".mp3", ".wav", ".ogg", ".flac", ".aac", ".webm"):
+            assert ingest.mime_of("meeting" + ext).startswith("audio/"), ext
+
+    def test_a_format_nobody_asked_for_is_still_refused(self):
+        with pytest.raises(ValueError):
+            ingest.mime_of("meeting.mov")
+
+    def test_it_knows_which_attachments_are_recordings(self):
+        assert ingest.is_audio("a.m4a") and not ingest.is_audio("a.png")
+
+    def test_the_prompt_asks_for_a_transcript_only_when_there_is_audio(self, tmp_path):
+        rec = tmp_path / "standup.m4a"
+        rec.write_bytes(b"not really audio, but it has the extension")
+        pic = tmp_path / "note.png"
+        pic.write_bytes(b"not really a png either")
+
+        with_audio = ingest.build_parts("", [str(rec)], TODAY)[0]["text"]
+        with_image = ingest.build_parts("", [str(pic)], TODAY)[0]["text"]
+        assert "transcript" in with_audio and "listen" in with_audio
+        assert "transcript" not in with_image
+
+    def test_both_kinds_can_go_in_one_call(self, tmp_path):
+        rec = tmp_path / "standup.m4a"
+        rec.write_bytes(b"x")
+        pic = tmp_path / "note.png"
+        pic.write_bytes(b"y")
+        head = ingest.build_parts("", [str(rec), str(pic)], TODAY)[0]["text"]
+        assert "1 attached image" in head and "1 attached recording" in head
+
+    def test_the_transcript_comes_back_with_the_claims(self):
+        # The only thing a person can check a recording's claims against
+        said = "Ada: authentication moves to the 28th."
+        got = self.heard(said, [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.9}])
+        assert got["transcript"] == said
+        assert got["resolved"][0]["duedate"] == "2026-09-28"
+
+    def test_a_clear_recording_still_produces_proposals(self):
+        got = self.heard(
+            "Ada: authentication moves to the 28th.",
+            [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.75}],
+        )
+        assert len(got["resolved"]) == 1 and not got["unresolved"]
+
+    def test_an_unsure_claim_from_a_muddy_recording_becomes_a_question(self):
+        got = self.heard(
+            "Ada: authentication moves to the [unclear].",
+            [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.4}],
+        )
+        assert got["resolved"] == []
+        assert any("unclear" in q for q in got["questions"])
+        assert got["unresolved"][0]["reason"] == "unclear audio"
+
+    def test_a_sure_claim_survives_a_recording_that_was_muddy_elsewhere(self):
+        # One lost word must not throw away everything else that was said plainly
+        got = self.heard(
+            "Ada: the [unclear] is fine. Authentication moves to the 28th.",
+            [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.95}],
+        )
+        assert len(got["resolved"]) == 1
+
+    def test_an_unsure_claim_from_a_clear_recording_is_not_demoted(self):
+        # The floor is about audio nobody could make out, not about low confidence per se
+        got = self.heard(
+            "Ada: authentication moves to the 28th.",
+            [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.3}],
+        )
+        assert len(got["resolved"]) == 1
+
+    def test_text_and_photos_are_untouched_by_any_of_this(self):
+        got = ingest.validate(
+            {"updates": [{"task": "ECHO-1", "duedate": "2026-09-28", "confidence": 0.2}]},
+            tasks(),
+            TODAY,
+        )
+        assert len(got["resolved"]) == 1 and got["transcript"] == ""

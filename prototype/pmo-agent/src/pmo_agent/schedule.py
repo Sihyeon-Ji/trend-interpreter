@@ -94,6 +94,10 @@ class Task:
     summary: str = ""
     status: str = ""
     assignee: str = ""
+    # Which team the owner is on, when the board says. Empty is normal and means
+    # "not recorded", never "no team" — so nothing may treat it as a grouping key on
+    # its own.
+    team: str = ""
     duedate: _dt.date | None = None
     points: float | None = None
     deps: list = field(default_factory=list)  # keys that must finish before this can start
@@ -127,6 +131,7 @@ def to_tasks(rows) -> dict:
             summary=r.get("summary", "") or "",
             status=r.get("status", "") or "",
             assignee=r.get("assignee", "") or "",
+            team=r.get("team", "") or "",
             duedate=parse_date(r.get("duedate")),
             points=r.get("points"),
             deps=list(r.get("deps") or []),
@@ -144,6 +149,17 @@ def owner_tag(name: str) -> str:
     """A name → the label that carries it. Jira labels cannot contain spaces, so they
     become underscores; owner_label() puts them back."""
     return f"{OWNER_PREFIX}{(name or '').strip().replace(' ', '_')}"
+
+
+TEAM_PREFIX = "team-"
+
+
+def team_label(fields: dict) -> str:
+    """The owner's team, when the board carries one. Empty when it does not."""
+    for label in fields.get("labels") or []:
+        if label.startswith(TEAM_PREFIX):
+            return label[len(TEAM_PREFIX) :].replace("_", " ")
+    return ""
 
 
 def owner_label(fields: dict) -> str:
@@ -169,6 +185,7 @@ def from_jira_issues(issues) -> dict:
             "summary": f.get("summary", ""),
             "status": ((f.get("status") or {}).get("name") or ""),
             "assignee": ((f.get("assignee") or {}) or {}).get("displayName") or owner_label(f),
+            "team": team_label(f),
             "duedate": f.get("duedate"),
             "points": f.get("customfield_10016"),
             "deps": [],

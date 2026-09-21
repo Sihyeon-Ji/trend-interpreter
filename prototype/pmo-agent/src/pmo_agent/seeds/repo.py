@@ -26,8 +26,8 @@ from pmo_agent.adapters.memory_repo import STORE
 from pmo_agent.seeds import world as world_mod
 
 REPO = "echo-team/echo-app"
-LOGIN = {name: login for name, login, _email in world_mod.PEOPLE}
-EMAIL = {name: email for name, _login, email in world_mod.PEOPLE}
+LOGIN = {p[0]: p[1] for p in world_mod.PEOPLE}
+EMAIL = {p[0]: p[2] for p in world_mod.PEOPLE}
 
 
 def build(today: dt.date | None = None, seed_value: int = 20260922) -> dict:

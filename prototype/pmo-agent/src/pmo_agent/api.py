@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from pmo_agent import approve as approve_mod  # noqa: E402
-from pmo_agent import capacity, i18n, ingest, report, schedule, signals, tools
+from pmo_agent import capacity, i18n, ingest, projects, report, schedule, signals, tools
 from pmo_agent.llm import LLMError  # noqa: E402
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -39,8 +39,11 @@ app = FastAPI(
 )
 
 
-def _tasks():
-    t = tools._fetch()
+def _tasks(project: str = ""):
+    try:
+        t = tools._fetch(project=project)
+    except KeyError as e:  # a project key nobody watches; say so rather than answer about another
+        raise HTTPException(404, str(e)) from None
     if not t:
         raise HTTPException(503, "no tasks on the board. Generate the seed first (seeds/).")
     return t
@@ -88,8 +91,41 @@ SOURCES = (
 )
 
 
+@app.get("/api/projects")
+def api_projects():
+    """Every project this agent watches, and what kind of work each one is.
+
+    The kind is not decoration. A delivery project is asked "when does it finish"; work
+    that runs has no finish and the question is whether it is healthy, so the same
+    calculation underneath has to surface different numbers.
+    """
+    return {"projects": projects.summary(), "default": projects.default().key}
+
+
+@app.get("/api/rollup")
+def api_rollup(today: str = "", lang: str = ""):
+    """Every project on one line, worst first. The screen for somebody who will not open five.
+
+    No new calculation — the same answers the per-project views give, arranged. The
+    unexplained part rides along on each row rather than being folded away: a tidy number
+    is what gets asked for at this altitude, and it is exactly what would make the rest
+    look surer than it is.
+    """
+    return i18n.apply(tools.rollup_projects(today=today), "rollup", lang)
+
+
+@app.get("/api/health")
+def api_health(today: str = "", project: str = "", days: int = 0, lang: str = ""):
+    """How an operations project is doing. No finish date, because a queue does not finish."""
+    try:
+        found = tools.project_health(today=today, project=project, days=days)
+        return i18n.apply(found, "health", lang)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from None
+
+
 @app.get("/api/sources")
-def api_sources(lang: str = ""):
+def api_sources(lang: str = "", project: str = ""):
     """The four tools behind every answer: which is connected, and which one can write.
 
     No network calls. Asking each service to prove itself would make the page slow and
@@ -97,10 +133,10 @@ def api_sources(lang: str = ""):
     says what is *configured*, which is a different and honestly smaller claim.
     """
     build = {
-        "board": lambda: tools.jira(),
-        "repo": lambda: tools.repo(),
+        "board": lambda: tools.jira(project),
+        "repo": lambda: tools.repo(project),
         "calendar": lambda: tools.calendar(),
-        "notes": lambda: tools.notes(),
+        "notes": lambda: tools.notes(project),
     }
     out = []
     for role, label, supplies, writes in SOURCES:
@@ -144,15 +180,15 @@ def _identity(adapter, role: str) -> str:
 
 
 @app.get("/api/schedule")
-def api_schedule(today: str = "", lang: str = ""):
+def api_schedule(today: str = "", lang: str = "", project: str = ""):
     """The dependency-only schedule — critical path, tasks at risk, and the evidence."""
-    return i18n.apply(schedule.summary(_tasks(), _today(today)), "schedule", lang)
+    return i18n.apply(schedule.summary(_tasks(project), _today(today)), "schedule", lang)
 
 
 @app.get("/api/capacity")
-def api_capacity(today: str = ""):
+def api_capacity(today: str = "", project: str = ""):
     """The achievable schedule with capacity applied: the bottleneck and who is waiting."""
-    return capacity.summary(_tasks(), _today(today), availability=tools._availability())
+    return capacity.summary(_tasks(project), _today(today), availability=tools._availability())
 
 
 @app.get("/api/rebalance")
@@ -185,10 +221,12 @@ def api_calendar(days: int = 10):
 
 
 @app.get("/api/signals")
-def api_signals(today: str = "", days: int = 14, lang: str = ""):
+def api_signals(today: str = "", days: int = 14, lang: str = "", project: str = ""):
     """The board against real code activity — the divergence neither side shows alone."""
     try:
-        found = signals.summary(_tasks(), tools._snapshot(100), _today(today), days=days)
+        found = signals.summary(
+            _tasks(project), tools._snapshot(100, project=project), _today(today), days=days
+        )
         return i18n.apply(found, "signals", lang)
     except HTTPException:
         raise
@@ -197,14 +235,14 @@ def api_signals(today: str = "", days: int = 14, lang: str = ""):
 
 
 @app.get("/api/cause")
-def api_cause(key: str = "", today: str = "", lang: str = ""):
+def api_cause(key: str = "", today: str = "", lang: str = "", project: str = ""):
     """Why a task stopped. Empty key returns whatever has been silent longest.
 
     This is the only endpoint that needs all three tools at once, which is the point:
     the board knows the status, the repository knows the silence, and only the calendar
     knows where that time went.
     """
-    out = tools.explain_stall(key=key, today=today)
+    out = tools.explain_stall(key=key, today=today, project=project)
     if "error" in out:
         raise HTTPException(502 if "repository" in out["error"] else 404, out["error"])
     return i18n.apply(out, "cause", lang)
@@ -243,7 +281,7 @@ def api_report(today: str = "", rebalance: bool = True):
 async def api_ingest(
     text: str = Form(""), today: str = Form(""), image: UploadFile | None = UPLOAD
 ):
-    """Read note text and photos and build proposals. Nothing is applied (applied=false)."""
+    """Read note text, photos and recordings, and build proposals. Nothing is applied."""
     paths, tmp = [], None
     if image is not None and image.filename:
         raw = await image.read()

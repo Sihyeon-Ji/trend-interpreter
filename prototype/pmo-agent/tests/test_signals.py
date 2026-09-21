@@ -340,8 +340,16 @@ class TestSeededRepo(unittest.TestCase):
         )
 
     def test_only_fictional_people_appear(self):
+        """No real person, ever. Not everybody commits, so this is containment.
+
+        The invariant that matters is that nothing outside the invented cast turns up —
+        equality would also fail the day somebody on the bench happens not to commit.
+        """
         authors = {c["author"] for c in self.data["commits"]}
-        self.assertEqual(authors, set(seed_repo.LOGIN.values()))
+        self.assertTrue(
+            authors <= set(seed_repo.LOGIN.values()), authors - set(seed_repo.LOGIN.values())
+        )
+        self.assertTrue(authors, "the repository has no authors at all")
 
     def test_it_serialises_to_json(self):
         json.dumps(self.summary, ensure_ascii=False)

@@ -25,7 +25,7 @@ from pmo_agent import schedule
 from pmo_agent.adapters.memory import STORE
 from pmo_agent.seeds import world as world_mod
 
-PEOPLE = [name for name, _login, _email in world_mod.PEOPLE]  # fictional people
+PEOPLE = [p[0] for p in world_mod.PEOPLE]  # fictional people, across three teams
 PHASES = world_mod.PHASES
 
 

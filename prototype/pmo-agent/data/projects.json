@@ -1,0 +1,17 @@
+{
+  "projects": [
+    {
+      "key": "ECHO",
+      "name": "Echo PMO",
+      "kind": "build",
+      "repo": "onzl-c/echo-app",
+      "tags": ["delivery"]
+    },
+    {
+      "key": "OPS",
+      "name": "Platform operations",
+      "kind": "run",
+      "tags": ["support"]
+    }
+  ]
+}

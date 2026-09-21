@@ -170,6 +170,63 @@ AGENT = {
 }
 
 
+# --------------------------------------------------------------------- roll-up
+KIND_OF_WORK = {"build": "개발", "run": "운영"}
+HEADLINE = {
+    "achievable finish": "달성 가능 종료",
+    "open now": "미해결",
+    "could not read": "읽지 못함",
+}
+STATE = {"risk": "위험", "watch": "주의", "ok": "양호", "unknown": "모름"}
+
+
+def rollup_note(payload: dict) -> str:
+    """The one sentence over the roll-up. Built from the counts, not translated."""
+    rows = payload.get("projects") or []
+    if not rows:
+        return "설정된 프로젝트가 없습니다."
+    counts = payload.get("counts") or {}
+    if counts.get("risk"):
+        worst: dict = next((r for r in rows if r.get("state") == "risk"), {})
+        why = worst.get("why") or "설명이 없습니다"
+        return (
+            f"{len(rows)}개 중 {counts['risk']}개가 손을 써야 합니다. "
+            f"가장 나쁜 건 {worst.get('name', '')} — {why}"
+        )
+    if counts.get("watch"):
+        return f"문제 있는 건 없습니다. {len(rows)}개 중 {counts['watch']}개는 지켜볼 만합니다."
+    if counts.get("unknown") == len(rows):
+        return "어느 프로젝트도 읽지 못했습니다."
+    return f"{len(rows)}개 모두 계획대로입니다."
+
+
+def health_note(payload: dict) -> str:
+    """Is the queue keeping up, and is anything repeating. From the numbers, as always."""
+    now, was = payload.get("open", 0), payload.get("open_was", 0)
+    arrived, closed = payload.get("arrived", 0), payload.get("closed", 0)
+    days = payload.get("window_days", 14)
+    if not now and not arrived:
+        return "미해결도 없고 새로 들어온 것도 없습니다. 보고할 큐가 없습니다."
+    if closed >= arrived:
+        said = (
+            f"{days}일 동안 {arrived}건 들어오고 {closed}건 처리했습니다 — 큐가 따라가고 "
+            f"있고, 미해결은 {now}건"
+        )
+        said += f"으로 {was}건에서 줄었습니다." if now < was else "입니다."
+    else:
+        said = (
+            f"{days}일 동안 {arrived}건 들어오고 {closed}건 처리해서, 미해결이 "
+            f"{was}건에서 {now}건으로 늘었습니다."
+        )
+    worst = next((r for r in payload.get("recurring") or [] if r.get("open")), None)
+    if worst:
+        said += (
+            f" “{worst['fault']}” 이(가) {worst['times']}번 접수됐고 그중 {worst['open']}건이 "
+            f"아직 열려 있습니다 — {worst['times']}개가 아니라 한 문제입니다."
+        )
+    return said
+
+
 def apply(payload: dict, what: str, lang: str) -> dict:
     """Re-render one endpoint's prose in `lang`. English is returned untouched.
 
@@ -195,6 +252,20 @@ def apply(payload: dict, what: str, lang: str) -> dict:
     elif what == "schedule":
         for row in payload.get("risks") or []:
             row["reasons"] = [risk_reason(x) for x in row.get("reasons") or []]
+    elif what == "rollup":
+        for row in payload.get("projects") or []:
+            facts = row.get("why_facts")
+            if facts:
+                # Written again from the numbers, never translated from the English.
+                row["why"] = cause_note(facts) if row.get("kind") != "run" else health_note(facts)
+            row["kind_label"] = KIND_OF_WORK.get(row.get("kind", ""), row.get("kind", ""))
+            row["state_label"] = STATE.get(row.get("state", ""), row.get("state", ""))
+            row["headline_label"] = HEADLINE.get(
+                row.get("headline_label", ""), row.get("headline_label", "")
+            )
+        payload["note"] = rollup_note(payload)
+    elif what == "health":
+        payload["note"] = health_note(payload)
     elif what == "sources":
         for row in payload.get("sources") or []:
             row["supplies"] = SOURCES.get(row.get("supplies", ""), row.get("supplies", ""))

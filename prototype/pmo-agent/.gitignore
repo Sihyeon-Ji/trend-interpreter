@@ -15,3 +15,9 @@ data/calendar_state.json
 data/notes_state.json
 # the changed-file cache: content-addressed, rebuilt on demand
 data/commit_files.json
+# the issue register: the agent's own memory of what went wrong
+data/issues.json
+# the simulated operations board (regenerate: python -m pmo_agent.seeds.ops)
+data/seed_state_OPS.json
+# the warehouse export (regenerate: python tools/bigquery_export.py)
+data/warehouse/

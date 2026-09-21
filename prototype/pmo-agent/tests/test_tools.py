@@ -84,10 +84,10 @@ class ToolTestCase(unittest.TestCase):
 
     def setUp(self):
         self.fake = FakeJira(self.issues)
-        tools._j = self.fake
+        tools.pin(board=self.fake)
 
     def tearDown(self):
-        tools._j = None
+        tools.pin(board=None)
 
 
 class TestDeclarations(ToolTestCase):
@@ -254,7 +254,7 @@ class TestTheRepositoryIsReadOnce:
                 seen["n"] += 1
                 return {"commits": [], "pulls": [], "reading": seen["n"]}
 
-        monkeypatch.setattr(tools, "repo", lambda: Counting())
+        monkeypatch.setattr(tools, "repo", lambda *_a, **_k: Counting())
         tools.forget_snapshot()
         return seen
 

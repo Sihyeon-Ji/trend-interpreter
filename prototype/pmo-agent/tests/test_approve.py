@@ -42,12 +42,12 @@ class GateTestCase(unittest.TestCase):
 
     def setUp(self):
         self.fake = FakeJira()
-        tools._j = self.fake
+        tools.pin(board=self.fake)
         self.dir = tempfile.mkdtemp()
         self.keep_log, approve.LOG = approve.LOG, os.path.join(self.dir, "approvals.jsonl")
 
     def tearDown(self):
-        tools._j = None
+        tools.pin(board=None)
         approve.LOG = self.keep_log
 
     def logged(self):

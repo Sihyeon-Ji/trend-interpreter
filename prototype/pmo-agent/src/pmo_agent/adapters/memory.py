@@ -18,6 +18,19 @@ import re
 from pmo_agent.env import data_dir
 
 STORE = str(data_dir() / "seed_state.json")
+
+
+def store_for(project: str = "") -> str:
+    """The local board file for one project: `seed_state.json`, or `seed_state_OPS.json`.
+
+    A project without its own file reads the default. That is right for the common case
+    (one project, one file) and honest for the other: an empty board and a missing file
+    look identical from here, and answering about the wrong project would be worse.
+    """
+    named = str(data_dir() / f"seed_state_{(project or '').strip().upper()}.json")
+    return named if (project or "").strip() and os.path.exists(named) else STORE
+
+
 STATUSES = ("To Do", "In Progress", "In Review", "Done")
 
 
@@ -25,7 +38,10 @@ class MemoryBoard:
     """An adapter that treats one file as the board. Same methods and shapes as the Jira class."""
 
     def __init__(self, path: str | None = None, project: str = "ECHO", issues=None):
-        self.path: str | None = path or STORE
+        # One file per project once there is more than one. The default project keeps the
+        # original name so a single-project setup is untouched, and a project with no file
+        # of its own falls back to it rather than reading as an empty board.
+        self.path: str | None = path or store_for(project)
         self.project = project
         self.site = "local"
         self.allow = ["local"]

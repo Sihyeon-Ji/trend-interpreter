@@ -39,12 +39,33 @@ from dataclasses import dataclass, field
 from pmo_agent import availability as av
 from pmo_agent import schedule
 
+# Three teams, because a project with one team has no collaboration in it to show.
+# The interesting failures are the ones that cross a boundary: a platform task nobody
+# on the product team can see is blocking two of their people, and nobody notices until
+# a standup. That only exists if the boundary exists.
+TEAMS = ("Platform", "Product", "Quality")
+
 PEOPLE = [
-    ("Maya Okonkwo", "maya-o", "maya@echo.test"),
-    ("Leo Fischer", "leo-f", "leo@echo.test"),
-    ("Priya Raman", "priya-r", "priya@echo.test"),
-    ("Noah Brandt", "noah-b", "noah@echo.test"),
+    ("Maya Okonkwo", "maya-o", "maya@echo.test", "Platform"),
+    ("Leo Fischer", "leo-f", "leo@echo.test", "Platform"),
+    ("Sofia Marchetti", "sofia-m", "sofia@echo.test", "Platform"),
+    ("Priya Raman", "priya-r", "priya@echo.test", "Product"),
+    ("Noah Brandt", "noah-b", "noah@echo.test", "Product"),
+    ("Tomas Vogel", "tomas-v", "tomas@echo.test", "Product"),
+    ("Aiko Tanaka", "aiko-t", "aiko@echo.test", "Product"),
+    ("Daniel Okafor", "daniel-o", "daniel@echo.test", "Quality"),
+    ("Hannah Reid", "hannah-r", "hannah@echo.test", "Quality"),
 ]
+
+# Which team owns which phase. Discovery is shared, which is why it is the one phase
+# where every team's name turns up and the handover questions start.
+PHASE_TEAM = {
+    "Discovery": "Product",
+    "Design": "Product",
+    "Build": "Platform",
+    "Hardening": "Quality",
+    "Release": "Platform",
+}
 
 PHASES = [
     (
@@ -132,6 +153,7 @@ class Person:
     name: str
     login: str
     email: str
+    team: str = ""
 
 
 @dataclass
@@ -178,6 +200,23 @@ class World:
         return [f for f in self.facts if f["kind"] == "work" and f["key"] == key]
 
 
+def _owner_for(phase: str, index: int) -> str:
+    """Somebody on the team that owns this phase, round-robin within it."""
+    team = PHASE_TEAM.get(phase, "")
+    bench = [p for p in PEOPLE if p[3] == team] or PEOPLE
+    return bench[index % len(bench)][0]
+
+
+def team_of(name: str) -> str:
+    return next((p[3] for p in PEOPLE if p[0] == name), "")
+
+
+def team_tag(name: str) -> str:
+    """The owner's team as a Jira label. Labels cannot hold spaces."""
+    team = team_of(name)
+    return f"team-{team.replace(' ', '_')}" if team else ""
+
+
 def _tasks(project: str) -> dict:
     """The task list: a gate between phases, and some serial work inside each one.
 
@@ -207,7 +246,9 @@ def _tasks(project: str) -> dict:
                 phase=phase,
                 title=title,
                 points=float(rnd.choice([1, 2, 2, 3, 3, 5, 8])),
-                owner=PEOPLE[n % len(PEOPLE)][0],
+                # From the team that owns this phase, so a dependency between phases is
+                # a dependency between teams — which is where coordination actually fails.
+                owner=_owner_for(phase, i),
                 deps=deps,
             )
             keys.append(key)
@@ -556,7 +597,10 @@ def to_board(world: World, project: str = "ECHO") -> dict:
                     "summary": task.summary,
                     "status": {"name": status},
                     "assignee": None,  # no real accounts, so the owner rides on a label
-                    "labels": [schedule.owner_tag(task.owner)],
+                    # The team rides along as a label for the same reason the owner
+                    # does: the sandbox Jira has one real account, and "who is
+                    # affected" is a different answer once it crosses a boundary.
+                    "labels": [schedule.owner_tag(task.owner), team_tag(task.owner)],
                     "duedate": due[key].isoformat(),
                     "customfield_10016": task.points,
                     "issuelinks": [],
@@ -635,7 +679,10 @@ def to_repo(world: World, board: dict | None = None, repo_name: str = "echo-team
                 "message": commit_subject(task, index, rnd),
                 "branch": info["branch"],
                 "files": [info["path"]],
-                "url": f"https://github.com/{repo_name}/commit/{sha}",
+                # No URL. `echo-team/echo-app` does not exist, so a github.com link
+                # here is a plausible-looking 404 — and a broken link is worse than a
+                # missing one, because the reader only finds out after clicking.
+                "url": "",
             }
         )
         link_truth[sha] = task.key
@@ -664,7 +711,7 @@ def to_repo(world: World, board: dict | None = None, repo_name: str = "echo-team
                 "updated": days[-1],
                 "merged": merged,
                 "reviewers": [logins[reviewer]] if reviewer and not merged else [],
-                "url": f"https://github.com/{repo_name}/pull/{number}",
+                "url": "",  # same reason as the commits: an invented link is a lie
             }
         )
         if not merged and (world.today - dt.date.fromisoformat(days[-1])).days >= 2:

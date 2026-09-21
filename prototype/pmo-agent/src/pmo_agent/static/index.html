@@ -90,6 +90,41 @@
   .scrim[hidden]{display:none}
   main{max-width:1120px;margin:0 auto;padding:24px 28px 90px}
 
+  /* ---------- every project on one line ---------- */
+  .roll{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+        box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+  .roll>.lbl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+             font:10.5px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+             color:var(--faint);padding:13px 18px 0}
+  .roll .say{font:13px/1.55 -apple-system,"Segoe UI","Malgun Gothic",sans-serif;
+             letter-spacing:0;text-transform:none;color:var(--dim);
+             flex:1 1 320px;min-width:0;padding-bottom:4px}
+  .proj{display:grid;grid-template-columns:auto 1.1fr auto 2fr;gap:12px 14px;
+        align-items:baseline;padding:13px 18px;border-top:1px solid var(--line);
+        cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;
+        width:100%;text-align:left;font:inherit;color:inherit;border-radius:0}
+  .proj:hover{background:var(--raised);filter:none}
+  .proj[aria-current=true]{background:var(--accent-bg)}
+  @media (max-width:760px){ .proj{grid-template-columns:auto 1fr} .proj .num,.proj .say{
+    grid-column:1/-1} }
+  .state{font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase;
+         border-radius:20px;padding:3px 9px;white-space:nowrap}
+  .state.risk{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad-line)}
+  .state.watch{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+  .state.ok{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line)}
+  .state.unknown{background:var(--raised);color:var(--faint);border:1px solid var(--line2)}
+  .proj .nm{font-weight:640;font-size:14px;letter-spacing:-.01em}
+  .proj .kd{font:10px var(--mono);color:var(--faint);margin-left:7px;text-transform:uppercase}
+  .proj .num{text-align:right;font-variant-numeric:tabular-nums}
+  .proj .num b{font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .proj .num i{display:block;font:10px var(--mono);font-style:normal;color:var(--faint);
+               text-transform:uppercase;letter-spacing:.05em}
+  .proj .say{font-size:12.5px;color:var(--dim);line-height:1.5;min-width:0;
+             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+             overflow:hidden}
+  .proj>*{min-width:0}
+  .proj .left{color:var(--warn);font-weight:600}
+
   /* ---------- the four tools, and the agent that joins them ---------- */
   .pipe{background:var(--surface);border:1px solid var(--line);border-radius:12px;
         box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
@@ -268,6 +303,8 @@
 </aside>
 
 <main>
+  <div class="roll" id="roll" hidden></div>
+
   <div class="pipe">
     <div class="lbl" data-t="tools">the tools it reads</div>
     <div class="srcs" id="srcs"></div>
@@ -318,7 +355,8 @@
       before you tick it.</p>
     <textarea id="memo" placeholder="e.g. Schema design slipped to the 28th because the DB choice took longer. API client finished today."></textarea>
     <div class="row">
-      <input type="file" id="img" accept="image/png,image/jpeg,image/webp,application/pdf">
+      <input type="file" id="img"
+        accept="image/png,image/jpeg,image/webp,application/pdf,audio/mp4,audio/mpeg,audio/wav,audio/ogg,audio/flac,audio/aac,audio/webm,.m4a">
       <button id="go" data-t="read">Read it</button>
       <span id="ingestMsg" class="muted"></span>
     </div>
@@ -415,6 +453,15 @@ const KO = {
   evidence: "근거",
   nothingAccounts: "어느 도구에서도 이유를 찾지 못했습니다.",
   unassigned: "미배정",
+  heard: "들린 내용",
+  evidence: "근거 보기",
+  freeFromCol: "여유 시작",
+  move: "이동",
+  gain: "단축",
+  finishAfter: "이후 종료",
+
+  allProjects: "전체 프로젝트",
+  dUnex: "일 설명 안 됨",
 
   setT: "화면 설정",
   setH: "이 브라우저에만 저장됩니다. 에이전트가 계산하는 내용은 바뀌지 않습니다.",
@@ -432,7 +479,13 @@ const KO = {
 };
 const t = (k, en) => (L === "ko" && KO[k]) || en;
 let L = (() => { try{ return localStorage.getItem("pmo-lang") === "ko" ? "ko" : "en"; }catch(_){ return "en"; } })();
-const qs = u => L === "ko" ? u + (u.includes("?") ? "&" : "?") + "lang=ko" : u;
+const qs = u => {
+  const bits = [];
+  if(L === "ko") bits.push("lang=ko");
+  if(PROJECT && !u.includes("/api/rollup") && !u.includes("/api/projects"))
+    bits.push("project=" + encodeURIComponent(PROJECT));
+  return bits.length ? u + (u.includes("?") ? "&" : "?") + bits.join("&") : u;
+};
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
@@ -443,7 +496,12 @@ const day = d => { const p = String(d||"").split("-");
 
 let lastProposals = [];
 
+// One project is a dashboard; several is a roll-up with a dashboard under it. The bar
+// only appears when there is more than one, so a single-project setup is untouched.
+let PROJECT = "";
+
 async function boot(){
+  get("/api/rollup").then(renderRollup).catch(() => {});
   get("/api/sources").then(renderSources)
     .catch(e => $("#srcs").innerHTML = `<div class="banner err">${esc(e.message)}</div>`);
 
@@ -463,6 +521,33 @@ async function boot(){
 // The four tools across the top. "live" means the real service; "local" means the JSON twin
 // behind the same interface, which is what lets the whole thing run with no accounts at all.
 // Only one of the four can write, and it says so.
+const STATE_KO = {risk: "\uc704\ud5d8", watch: "\uc8fc\uc758", ok: "\uc591\ud638", unknown: "\ubaa8\ub984"};
+
+function renderRollup(g){
+  const rows = g.projects || [];
+  if(rows.length < 2){ $("#roll").hidden = true; return; }   // one project needs no roll-up
+  $("#roll").hidden = false;
+  let h = `<div class="lbl">${t("allProjects", "all projects")}
+    <span class="say">${esc(g.note || "")}</span></div>`;
+  for(const r of rows){
+    const left = r.unexplained_days > 0
+      ? `<span class="left">${r.unexplained_days}${t("dUnex", "d unexplained")}</span> \u00b7 ` : "";
+    h += `<button class="proj" data-p="${esc(r.key)}" aria-current="${r.key === PROJECT}">
+      <span class="state ${esc(r.state)}">${esc(L === "ko" ? (STATE_KO[r.state] || r.state) : r.state)}</span>
+      <span><span class="nm">${esc(r.name)}</span><span class="kd">${esc(r.kind_label || r.kind)}</span></span>
+      <span class="num"><b>${esc(r.headline)}</b><i>${esc(r.headline_label)}</i></span>
+      <span class="say">${left}${esc(r.why || "")}</span>
+    </button>`;
+  }
+  $("#roll").innerHTML = h;
+  $("#roll").onclick = e => {
+    const b = e.target.closest(".proj");
+    if(!b) return;
+    PROJECT = b.dataset.p === PROJECT ? "" : b.dataset.p;   // click again to clear
+    boot();
+  };
+}
+
 function renderSources(g){
   $("#srcs").innerHTML = (g.sources || []).map(s => `
     <div class="src ${s.live ? "on" : ""}">
@@ -543,24 +628,28 @@ function renderCap(c){
       `, ${b.lost_to_meetings} days of it lost to meetings` : ""}. Nothing finishes before
       <b>${day(b.free_at)}</b>.</div>`;
 
-  h += `<table><tr><th>constraint added</th><th class="num">finish</th><th class="num">cost</th></tr>
-    <tr><td class="muted">dependencies only</td><td class="num">${c.unconstrained_finish}</td>
+  h += `<table><tr><th>${t("constraint", "constraint added")}</th>
+    <th class="num">${t("finish", "finish")}</th><th class="num">${t("cost", "cost")}</th></tr>
+    <tr><td class="muted">${t("depsRow", "dependencies only")}</td><td class="num">${c.unconstrained_finish}</td>
         <td class="num muted">—</td></tr>`;
   if(c.calendar_applied){
-    h += `<tr><td>plus people's capacity</td><td class="num">${c.finish_without_meetings}</td>
+    h += `<tr><td>${t("capRow", "plus people’s capacity")}</td><td class="num">${c.finish_without_meetings}</td>
         <td class="num">+${(c.slip_vs_unconstrained - c.meeting_slip_days)}d</td></tr>
-      <tr><td><b>plus meeting time</b></td><td class="num"><b>${c.capacity_finish}</b></td>
+      <tr><td><b>${t("meetRow", "plus meeting time")}</b></td><td class="num"><b>${c.capacity_finish}</b></td>
         <td class="num"><b>+${c.meeting_slip_days}d</b></td></tr></table>`;
   } else {
-    h += `<tr><td><b>plus people's capacity</b></td><td class="num"><b>${c.capacity_finish}</b></td>
+    h += `<tr><td><b>${t("capRow", "plus people’s capacity")}</b></td><td class="num"><b>${c.capacity_finish}</b></td>
         <td class="num"><b>+${c.slip_vs_unconstrained}d</b></td></tr></table>
       <div class="banner flat" style="margin-top:14px">No calendar is connected, so everyone is
         assumed to have whole days. With meetings it gets later.</div>`;
   }
 
-  h += `<table style="margin-top:20px"><tr><th>owner</th><th class="num">days left</th>
-    ${c.calendar_applied ? '<th class="num">meetings</th><th class="num">usable</th>' : ""}
-    <th style="width:24%">load</th><th class="num">used</th><th class="num">free from</th></tr>`;
+  h += `<table style="margin-top:20px"><tr><th>${t("owner", "owner")}</th>
+    <th class="num">${t("daysLeft", "days left")}</th>
+    ${c.calendar_applied ? `<th class="num">${t("meetings", "meetings")}</th>
+      <th class="num">${t("usable", "usable")}</th>` : ""}
+    <th style="width:24%">${t("load", "load")}</th><th class="num">${t("used", "used")}</th>
+    <th class="num">${t("freeFromCol", "free from")}</th></tr>`;
   for(const r of c.resources){
     const w = Math.round(r.busy_days / max * 100);
     const cls = r.utilization >= .9 ? "max" : r.utilization >= .65 ? "hot" : "";
@@ -576,7 +665,9 @@ function renderCap(c){
   if(c.waiting_tasks && c.waiting_tasks.length){
     h += `<p class="hint" style="margin:20px 0 10px">Dependencies met, but the <b>owner is busy</b> &mdash;
       the cause is a person, not a dependency.</p>
-      <table><tr><th>task</th><th>owner</th><th class="num">waiting</th><th class="num">starts</th></tr>`;
+      <table><tr><th>${t("task", "task")}</th><th>${t("owner", "owner")}</th>
+        <th class="num">${t("waiting", "waiting")}</th>
+        <th class="num">${t("starts", "starts")}</th></tr>`;
     for(const w of c.waiting_tasks)
       h += `<tr><td><span class="key">${esc(w.key)}</span> ${esc(w.summary)}</td><td>${esc(w.assignee)}</td>
         <td class="num">${w.waiting_days}d</td><td class="num">${w.start}</td></tr>`;
@@ -598,7 +689,9 @@ async function rebalance(){
       ? `<div class="banner ok">Moving ${r.moves.length} task${r.moves.length>1?"s":""} brings the
            finish <b>${day(r.before)} &rarr; ${day(r.after)}</b> &mdash; ${r.gain_days} business days
            earlier. A proposal only; nothing has been applied.</div>
-         <table><tr><th>task</th><th>move</th><th class="num">gain</th><th class="num">finish after</th></tr>`
+         <table><tr><th>${t("task", "task")}</th><th>${t("move", "move")}</th>
+           <th class="num">${t("gain", "gain")}</th>
+           <th class="num">${t("finishAfter", "finish after")}</th></tr>`
       : `<div class="banner flat">No task can be moved to pull the finish in.</div>`;
     for(const m of r.moves)
       h += `<tr><td><span class="key">${esc(m.key)}</span> ${esc(m.summary)}</td>
@@ -627,15 +720,16 @@ function renderRisks(s){
     $("#risks").innerHTML = `<div class="banner ok">${t("nothingMisses", "Nothing is forecast to miss its date.")}</div>`;
     return;
   }
-  let h = `<table><tr><th>task</th><th>owner</th><th class="num">due</th><th class="num">forecast</th>
-    <th class="num">slip</th><th>why</th></tr>`;
+  let h = `<table><tr><th>${t("task", "task")}</th><th>${t("owner", "owner")}</th>
+    <th class="num">${t("due", "due")}</th><th class="num">${t("forecast", "forecast")}</th>
+    <th class="num">${t("slip", "slip")}</th><th>${t("why", "why")}</th></tr>`;
   for(const r of s.risks.slice(0, 8))
     h += `<tr><td><span class="key">${esc(r.key)}</span> ${esc(r.summary)}</td><td>${esc(r.assignee||"—")}</td>
       <td class="num">${r.duedate||"—"}</td><td class="num">${r.predicted_finish}</td>
       <td class="num" style="color:var(--bad);font-weight:600">${r.delay_days||0}d</td>
       <td class="muted">${esc(alsoBecause(r))}</td></tr>`;
   h += `</table>`;
-  if(s.risks.length > 8) h += `<p class="aside">and ${s.risks.length - 8} more</p>`;
+  if(s.risks.length > 8) h += `<p class="aside">${L === "ko" ? `${s.risks.length - 8}${t("andMore", "")}` : `and ${s.risks.length - 8} more`}</p>`;
   $("#risks").innerHTML = h;
 }
 
@@ -691,32 +785,42 @@ function renderCause(g){
   $("#cause").innerHTML = h;
 }
 
+// A link only when there is a real one. The local twin has no repository behind it, so
+// inventing a github.com URL there produced a plausible 404 — and a broken link is worse
+// than a missing one, because the reader only finds out after clicking.
+function evidence(m){
+  const url = (m.evidence || []).find(e => /^https?:\/\//.test(e || ""));
+  if(url) return ` <a href="${esc(url)}" target="_blank" rel="noopener">${t("evidence", "evidence")}</a>`;
+  const first = (m.evidence || [])[0];
+  return first ? ` <span class="pill">${esc(String(first).slice(0, 40))}</span>` : "";
+}
+
 function renderSignals(g){
   const t = g.team || {};
   const mis = g.mismatches || [];
   let h = `<div class="mini" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px">
-    <div class="stat"><div class="k">tasks that disagree</div>
+    <div class="stat"><div class="k">${t("disagree", "tasks that disagree")}</div>
       <div class="v ${mis.length?"bad":"good"}">${mis.length}</div><div class="s">${esc(g.repo||"")}</div></div>
-    <div class="stat"><div class="k">commits &middot; ${t.window_days||14}d</div><div class="v">${t.commits||0}</div>
-      <div class="s">${(t.contributors||[]).length} contributors</div></div>
-    <div class="stat"><div class="k">concentration</div>
+    <div class="stat"><div class="k">${t("commitsIn", "commits")} &middot; ${(g.team||{}).window_days||14}d</div><div class="v">${t.commits||0}</div>
+      <div class="s">${(t.contributors||[]).length}${L === "ko" ? t("contributors", "") : " contributors"}</div></div>
+    <div class="stat"><div class="k">${t("concentration", "concentration")}</div>
       <div class="v ${t.concentration>=0.8?"bad":t.concentration>=0.6?"warn":""}">${t.concentration ?? 0}</div>
-      <div class="s">1.0 means one person</div></div>
-    <div class="stat"><div class="k">open pull requests</div><div class="v ${t.stale_prs?"warn":""}">${t.open_prs||0}</div>
-      <div class="s">${t.stale_prs||0} stuck in review</div></div></div>`;
+      <div class="s">${t("oneMeans", "1.0 means one person")}</div></div>
+    <div class="stat"><div class="k">${t("openPrs", "open pull requests")}</div><div class="v ${t.stale_prs?"warn":""}">${t.open_prs||0}</div>
+      <div class="s">${(g.team||{}).stale_prs||0}${L === "ko" ? t("stuck", "") : " stuck in review"}</div></div></div>`;
   for(const n of (t.notes||[])) h += `<div class="banner flat">${esc(n)}</div>`;
   if(g.note) h += `<div class="banner flat">${esc(g.note)}</div>`;
   if(mis.length){
-    h += `<table><tr><th>task</th><th>owner</th><th>kind</th><th>detail</th></tr>`;
+    h += `<table><tr><th>${t("task", "task")}</th><th>${t("owner", "owner")}</th>
+      <th>${t("kind", "kind")}</th><th>${t("detail", "detail")}</th></tr>`;
     for(const m of mis.slice(0,8)){
       const kind = KIND[m.kind] || [m.kind, ""];
-      const link = (m.evidence||[])[0];
       h += `<tr><td><span class="key">${esc(m.key)}</span> ${esc(m.summary)}</td><td>${esc(m.assignee||"—")}</td>
-        <td><span class="pill ${kind[1]}">${esc(kind[0])}</span></td>
-        <td class="muted">${esc(m.detail)}${link?` <a href="${esc(link)}" target="_blank">evidence</a>`:""}</td></tr>`;
+        <td><span class="pill ${kind[1]}">${esc(m.label || kind[0])}</span></td>
+        <td class="muted">${esc(m.detail)}${evidence(m)}</td></tr>`;
     }
     h += `</table>`;
-    if(mis.length>8) h += `<p class="aside">and ${mis.length-8} more</p>`;
+    if(mis.length>8) h += `<p class="aside">${L === "ko" ? `${mis.length-8}${t("andMore", "")}` : `and ${mis.length-8} more`}</p>`;
   }
   $("#sig").innerHTML = h;
 }
@@ -744,6 +848,11 @@ function renderProposals(j){
     h += `<div class="banner flat">Applying this moves the forecast finish
       <b>${day(j.impact.predicted_finish_before)} &rarr; ${day(j.impact.predicted_finish_after)}</b>,
       tasks at risk ${j.impact.risks_before} &rarr; ${j.impact.risks_after}</div>`;
+  if(j.transcript)
+    h += `<details class="prop" style="display:block">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--dim)">${t("heard", "what was heard")}</summary>
+      <div class="quote" style="margin-top:8px;white-space:pre-wrap">${esc(j.transcript)}</div>
+    </details>`;
   if(!appliable.length && !(j.questions||[]).length)
     h += `<div class="banner flat">No change could be read out of it.</div>`;
 

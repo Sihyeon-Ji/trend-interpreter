@@ -40,14 +40,14 @@ commit alone — a wrong link is worse than no link.
 ```
 $ python tools/measure_links.py --dates 8
 
-2026-09-21   61 commits  right 53 / wrong 0 / unlinked 8   precision 1.00 | recall 0.87
-2026-10-13   63 commits  right 54 / wrong 0 / unlinked 9   precision 1.00 | recall 0.86
-2026-11-04   62 commits  right 53 / wrong 0 / unlinked 9   precision 1.00 | recall 0.85
+2026-09-21   53 commits  right 49 / wrong 0 / unlinked 4   precision 1.00 | recall 0.93
+2026-10-02   49 commits  right 42 / wrong 0 / unlinked 7   precision 1.00 | recall 0.86
+2026-11-04   52 commits  right 48 / wrong 0 / unlinked 4   precision 1.00 | recall 0.92
 …
-worst of 8: precision 1.00 | recall 0.85 — no wrong links at any date
+worst of 8: precision 1.00 | recall 0.86 — no wrong links at any date
 ```
 
-**precision 1.00**, **recall 0.85** at worst, measured at **8 dates** — roughly 490 commits,
+**precision 1.00**, **recall 0.85** at worst, measured at **8 dates** — roughly 410 commits,
 not one lucky run. The two are not equally important and are not treated as such. A wrong
 link puts somebody else's commit on a task and every number built on top inherits it
 silently, so there is no acceptable rate of that and `test_linking_accuracy.py` admits
@@ -378,6 +378,9 @@ uvicorn pmo_agent.api:app --port 8080
 | endpoint | what it gives |
 |---|---|
 | `GET /api/board` | which backends are connected |
+| `GET /api/projects` | every project this agent watches, and what kind of work each is |
+| `GET /api/rollup` | every project on one line, worst first |
+| `GET /api/health` | an operations project's queue, instead of a finish date |
 | `GET /api/sources` | the four tools behind every answer, and which one can write |
 | `GET /api/schedule` | critical path and tasks at risk |
 | `GET /api/capacity` | the achievable schedule and the bottleneck |
@@ -406,7 +409,7 @@ python tools/evaluate.py --dates 13   # and at 13 dates, four months out
 python tools/measure_links.py    # link precision and recall against the answer key
 ```
 
-**488 tests, around twenty seconds.** No network, no accounts — every one of them runs on
+**713 tests, around twenty seconds.** No network, no accounts — every one of them runs on
 a laptop with the wifi off. Most finish in under a second. The slow ones are the honest
 kind: `test_readme.py` spawns a collection pass to check that the number in this very
 sentence is still true, and `test_linking_accuracy.py` rebuilds the world at eight
@@ -422,6 +425,15 @@ different dates because one good day is not a result.
 | `test_link_assist.py` | the boundary the model must not cross |
 | `test_linking_accuracy.py` | the headline precision and recall, measured at several dates |
 | `test_github_cache.py` | the changed-file cache, and what must never be cached |
+| `test_projects.py` | the project registry, and the keys it refuses |
+| `test_reconcile.py` | notes against the board, and the differences only |
+| `test_register.py` | the issue register: identity, states, and what it refuses to merge |
+| `test_health.py` | operations metrics, and the finish date it never produces |
+| `test_rollup.py` | the roll-up: each kind's own headline, and the unknowns it keeps |
+| `test_render.py` | report templates, and the content the spec has nowhere to put |
+| `test_decide.py` | the options table, their expiry, and the choice it refuses to make |
+| `test_warehouse.py` | the flat rows, and the finish date a queue never gets |
+| `test_extract.py` | a template read from a document, and the headings it cannot fill |
 | `test_notion.py` | reading a real Notion payload, and staying the same shape as the local archive |
 | `test_readme.py` | this file's own checkable claims still match the code |
 | `test_signals.py` | divergence detection, identity merge, silence without evidence |

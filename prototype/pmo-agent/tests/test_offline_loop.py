@@ -28,11 +28,34 @@ TODAY = dt.date(2026, 9, 21)
 
 
 class TestSeed(unittest.TestCase):
-    def test_forty_tasks_and_four_owners(self):
+    def test_forty_tasks_owned_across_three_teams(self):
+        """Owners come from the team that owns the phase, so dependencies cross teams.
+
+        A project with one team has no collaboration in it to show. The interesting
+        failure is the one that crosses a boundary: a platform task nobody on the
+        product team can see is blocking two of their people.
+        """
+        from pmo_agent.seeds import world as world_mod
+
         issues = seed.build(TODAY)
         self.assertEqual(len(issues), 40)
         tasks = schedule.from_jira_issues(issues)
-        self.assertEqual(len({t.assignee for t in tasks.values()}), 4)
+        owners = {t.assignee for t in tasks.values()}
+        self.assertTrue(owners <= {p[0] for p in world_mod.PEOPLE}, "an owner nobody invented")
+        self.assertEqual({world_mod.team_of(o) for o in owners}, set(world_mod.TEAMS))
+
+    def test_some_dependencies_cross_a_team_boundary(self):
+        from pmo_agent.seeds import world as world_mod
+
+        tasks = schedule.from_jira_issues(seed.build(TODAY))
+        team = {k: world_mod.team_of(t.assignee) for k, t in tasks.items()}
+        crossing = [
+            (k, d)
+            for k, t in tasks.items()
+            for d in t.deps
+            if team.get(d) and team.get(k) and team[d] != team[k]
+        ]
+        self.assertGreater(len(crossing), 5, "nothing here would need coordinating")
 
     def test_the_same_seed_builds_the_same_board(self):
         self.assertEqual(seed.build(TODAY), seed.build(TODAY))
@@ -79,11 +102,11 @@ class TestOfflineLoop(unittest.TestCase):
         path = os.path.join(self.dir, "board.json")
         seed.write(path, TODAY)
         self.board = MemoryBoard(path)
-        tools._j = self.board
+        tools.pin(board=self.board)
         self.keep_log, approve.LOG = approve.LOG, os.path.join(self.dir, "approvals.jsonl")
 
     def tearDown(self):
-        tools._j = None
+        tools.pin(board=None)
         approve.LOG = self.keep_log
         shutil.rmtree(self.dir, ignore_errors=True)
 
@@ -135,7 +158,7 @@ class TestOfflineLoop(unittest.TestCase):
         r = self._ingest_memo()
         before = tools.analyze_schedule(today=TODAY.isoformat())["predicted_finish"]
         approve.apply(r["proposals"], [0], source="test")
-        tools._j = MemoryBoard(self.board.path)  # read the board again
+        tools.pin(board=MemoryBoard(self.board.path))  # read the board again
         self.assertIsInstance(
             tools.analyze_schedule(today=TODAY.isoformat())["predicted_finish"], str
         )
@@ -163,12 +186,13 @@ class TestOfflineLoop(unittest.TestCase):
 
 class TestBackendSelection(unittest.TestCase):
     def test_an_environment_variable_selects_the_local_board(self):
-        keep, tools._j = os.environ.get("PMO_BACKEND"), None
+        keep = os.environ.get("PMO_BACKEND")
+        tools.pin(board=None)
         os.environ["PMO_BACKEND"] = "memory"
         try:
             self.assertIsInstance(tools.jira(), MemoryBoard)
         finally:
-            tools._j = None
+            tools.pin(board=None)
             os.environ.pop("PMO_BACKEND", None)
             if keep:
                 os.environ["PMO_BACKEND"] = keep

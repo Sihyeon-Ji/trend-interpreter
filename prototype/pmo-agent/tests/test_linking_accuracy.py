@@ -30,6 +30,10 @@ import pytest
 
 README = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
 DATES = 8
+# The worst date measures 0.857, which *displays* as 0.86. Claiming 0.86 as a floor
+# would be the rounding presented as a guarantee, so the floor stays at what is
+# actually true. Nine people across three teams did lift it — fewer tasks per person
+# means the author signal discriminates better — just not to 0.86.
 RECALL_FLOOR = 0.85
 
 

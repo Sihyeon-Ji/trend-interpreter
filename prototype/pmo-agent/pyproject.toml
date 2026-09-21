@@ -40,3 +40,10 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.12"
 files = ["src/pmo_agent"]
 check_untyped_defs = true
+
+# The document writers are optional extras with no published stubs. They are imported
+# inside the functions that use them, so a missing one is a clear message at the point of
+# use rather than a failed import at startup.
+[[tool.mypy.overrides]]
+module = ["openpyxl.*", "docx.*", "pptx.*"]
+ignore_missing_imports = true
