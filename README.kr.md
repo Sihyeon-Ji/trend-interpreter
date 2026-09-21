@@ -160,6 +160,7 @@ Markdown 문서만 바꾼 `develop` push는 제외합니다. 같은 브랜치·P
 ## 문서와 팀 링크
 
 - [1~5단계 종합 보고서 — 준비된 역량·한계·다음 과제](docs/ai-lab-report.md)
+- [주제 선정 전에 진행할 공통 개발 기반 계획](docs/plans/README.md)
 - [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
 - [5단계 AI 실습 계획과 준비물](docs/ai-lab-plan.md)
 - [팀원용 처음 설치 가이드](docs/setup.md)
