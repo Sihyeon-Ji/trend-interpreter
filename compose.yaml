@@ -211,6 +211,20 @@ services:
       OLLAMA_MODEL: qwen3.5:4b
       MODEL_TIMEOUT_SECONDS: "120"
       MODEL_MAX_ATTEMPTS: "1"
+      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+      SOURCE_DIRTY: ${SOURCE_DIRTY:-unknown}
+    volumes:
+      - ./apps/api/src:/workspace/apps/api/src:ro
+      - ./scripts:/workspace/scripts:ro
+      - ./evaluation-cases:/workspace/evaluation-cases:ro
+      - ./artifacts:/workspace/artifacts
+
+  # Validate suites, manual reviews and report comparisons without model calls.
+  model-eval:
+    <<: *development
+    profiles: [tools]
+    entrypoint: [python, scripts/model_eval.py]
+    command: [validate-suite]
     volumes:
       - ./apps/api/src:/workspace/apps/api/src:ro
       - ./scripts:/workspace/scripts:ro

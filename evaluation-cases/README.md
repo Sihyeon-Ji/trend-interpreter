@@ -12,3 +12,9 @@ results as live verification. GCP billing and deployment remain paused.
 
 Current checks validate the output schema and basic term retention. They do not establish factual
 accuracy, usefulness, or domain quality. Replace or expand the cases once the team chooses a theme.
+
+`ollama-lab.json` is the versioned, theme-independent local-model suite. Each case records stable
+criterion IDs, source evidence, required facts, forbidden claims and the expected deterministic router
+outcome. `docker compose run --rm --build model-eval validate-suite` validates it without calling a model.
+Generated reports and manual review files stay in ignored `artifacts/`; the suite and deterministic
+comparison fixtures are committed. A schema-valid response still needs evidence-backed content review.

@@ -13,6 +13,7 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | `history_lab.py` | Compose `history-check` | Verify successful/failed run metadata and privacy; read an existing run by UUID |
 | `failure_lab.py` | Compose `failure-check` | Reproduce bounded Mock failures/recovery and verify persisted node states |
 | `ollama_lab.py` | Compose `ollama-check`, explicit local use only | Compare synthetic inputs using Mock/Ollama; save JSON and Markdown evaluation reports, never run real inference in CI |
+| `model_eval.py` | Compose `model-eval` | Validate the versioned suite and manual reviews; compare two reports without calling a model |
 | `container-smoke.sh` | CI | Verify a production image's UI, health and mock analysis |
 | `bootstrap-gcp.sh` | Deployment operator, only after deployment resumes | Provision GCP infrastructure and configure GitHub deployment variables |
 | `deploy-gcp.sh` | `release/gcp` workflow | Deploy a candidate, verify it and promote traffic |
