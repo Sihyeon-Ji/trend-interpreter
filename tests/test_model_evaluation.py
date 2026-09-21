@@ -8,6 +8,7 @@ from builder_cup.model_evaluation import (
     ManualReview,
     build_review_template,
     compare_reports,
+    dump_json,
     load_suite,
     validate_completed_review,
     validate_review_against_report,
@@ -98,7 +99,7 @@ def test_review_must_cover_the_matching_report():
         validate_review_against_report(review, report)
 
 
-def test_comparison_includes_manual_status_changes():
+def test_comparison_includes_manual_status_changes(tmp_path):
     suite, digest = load_suite(SUITE)
     case = next(case for case in suite.cases if case.id == "schedule_change")
     base = read("base-report.json")
@@ -125,6 +126,9 @@ def test_comparison_includes_manual_status_changes():
             "current_status": "omitted",
         }
     ]
+    path = tmp_path / "comparison.json"
+    dump_json(path, result)
+    assert json.loads(path.read_text())["manual_review"]["base_reviewed_at"]
 
 
 @pytest.mark.parametrize("missing", ["evaluator", "reviewed_at", "status", "evidence"])

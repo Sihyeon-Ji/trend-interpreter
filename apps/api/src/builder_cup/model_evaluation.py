@@ -198,9 +198,9 @@ def compare_reviews(base: ManualReview, current: ManualReview) -> dict[str, Any]
             )
     return {
         "base_evaluator": base.evaluator,
-        "base_reviewed_at": base.reviewed_at,
+        "base_reviewed_at": base.reviewed_at.isoformat() if base.reviewed_at else None,
         "current_evaluator": current.evaluator,
-        "current_reviewed_at": current.reviewed_at,
+        "current_reviewed_at": current.reviewed_at.isoformat() if current.reviewed_at else None,
         "status_changes": changes,
     }
 
