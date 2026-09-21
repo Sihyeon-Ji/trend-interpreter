@@ -146,7 +146,93 @@ class VllmProvider:
         await self.client.aclose()
 
 
+class OllamaProvider:
+    def __init__(self, settings: Settings):
+        self.model = settings.ollama_model
+        url = httpx.URL(settings.ollama_base_url)
+        if url.host not in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}:
+            raise ValueError("Ollama lab requires a local host endpoint")
+        self.client = httpx.AsyncClient(
+            base_url=settings.ollama_base_url.rstrip("/") + "/",
+            timeout=settings.model_timeout_seconds,
+            trust_env=False,
+        )
+        self.local_verified = False
+        self.last_timings: dict[str, int | None] = {}
+
+    async def verify_local_model(self) -> dict:
+        response = await self.client.post("api/show", json={"model": self.model})
+        if response.is_error:
+            raise ProviderFailure("model_unavailable")
+        try:
+            data = response.json()
+            if data.get("remote_host") or data.get("remote_model"):
+                raise ProviderFailure("model_unavailable")
+            if "completion" not in data.get("capabilities", []):
+                raise ProviderFailure("model_unavailable")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ProviderFailure("invalid_model_response") from exc
+        self.local_verified = True
+        return data
+
+    async def generate(self, text: str) -> Generation:
+        self.last_timings = {}
+        if not self.local_verified:
+            await self.verify_local_model()
+        response = await self.client.post(
+            "api/chat",
+            json={
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": INSTRUCTION},
+                    {"role": "user", "content": text},
+                ],
+                "stream": False,
+                "think": False,
+                "format": Analysis.model_json_schema(),
+                "options": {"temperature": 0, "num_ctx": 4096, "num_predict": 1024},
+                "keep_alive": "5m",
+            },
+        )
+        if response.is_error:
+            raise ProviderFailure(
+                "model_unavailable", response.status_code in (429, 500, 502, 503, 504)
+            )
+        try:
+            data = response.json()
+            if (
+                data.get("error")
+                or data.get("done") is not True
+                or data.get("done_reason") != "stop"
+            ):
+                raise ProviderFailure("invalid_model_response")
+            generation = Generation(
+                text=data["message"]["content"],
+                usage=Usage(
+                    input_tokens=data.get("prompt_eval_count"),
+                    output_tokens=data.get("eval_count"),
+                ),
+            )
+            self.last_timings = {
+                key: data.get(key)
+                for key in (
+                    "total_duration",
+                    "load_duration",
+                    "prompt_eval_duration",
+                    "eval_duration",
+                )
+            }
+            return generation
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise ProviderFailure("invalid_model_response") from exc
+
+    async def close(self) -> None:
+        await self.client.aclose()
+
+
 def create_provider(settings: Settings) -> Provider:
+    if settings.model_provider == "ollama":
+        return OllamaProvider(settings)
     if settings.model_provider == "gemini":
         return GeminiProvider(settings)
     if settings.model_provider == "vllm":

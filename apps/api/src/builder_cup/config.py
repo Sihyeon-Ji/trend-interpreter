@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    model_provider: Literal["mock", "gemini", "vllm"] = "mock"
+    model_provider: Literal["mock", "gemini", "vllm", "ollama"] = "mock"
     gcp_project_id: str = "stunning-crane-508614-c1"
     google_cloud_location: str = "global"
     gemini_model: str = "gemini-3.5-flash"
@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     vllm_base_url: str = "http://127.0.0.1:8001/v1"
     vllm_model: str = "google/gemma-4-E2B-it"
     vllm_api_key: str = "local-development-only"
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "qwen3.5:4b"
     web_dist: str = "apps/web/dist"
     database_lab_enabled: bool = False
     workflow_lab_enabled: bool = False

@@ -114,6 +114,20 @@ No universal agent platform, speculative domain tables, or dynamic routing is in
 
 ## Model isolation
 
+The optional `ollama-check` service runs the same `run_graph` function with synthetic inputs and a native
+Ollama adapter. Ollama runs on the Mac host; the container reaches it through `host.docker.internal`.
+The adapter verifies local model metadata before sending source text, rejects cloud-backed models and
+non-local endpoints, requests a JSON schema with thinking/streaming disabled, and rejects incomplete or
+truncated responses. Connection failures propagate through the existing bounded error policy without fallback.
+The comparison fixes context at 4096, generation at 1024 tokens, temperature at zero, and one 120-second attempt.
+It records reported usage and native nanosecond load/generation timings with the model digest.
+
+Comparison reports are timestamped JSON and Markdown in ignored `artifacts/`, containing only the fixed
+synthetic evaluation cases and their outputs. These runs do not use the PostgreSQL history wrapper and do
+not change the default Mock UI/API. Actual inference is never part of CI; transport-mocked adapter tests are.
+The Mac server disables Ollama cloud features and binds loopback. Model weights and host runtime settings
+remain outside the repository. The model's five-minute keep-alive releases idle inference memory.
+
 The API does not install PyTorch, CUDA, or vLLM. The GPU service owns its separate container and
 model cache. Changing model ID or inference host does not rebuild the web app.
 The current API contract is **text in, structured text out**. Image/audio and tool calling need their

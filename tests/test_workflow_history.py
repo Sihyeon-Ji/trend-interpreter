@@ -219,7 +219,7 @@ def test_unknown_scenario_is_rejected_before_history_creation(captured):
         assert captured == {}
 
 
-@pytest.mark.parametrize("provider", ["gemini", "vllm"])
+@pytest.mark.parametrize("provider", ["gemini", "vllm", "ollama"])
 def test_failure_lab_cannot_enable_real_providers(provider):
     config = Settings(_env_file=None, workflow_lab_enabled=True, model_provider=provider)
     with pytest.raises(RuntimeError, match="Workflow lab is only available in local mock mode"):

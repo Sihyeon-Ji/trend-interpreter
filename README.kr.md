@@ -49,6 +49,7 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | 병렬 작업·Join·Router 실습 | `docker compose run --rm --build workflow-check` |
 | 실행·단계별 이력 저장·조회 검사 | `docker compose run --rm --build history-check` |
 | Mock 오류·취소·재시도 실습 | `docker compose run --rm --build failure-check` |
+| 실제 로컬 모델과 Mock 비교 | `docker compose run --rm --build ollama-check` |
 | 브라우저 연동 테스트 | `docker compose run --rm --build e2e` |
 | 인프라 설정 로컬 검증 | `docker compose run --rm infra-check` |
 | 배포 형태 미리보기 | `docker compose up -d --build preview` |
@@ -101,6 +102,14 @@ http://localhost:5173 의 **Workflow history**에서 `Run workflow`를 누르고
 같은 화면의 **Practice scenario**에서 모델 시간 초과, 잘못된 JSON, 병렬 분기 실패, 재시도 복구를 선택할 수 있습니다.
 기본 문서로 실행한 뒤 예상 결과와 실제 단계별 상태를 비교하세요. 이 실습에서 의도한 오류는 정상적인 재현 결과입니다.
 터미널에서는 `docker compose run --rm --build failure-check`로 전체 시나리오를 검증합니다.
+
+## 실제 모델 실습
+
+Mac 호스트에 Ollama와 `qwen3.5:4b` 모델을 준비한 뒤 `docker compose run --rm --build ollama-check`를 실행합니다.
+합성 문서 3개를 같은 그래프로 처리하고, 결과·토큰·시간을 `artifacts/`의 JSON과 Markdown 파일에 남깁니다.
+기본 웹 화면과 실행 이력 실습은 계속 Mock이며, 실제 모델 비교는 이 명령으로 따로 실행합니다.
+연결 실패를 Mock 성공으로 바꾸지 않습니다. 설치·실행 순서는 [명령어 안내](docs/commands.md#실제-로컬-모델-비교),
+관찰한 품질 문제와 성능 수치는 [5단계 실습 기록](docs/ai-lab-plan.md)에 있습니다.
 
 ## 개발 화면과 배포 미리보기의 차이
 
