@@ -165,7 +165,7 @@ Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 - [팀원용 처음 설치 가이드](docs/setup.md)
 - [이전 작업과 남은 일](docs/session-handoff.md)
 - [아키텍처](docs/architecture.md)
-- [운영 안내](docs/operations.md)
+- [GCP 설정·비용 절감·삭제·복구와 웹 화면 사용법](docs/operations.md)
 - [팀 협업 방식](docs/team-workflow.md)
 - [Gemma/vLLM 안내](models/vllm/README.md)
 
