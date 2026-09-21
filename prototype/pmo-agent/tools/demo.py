@@ -184,7 +184,11 @@ def main(argv) -> int:
     try:
         r = ingest.ingest("", [NOTE], tasks=tasks, today=today)
     except LLMError as e:
-        print(f"  the model call failed: {str(e)[:160]}")
+        if getattr(e, "daily", False):
+            print("  every model's free daily quota is used up, so this step cannot run.")
+            print("  It comes back tomorrow; a billed key or Vertex has no such cap.")
+        else:
+            print(f"  the model call failed: {' '.join(str(e).split())[:150]}")
         return 1
 
     # ---- 5 ----

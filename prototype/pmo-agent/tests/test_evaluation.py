@@ -69,6 +69,18 @@ class TestRun:
         rows = evaluate.run()
         assert all(r["passed"] for r in rows), [r["id"] for r in rows if not r["passed"]]
 
+    def test_it_holds_at_dates_other_than_this_one(self):
+        """The suite passed on the day it was written and broke the day after.
+
+        The world rebuilds itself from `today`, so a case that happens to line up this
+        week looks exactly like one that holds. Four dates here, because they cost a
+        second each; `python tools/evaluate.py --dates 13` is the wider sweep, and it is
+        clean from today through four months out.
+        """
+        for day, rows in evaluate.over_dates(4, step=29):
+            failed = [r["id"] for r in rows if not r["passed"]]
+            assert not failed, f"{day}: {failed}"
+
     def test_it_does_not_touch_the_real_audit_log(self):
         from pmo_agent import approve as approve_mod
 

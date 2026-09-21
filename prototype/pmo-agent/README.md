@@ -327,10 +327,17 @@ python -m pmo_agent.run "is the current schedule realistically achievable"
 
 **Against a real GitHub repository, turn on `REPO_FILES`.** The commit list API does not
 include which files a commit touched, and the path is what separates two tasks the same
-person has open. Fetching them costs one API call per commit — about 30 seconds for a
-demo-sized repo — and buys roughly a quarter more links at noticeably higher confidence
-(measured on `onzl-c/echo-app`: 39 links at 0.73 → 50 at 0.83). The local backend has the
-paths already and ignores the flag.
+person has open. Fetching them costs one API call per commit and buys roughly a quarter
+more links at noticeably higher confidence (measured on `onzl-c/echo-app`: 39 links at
+0.73 → 50 at 0.83). The local backend has the paths already and ignores the flag.
+
+Those answers are kept in `data/commit_files.json`, which took the same repository from
+**50 seconds to 5** on the second run — and a demo reads the snapshot more than once. This
+is the one cache here that needs no staleness rule: a git sha *is* the hash of the commit's
+content, so the files it touched cannot change. What the cache deliberately does **not**
+keep is a failed call. That yields an empty file list too, and remembering it would turn
+one bad network moment into a commit that looks permanently empty. Delete the file to
+rebuild it.
 
 **The live data is a snapshot and drifts.** The simulation rebuilds its dates from *today*
 on every run; a seeded Jira board and a pushed repository are frozen at the moment they were
@@ -360,6 +367,7 @@ Backends swap through environment variables. The code does not change.
 | `LLM_BACKEND` | `aistudio` / `vertex` | the model |
 | `LINK_ASSIST` | `off` / `on` | model help for unsettled links |
 | `REPO_FILES` | `off` / `on` | fetch each commit's paths (slower, better links) |
+| `REPO_SNAPSHOT_TTL` | `60` | seconds to reuse one repository reading; `0` reads every time |
 
 ### As a web service
 
@@ -393,12 +401,15 @@ The same standards as the repository root (py312, ruff `E/F/I/UP/B`, line-length
 ```bash
 ruff check . && ruff format --check . && mypy && pytest -q
 python tools/evaluate.py         # the 15 evaluation cases
+python tools/evaluate.py --dates 13   # and at 13 dates, four months out
 python tools/measure_links.py    # link precision and recall against the answer key
 ```
 
-**456 tests, eight to fourteen seconds.** No network, no accounts. Most of them finish in
-under a second; the spread is `test_readme.py`, which spawns a collection pass to check
-that the number in this very sentence is still true.
+**488 tests, around twenty seconds.** No network, no accounts — every one of them runs on
+a laptop with the wifi off. Most finish in under a second. The slow ones are the honest
+kind: `test_readme.py` spawns a collection pass to check that the number in this very
+sentence is still true, and `test_linking_accuracy.py` rebuilds the world at eight
+different dates because one good day is not a result.
 
 | file | what it covers |
 |---|---|
@@ -409,6 +420,7 @@ that the number in this very sentence is still true.
 | `test_familiarity.py` | handover plausibility, and getting out of the way without evidence |
 | `test_link_assist.py` | the boundary the model must not cross |
 | `test_linking_accuracy.py` | the headline precision and recall, measured at several dates |
+| `test_github_cache.py` | the changed-file cache, and what must never be cached |
 | `test_notion.py` | reading a real Notion payload, and staying the same shape as the local archive |
 | `test_readme.py` | this file's own checkable claims still match the code |
 | `test_signals.py` | divergence detection, identity merge, silence without evidence |
@@ -459,10 +471,10 @@ or writing without approval, loses the trust entirely.
   A check against real handwriting is still outstanding
 - the Outlook calendar is **structure only** and unverified against a real call (it needs an
   Azure app registration)
-- the Notion adapter reads a live workspace (verified: token, data-source discovery and the
-  query all work against a real database). The demo database is still empty, so the notes
-  evidence in a live run comes from the local archive until rows exist — and the result says
-  which, rather than quietly arriving thinner
+- the Notion adapter reads a live workspace and the demo database now holds the notes, so a
+  live run's "what was decided" line comes out of Notion. What is *not* proven is a workspace
+  this agent did not shape: the rows were written by `tools/notion_seed.py`, so the columns
+  are the ones it expects. A team's real notes database will be messier
 - the Vertex AI path is **unverified** too (it needs a GCP project)
 - the PostgreSQL the team repository recently adopted is not used here yet. The local board is
   a JSON file

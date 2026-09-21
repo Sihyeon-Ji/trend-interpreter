@@ -13,3 +13,5 @@ logs/
 reports/
 data/calendar_state.json
 data/notes_state.json
+# the changed-file cache: content-addressed, rebuilt on demand
+data/commit_files.json

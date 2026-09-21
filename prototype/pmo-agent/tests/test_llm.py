@@ -12,6 +12,8 @@ import json
 import unittest
 import urllib.error
 
+import pytest
+
 from pmo_agent import llm  # noqa: E402
 
 BODY = {"contents": [{"role": "user", "parts": [{"text": "hi"}]}]}
@@ -277,3 +279,170 @@ class TestHelpers(LLMTestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+QUOTA_429 = """{
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota. Quota exceeded for metric:
+      generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20,
+      model: gemini-3.6-flash. Please retry in 21.75660148s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+       "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+                       "quotaValue": "20"}]},
+      {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21s"}
+    ]
+  }
+}"""
+
+BURST_429 = """{
+  "error": {
+    "code": 429, "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+       "violations": [{"quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},
+      {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "3s"}
+    ]
+  }
+}"""
+
+
+class TestReadingA429:
+    """A 429 is two different problems wearing one number.
+
+    A per-minute burst limit clears in seconds and is worth waiting out. A free-tier *day*
+    limit does not come back until tomorrow, and waiting four seconds for it is four
+    seconds of a demo spent on a call that cannot succeed. The body says which.
+    """
+
+    def test_it_reads_the_wait_the_provider_asked_for(self):
+        assert llm._wait_hint(QUOTA_429) == 21.0
+        assert llm._wait_hint(BURST_429) == 3.0
+
+    def test_a_fractional_wait_is_read_too(self):
+        assert llm._wait_hint('{"retryDelay": "1.5s"}') == 1.5
+
+    def test_no_hint_is_none_rather_than_zero(self):
+        # Zero would read as "retry immediately", which is the opposite of "it did not say"
+        assert llm._wait_hint('{"error": {"code": 503}}') is None
+        assert llm._wait_hint("") is None
+
+    def test_it_tells_a_daily_limit_from_a_burst_one(self):
+        assert llm._daily_quota(QUOTA_429)
+        assert not llm._daily_quota(BURST_429)
+        assert not llm._daily_quota("")
+
+
+class TestWhatItDoesAboutIt:
+    def attempts(self, monkeypatch, body, code=429):
+        """Count the calls and the sleeping, with the network and the clock replaced."""
+        log = {"calls": 0, "slept": 0.0}
+
+        def call(*_a, **_k):
+            log["calls"] += 1
+            raise urllib.error.HTTPError("u", code, "err", {}, io.BytesIO(body.encode()))
+
+        monkeypatch.setattr(llm.urllib.request, "urlopen", call)
+        monkeypatch.setattr(llm.time, "sleep", lambda s: log.__setitem__("slept", log["slept"] + s))
+        return log
+
+    def test_a_used_up_daily_quota_is_not_retried_at_all(self, monkeypatch):
+        log = self.attempts(monkeypatch, QUOTA_429)
+        with pytest.raises(llm.LLMError):
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert log["calls"] == 1, "it retried a quota that does not come back today"
+        assert log["slept"] == 0.0
+
+    def test_a_burst_limit_is_waited_out_for_exactly_as_long_as_asked(self, monkeypatch):
+        log = self.attempts(monkeypatch, BURST_429)
+        with pytest.raises(llm.LLMError):
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert log["calls"] == llm.RETRIES
+        assert log["slept"] == 3.0 * (llm.RETRIES - 1), "it should honour 3s, not guess 1+2+4"
+
+    def test_a_wait_longer_than_we_will_sit_for_moves_on(self, monkeypatch):
+        log = self.attempts(monkeypatch, '{"error":{"code":429},"retryDelay": "300s"}')
+        with pytest.raises(llm.LLMError):
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert log["calls"] == 1
+        assert log["slept"] == 0.0
+
+    def test_with_no_hint_it_still_backs_off_the_old_way(self, monkeypatch):
+        log = self.attempts(monkeypatch, '{"error": {"code": 503}}', code=503)
+        with pytest.raises(llm.LLMError):
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert log["calls"] == llm.RETRIES
+        assert log["slept"] == 1 + 2 + 4
+
+    def test_the_advice_is_found_even_when_it_sits_late_in_the_body(self, monkeypatch):
+        """The real bug this guards: the body was cut to 500 characters before being read.
+
+        Google puts a long explanatory `message` first and `details` — the quota id and the
+        retry delay — after it. Truncating early meant every 429 looked like one that came
+        with no advice, so the retries went ahead against a quota that had no chance of
+        clearing. Against the live API that was seven wasted seconds per model, twice.
+        """
+        padding = "Quota exceeded. " * 40  # comfortably past the old 500-character cut
+        body = (
+            '{"error": {"code": 429, "message": "'
+            + padding
+            + '", "details": [{"violations": [{"quotaId": '
+            + '"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}, '
+            + '{"retryDelay": "21s"}]}}'
+        )
+        assert body.index("quotaId") > 500, "this test is not reproducing the old cut"
+
+        log = self.attempts(monkeypatch, body)
+        with pytest.raises(llm.LLMError):
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert log["calls"] == 1
+        assert log["slept"] == 0.0
+
+    def test_the_message_it_raises_stays_short(self, monkeypatch):
+        # Reading the whole body is for understanding it; a wall of JSON in a report is not
+        long_body = '{"error": {"code": 503, "message": "' + ("x" * 3000) + '"}}'
+        self.attempts(monkeypatch, long_body, code=503)
+        with pytest.raises(llm.LLMError) as caught:
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert len(str(caught.value)) < llm.SHOWN + 60
+
+    def test_the_daily_flag_survives_the_truncation(self, monkeypatch):
+        # The message is cut for display and the quota id is at the end of it, so reading
+        # the flag back out of the message would lose exactly the case it is there for
+        padding = "Quota exceeded. " * 40
+        body = (
+            '{"error": {"code": 429, "message": "'
+            + padding
+            + '", "details": [{"violations": [{"quotaId": '
+            + '"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}'
+        )
+        self.attempts(monkeypatch, body)
+        with pytest.raises(llm.LLMError) as caught:
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert caught.value.daily is True
+        assert "PerDay" not in str(caught.value), "this test is not exercising the truncation"
+
+    def test_an_ordinary_failure_is_not_flagged_daily(self, monkeypatch):
+        self.attempts(monkeypatch, '{"error": {"code": 503}}', code=503)
+        with pytest.raises(llm.LLMError) as caught:
+            llm._attempt({}, "gemini-3.6-flash", 10, verbose=False)
+        assert caught.value.daily is False
+
+    def test_the_daily_case_still_reaches_the_fallback_model(self, monkeypatch):
+        # Giving up on a model early must not mean giving up on the answer: the fallback
+        # has a quota of its own
+        tried: list = []
+
+        def attempt(_body, m, _timeout, _verbose):
+            tried.append(m)
+            if len(tried) == 1:
+                raise llm.LLMError(f"Gemini 429: {QUOTA_429}", status=429)
+            return {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+
+        monkeypatch.setattr(llm, "_attempt", attempt)
+        monkeypatch.setattr(llm, "model_name", lambda: "gemini-3.6-flash")
+        monkeypatch.setattr(llm, "fallback_model", lambda: "gemini-3.5-flash")
+        assert llm.text_of(llm.generate({}, verbose=False)) == "ok"
+        assert tried == ["gemini-3.6-flash", "gemini-3.5-flash"]

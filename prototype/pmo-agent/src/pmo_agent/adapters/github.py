@@ -19,11 +19,56 @@ import os
 import shutil
 import subprocess
 
-from pmo_agent.env import env
+from pmo_agent.env import data_dir, env
 
 TIMEOUT = 60
 # A fallback path for Windows shells whose PATH has not refreshed after a winget install
 FALLBACK_GH = r"C:\Program Files\GitHub CLI\gh.exe"
+
+
+# ---------------------------------------------------------------------------
+# The changed-file cache.
+#
+# `REPO_FILES=on` costs one API call per commit, and against a real repository that
+# was 55 seconds for 64 commits — most of a demo's running time, paid again on
+# every run.
+#
+# Caching it is not a guess about staleness. A git sha *is* the hash of the commit's
+# content: the list of files a given sha touched cannot change, so a hit is as good
+# as a fetch, forever. Only successful fetches are stored — a failed call produces
+# an empty list, and remembering that would turn one bad network moment into a
+# commit that permanently looks like it touched nothing.
+# ---------------------------------------------------------------------------
+
+CACHE_FILE = "commit_files.json"
+CACHE_MAX = 4000  # per repository; a demo repo has tens, this is room to spare
+
+
+def _cache_path():
+    return data_dir() / CACHE_FILE
+
+
+def cache_load() -> dict:
+    try:
+        with open(_cache_path(), encoding="utf-8") as handle:
+            found = json.load(handle)
+        return found if isinstance(found, dict) else {}
+    except (OSError, ValueError):
+        return {}  # no cache, or one somebody edited by hand. Either way, start over
+
+
+def cache_save(cache: dict) -> None:
+    for repo, entries in cache.items():
+        if len(entries) > CACHE_MAX:
+            # dicts keep insertion order, so the oldest entries are the ones at the front
+            cache[repo] = dict(list(entries.items())[-CACHE_MAX:])
+    try:
+        path = _cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(cache, handle)
+    except OSError:
+        pass  # a cache that cannot be written is a slow run, not a failure
 
 
 class GitHubError(RuntimeError):
@@ -199,12 +244,25 @@ class GitHub:
         if with_files:
             # Worth roughly a quarter more links and a good deal more confidence, because
             # the path is what separates two tasks the same person is working on. It costs
-            # one API call per commit, which is why the caller has to ask for it.
+            # one API call per commit, which is why the caller has to ask for it — and why
+            # the answers are kept: a sha's file list is fixed for good.
+            cache = cache_load()
+            mine = cache.setdefault(self.repo, {})
+            fetched = 0
             for commit in commits:
+                sha = commit["sha"]
+                if sha in mine:
+                    commit["files"] = list(mine[sha])
+                    continue
                 try:
-                    commit["files"] = self.commit_files(commit["sha"])
+                    commit["files"] = self.commit_files(sha)
                 except GitHubError:
-                    commit["files"] = []
+                    commit["files"] = []  # not remembered; a failure is not a fact
+                    continue
+                mine[sha] = commit["files"]
+                fetched += 1
+            if fetched:
+                cache_save(cache)
         return {
             "repo": self.repo,
             "info": self.repo_info(),

@@ -17,6 +17,7 @@ The model name is managed in one place, GEMINI_MODEL in .env. The 2.5 line is re
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import time
 import urllib.error
@@ -28,6 +29,9 @@ DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_FALLBACK = "gemini-3.5-flash"  # where to go when the main model is overloaded
 RETRIES = 4
 RETRY_CODES = (429, 503, 500)  # overload, quota, transient. Anything else is our bug — raise it
+MAX_WAIT = 8  # seconds we will sit still on the provider's say-so before trying another model
+BODY_MAX = 4000  # of an error body; `details` sits past the first 500 characters
+SHOWN = 500  # of it in the message we raise
 AISTUDIO = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={k}"
 VERTEX = (
     "https://{region}-aiplatform.googleapis.com/v1/projects/{project}"
@@ -52,11 +56,41 @@ class LLMError(RuntimeError):
 
     `status` carries the HTTP status. A configuration error (no key, no project) has status None —
     fishing for "429" in the message text gets fooled by a number that happens to be in the body.
+
+    `daily` says the allowance that ran out was a per-day one, which will not come back
+    before tomorrow. It rides here rather than being read back out of the message, because
+    the message is truncated for display and the part that says so is at the end of it.
     """
 
-    def __init__(self, message: str, status: int | None = None):
+    def __init__(self, message: str, status: int | None = None, daily: bool = False):
         super().__init__(message)
         self.status = status
+        self.daily = daily
+
+
+def _wait_hint(raw: str) -> float | None:
+    """How long the provider asked us to wait, from the RetryInfo it sends back.
+
+    Guessing with exponential backoff when the answer is in the response is silly in both
+    directions: too short and every retry is wasted, too long and we sat there for nothing.
+    A real 429 body carries `"retryDelay": "21s"`.
+    """
+    found = re.search(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"', raw or "")
+    return float(found.group(1)) if found else None
+
+
+def _daily_quota(raw: str) -> bool:
+    """Whether what was hit is a *daily* allowance, which no amount of waiting fixes today.
+
+    Google says which quota in `quotaId`, and the two kinds want opposite responses. A
+    per-minute burst limit clears in under a minute and is worth waiting out. A free-tier
+    day limit — 20 requests on gemini-3.6-flash — does not come back until tomorrow, and
+    the only useful move is the fallback model, which has an allowance of its own.
+
+    Before this, a used-up daily quota cost seven seconds of certain-to-fail retries per
+    model, in the middle of a demo.
+    """
+    return "PerDay" in (raw or "")
 
 
 def _overloaded(e: LLMError) -> bool:
@@ -142,7 +176,8 @@ def generate(
             if i == len(chain) - 1 or not _overloaded(e):
                 raise
             if verbose:
-                _log(f"  ({m} unavailable - falling back to {chain[i + 1]})")
+                why = "daily quota used up" if getattr(e, "daily", False) else "unavailable"
+                _log(f"  ({m} {why} - falling back to {chain[i + 1]})")
     raise LLMError("no model left to call")
 
 
@@ -154,20 +189,33 @@ def _attempt(body: dict, m: str, timeout: int, verbose: bool) -> dict:
             with urllib.request.urlopen(_request(body, m), timeout=timeout) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            last = e.read()[:500].decode("utf-8", "ignore")
-            if e.code in RETRY_CODES and attempt < RETRIES - 1:
-                wait = 2**attempt
+            # Read enough to *understand* the error, show only enough to report it.
+            # Truncating at 500 first cut the body off before `details`, where the quota
+            # id and the retry delay live — so every 429 looked like one with no advice
+            # attached, and the retries went ahead regardless of what the provider said.
+            last = e.read()[:BODY_MAX].decode("utf-8", "ignore")
+            if e.code in RETRY_CODES and attempt < RETRIES - 1 and not _daily_quota(last):
+                asked = _wait_hint(last)
+                if asked is None or asked <= MAX_WAIT:
+                    wait = asked if asked is not None else float(2**attempt)
+                    if verbose:
+                        _log(
+                            f"  (Gemini {e.code} - retry {attempt + 1}/{RETRIES - 1} in {wait:g}s)"
+                        )
+                    time.sleep(wait)
+                    continue
+                # The provider named a wait longer than we will sit for. Another model now.
                 if verbose:
-                    _log(f"  (Gemini {e.code} - retry {attempt + 1}/{RETRIES - 1} in {wait}s)")
-                time.sleep(wait)
-                continue
-            raise LLMError(f"Gemini {e.code}: {last}", status=e.code) from None
+                    _log(f"  (Gemini {e.code} - asked for {asked:g}s, not waiting)")
+            raise LLMError(
+                f"Gemini {e.code}: {last[:SHOWN]}", status=e.code, daily=_daily_quota(last)
+            ) from None
         except urllib.error.URLError as e:
             if attempt < RETRIES - 1:
                 time.sleep(2**attempt)
                 continue
             raise LLMError(f"network error: {e}") from None
-    raise LLMError(f"{RETRIES} retries failed: {last}")
+    raise LLMError(f"{RETRIES} retries failed: {last[:SHOWN]}")
 
 
 def text_of(resp: dict) -> str:

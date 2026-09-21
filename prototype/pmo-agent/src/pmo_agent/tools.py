@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import time
 
 from pmo_agent import availability as avail_mod
 from pmo_agent import capacity, cause, familiarity, linking, schedule, signals
@@ -295,8 +296,43 @@ def _with_files() -> bool:
     return env("REPO_FILES", "off").strip().lower() in ("on", "true", "1", "yes")
 
 
+SNAPSHOT_TTL = 60  # seconds; override with REPO_SNAPSHOT_TTL
+_snap: dict = {}
+
+
+def _ttl() -> float:
+    try:
+        return float(env("REPO_SNAPSHOT_TTL", str(SNAPSHOT_TTL)))
+    except ValueError:
+        return float(SNAPSHOT_TTL)
+
+
+def forget_snapshot() -> None:
+    """Drop the remembered reading. For tests, and for anyone who wants the next one fresh."""
+    _snap.clear()
+
+
 def _snapshot(limit: int = 100) -> dict:
-    return repo().snapshot(limit, with_files=_with_files())
+    """The repository as it was a moment ago — one reading, briefly remembered.
+
+    Not only for speed, though it is that: a live demo took three snapshots and paid for
+    all three. The better reason is consistency. "The board disagrees with the code" and
+    "why did this task stop" are two halves of one answer, and taking a separate reading
+    for each means the halves can describe different repositories — a commit that lands
+    between them appears in one and not the other, and nothing says so.
+
+    Kept for a minute, not for the process's life. Long enough that one question is
+    answered from one reading; short enough that a dashboard left open still moves.
+    Set REPO_SNAPSHOT_TTL=0 to turn it off.
+    """
+    key = (limit, _with_files())
+    ttl = _ttl()
+    found = _snap.get(key)
+    if found and ttl > 0 and (time.monotonic() - found[0]) < ttl:
+        return found[1]
+    got = repo().snapshot(limit, with_files=_with_files())
+    _snap[key] = (time.monotonic(), got)
+    return got
 
 
 def _link_assist():

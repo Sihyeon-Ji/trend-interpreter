@@ -231,3 +231,66 @@ class TestDispatch(ToolTestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestTheRepositoryIsReadOnce:
+    """One question, one reading.
+
+    A live demo took three separate snapshots of the same repository and paid for all
+    three. Speed is the obvious reason to stop doing that; consistency is the better one.
+    "The board disagrees with the code" and "why did this stop" are halves of one answer,
+    and reading twice lets a commit that lands in between appear in one half and not the
+    other, with nothing to say so.
+
+    It is remembered for a minute, not for good — a dashboard left open still moves.
+    """
+
+    def counter(self, monkeypatch):
+        """Replace the repository with something that counts how often it is read."""
+        seen = {"n": 0}
+
+        class Counting:
+            def snapshot(self, limit=100, with_files=False):
+                seen["n"] += 1
+                return {"commits": [], "pulls": [], "reading": seen["n"]}
+
+        monkeypatch.setattr(tools, "repo", lambda: Counting())
+        tools.forget_snapshot()
+        return seen
+
+    def test_two_reads_in_a_row_are_one_reading(self, monkeypatch):
+        seen = self.counter(monkeypatch)
+        first, second = tools._snapshot(10), tools._snapshot(10)
+        assert seen["n"] == 1
+        assert first["reading"] == second["reading"] == 1
+
+    def test_a_different_question_gets_its_own_reading(self, monkeypatch):
+        seen = self.counter(monkeypatch)
+        tools._snapshot(10)
+        tools._snapshot(50)
+        assert seen["n"] == 2
+
+    def test_it_is_forgotten_once_the_time_is_up(self, monkeypatch):
+        seen = self.counter(monkeypatch)
+        monkeypatch.setattr(tools, "_ttl", lambda: 0.0)
+        tools._snapshot(10)
+        tools._snapshot(10)
+        assert seen["n"] == 2, "a zero lifetime should mean no memory at all"
+
+    def test_forgetting_it_on_purpose_forces_a_fresh_one(self, monkeypatch):
+        seen = self.counter(monkeypatch)
+        tools._snapshot(10)
+        tools.forget_snapshot()
+        tools._snapshot(10)
+        assert seen["n"] == 2
+
+    def test_the_lifetime_comes_from_the_environment(self, monkeypatch):
+        monkeypatch.setattr(tools, "env", lambda k, d="": "5" if k == "REPO_SNAPSHOT_TTL" else d)
+        assert tools._ttl() == 5.0
+
+    def test_a_lifetime_that_is_not_a_number_falls_back(self, monkeypatch):
+        # A typo in .env should slow the agent down, not stop it
+        monkeypatch.setattr(
+            tools, "env", lambda k, d="": "a while" if k == "REPO_SNAPSHOT_TTL" else d
+        )
+        assert tools._ttl() == float(tools.SNAPSHOT_TTL)

@@ -361,7 +361,37 @@ def run(today: dt.date | None = None, path: Path | None = None) -> list:
     return rows
 
 
+def over_dates(count: int = 8, step: int = 11) -> list:
+    """The same cases at several dates. One good day is not a result.
+
+    The world regenerates from `today`, so a case that happens to line up this week is
+    indistinguishable from one that holds. Only a sweep tells them apart — and this suite
+    did once break the day after it was written.
+    """
+    start = dt.date.today()
+    return [
+        (start + dt.timedelta(days=i * step), run(start + dt.timedelta(days=i * step)))
+        for i in range(count)
+    ]
+
+
+def sweep(count: int) -> int:
+    print(f"the {count} dates the world is checked at\n")
+    bad = 0
+    for day, rows in over_dates(count):
+        failed = [r["id"] for r in rows if not r["passed"]]
+        bad += len(failed)
+        ok = len(rows) - len(failed)
+        print(f"  {day}  {ok}/{len(rows)}" + (f"  FAILED: {', '.join(failed)}" if failed else ""))
+    print(f"\n  {'all dates pass' if not bad else f'{bad} failures'}")
+    return 0 if not bad else 1
+
+
 def main(argv: list) -> int:
+    if "--dates" in argv:
+        at = argv.index("--dates")
+        return sweep(int(argv[at + 1]) if len(argv) > at + 1 else 8)
+
     rows = run()
     if "--json" in argv:
         print(json.dumps(rows, ensure_ascii=False, indent=1))
