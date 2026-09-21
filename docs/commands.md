@@ -13,6 +13,7 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 | 개발 시작 | `docker compose up -d` | 웹·API를 백그라운드로 실행 |
 | 준비 완료까지 기다리며 시작 | `docker compose up -d --wait` | 웹·API가 정상 상태가 될 때까지 대기 |
 | 실행 상태 확인 | `docker compose ps` | 서비스 상태와 연결 포트 표시 |
+| 준비 상태 읽기 전용 진단 | `docker compose run --rm --build doctor` | 서비스 자동 기동 없이 Mock·DB 읽기·선택적 Ollama 상태 확인 |
 | 최근 로그부터 계속 보기 | `docker compose logs -f --tail 100` | 최근 100줄부터 실시간 로그 표시 |
 | API 로그만 보기 | `docker compose logs -f --tail 100 api` | API 오류·재시작 상태 확인 |
 | 웹 로그만 보기 | `docker compose logs -f --tail 100 web` | Vite 오류·화면 변경 감지 확인 |
@@ -20,6 +21,27 @@ Docker를 켠 뒤 `compose.yaml`이 있는 저장소 루트에서 실행하세�
 
 개발 화면은 **http://localhost:5173**, API 문서는 **http://localhost:8000/docs**입니다.
 로그를 보다가 `Ctrl+C`를 누르면 로그 보기만 끝납니다. 서버 종료는 `down`을 사용하세요.
+
+## 준비 상태 진단
+
+Docker 엔진이 켜져 있고 저장소 루트에 있는지 먼저 확인한 뒤 실행합니다.
+
+```bash
+docker compose run --rm --build doctor
+```
+
+`doctor`는 의존 서비스를 자동 시작하지 않고 GET 요청으로 현재 프로젝트의 API·웹 프록시·DB 이력 조회를 확인합니다.
+Ollama 서버·다운로드 목록을 조회하지만 설치·모델 다운로드·추론은 실행하지 않습니다.
+기본 Mock 서비스가 준비되지 않았으면 종료 코드 1, 준비됐다면 0입니다. Ollama 미준비는 선택 항목이므로 종료 코드를 바꾸지 않습니다.
+HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실행 시 이미지·임시 컨테이너·네트워크는 생성될 수 있습니다.
+
+호스트 경로·브랜치·Docker context·포트 소유 프로세스·CLI 설치 여부는 컨테이너에서 판단하지 않습니다.
+[Mac 진단 명령과 결과별 대처](setup-macos.md#4-문제가-생겼을-때-준비-상태-확인)를 함께 사용하세요.
+
+다른 checkout을 동시에 띄울 때는 `COMPOSE_PROJECT_NAME`과 `DEV_API_PORT`·`DEV_WEB_PORT`를 구분합니다.
+기본 포트는 계속 8000·5173이며 모든 개발 공개 포트는 루프백에 바인딩합니다.
+[격리 실행 예시](setup-macos.md#5-별도-checkout을-독립적으로-검증하기)와
+[Compose 프로젝트 이름 규칙](https://docs.docker.com/compose/how-tos/project-name/)을 참고하세요.
 
 ## 수정한 내용을 반영할 때
 

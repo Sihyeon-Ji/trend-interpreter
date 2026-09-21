@@ -50,6 +50,7 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | --- | --- |
 | `docker compose up -d` | Start the development API and web server |
 | `docker compose ps` | Check service status |
+| `docker compose run --rm --build doctor` | Diagnose Mock readiness and optional Ollama availability without starting dependent services |
 | `docker compose logs -f` | Follow logs; Ctrl-C stops following, not the services |
 | `docker compose down` | Stop and remove the development containers |
 | `docker compose up -d --build` | Rebuild after dependency/configuration changes |
@@ -64,7 +65,7 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
 `db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 

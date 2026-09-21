@@ -73,7 +73,7 @@ services:
   api:
     <<: *development
     command: uvicorn builder_cup.main:create_app --factory --reload --reload-dir apps/api/src --host 0.0.0.0 --port 8000
-    ports: ["127.0.0.1:8000:8000"]
+    ports: ["127.0.0.1:${DEV_API_PORT:-8000}:8000"]
     environment:
       <<: *development-environment
       WATCHFILES_FORCE_POLLING: "true"
@@ -98,7 +98,7 @@ services:
   web:
     <<: *development
     command: npm --prefix apps/web run dev -- --host 0.0.0.0 --port 5173 --strictPort
-    ports: ["127.0.0.1:5173:5173"]
+    ports: ["127.0.0.1:${DEV_WEB_PORT:-5173}:5173"]
     environment:
       <<: *development-environment
       API_PROXY_TARGET: http://api:8000
@@ -113,6 +113,20 @@ services:
       retries: 15
 
   # One-off validation; excluded from the default startup by the tools profile.
+  # Read-only probes do not start dependencies, initialize the DB or run inference.
+  doctor:
+    <<: *development
+    profiles: [tools]
+    command: python scripts/doctor.py
+    read_only: true
+    environment:
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+    volumes:
+      - ./scripts:/workspace/scripts:ro
+      - ./compose.yaml:/checkout/compose.yaml:ro
+      - ./pyproject.toml:/checkout/pyproject.toml:ro
+
+  # Application checks can run without development services.
   check:
     <<: *development
     profiles: [tools]
@@ -150,6 +164,9 @@ services:
     profiles: [tools]
     entrypoint: [python, scripts/db_lab.py]
     command: [check]
+    environment:
+      <<: *development-environment
+      DEV_API_PORT: ${DEV_API_PORT:-8000}
     depends_on:
       api:
         condition: service_healthy

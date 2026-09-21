@@ -7,6 +7,7 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | File | Caller | Responsibility |
 | --- | --- | --- |
 | `evaluate.py` | Compose `check` | Run contract cases against the configured provider; Compose forces mock |
+| `doctor.py` | Compose `doctor` | Read-only HTTP probes for Mock readiness and optional Ollama inventory; no inference, dependency startup or DB writes |
 | `db_lab.py` | Compose `db-init` / `db-check` | Initialize the local lab schema; create/read a synthetic record through the API |
 | `workflow_lab.py` | Compose `workflow-check` | Exercise synthetic documents through graph validation, parallel branches, join and routing |
 | `history_lab.py` | Compose `history-check` | Verify successful/failed run metadata and privacy; read an existing run by UUID |

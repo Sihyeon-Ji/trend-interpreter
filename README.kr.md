@@ -41,6 +41,7 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | --- | --- |
 | 개발 환경 켜기 | `docker compose up -d` |
 | 실행 상태 확인 | `docker compose ps` |
+| 서비스·선택적 모델 준비 상태 진단 | `docker compose run --rm --build doctor` |
 | 로그 보기 | `docker compose logs -f` |
 | 개발 환경 끄기 | `docker compose down` |
 | 의존성·이미지 설정 변경 반영 | `docker compose up -d --build` |

@@ -1,6 +1,7 @@
 """Initialize the local lab or verify synthetic records through its API."""
 
 import argparse
+import os
 from uuid import UUID, uuid4
 
 import httpx
@@ -50,7 +51,8 @@ def main() -> None:
         print(record.model_dump_json())
         print("PASS: insert, read, missing record and invalid ID")
         print(f"Read again: docker compose run --rm db-check read {record.id}")
-        print(f"Open: http://localhost:8000/api/lab/records/{record.id}")
+        port = os.environ.get("DEV_API_PORT", "8000")
+        print(f"Open: http://localhost:{port}/api/lab/records/{record.id}")
 
 
 if __name__ == "__main__":
