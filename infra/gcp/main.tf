@@ -12,11 +12,30 @@ resource "google_project_service" "apis" {
 }
 
 resource "google_artifact_registry_repository" "app" {
-  location      = var.region
-  repository_id = "builder-cup"
-  format        = "DOCKER"
-  description   = "Application images tagged by Git commit"
-  depends_on    = [google_project_service.apis]
+  location               = var.region
+  repository_id          = "builder-cup"
+  format                 = "DOCKER"
+  description            = "Application images tagged by Git commit"
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-images-older-than-30-days"
+    action = "DELETE"
+    condition {
+      tag_state  = "ANY"
+      older_than = "30d"
+    }
+  }
+
+  cleanup_policies {
+    id     = "keep-10-most-recent-versions"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
 resource "google_service_account" "runtime" {

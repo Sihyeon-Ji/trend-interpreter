@@ -108,11 +108,90 @@ account 권한이 필요합니다. **Budget 알림은 지출을 중단하지 않
 접근 권한, budget, 알림 수신자, 실제 model 가격을 확인해야 합니다. Cloud Run이 0으로 축소돼도 image
 storage는 남습니다.
 
+## Gemini 사용량과 비용 확인
+
+운영 화면에서 올바른 `Team access code`로 `Analyze text`를 실행하면 Cloud Run의 FastAPI가
+`gemini-3.5-flash`를 Vertex AI Gemini API로 호출합니다. 확인 목적에 따라 보는 화면이 다릅니다.
+
+| 확인할 내용 | Console 위치 | 표시 시점 |
+| --- | --- | --- |
+| 개별 요청의 입력·출력 token | **Logging → Logs Explorer**에서 `analysis_completed` 검색 | 요청 직후에 가까움 |
+| Model별 호출 수·token 추이 | **Monitoring → Metrics Explorer**에서 Vertex AI Publisher Model metric 선택 | Monitoring 수집 지연 후 |
+| API request·error·latency | **APIs & Services → Vertex AI API → Metrics** | 짧은 수집 지연 후 |
+| 실제 청구 비용 | **Billing → Reports**에서 project와 service/SKU filter | 실시간 아님 |
+
+바로 확인할 때는 [Logs Explorer](https://console.cloud.google.com/logs/query?project=stunning-crane-508614-c1)에서
+다음 query를 사용합니다.
+
+```text
+resource.type="cloud_run_revision"
+resource.labels.service_name="builder-cup"
+jsonPayload.message="analysis_completed"
+```
+
+Log record의 `usage.input_tokens`, `usage.output_tokens`, `model`, `request_id`를 확인할 수 있습니다. 원문과
+생성 결과는 log에 남기지 않습니다. 같은 값은 웹 결과의 **Run details → Tokens in / out**에서도 볼 수
+있습니다.
+
+시간에 따른 사용량은 [Metrics Explorer](https://console.cloud.google.com/monitoring/metrics-explorer?project=stunning-crane-508614-c1)에서
+resource type을 **Vertex AI Publisher Model**로 선택하고 다음 metric을 사용합니다.
+
+- `Model invocation count`: 모델 호출 수
+- `Token count`: 누적 입력·출력 token 수
+- 필요하면 model, input/output token type, response code로 구분
+
+실제 비용은 [Cloud Billing Reports](https://console.cloud.google.com/billing/reports?project=stunning-crane-508614-c1)에서
+기간을 현재 월로 두고 project를 `stunning-crane-508614-c1`로 제한한 뒤 **Service** 또는 **SKU**로
+grouping합니다. `Vertex AI` 관련 항목이 Gemini 비용입니다. 필요하면 `Cloud Run`과 `Artifact Registry`도
+각각 filter합니다.
+
+Billing report는 실시간 계측 화면이 아닙니다. 빠르면 사용 후 5~15분에 반영되는 항목도 있지만 보통
+하루 안에 나타나며 24시간 이상 늦을 수도 있습니다. 따라서 방금 한 요청은 Logs Explorer와 Metrics
+Explorer로 먼저 확인하고, 청구 금액은 Billing report에서 나중에 확인합니다. 현재 Cloud Run에는 token
+단가 환경 변수를 넣지 않았으므로 웹 화면의 `Estimated cost`는 `Pricing not configured`로 표시됩니다.
+Metric 이름은 [Google Cloud의 Vertex AI metric 목록](https://docs.cloud.google.com/monitoring/api/metrics_gcp_a_b),
+비용 반영 지연은 [Cloud Billing report 안내](https://docs.cloud.google.com/billing/docs/how-to/reports#data-availability)에서
+확인할 수 있습니다.
+
+## Artifact Registry image 자동 정리
+
+배포할 때마다 commit SHA tag가 붙은 image와 관련 manifest가 Artifact Registry에 추가됩니다. Layer를
+공유하더라도 아무 정책이 없으면 version이 계속 남아 storage 사용량이 증가합니다. 이 저장소의 Terraform은
+다음 cleanup policy를 관리합니다.
+
+| 정책 | 동작 |
+| --- | --- |
+| `keep-10-most-recent-versions` | Package별 최근 version 10개는 나이와 관계없이 보존 |
+| `delete-images-older-than-30-days` | 30일보다 오래된 나머지 tagged·untagged version 삭제 |
+
+Cleanup은 CD 단계에서 실행하지 않습니다. Artifact Registry background job이 주기적으로 실행하며 정책
+변경이 실제 삭제에 반영되기까지 약 하루가 걸릴 수 있습니다. Docker parent manifest가 참조하는 image는
+parent가 삭제될 때까지 유지됩니다.
+
+현재 repository 크기는 다음 명령으로 확인합니다.
+
+```bash
+gcloud artifacts repositories describe builder-cup \
+  --project=stunning-crane-508614-c1 \
+  --location=asia-northeast1
+```
+
+Artifact Registry 저장 용량은 billing account 전체 합산 기준 월 0.5GiB까지 무료이고, 그 이상은 저장량에
+따라 과금됩니다. 따라서 작은 초기 저장량의 비용은 0일 수 있지만 자동 정리 없이 배포를 계속하는 것은
+좋지 않습니다. 모든 image 저장 비용까지 없애려면 Cloud Run을 먼저 삭제한 다음 아래의 수동 image 삭제
+절차를 사용합니다.
+
 ## 비용 절감을 위한 삭제 수준
 
 목표에 맞는 가장 작은 삭제 범위를 선택합니다. Release workflow는 Terraform이나
 `bootstrap-gcp.sh`를 실행하지 않으며 기반 인프라가 이미 있다고 가정합니다. Cloud Run 서비스가 없으면
 새로 만들 수 있지만 Registry, identity, IAM binding, secret이 없으면 복구하지 못하고 실패합니다.
+
+**이 project에서는 개발을 오래 쉴 때 Cloud Run 서비스만 삭제하는 것으로 충분합니다.** 그러면 Cloud
+Run request가 처리되지 않고 Gemini도 호출되지 않습니다. Artifact Registry, Terraform state bucket,
+Secret Manager 같은 작은 기반 resource는 남으므로 비용이 절대 0이라고 보장할 수는 없지만, image 자동
+정리 정책까지 적용되어 있어 남는 비용은 매우 작게 유지됩니다. 이후 기반 resource가 그대로 있는 상태에서
+새 commit을 `release/gcp`에 push하면 CD가 Cloud Run 서비스를 다시 만듭니다.
 
 | 단계 | 삭제 대상 | 남는 대상 | 다음 `release/gcp` push만으로 배포 가능? |
 | --- | --- | --- | --- |
@@ -123,11 +202,13 @@ storage는 남습니다.
 
 최소 instance 0인 요청 기반 서비스에는 유휴 Cloud Run instance 비용이 없지만 공개 request가 들어오면
 instance가 시작될 수 있습니다. 서비스를 삭제하면 request를 막고 revision도 함께 삭제합니다. Artifact
-Registry image는 자동으로 삭제되지 않습니다. Artifact Registry storage, Terraform state storage,
-Gemini request, project의 다른 resource는 각각 별도 과금 기준을 가집니다. 공식 문서는
+Registry image는 Cloud Run과 함께 삭제되지 않지만 위 cleanup policy가 오래된 version을 정리합니다.
+Artifact Registry storage, Terraform state storage, Gemini request, project의 다른 resource는 각각 별도
+과금 기준을 가집니다. 공식 문서는
 [Cloud Run 과금 설정](https://docs.cloud.google.com/run/docs/configuring/billing-settings),
 [서비스 삭제 동작](https://docs.cloud.google.com/run/docs/managing/services#delete),
-[Artifact Registry 가격](https://cloud.google.com/artifact-registry/pricing)을 참고합니다.
+[Artifact Registry 가격](https://cloud.google.com/artifact-registry/pricing),
+[cleanup policy](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy)를 참고합니다.
 
 ### 권장 방법: Cloud Run 서비스만 삭제
 
@@ -332,5 +413,5 @@ Secret Manager에 새 version을 추가한 뒤 새 release를 실행해 instance
 
 `docker compose up -d`나 로컬 image test 전에 Docker Desktop을 설치하고 실행합니다. `docker info`로
 engine을 확인합니다. 시작하지 않으면 Docker Desktop의 로컬 onboarding을 끝내고 `docker context ls`를
-확인합니다. 예전 계정 path 복구 과정은 세션 인수인계 문서에 과거 기록으로만 남아 있으며 다른 Mac의
-필수 설정 단계가 아닙니다. Context를 고치기 위해 기존 Docker data를 삭제하지 않습니다.
+확인합니다. Mac 계정 이름을 바꾼 뒤 예전 home path를 참조하는 문제는 특정 장비의 복구 사례이며 다른
+Mac의 필수 설정 단계가 아닙니다. Context를 고치기 위해 기존 Docker data를 삭제하지 않습니다.
