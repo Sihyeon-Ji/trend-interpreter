@@ -263,5 +263,5 @@ docker compose run --rm infra-check
 
 설정을 검사할 뿐 클라우드 리소스를 생성하지 않습니다.
 실제 Gemini·Gemma 연결은 [운영 문서](operations.md)와 [모델 안내](../models/vllm/README.md)를 참고해
-담당자와 별도로 준비합니다. 현재 GCP 배포와 과금 활성화는 보류 중이며,
-배포 재개 전에는 `scripts/bootstrap-gcp.sh` 실행이나 `release/gcp` push를 하지 마세요.
+담당자와 별도로 준비합니다. GCP 배포는 운영 담당자가 [운영 문서](operations.md)에 따라
+`scripts/bootstrap-gcp.sh`와 `release/gcp` 브랜치로 수행합니다.

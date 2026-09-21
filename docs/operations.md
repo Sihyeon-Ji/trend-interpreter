@@ -2,7 +2,7 @@
 
 ## One-time bootstrap
 
-Project: `stunning-crane-508614-c1`. Cloud Run/Artifact Registry region: `asia-northeast3` (Seoul).
+Project: `stunning-crane-508614-c1`. Cloud Run/Artifact Registry region: `asia-northeast1` (Tokyo).
 Gemini location: `global`; this is not a Korea-only data residency promise.
 
 1. Authenticate `gh auth login`, `gcloud auth login`, and `gcloud auth application-default login`.
@@ -32,9 +32,13 @@ Required repository variables (bootstrap sets these):
 
 ## Team access
 
-Open the Cloud Run service URL. Retrieve `builder-cup-demo-key` from Secret Manager privately and
+Cloud Run assigns an HTTPS `run.app` URL without requiring a purchased domain. Open that service URL.
+Retrieve `builder-cup-demo-key` from Secret Manager privately and
 share it with teammates using an appropriate private channel. Enter it in the UI access-code field.
 It stays in React memory and is never baked into the frontend or written to localStorage.
+
+A Cloud Run custom-domain mapping requires a domain the team owns and can verify. Add it only after
+buying or transferring a domain; it is not required for deployment or public web access.
 
 The release smoke test checks static UI, application health and anonymous-call rejection.
 It does **not** prove Gemini project access or quota. After the first release, submit a real text
@@ -47,14 +51,12 @@ private access architecture rather than removing authentication. Do not claim th
 
 ## Budget
 
-Current project preference: keep billing disabled and perform validation only. CLI login, ADC
-token refresh, project/IAM/API inventory reads, application tests, Docker builds and `docker compose run --rm infra-check`
-can be verified now. Actual Cloud Run deployment and Vertex AI inference remain unverified until
-the user resumes deployment. Authentication alone does not enable billing.
+Billing was linked and deployment resumed on 2026-09-21. Keep Cloud Run at zero minimum instances
+and a maximum of two until real demand is measured. Authentication alone does not establish model
+access, quota, or a complete production check.
 
 Cloud Run Tokyo (`asia-northeast1`) and Osaka (`asia-northeast2`) use Tier 1 pricing; Seoul
-(`asia-northeast3`) uses Tier 2. Tokyo is a cost-oriented candidate for the future CPU application.
-The current configuration remains Seoul; no regional migration has been performed. These tiers
+(`asia-northeast3`) uses Tier 2. The application and Artifact Registry use Tokyo. These tiers
 are specific to Cloud Run pricing and do not establish the price of Gemini or every GCP service.
 Keep regional application dependencies together when selecting the final region.
 See [Cloud Run locations](https://docs.cloud.google.com/run/docs/locations) and
@@ -83,7 +85,7 @@ No paging/notification channel is created until the team's recipient is known.
 ## Roll back
 
 ```bash
-gcloud run revisions list --service=builder-cup --region=asia-northeast3 \
+gcloud run revisions list --service=builder-cup --region=asia-northeast1 \
   --project=stunning-crane-508614-c1
 bash scripts/rollback-gcp.sh KNOWN_GOOD_REVISION
 ```

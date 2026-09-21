@@ -4,7 +4,7 @@ variable "project_id" {
 }
 variable "region" {
   type    = string
-  default = "asia-northeast3"
+  default = "asia-northeast1"
 }
 variable "github_repository" {
   type    = string

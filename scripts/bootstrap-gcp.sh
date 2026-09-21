@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$PWD/.tools:$PATH"
 PROJECT_ID=stunning-crane-508614-c1
-REGION=asia-northeast3
+REGION=asia-northeast1
 REPO=Sihyeon-Ji/2026-google-ai-builder-cup
 STATE_BUCKET="$PROJECT_ID-tfstate"
 for command in gcloud gh terraform python3; do command -v "$command" >/dev/null; done
@@ -33,7 +33,7 @@ Path('infra/gcp/github.auto.tfvars.json').write_text(json.dumps({
     'github_owner_id': os.environ['TF_VAR_github_owner_id'],
 }, indent=2) + '\n')
 PY
-terraform -chdir=infra/gcp init -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=foundation"
+terraform -chdir=infra/gcp init -reconfigure -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=foundation"
 terraform -chdir=infra/gcp plan -out=bootstrap.tfplan
 terraform -chdir=infra/gcp apply bootstrap.tfplan
 if ! gcloud secrets versions describe latest --secret=builder-cup-demo-key --project="$PROJECT_ID" >/dev/null 2>&1; then

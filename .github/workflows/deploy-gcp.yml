@@ -20,9 +20,9 @@ jobs:
       id-token: write
     env:
       PROJECT_ID: stunning-crane-508614-c1
-      REGION: asia-northeast3
+      REGION: asia-northeast1
       SERVICE: builder-cup
-      IMAGE: asia-northeast3-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/app
+      IMAGE: asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/app
       GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.5-flash' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

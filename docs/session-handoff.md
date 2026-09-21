@@ -8,10 +8,10 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
 
 - Repository: [Sihyeon-Ji/2026-google-ai-builder-cup](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup).
 - Development and default branch: `develop`. Pushes run CI.
-- Future deployment branch: `release/gcp`. Pushes trigger CI, image build and GCP deployment.
+- Deployment branch: `release/gcp`. Pushes trigger CI, image build and GCP deployment.
 - GCP project: `stunning-crane-508614-c1` (number `266542883304`).
-- **Current preference: validation only. Do not enable billing, provision cloud resources, or push
-  `release/gcp` until the user explicitly resumes cloud deployment.**
+- Billing was linked and cloud deployment resumed on 2026-09-21. The deployment target is Tokyo
+  (`asia-northeast1`) for Cloud Run Tier 1 pricing and direct custom-domain mapping support.
 - Notion work is restricted to [the contest page](https://www.notion.so/)
   and its descendants. Linked pages outside that subtree are not in scope.
 
@@ -46,8 +46,8 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
 
 | Area | Current state | Next step |
 | --- | --- | --- |
-| GCP infrastructure | Terraform and bootstrap script prepared; no cloud resources applied. Project billing is disabled; the visible billing account was closed. | Keep validating locally. Resume provisioning only when the user wants cloud deployment. |
-| Release deployment | Workflow and local `release/gcp` branch prepared; release branch has not been pushed remotely. | After infrastructure exists, fast-forward the branch from `develop`, push it, and watch deployment. |
+| GCP infrastructure | Terraform and bootstrap script prepared; billing is linked and deployment is authorized. | Apply the foundation in Tokyo and verify the resulting resources. |
+| Release deployment | Workflow and `release/gcp` branch prepared. | After infrastructure exists, fast-forward the branch from `develop`, push it, and watch deployment. |
 | Real Gemini | Adapter tested with mocked HTTP responses, not an actual model request. | Once billing/API/model access and quota are ready, run a real evaluation and a deployed UI request. |
 | Local Gemma/vLLM | Separate Linux/NVIDIA Compose profile and connection guide prepared. | Obtain GPU model, VRAM and driver details; validate model/image compatibility and run inference. |
 | GitHub and Notion plugins | Installed, but latest MCP calls returned `USER_NOT_LOGGED_IN`. CLI authentication does not authenticate the GitHub plugin. | Complete OAuth in each installed plugin, then verify reads of the specified repository/page only. |
@@ -57,7 +57,7 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
 Tokens were pasted in the conversation. They were not copied into this repository or MCP configuration.
 Their revocation/replacement has not been verified. Do not reproduce them in documentation or logs.
 
-## Continue development without GCP billing
+## Continue local development
 
 The earlier Make-based setup above is historical and has been replaced. Follow the maintained
 [local development guide](../README.md#local-development) or [Korean onboarding guide](setup.md).
@@ -75,12 +75,11 @@ The earlier Docker account-path repair is historical, not a prerequisite for ano
 Even when both Macs use the same home path, installed tools and credentials are machine-local.
 Mock verification does not establish real Gemini access or AI quality.
 
-## Resume cloud deployment later
+## Deploy to GCP
 
-1. Obtain the user's instruction to resume. Decide the region and budget before creating resources.
-   Seoul (`asia-northeast3`) remains in the code. Tokyo (`asia-northeast1`) is a lower-tier Cloud Run
-   pricing candidate; it has **not** been selected or applied. See [operations](operations.md).
-2. Connect an active billing account and confirm permissions/API/model availability. Do not commit
+1. Confirm the selected region and budget before creating resources. Tokyo (`asia-northeast1`) is
+   selected for the Cloud Run application and Artifact Registry. See [operations](operations.md).
+2. Confirm the active billing account, permissions, API and model availability. Do not commit
    credentials, Terraform state or secret values.
 3. Run `bash scripts/bootstrap-gcp.sh`. This provisions infrastructure and configures GitHub deployment variables.
 4. Promote the current code, then return to development:

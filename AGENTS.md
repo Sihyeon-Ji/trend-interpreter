@@ -11,5 +11,5 @@
 - Keep the learning guides `docs/ai-development-guide.md` and `docs/ai-lab-plan.md` in Korean.
 - No raw user text, generated output or credentials in operational logs.
 - A health check does not establish real Gemini access or GPU inference readiness.
-- GCP is currently validation-only at the user's request. Do not enable billing, provision resources, or push `release/gcp` until the user resumes cloud deployment.
+- GCP billing is linked and deployment resumed on 2026-09-21. Deploy through `release/gcp` only after checks pass, and verify the resulting service before reporting success.
 - Notion access for this project is limited to page `project page` and its descendants. Verify ancestry before changes; linked pages outside that subtree are out of scope. Do not search or modify unrelated workspace content.

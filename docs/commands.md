@@ -335,8 +335,8 @@ docker compose run --rm --build e2e
 | `apps/web/package.json` | 컨테이너 내부의 프런트엔드 도구 명령 |
 | `scripts/` | 평가·배포·롤백 등의 내부 구현, [파일별 역할](../scripts/README.md) |
 
-GCP 배포와 과금 활성화는 현재 보류 중입니다. `scripts/bootstrap-gcp.sh`, 배포·롤백 스크립트,
-`release/gcp` push는 평소 개발 명령이 아닙니다. 재개가 결정되면 [운영 문서](operations.md)를 따릅니다.
+`scripts/bootstrap-gcp.sh`, 배포·롤백 스크립트, `release/gcp` push는 운영 명령입니다.
+평소 개발에서는 실행하지 말고 실제 배포 시 [운영 문서](operations.md)를 따릅니다.
 
 ## GitHub CI는 언제 실행되나요?
 
