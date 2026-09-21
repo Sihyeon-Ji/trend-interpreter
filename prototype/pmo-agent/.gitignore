@@ -1,0 +1,14 @@
+# 이 후보 프로젝트에서 생성되는 것들 (prototype/ 아래는 각자 관리한다)
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+data/seed_state.json
+data/repo_state.json
+logs/
+reports/
+data/calendar_state.json

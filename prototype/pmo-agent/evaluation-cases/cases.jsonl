@@ -1,0 +1,10 @@
+{"id": "root-cause-visible", "group": "detect", "check": "risk_contains_truth", "truth": "root_cause", "ask": "지금 일정에서 위험한 태스크를 근거와 함께 알려줘", "why": "세계에서 외부 IdP 스펙이 바뀌어 인증 구현이 8영업일 막혔다. 그 태스크가 위험 목록에 있어야 한다"}
+{"id": "stalled-detected", "group": "detect", "check": "signals_mismatch", "truth": "stalled", "ask": "보드 상태와 실제 코드 진척이 어긋난 게 있나", "why": "착수만 하고 손을 놓은 태스크가 있다. 보드는 '진행 중'이지만 커밋이 끊겼다"}
+{"id": "undeclared-progress-detected", "group": "detect", "check": "signals_mismatch", "truth": "undeclared_progress", "ask": "보드에 반영되지 않은 작업이 있나", "why": "실제로는 커밋이 있는데 보드는 아직 '할 일'로 남아 있다"}
+{"id": "premature-done-detected", "group": "detect", "check": "signals_mismatch", "truth": "done_with_open_pr", "ask": "완료 처리가 이른 태스크가 있나", "why": "보드는 완료인데 PR 이 아직 열려 있다"}
+{"id": "meeting-overload-detected", "group": "detect", "check": "meeting_top", "truth": "meeting_overload", "ask": "앞으로 누가 가장 시간이 없나", "why": "앞으로 10영업일 회의가 가장 많은 사람이 실가용 시간도 가장 적어야 한다"}
+{"id": "no-evidence-no-warning", "group": "restraint", "check": "silent_without_keys", "ask": "이 저장소에서 진척이 안 나는 태스크를 알려줘", "why": "커밋에 태스크 키를 안 쓰는 저장소에서는 '커밋이 없다'를 알 수 없다. 모르는 것을 경고로 내면 전부 잡음이 된다"}
+{"id": "cycle-is-error-not-crash", "group": "restraint", "check": "cycle_returns_error", "ask": "일정을 계산해줘", "why": "의존관계가 순환하면 계산할 수 없다. 에이전트 루프가 죽지 않고 오류를 돌려줘야 한다"}
+{"id": "invented-key-becomes-question", "group": "restraint", "check": "invented_key_unresolved", "ask": "이 메모를 보드에 반영해줘", "why": "모델이 없는 태스크 키를 지어내면 반영하지 않고 사람에게 물을 질문으로 떨어뜨려야 한다"}
+{"id": "no-write-without-approval", "group": "restraint", "check": "approval_required", "ask": "제안된 변경을 반영해줘", "why": "번호를 고르지 않거나 확인하지 않으면 아무것도 반영되지 않아야 한다"}
+{"id": "no-calendar-no-meeting-claim", "group": "restraint", "check": "calendar_absence_declared", "ask": "실현 가능한 완료일이 언제야", "why": "캘린더가 없으면 회의를 반영했다고 말하면 안 된다. 가정을 밝혀야 한다"}

@@ -1,0 +1,41 @@
+# 독립 후보 프로젝트 (prototype/ 아래는 각자 자기 의존성을 갖는다 — README 참고).
+# 도구 설정은 저장소 루트 pyproject.toml 과 같은 값을 쓴다: py312, line-length 100, ruff E/F/I/UP/B.
+[project]
+name = "pmo-agent"
+version = "0.1.0"
+description = "일정 계산은 코드가, 판단과 설명은 Gemini 가, 쓰기는 사람 승인 뒤에만"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "python-multipart>=0.0.9,<1",
+  "pydantic>=2.7,<3",
+]
+
+# 계산부(schedule·capacity·signals)는 표준 라이브러리만 쓴다.
+# 여기 있는 것은 전부 웹 계층 때문이고, 아래는 개발용 도구다.
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "mypy>=1.15,<2", "pillow>=10,<12"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pmo_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/pmo_agent"]
+check_untyped_defs = true
