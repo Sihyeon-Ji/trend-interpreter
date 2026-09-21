@@ -1,14 +1,16 @@
-"""가용 시간 — 회의에 먹힌 시간을 빼고 실제로 일할 수 있는 양을 계산한다.
+"""Available time — what is actually left to work with once meetings have taken their share.
 
-capacity.py 는 지금까지 "영업일 하루 = 온전히 하루 작업"이라고 가정했다.
-현실은 회의·다른 프로젝트로 절반이 날아간다. 그 데이터는 보드에도 저장소에도 없고 캘린더에만 있다.
+capacity.py has so far assumed "one business day = one full day of work".
+In reality half of it goes to meetings and other projects. That data is in neither the board nor
+the repo — only the calendar has it.
 
-여기서 다루는 값은 하나다: **가용률** — 어떤 사람의 어떤 날, 프로젝트 작업에 쓸 수 있는 비율(0~1).
+There is one number here: **availability** — the fraction of a given day a given person can spend
+on project work (0-1).
 
-    회의 4시간 / 8시간 근무  →  가용률 0.5  →  하루짜리 태스크가 이틀 걸린다
+    4 hours of meetings / an 8-hour day  →  availability 0.5  →  a one-day task takes two
 
-이 모듈은 캘린더 API 를 모른다. {사람: {날짜: 회의시간}} 만 받는다 —
-어댑터(MS Graph · 로컬)가 그 모양으로 맞춰 준다.
+This module knows nothing about calendar APIs. It takes {person: {date: meeting hours}} —
+the adapters (MS Graph, local) put it in that shape.
 """
 
 from __future__ import annotations
@@ -16,11 +18,11 @@ from __future__ import annotations
 import datetime as _dt
 
 WORKDAY_HOURS = 8.0
-MIN_FRACTION = 0.05  # 회의로 가득 찬 날도 완전히 0 으로 두지 않는다 (0 이면 일정이 무한히 밀린다)
+MIN_FRACTION = 0.05  # even a fully booked day is not zero (zero pushes the schedule out forever)
 
 
 def fraction_from_hours(meeting_hours: float, workday_hours: float = WORKDAY_HOURS) -> float:
-    """회의 시간 → 그 날의 가용률. 근무시간을 넘겨도 0 밑으로는 내려가지 않는다."""
+    """Meeting hours → that day's availability. Overrunning the workday still never goes below 0."""
     if workday_hours <= 0:
         return 0.0
     free = (workday_hours - max(0.0, meeting_hours)) / workday_hours
@@ -28,7 +30,7 @@ def fraction_from_hours(meeting_hours: float, workday_hours: float = WORKDAY_HOU
 
 
 def from_busy_hours(busy: dict, workday_hours: float = WORKDAY_HOURS) -> dict:
-    """{사람: {ISO날짜: 회의시간}} → {사람: {ISO날짜: 가용률}}."""
+    """{person: {ISO date: meeting hours}} → {person: {ISO date: availability}}."""
     return {
         who: {day: fraction_from_hours(hours, workday_hours) for day, hours in days.items()}
         for who, days in (busy or {}).items()
@@ -36,11 +38,11 @@ def from_busy_hours(busy: dict, workday_hours: float = WORKDAY_HOURS) -> dict:
 
 
 def from_events(events, workday_hours: float = WORKDAY_HOURS) -> dict:
-    """캘린더 이벤트 목록 → 가용률 표.
+    """A list of calendar events → the availability table.
 
-    이벤트 한 건: {"attendee": 이름, "date": "YYYY-MM-DD", "hours": 1.5}
-    종일 일정은 hours 를 근무시간 전체로 넣으면 된다.
-    같은 날 여러 건은 합산한다 — 겹치는 회의는 어댑터가 정리해서 넘긴다.
+    One event: {"attendee": name, "date": "YYYY-MM-DD", "hours": 1.5}
+    For an all-day event, put the whole workday in hours.
+    Several on one day are summed — overlapping meetings are the adapter's job to resolve.
     """
     busy: dict[str, dict[str, float]] = {}
     for e in events or []:
@@ -61,10 +63,10 @@ def table(
     horizon: int,
     holidays=(),
 ) -> dict:
-    """날짜 문자열 대신 '오늘부터 몇 번째 영업일'로 찾을 수 있게 펼친다.
+    """Expand the table so it can be looked up by business-day offset instead of by date.
 
-    스케줄러는 영업일 오프셋으로 돌아가므로, 매번 날짜를 만들지 않도록 미리 풀어 둔다.
-    캘린더에 없는 날은 1.0(온전히 가용)으로 본다 — 모르는 것을 '바쁘다'로 치지 않는다.
+    The scheduler runs on business-day offsets, so this is unrolled once rather than per lookup.
+    Days missing from the calendar count as 1.0 (fully available) — not knowing is not being busy.
     """
     from pmo_agent import schedule
 
@@ -77,9 +79,9 @@ def table(
 
 
 def span_end(rates: list, start: float, work: float) -> float:
-    """start(영업일 오프셋)에서 work(온전한 영업일 기준 작업량)를 소화하는 끝 지점.
+    """Where `work` (in whole business days) finishes, starting from business-day offset `start`.
 
-    가용률이 낮은 날은 그만큼 오래 걸린다. 가용률 0.5 인 날이 이어지면 1일치 작업이 2일을 먹는다.
+    Low-availability days stretch it. A run of days at 0.5 makes one day of work take two.
     """
     if work <= 1e-9:
         return start
@@ -87,7 +89,7 @@ def span_end(rates: list, start: float, work: float) -> float:
     limit = len(rates)
     while remaining > 1e-9:
         day = int(pos)
-        if day >= limit:  # 지평선을 넘으면 그 뒤는 온전히 가용한 것으로 본다
+        if day >= limit:  # past the horizon, assume full availability
             return pos + remaining
         rate = rates[day]
         left_today = (1.0 - (pos - day)) * rate
@@ -99,7 +101,7 @@ def span_end(rates: list, start: float, work: float) -> float:
 
 
 def meeting_load(availability: dict | None, who: str, today: _dt.date, days: int = 10) -> dict:
-    """앞으로 N영업일 동안 이 사람이 회의로 잃는 양. 리포트에서 근거로 쓴다."""
+    """How much this person loses to meetings over the next N business days. Report evidence."""
     from pmo_agent import schedule
 
     per_day = (availability or {}).get(who, {})

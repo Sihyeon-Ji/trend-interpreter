@@ -1,14 +1,15 @@
-"""자원 제약 스케줄링 — 사람이 동시에 여러 건을 못 한다는 사실을 일정에 반영한다.
+"""Resource-constrained scheduling — one person cannot do five things at once.
 
-schedule.py 의 forecast() 는 의존관계만 본다. 그래서 한 사람이 8건을 동시에 진행한다고 가정하고,
-'총 38영업일치를 들고 있는 사람'이 있어도 프로젝트가 22일 만에 끝난다고 답한다.
-이 모듈은 담당자별 처리 용량(기본 1건 동시)을 넣어 '실제로 가능한' 완료일을 낸다.
+schedule.py's forecast() only looks at dependencies. So it assumes one person runs eight tasks
+in parallel, and answers that a project finishes in 22 days even when somebody is holding 38
+business days of work. This module adds a per-owner capacity (1 concurrent task by default)
+and produces a finish date that is actually achievable.
 
-방식: 직렬 일정 생성(serial SGS). 선행이 모두 끝난 태스크 중 여유(slack)가 적은 것부터
-      담당자가 비는 시점에 붙인다. 표준 휴리스틱이고, 전부 결정론적이라 같은 입력이면 같은 답이
-      나온다.
+Method: serial schedule generation (serial SGS). Among tasks whose dependencies are met, take
+      the one with the least slack and drop it into the owner's next free interval. A standard
+      heuristic, fully deterministic — same input, same answer.
 
-이 모듈도 Jira 를 모른다. schedule.Task 만 받는다.
+This module does not know about Jira either. It takes schedule.Task and nothing else.
 """
 
 from __future__ import annotations
@@ -18,12 +19,12 @@ import datetime as _dt
 from pmo_agent import availability as avail_mod
 from pmo_agent import schedule
 
-DEFAULT_CAPACITY = 1  # 한 사람이 동시에 잡는 태스크 수
-UNASSIGNED = "(미배정)"
+DEFAULT_CAPACITY = 1  # tasks one person holds at once
+UNASSIGNED = "(unassigned)"
 
 
 def _caps(tasks: dict, capacity) -> dict:
-    """담당자 → 동시 처리 가능 건수."""
+    """owner → how many tasks they can run at once."""
     people = {t.assignee or UNASSIGNED for t in tasks.values()}
     if isinstance(capacity, int):
         return {p: max(1, capacity) for p in people}
@@ -35,20 +36,21 @@ def _caps(tasks: dict, capacity) -> dict:
 def levelled(
     tasks: dict, today: _dt.date, capacity=None, holidays=(), availability: dict | None = None
 ) -> dict:
-    """자원 제약을 넣은 완료 예측.
+    """A finish forecast with resource constraints applied.
 
-    반환: project_finish(실현 가능 완료일), unconstrained_finish(기존 예측), tasks, resources,
+    Returns project_finish (achievable), unconstrained_finish (the old forecast), tasks, resources,
     bottleneck.
-    tasks[key].waiting_days = 선행은 끝났는데 담당자가 바빠서 기다린 영업일 — 순수한 용량 손실이다.
+    tasks[key].waiting_days = dependencies met but the owner was busy — pure capacity loss.
 
-    availability 를 주면 회의로 먹힌 시간을 반영한다 ({사람: {ISO날짜: 가용률}}).
-    가용률 0.5 인 날이 이어지면 1일치 작업이 이틀을 먹는다. 주지 않으면 전원 1.0 으로 본다.
+    Pass `availability` to account for time eaten by meetings ({person: {ISO date: fraction}}).
+    A run of days at 0.5 makes one day of work take two. Without it, everyone sits at 1.0.
     """
-    order = schedule.topo_order(tasks)  # 순환이면 여기서 CycleError
+    order = schedule.topo_order(tasks)  # a cycle raises CycleError right here
     caps = _caps(tasks, capacity)
     cpm = schedule.cpm(tasks, today, holidays)["tasks"]
-    # 담당자마다 '슬롯' 몇 개, 슬롯마다 이미 잡힌 구간 목록. 새 태스크는 빈 구간에 끼워 넣는다.
-    # (단순히 마지막 종료시각 뒤에 붙이면, 늦게 시작하는 태스크가 슬롯을 선점해 앞쪽이 통째로 빈다.)
+    # Per owner: a few "slots", each holding the intervals already taken. New tasks slot into gaps.
+    # (Append after the last finish instead and a late-starting task claims the slot, leaving the
+    #  whole front of it empty.)
     slots: dict[str, list[list[tuple[float, float]]]] = {
         p: [[] for _ in range(n)] for p, n in caps.items()
     }
@@ -57,15 +59,15 @@ def levelled(
     busy = {p: 0.0 for p in caps}
     pending = set(order)
 
-    # 가용률 표를 영업일 오프셋으로 펼쳐 둔다. 지평선은 전체 작업량 + 여유.
+    # Flatten the availability table onto business-day offsets. Horizon = total work plus slack.
     horizon = int(sum(t.remaining for t in tasks.values()) * 2) + 60
     rates = avail_mod.table(availability, set(caps), today, horizon, holidays)
 
     def place(intervals: list, ready: float, work: float, who: str) -> tuple[float, float]:
-        """ready 이후로, work 만큼이 통째로 들어가는 가장 이른 (시작, 끝).
+        """The earliest (start, finish) at or after `ready` that fits `work` in one piece.
 
-        끝 지점은 가용률에 따라 달라진다 — 회의가 많은 구간에 걸치면 그만큼 뒤로 밀린다.
-        그래서 '시작을 정하고 끝을 계산 → 겹치면 시작을 옮긴다'를 반복한다.
+        Where it ends depends on availability — crossing a meeting-heavy stretch pushes it out.
+        So we repeat: fix a start, compute the finish, and if it overlaps, move the start.
         """
         t = ready
         for _ in range(len(intervals) + 2):
@@ -78,20 +80,20 @@ def levelled(
             t = clash[1]
         return t, avail_mod.span_end(rates[who], t, work)
 
-    def priority(k):  # 여유 적은 순 → 마감 빠른 순 → 키 순
+    def priority(k):  # least slack, then earliest due date, then key
         t = tasks[k]
         return (cpm[k]["slack_days"], t.duedate or _dt.date.max, k)
 
     while pending:
         eligible = [k for k in pending if all(d in finish for d in tasks[k].deps)]
-        if not eligible:  # topo_order 가 통과했으면 일어나지 않는다
-            raise schedule.CycleError("일정을 진행할 수 없다: " + ", ".join(sorted(pending)))
+        if not eligible:  # cannot happen once topo_order has passed
+            raise schedule.CycleError("schedule cannot advance: " + ", ".join(sorted(pending)))
         k = min(eligible, key=priority)
         pending.discard(k)
         t = tasks[k]
         who = t.assignee or UNASSIGNED
         dep_ready = max([finish[d] for d in t.deps], default=0.0)
-        if t.remaining <= 0:  # 완료된 태스크는 사람을 쓰지 않는다
+        if t.remaining <= 0:  # finished tasks consume nobody
             start = end = dep_ready
         else:
             fits = [(*place(iv, dep_ready, t.remaining, who), i) for i, iv in enumerate(slots[who])]
@@ -152,7 +154,7 @@ def levelled(
 
 
 def blocked_by_people(result: dict, top: int = 5) -> list:
-    """의존성이 아니라 '담당자가 바빠서' 기다리는 태스크 — 자원 제약의 직접 증거."""
+    """Tasks waiting on a busy owner, not on a dependency — the constraint made visible."""
     rows = [r for r in result["tasks"].values() if r["waiting_days"] > 0]
     return sorted(rows, key=lambda r: -r["waiting_days"])[:top]
 
@@ -169,10 +171,10 @@ def rebalance(
     holidays=(),
     availability: dict | None = None,
 ) -> dict:
-    """병목 담당자의 태스크를 다른 사람에게 옮겨 완료일을 당길 수 있는지 탐색한다.
+    """Search for a task to move off the bottleneck owner that would pull the finish date in.
 
-    탐욕적으로 한 건씩, 가장 많이 당겨지는 이동을 고른다. 제안일 뿐 반영하지 않는다.
-    완료된 태스크와 이미 시작한 태스크(progress>0)는 옮기지 않는다 — 현실적으로 인계가 어렵다.
+    Greedy, one move at a time, taking whichever pulls hardest. A proposal only; nothing is applied.
+    Finished tasks and already-started ones (progress>0) stay put — handing those over rarely works.
     """
     base = levelled(tasks, today, capacity, holidays, availability)
     cur, moves = _copy(tasks), []
@@ -228,13 +230,13 @@ def rebalance(
 def summary(
     tasks: dict, today: _dt.date, capacity=None, holidays=(), availability: dict | None = None
 ) -> dict:
-    """리포트·툴에서 그대로 쓸 수 있는 한 덩어리 (날짜는 ISO 문자열).
+    """One bundle the report and the tools can use as-is (dates as ISO strings).
 
-    캘린더를 주면 세 값이 나란히 나온다 — 각 제약이 며칠씩 더하는지 보이게 하기 위해서다:
-      의존관계만  <  사람 용량까지  <  회의까지
+    Pass a calendar and three numbers come back side by side, so each constraint's cost shows:
+      dependencies only  <  plus people's capacity  <  plus meetings
     """
     r = levelled(tasks, today, capacity, holidays, availability)
-    # 회의를 빼면 얼마였는지도 같이 낸다. 그래야 '회의 때문에 며칠'이 분리된다.
+    # Also report what it would have been without meetings, to separate out their cost.
     no_cal = levelled(tasks, today, capacity, holidays, None) if availability else r
     meeting_slip = schedule.workdays_between(
         no_cal["project_finish"], r["project_finish"], holidays

@@ -1,12 +1,13 @@
-"""로컬 저장소 어댑터 — GitHub 계정 없이 코드 신호를 돌리기 위한 백엔드.
+"""The local repository adapter — a backend for code signals without a GitHub account.
 
-adapters/memory.py(보드)와 같은 발상이다. GitHub 어댑터와 **같은 모양**을 돌려주므로
-agent/signals.py 는 어느 쪽에 붙어 있는지 알 필요가 없다.
+Same idea as adapters/memory.py (the board). It returns **the same shapes** as the GitHub
+adapter, so signals.py never needs to know which one is connected.
 
-실제 저장소와 다른 점은 하나뿐이다: 데이터가 JSON 파일에서 온다.
-그래서 데모가 네트워크·계정·레이트리밋에 좌우되지 않고, 시연할 상황을 정확히 재현할 수 있다.
+There is exactly one difference from a real repository: the data comes from a JSON file.
+That keeps the demo off the network, off accounts and off rate limits, and lets us reproduce
+the exact situation we want to show.
 
-여기도 읽기 전용이다 — 쓰기 메서드가 없다.
+Read-only here too — there are no write methods.
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ STORE = str(data_dir() / "repo_state.json")
 
 
 class MemoryRepo:
-    """파일 한 개를 저장소로 쓰는 어댑터. GitHub 클래스와 메서드 이름·반환 모양이 같다."""
+    """An adapter that treats one file as the repository. Same methods and shapes as GitHub."""
 
-    def __init__(self, path: str | None = None, repo: str = "echo-team/echo-pmo-demo", data=None):
+    def __init__(self, path: str | None = None, repo: str = "echo-team/echo-app", data=None):
         self.path = None if data is not None else (path or STORE)
         self.repo = repo
         self._data = data
@@ -42,7 +43,7 @@ class MemoryRepo:
                 }
         return self._data
 
-    # ---------- 읽기 (GitHub 과 동일한 인터페이스) ----------
+    # ---------- reads (the same interface as GitHub) ----------
     def whoami(self) -> str:
         return "local"
 
@@ -79,12 +80,14 @@ class MemoryRepo:
         return list(self._load().get("collaborators", []))
 
     def snapshot(self, commit_limit: int = 100) -> dict:
+        data = self._load()
         return {
-            "repo": self._load().get("repo", self.repo),
+            "repo": data.get("repo", self.repo),
             "info": self.repo_info(),
             "commits": self.commits(commit_limit),
             "pulls": self.pulls("all"),
             "branches": self.branches(),
+            "people": data.get("people", {}),
         }
 
 

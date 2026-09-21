@@ -1,26 +1,31 @@
-"""데모 세계 — 하나의 이야기에서 모든 도구 데이터를 파생한다.
+"""The demo world — every tool's data derives from one story.
 
-지금까지 보드·저장소·캘린더 시드를 따로 만들었다. 각자는 그럴듯했지만 **하나의 이야기가 없었다.**
-그래서 "ECHO-5 가 20일째 멈췄다"까지는 나와도 "왜"에는 아무 데이터도 답하지 못했다.
+We used to build the board, repo and calendar seeds separately. Each looked
+plausible on its own, but **there was no single story behind them.** So the
+engine could say "ECHO-5 has been stuck for 20 days" and no data anywhere
+could answer "why".
 
-이 모듈은 하루 단위로 프로젝트를 굴린다:
+This module runs the project forward one day at a time:
 
-    각자에게 회의를 배정한다 → 남은 시간에 자기 태스크를 민다 → 사건이 터지면 막힌다
+    give everyone their meetings -> push their own tasks with what is left
+    -> get blocked when the incident hits
 
-그 결과가 `World.facts` — **실제로 일어난 일**이다. 도구 데이터는 전부 여기서 투영된다:
+The result is `World.facts` — **what actually happened.** Every tool's data is
+projected from it:
 
-    board     사람이 **기록한** 상태   (실제와 어긋나는 부분이 곧 신호다)
-    repo      실제로 **한** 것          (커밋·PR)
-    calendar  시간이 **간** 곳          (과거·미래 회의)
+    board     what people **wrote down**   (where it diverges from reality is the signal)
+    repo      what was actually **done**   (commits, pull requests)
+    calendar  where the time **went**      (past and future meetings)
 
-`World.truths` 는 정답지다. "무엇이 진짜 원인인가"를 적어 두고, 테스트가
-에이전트 계산이 그걸 찾아내는지 검사한다 — 팀 워크플로 문서가 요구하는 성공/실패 케이스가 이것이다.
+`World.truths` is the answer key. It records "what the real cause was", and the
+tests check that the agent's own calculation finds it — these are the
+success/failure cases the team workflow document asks for.
 
-고정 시드라 몇 번을 돌려도 같은 세계가 나온다.
+The seed is fixed, so the same world comes out however often you run it.
 
-실행:
-  python -m pmo_agent.seeds.world            요약 출력
-  python -m pmo_agent.seeds.world --facts    날짜별 기록까지
+Run:
+  python -m pmo_agent.seeds.world            summary
+  python -m pmo_agent.seeds.world --facts    with the day-by-day record
 """
 
 from __future__ import annotations
@@ -35,87 +40,87 @@ from pmo_agent import availability as av
 from pmo_agent import schedule
 
 PEOPLE = [
-    ("한서준", "seojun-h", "seojun@echo.test"),
-    ("민아름", "areum-m", "areum@echo.test"),
-    ("오태경", "tk-oh", "taekyung@echo.test"),
-    ("유하늘", "haneul-y", "haneul@echo.test"),
+    ("Maya Okonkwo", "maya-o", "maya@echo.test"),
+    ("Leo Fischer", "leo-f", "leo@echo.test"),
+    ("Priya Raman", "priya-r", "priya@echo.test"),
+    ("Noah Brandt", "noah-b", "noah@echo.test"),
 ]
 
 PHASES = [
     (
-        "기획",
+        "Discovery",
         [
-            "요구사항 인터뷰",
-            "사용자 시나리오 정리",
-            "성공 지표 정의",
-            "경쟁 제품 조사",
-            "범위 확정",
-            "리스크 목록 작성",
-            "일정 초안",
+            "Requirements interviews",
+            "User scenarios",
+            "Success metrics",
+            "Competitor research",
+            "Scope lock",
+            "Risk register",
+            "Schedule draft",
         ],
     ),
     (
-        "설계",
+        "Design",
         [
-            "정보구조 설계",
-            "화면 흐름 설계",
-            "데이터 모델 설계",
-            "API 명세 작성",
-            "인증 방식 결정",
-            "에러 처리 규칙",
-            "디자인 시스템 정리",
+            "Information architecture",
+            "Screen flow",
+            "Data model",
+            "API spec",
+            "Authentication approach",
+            "Error handling rules",
+            "Design system",
         ],
     ),
     (
-        "구현",
+        "Build",
         [
-            "프로젝트 스캐폴딩",
-            "인증 구현",
-            "목록 화면 구현",
-            "상세 화면 구현",
-            "검색 구현",
-            "알림 구현",
-            "설정 화면 구현",
-            "API 연동",
-            "데이터 마이그레이션",
-            "권한 처리",
-            "로깅 추가",
-            "성능 튜닝",
+            "Project scaffolding",
+            "Authentication",
+            "List view",
+            "Detail view",
+            "Search",
+            "Notifications",
+            "Settings screen",
+            "API client",
+            "Data migration",
+            "Permissions",
+            "Logging",
+            "Performance tuning",
         ],
     ),
     (
-        "검증",
+        "Hardening",
         [
-            "단위 테스트 보강",
-            "통합 테스트",
-            "브라우저 테스트",
-            "접근성 점검",
-            "부하 테스트",
-            "보안 점검",
-            "버그 수정 1차",
-            "버그 수정 2차",
+            "Unit tests",
+            "Integration tests",
+            "Browser tests",
+            "Accessibility audit",
+            "Load tests",
+            "Security review",
+            "Round 1 QA fixes",
+            "Round 2 QA fixes",
         ],
     ),
     (
-        "출시",
+        "Release",
         [
-            "릴리스 노트 작성",
-            "배포 리허설",
-            "운영 문서화",
-            "모니터링 대시보드",
-            "출시 점검 회의",
-            "출시",
+            "Release notes",
+            "Deploy rehearsal",
+            "Runbook",
+            "Monitoring dashboard",
+            "Launch review",
+            "Launch",
         ],
     ),
 ]
 
-BACK_DAYS = 18  # 오늘 기준 과거 영업일
-FWD_DAYS = 25  # 미래 영업일 (캘린더용)
+BACK_DAYS = 18  # business days into the past, from today
+FWD_DAYS = 25  # business days into the future (for the calendar)
 
-RECURRING = ("팀 정기 회의", 1.0)  # 월요일, 전원
-PERSONAL = [("1:1", 0.5), ("스프린트 리뷰", 1.0), ("설계 리뷰", 1.5), ("고객 미팅", 2.0)]
-INCIDENT_MEETING = ("장애 대응", 3.0)
-WORKSHOP = ("전사 워크숍", av.WORKDAY_HOURS)
+RECURRING = ("Team sync", 1.0)  # Mondays, everyone
+PERSONAL = [("1:1", 0.5), ("Sprint review", 1.0), ("Design review", 1.5), ("Customer call", 2.0)]
+INCIDENT_MEETING = ("Incident response", 3.0)
+WORKSHOP = ("All-hands workshop", av.WORKDAY_HOURS)
 
 
 @dataclass
@@ -148,13 +153,13 @@ class Task:
 
 @dataclass
 class World:
-    """시뮬레이션 결과. 도구 데이터는 전부 여기서 나온다."""
+    """The simulation result. Every tool's data comes out of this."""
 
     today: dt.date
     people: list
     tasks: dict
     facts: list  # {"day", "who", "kind", "key", "hours", "detail"}
-    truths: list  # 정답지 — 무엇이 진짜 원인인가
+    truths: list  # the answer key — what the real cause was
     incident: dict
 
     def by_day(self, kind: str = "") -> dict:
@@ -170,7 +175,7 @@ class World:
 
 
 def _tasks(project: str) -> dict:
-    """태스크 목록. 같은 단계 안에서 일부는 직렬, 단계 사이는 마지막 → 첫 번째로 잇는다."""
+    """The task list. Some tasks run in series inside a phase; phases chain last -> first."""
     rnd = random.Random(7)
     out: dict[str, Task] = {}
     n, prev_last = 0, None
@@ -201,10 +206,10 @@ _CACHE: dict[tuple, World] = {}
 
 
 def simulate(today: dt.date | None = None, seed_value: int = 20260922) -> World:
-    """하루씩 굴린다. 회의가 먼저 시간을 먹고, 남은 시간으로 태스크를 민다.
+    """Run it one day at a time. Meetings eat time first; what is left pushes tasks.
 
-    같은 인자면 같은 세계를 돌려준다 — 보드·저장소·캘린더가 서로 다른 세계를 보면
-    애써 만든 정합성이 깨진다.
+    The same arguments give back the same world — if the board, repo and calendar
+    each looked at a different world, the consistency we worked for would be gone.
     """
     key = (today or dt.date.today(), seed_value)
     cached = _CACHE.get(key)
@@ -219,26 +224,26 @@ def _simulate(today: dt.date, seed_value: int) -> World:
     tasks = _tasks("ECHO")
     names = [p.name for p in people]
 
-    # 근본 원인: 외부 IdP 스펙이 바뀌어 인증 구현이 멈춘다.
-    # 이것이 검증 단계 전체를 밀어내는 출발점이다.
-    blocked_key = next(k for k, t in tasks.items() if t.title == "인증 구현")
-    # 사건 대상은 덩치가 있어야 한다. 1포인트짜리가 막히면 풀리자마자 끝나
-    # '지연됐다'는 이야기가 성립하지 않는다.
+    # Root cause: an external IdP changes its spec and authentication stalls.
+    # This is where the push into the whole hardening phase starts.
+    blocked_key = next(k for k, t in tasks.items() if t.title == "Authentication")
+    # The incident needs a task with some weight. Block a 1-pointer and it finishes
+    # the moment it unblocks, so there is no "this slipped" story to tell.
     tasks[blocked_key].points = 8.0
     incident = {
         "key": blocked_key,
         "owner": tasks[blocked_key].owner,
-        "title": "외부 IdP 스펙 변경",
-        "day": "",  # 태스크가 착수 가능해진 날 — 아래 루프에서 정해진다
+        "title": "External IdP spec change",
+        "day": "",  # the day the task became startable — set in the loop below
         "blocked_days": 8,
-        "detail": "인증 공급자가 토큰 형식을 바꿔 재설계가 필요해졌다",
+        "detail": "the identity provider changed its token format, forcing a redesign",
     }
     block_from: dt.date | None = None
     block_to: dt.date | None = None
 
-    # 방치: 착수만 하고 돌아오지 않는 태스크. 막힘과 달리 아무도 알아채지 못한다.
-    # 대상은 park_from 시점에 '실제로 손대고 있던' 것 중에서 고른다 —
-    # 미리 정해 두면 그 태스크가 아직 시작도 안 했을 수 있다.
+    # Parked: a task someone started and never came back to. Unlike a block,
+    # nobody notices. Pick it from what is *actually* in flight at park_from —
+    # naming it up front risks picking something that has not even started.
     parked_key = ""
     park_from = schedule.add_workdays(today, -7)
 
@@ -253,7 +258,7 @@ def _simulate(today: dt.date, seed_value: int) -> World:
             facts.append({**m, "day": iso, "kind": "meeting", "key": ""})
 
         if future:
-            continue  # 미래는 회의만 만든다 — 작업은 예측의 몫이지 기록이 아니다
+            continue  # the future gets meetings only — work there is a forecast, not a record
 
         if not parked_key and day >= park_from:
             live = [t for t in tasks.values() if t.progress > 0 and not t.done]
@@ -265,8 +270,9 @@ def _simulate(today: dt.date, seed_value: int) -> World:
             free = max(0.0, 1.0 - spent / av.WORKDAY_HOURS)
             if free <= 0.05:
                 continue
-            # 사건은 '그 태스크를 실제로 잡으려는 순간'에 터진다.
-            # 단순히 착수 가능해진 날에 터뜨리면, 담당자 차례가 오기 전에 기간이 끝나 버린다.
+            # The incident fires the moment someone actually reaches for that task.
+            # Fire it on the day it merely became startable and the block expires
+            # before its owner ever gets there.
             blocking = (
                 block_from is not None and block_to is not None and block_from <= day < block_to
             )
@@ -323,14 +329,14 @@ def _simulate(today: dt.date, seed_value: int) -> World:
 
 
 def _meetings(day: dt.date, offset: int, names: list, incident: dict, rnd) -> list:
-    """그 날의 회의. 사건 기간에는 담당자에게 장애 대응이 더 붙는다."""
+    """That day's meetings. During the incident the owner picks up response calls."""
     out = []
     if day.weekday() == 0:
         out += [
             {"who": n, "hours": RECURRING[1], "detail": RECURRING[0], "start": "10:00"}
             for n in names
         ]
-    if offset == 6:  # 앞으로 6영업일 뒤, 하루가 통째로 날아간다
+    if offset == 6:  # six business days out, a whole day disappears
         out += [
             {"who": n, "hours": WORKSHOP[1], "detail": WORKSHOP[0], "start": "09:00"} for n in names
         ]
@@ -361,10 +367,11 @@ def _meetings(day: dt.date, offset: int, names: list, incident: dict, rnd) -> li
 
 
 def _next_task(tasks, owner, blocked_key, blocking, parked_key="", parked=False) -> str | None:
-    """그 사람이 지금 밀 수 있는 태스크. 선행이 끝났고, 막히지 않은 것.
+    """What this person can push right now: dependencies met, and not blocked.
 
-    막힌 태스크가 차례면 다음으로 넘어가지 않고 멈춘다 — 실제로도 담당자는
-    자기 차례 작업이 막히면 그 앞에서 시간을 보낸다. 그 멈춤이 곧 신호다.
+    If the blocked task is their turn, they stop rather than skip ahead — that is
+    what really happens, people burn time in front of the thing that is stuck.
+    That stall is the signal.
     """
     for key, task in tasks.items():
         if task.owner != owner or task.done:
@@ -374,13 +381,13 @@ def _next_task(tasks, owner, blocked_key, blocking, parked_key="", parked=False)
         if key == blocked_key and blocking:
             return None
         if key == parked_key and parked:
-            continue  # 방치 — 막힌 게 아니라 손을 놓았다. 다음 일로 넘어간다
+            continue  # parked — not blocked, just dropped. Move on to the next thing
         return key
     return None
 
 
 def _truths(tasks: dict, facts: list, incident: dict, today: dt.date, parked_key: str) -> list:
-    """정답지 — 데이터에 심어 둔 '진짜 원인'. 테스트와 평가 케이스가 이걸 쓴다."""
+    """The answer key — the "real cause" planted in the data. Tests and cases read it."""
     out = [
         {
             "kind": "root_cause",
@@ -388,12 +395,12 @@ def _truths(tasks: dict, facts: list, incident: dict, today: dt.date, parked_key
             "cause": incident["title"],
             "detail": incident["detail"],
             "since": incident["day"],
-            "expect": "이 태스크가 멈춘 원인이 회의록과 캘린더 양쪽에 남아 있어야 한다",
+            "expect": "why this task stalled should be visible in both notes and calendar",
         }
     ]
 
-    # 일정 예측이 소비하는 건 '앞으로의' 회의다. 과거 회의는 왜 늦었는지를 설명하고,
-    # 미래 회의는 앞으로 얼마나 쓸 수 있는지를 정한다 — 정답지는 후자로 잡는다.
+    # Forecasting consumes *future* meetings. Past ones explain why things slipped;
+    # future ones set how much time is left. The answer key uses the latter.
     horizon = schedule.add_workdays(today, 10).isoformat()
     load: dict[str, float] = {}
     for f in facts:
@@ -407,7 +414,7 @@ def _truths(tasks: dict, facts: list, incident: dict, today: dt.date, parked_key
                 "assignee": who,
                 "hours": round(load[who], 1),
                 "window_days": 10,
-                "expect": "앞으로 회의가 가장 많은 사람이 가용 시간이 가장 적어야 한다",
+                "expect": "whoever has the most meetings ahead should have the least time",
             }
         )
 
@@ -418,7 +425,7 @@ def _truths(tasks: dict, facts: list, incident: dict, today: dt.date, parked_key
                 "kind": "stalled",
                 "key": parked.key,
                 "started": parked.started_on.isoformat(),
-                "expect": "착수만 하고 방치된 태스크가 보드-코드 대조에서 잡혀야 한다",
+                "expect": "a started-then-parked task should surface in the board/code check",
             }
         )
     return out
@@ -430,14 +437,14 @@ def describe(world: World) -> dict:
     meet = [f for f in world.facts if f["kind"] == "meeting"]
     blocked = [f for f in world.facts if f["kind"] == "blocked"]
     return {
-        "기간": f"과거 {BACK_DAYS}영업일 ~ 미래 {FWD_DAYS}영업일",
-        "태스크": f"{len(done)}/{len(world.tasks)} 완료",
-        "작업 기록": len(work),
-        "회의": len(meet),
-        "막힌 날": len(blocked),
-        "사건": f"{world.incident['title']} ({world.incident['day']}부터 "
-        f"{world.incident['blocked_days']}영업일, {world.incident['key']})",
-        "정답지": world.truths,
+        "window": f"{BACK_DAYS} business days back .. {FWD_DAYS} forward",
+        "tasks": f"{len(done)}/{len(world.tasks)} done",
+        "work_records": len(work),
+        "meetings": len(meet),
+        "blocked_days": len(blocked),
+        "incident": f"{world.incident['title']} (from {world.incident['day']}, "
+        f"{world.incident['blocked_days']} business days, {world.incident['key']})",
+        "truths": world.truths,
     }
 
 
@@ -445,24 +452,22 @@ if __name__ == "__main__":
     w = simulate()
     print(json.dumps(describe(w), ensure_ascii=False, indent=1))
     if "--facts" in sys.argv:
-        print("\n날짜별 기록 (앞 30건):")
+        print("\nday-by-day record (first 30):")
         for f in w.facts[:30]:
             print(f"  {f['day']}  {f['who']:<5} {f['kind']:<8} {f['key']:<9} {f['detail']}")
 
 
 # ---------------------------------------------------------------------------
-# 투영 — 세계에서 각 도구가 기록하는 것만 뽑아낸다.
+# Projections — pull out only what each tool would have recorded.
 #
-# 보드는 사람이 '적은' 것이라 실제와 어긋날 수 있다. 그 어긋남을 의도적으로 심는다.
-# 저장소와 캘린더는 기계가 남긴 것이라 사실과 일치한다.
-# 셋을 맞대면 어긋남이 드러난다 — 그게 이 데모의 전부다.
+# The board is what a person *wrote*, so it can diverge from reality. We plant
+# that divergence on purpose. The repo and calendar are machine records, so they
+# match the facts. Line all three up and the divergence shows. That is the demo.
 # ---------------------------------------------------------------------------
-
-VERBS = ["구현", "정리", "수정", "보강", "리팩터"]
 
 
 def _plan_duedates(world: World) -> dict:
-    """프로젝트 시작 시점에 세운 '원래 계획'. 실제로 늦어진 태스크는 여기서 마감을 넘긴다."""
+    """The original plan, set at kickoff. Tasks that really slipped blow past it."""
     start = schedule.add_workdays(world.today, -BACK_DAYS)
     finish: dict[str, float] = {}
     out: dict[str, dt.date] = {}
@@ -474,11 +479,11 @@ def _plan_duedates(world: World) -> dict:
 
 
 def to_board(world: World, project: str = "ECHO") -> dict:
-    """사람이 기록한 보드. 기록 오차를 의도적으로 심는다.
+    """The board as a person kept it. Recording errors are planted on purpose.
 
-    심는 것 둘:
-      status_lag      실제로는 손대고 있는데 보드는 아직 '할 일'
-      premature_done  보드는 '완료'인데 PR 이 안 닫혀 있다 (to_repo 가 짝을 맞춘다)
+    Two of them:
+      status_lag      work is actually under way but the board still says To Do
+      premature_done  the board says Done while the PR is still open (to_repo pairs it up)
     """
     due = _plan_duedates(world)
     started = [t for t in world.tasks.values() if t.started_on and not t.done]
@@ -489,21 +494,21 @@ def to_board(world: World, project: str = "ECHO") -> dict:
     issues, planted = [], []
     for key, task in world.tasks.items():
         if task.done:
-            status = "완료"
+            status = "Done"
         elif task.started_on:
-            status = "진행 중"
+            status = "In Progress"
         else:
-            status = "할 일"
+            status = "To Do"
         if key == lag:
-            status = "할 일"  # 기록이 현실을 못 따라간 경우
+            status = "To Do"  # the record has not caught up with reality
         issues.append(
             {
                 "key": key,
                 "fields": {
                     "summary": task.summary,
                     "status": {"name": status},
-                    "assignee": None,  # 실계정이 없어 담당자는 라벨로 싣는다
-                    "labels": [f"{schedule.OWNER_PREFIX}{task.owner}"],
+                    "assignee": None,  # no real accounts, so the owner rides on a label
+                    "labels": [schedule.owner_tag(task.owner)],
                     "duedate": due[key].isoformat(),
                     "customfield_10016": task.points,
                     "issuelinks": [],
@@ -522,7 +527,7 @@ def to_board(world: World, project: str = "ECHO") -> dict:
             {
                 "key": lag,
                 "kind": "undeclared_progress",
-                "detail": "실제로는 착수했는데 보드는 '할 일'로 남아 있다",
+                "detail": "work has started but the board still says To Do",
             }
         )
     if premature:
@@ -530,7 +535,7 @@ def to_board(world: World, project: str = "ECHO") -> dict:
             {
                 "key": premature,
                 "kind": "done_with_open_pr",
-                "detail": "보드는 완료인데 PR 이 아직 열려 있다",
+                "detail": "the board says Done while the pull request is still open",
             }
         )
     return {
@@ -542,10 +547,17 @@ def to_board(world: World, project: str = "ECHO") -> dict:
     }
 
 
-def to_repo(
-    world: World, board: dict | None = None, repo_name: str = "echo-team/echo-pmo-demo"
-) -> dict:
-    """저장소 — 기계가 남긴 사실. work 기록이 있는 날에만 커밋이 생긴다."""
+def to_repo(world: World, board: dict | None = None, repo_name: str = "echo-team/echo-app") -> dict:
+    """The repository — the machine's record of fact.
+
+    **No ticket keys in commit messages.** Real repositories look like this, and
+    joining things up when the key is missing is what this agent is for. Put the
+    keys in and we would only ever solve the easy version, the one string
+    matching already handles.
+
+    Which commit belonged to which task is kept separately in `link_truth` — the
+    answer key for link accuracy. Adapters never expose it.
+    """
     board = board or to_board(world)
     premature = board.get("_premature", "")
     rnd = random.Random(31)
@@ -555,28 +567,38 @@ def to_repo(
     commits: list[dict] = []
     pulls: list[dict] = []
     planted: list[dict] = []
+    link_truth: dict[str, str] = {}
+    seen: dict[str, int] = {}
+
     for n, fact in enumerate(f for f in world.facts if f["kind"] == "work"):
         task = world.tasks[fact["key"]]
+        info = artifact(task)
+        index = seen.get(task.key, 0)
+        seen[task.key] = index + 1
+        sha = f"{n + 1:07x}"
         commits.append(
             {
-                "sha": f"{n + 1:07x}",
+                "sha": sha,
                 "date": fact["day"],
                 "author": logins[fact["who"]],
                 "login": logins[fact["who"]],
                 "name": fact["who"],
                 "email": emails[fact["who"]],
-                "message": f"{fact['key']} {task.title} {rnd.choice(VERBS)}",
-                "branch": f"feat/{fact['key'].lower()}",
-                "url": f"https://github.com/{repo_name}/commit/{n + 1:07x}",
+                "message": commit_subject(task, index, rnd),
+                "branch": info["branch"],
+                "files": [info["path"]],
+                "url": f"https://github.com/{repo_name}/commit/{sha}",
             }
         )
+        link_truth[sha] = task.key
 
-    # 리뷰는 회의가 가장 많은 사람에게 몰린다 — 병목이 겹치는 현실적인 조합
+    # Reviews pile onto whoever has the most meetings — bottlenecks really do stack
     overload = next((t["assignee"] for t in world.truths if t["kind"] == "meeting_overload"), "")
     for key, task in world.tasks.items():
         days = [f["day"] for f in world.worked_on(key)]
         if not days:
             continue
+        info = artifact(task)
         number = 100 + len(pulls) + 1
         merged = task.done and key != premature
         reviewer = next((p.name for p in world.people if p.name != task.owner), "")
@@ -585,11 +607,11 @@ def to_repo(
         pulls.append(
             {
                 "number": number,
-                "title": f"{key} {task.title}",
+                "title": commit_subject(task, 0, rnd),
                 "state": "closed" if merged else "open",
                 "draft": False,
                 "author": logins[task.owner],
-                "branch": f"feat/{key.lower()}",
+                "branch": info["branch"],
                 "created": days[0],
                 "updated": days[-1],
                 "merged": merged,
@@ -602,7 +624,7 @@ def to_repo(
                 {
                     "key": key,
                     "kind": "review_waiting",
-                    "detail": f"PR #{number} 가 {days[-1]} 이후 리뷰 대기",
+                    "detail": f"PR #{number} has been waiting on review since {days[-1]}",
                 }
             )
 
@@ -619,15 +641,19 @@ def to_repo(
         "pulls": pulls,
         "branches": branches,
         "collaborators": [{"login": p.login, "role": "write"} for p in world.people],
+        # name <-> login map, used to tie commit authors to board assignees.
+        # In a real setup this is something the team configures once.
+        "people": {p.name: p.login for p in world.people},
         "planted": planted,
+        "link_truth": link_truth,
     }
 
 
 def to_calendar(world: World) -> dict:
-    """캘린더 — 시간이 간 곳. 과거와 미래를 둘 다 담는다.
+    """The calendar — where the time went. It holds both past and future.
 
-    과거 회의가 있어야 "왜 그때 진도가 안 나갔나"에 답할 수 있다.
-    미래 회의가 있어야 "앞으로 얼마나 쓸 수 있나"를 계산할 수 있다.
+    Past meetings are what let us answer "why did nothing move that week".
+    Future meetings are what let us compute "how much time is actually left".
     """
     events = [
         {
@@ -648,7 +674,7 @@ def to_calendar(world: World) -> dict:
             {
                 "kind": "workshop",
                 "date": full[0]["date"],
-                "detail": "전원 하루 소진 — 그 날은 아무 진도도 나가지 않는다",
+                "detail": "everyone's day is gone — nothing moves that day",
             }
         )
     return {
@@ -660,9 +686,179 @@ def to_calendar(world: World) -> dict:
 
 
 def project(world: World) -> dict:
-    """세 도구 데이터 + 합쳐진 정답지."""
+    """The three tools' data plus a merged answer key."""
     board = to_board(world)
     repo = to_repo(world, board)
     cal = to_calendar(world)
     truths = list(world.truths) + board["planted"] + repo["planted"]
     return {"board": board, "repo": repo, "calendar": cal, "truths": truths}
+
+
+# ---------------------------------------------------------------------------
+# The table that makes the repository look real.
+#
+# Commits in a real repository carry no ticket key. Some teams add one, but far
+# more do not, and joining things up when it is missing is what this agent is
+# for. So the demo data carries no keys either.
+#
+# Which commit belonged to which task is kept separately, in `link_truth` — the
+# answer key we measure link accuracy against. Adapters never expose it.
+# ---------------------------------------------------------------------------
+
+# task title -> (slug, area, component used in the commit subject)
+ARTIFACTS = {
+    "Requirements interviews": ("requirements", "docs", "requirements"),
+    "User scenarios": ("user-scenarios", "docs", "user scenarios"),
+    "Success metrics": ("success-metrics", "docs", "success metrics"),
+    "Competitor research": ("competitors", "docs", "competitor research"),
+    "Scope lock": ("scope", "docs", "scope"),
+    "Risk register": ("risks", "docs", "the risk register"),
+    "Schedule draft": ("schedule", "docs", "the schedule"),
+    "Information architecture": ("information-architecture", "docs", "information architecture"),
+    "Screen flow": ("screen-flow", "docs", "screen flow"),
+    "Data model": ("data-model", "api", "the data model"),
+    "API spec": ("api-spec", "docs", "the API spec"),
+    "Authentication approach": ("auth-decision", "docs", "the authentication approach"),
+    "Error handling rules": ("error-handling", "api", "error handling"),
+    "Design system": ("design-system", "web", "the design system"),
+    "Project scaffolding": ("scaffolding", "api", "project scaffolding"),
+    "Authentication": ("auth", "api", "authentication"),
+    "List view": ("list-view", "web", "the list view"),
+    "Detail view": ("detail-view", "web", "the detail view"),
+    "Search": ("search", "api", "search"),
+    "Notifications": ("notifications", "api", "notifications"),
+    "Settings screen": ("settings", "web", "the settings screen"),
+    "API client": ("api-client", "web", "the API client"),
+    "Data migration": ("migration", "api", "data migration"),
+    "Permissions": ("permissions", "api", "permissions"),
+    "Logging": ("logging", "api", "logging"),
+    "Performance tuning": ("performance", "api", "performance"),
+    "Unit tests": ("unit-tests", "tests", "unit tests"),
+    "Integration tests": ("integration-tests", "tests", "integration tests"),
+    "Browser tests": ("browser-tests", "tests", "browser tests"),
+    "Accessibility audit": ("accessibility", "tests", "accessibility checks"),
+    "Load tests": ("load-tests", "tests", "load tests"),
+    "Security review": ("security", "tests", "security checks"),
+    "Round 1 QA fixes": ("qa-round1", "api", "round 1 QA fixes"),
+    "Round 2 QA fixes": ("qa-round2", "web", "round 2 QA fixes"),
+    "Release notes": ("release-notes", "ops", "release notes"),
+    "Deploy rehearsal": ("deploy-rehearsal", "ops", "the deploy rehearsal"),
+    "Runbook": ("runbook", "ops", "the runbook"),
+    "Monitoring dashboard": ("monitoring", "ops", "the monitoring dashboard"),
+    "Launch review": ("launch-review", "docs", "the launch review"),
+    "Launch": ("launch", "ops", "the launch"),
+}
+
+PATHS = {
+    "api": "apps/api/src/builder_cup/{slug}.py",
+    "web": "apps/web/src/{slug}.tsx",
+    "docs": "docs/{slug}.md",
+    "tests": "tests/test_{under}.py",
+    "ops": "ops/{slug}.md",
+}
+
+# Verb phrases that take the component as their object, so the subject line
+# reads the way a real commit does: "feat: implement authentication".
+ASPECTS = {
+    "docs": ["outline", "draft", "revise", "expand"],
+    "api": [
+        "implement",
+        "harden error handling in",
+        "tidy the response shape of",
+        "handle edge cases in",
+        "refactor",
+    ],
+    "web": [
+        "implement",
+        "tidy state handling in",
+        "handle the empty state in",
+        "improve accessibility in",
+    ],
+    "tests": ["add", "extend", "tidy fixtures for"],
+    "ops": ["write up", "expand", "add checks to"],
+}
+
+# Shorthand the team falls into once a task is under way. Nobody writes
+# "the monitoring dashboard" five commits in a row — they start naming the
+# piece they are touching. This is where linking gets genuinely hard, and it is
+# the realistic case, not a handicap we invented.
+ALIASES = {
+    "Requirements interviews": "the interview notes",
+    "User scenarios": "the user journeys",
+    "Success metrics": "the KPI list",
+    "Competitor research": "the market scan",
+    "Scope lock": "what is in and out",
+    "Risk register": "the risk list",
+    "Schedule draft": "the timeline",
+    "Information architecture": "the IA map",
+    "Screen flow": "the navigation map",
+    "Data model": "the schema",
+    "API spec": "the endpoint contract",
+    "Authentication approach": "the token flow",
+    "Error handling rules": "error responses",
+    "Design system": "the component library",
+    "Project scaffolding": "the service skeleton",
+    "Authentication": "the sign-in flow",
+    "List view": "the results grid",
+    "Detail view": "the item page",
+    "Search": "query handling",
+    "Notifications": "alerts",
+    "Settings screen": "the preferences page",
+    "API client": "the request layer",
+    "Data migration": "the backfill",
+    "Permissions": "access control",
+    "Logging": "structured logs",
+    "Performance tuning": "query latency",
+    "Unit tests": "coverage gaps",
+    "Integration tests": "the end-to-end suite",
+    "Browser tests": "the browser suite",
+    "Accessibility audit": "keyboard navigation",
+    "Load tests": "the load harness",
+    "Security review": "the security checklist",
+    "Round 1 QA fixes": "the first-round findings",
+    "Round 2 QA fixes": "the second-round findings",
+    "Release notes": "the changelog",
+    "Deploy rehearsal": "the deploy dry run",
+    "Runbook": "the on-call guide",
+    "Monitoring dashboard": "the alert board",
+    "Launch review": "the go/no-go notes",
+    "Launch": "the rollout",
+}
+
+PREFIX = {"docs": "docs", "api": "feat", "web": "feat", "tests": "test", "ops": "chore"}
+ALT_PREFIX = {
+    "api": ["fix", "refactor"],
+    "web": ["fix", "style"],
+    "tests": ["test"],
+    "docs": ["docs"],
+    "ops": ["chore"],
+}
+
+
+def artifact(task: Task) -> dict:
+    """What one task leaves behind in the repo — file path, branch, subject parts."""
+    slug, area, component = ARTIFACTS.get(task.title, (task.title, "docs", task.title))
+    path = PATHS[area].format(slug=slug, under=slug.replace("-", "_"))
+    # Few repositories put feat/ on documentation work — the prefix follows the area too
+    prefix = {"docs": "docs", "tests": "test", "ops": "chore"}.get(area, "feat")
+    return {
+        "slug": slug,
+        "area": area,
+        "component": component,
+        "path": path,
+        "branch": f"{prefix}/{slug}",
+    }
+
+
+def commit_subject(task: Task, index: int, rnd) -> str:
+    """An ordinary-looking commit subject, with no ticket key in it.
+
+    The first commit names the thing in full; later ones drop into the team's
+    shorthand, the way real history reads.
+    """
+    info = artifact(task)
+    area = info["area"]
+    prefix = PREFIX[area] if index == 0 else rnd.choice([PREFIX[area]] + ALT_PREFIX[area])
+    aspect = ASPECTS[area][index % len(ASPECTS[area])]
+    component = info["component"] if index < 2 else ALIASES.get(task.title, info["component"])
+    return f"{prefix}: {aspect} {component}"

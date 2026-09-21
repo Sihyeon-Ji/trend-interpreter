@@ -1,10 +1,10 @@
-"""보드-코드 대조 테스트 — 네트워크 없이 돈다.
+"""Board-against-code tests — they run with no network.
 
-가장 중요한 두 가지:
-  1. 어긋남을 실제로 잡는가 (seed_repo 가 심어둔 것이 그대로 검출되는가)
-  2. 근거가 없을 때 경고하지 않는가 (모르는 것을 '없다'고 말하지 않는가)
+The two that matter most:
+  1. does it actually catch the divergence (is what the repo seed planted detected)
+  2. does it stay quiet without evidence (does it avoid calling "unknown" "nothing")
 
-실행: python -m unittest discover -s tests -v      (D:/echo-pmo 에서)
+Run: python -m pytest tests/test_signals.py -q
 """
 
 from __future__ import annotations
@@ -29,31 +29,31 @@ def tasks():
         [
             {
                 "key": "ECHO-1",
-                "summary": "요구사항",
+                "summary": "Requirements",
                 "status": "Done",
-                "assignee": "갑",
+                "assignee": "Ada",
                 "points": 2,
             },
             {
                 "key": "ECHO-2",
-                "summary": "스키마",
+                "summary": "Schema",
                 "status": "In Progress",
-                "assignee": "을",
+                "assignee": "Bo",
                 "points": 3,
             },
-            {"key": "ECHO-3", "summary": "API", "status": "To Do", "assignee": "갑", "points": 3},
+            {"key": "ECHO-3", "summary": "API", "status": "To Do", "assignee": "Ada", "points": 3},
             {
                 "key": "ECHO-4",
-                "summary": "문서",
+                "summary": "Docs",
                 "status": "In Progress",
-                "assignee": "을",
+                "assignee": "Bo",
                 "points": 1,
             },
         ]
     )
 
 
-def commit(key, days_ago, author="갑", email=None, login=None, name=None):
+def commit(key, days_ago, author="Ada", email=None, login=None, name=None):
     d = TODAY - dt.timedelta(days=days_ago)
     return {
         "sha": "abc1234",
@@ -62,7 +62,7 @@ def commit(key, days_ago, author="갑", email=None, login=None, name=None):
         "login": login,
         "name": name or author,
         "email": email or f"{author}@t.test",
-        "message": f"{key} 작업",
+        "message": f"{key} work",
         "url": f"https://x/commit/{key}",
     }
 
@@ -70,10 +70,10 @@ def commit(key, days_ago, author="갑", email=None, login=None, name=None):
 def pull(number, key, state="open", updated_days=0, draft=False, reviewers=()):
     return {
         "number": number,
-        "title": f"{key} 구현",
+        "title": f"{key} implementation",
         "state": state,
         "draft": draft,
-        "author": "을",
+        "author": "Bo",
         "branch": f"feat/{key.lower()}",
         "created": (TODAY - dt.timedelta(days=updated_days + 2)).isoformat(),
         "updated": (TODAY - dt.timedelta(days=updated_days)).isoformat(),
@@ -84,29 +84,29 @@ def pull(number, key, state="open", updated_days=0, draft=False, reviewers=()):
 
 
 class TestKeyExtraction(unittest.TestCase):
-    def test_문장에서_키를_뽑는다(self):
-        self.assertEqual(signals.keys_in("ECHO-12 스키마 수정"), {"ECHO-12"})
+    def test_it_pulls_a_key_out_of_a_sentence(self):
+        self.assertEqual(signals.keys_in("ECHO-12 schema fix"), {"ECHO-12"})
         self.assertEqual(signals.keys_in("fix ECHO-1 and ECHO-22"), {"ECHO-1", "ECHO-22"})
 
-    def test_소문자도_잡는다(self):
-        self.assertEqual(signals.keys_in("feat/echo-7 작업"), {"ECHO-7"})
+    def test_it_catches_lower_case_too(self):
+        self.assertEqual(signals.keys_in("feat/echo-7 work"), {"ECHO-7"})
 
-    def test_키가_아닌_것은_무시한다(self):
-        self.assertEqual(signals.keys_in("버전 1-2 업데이트"), set())
+    def test_it_ignores_things_that_are_not_keys(self):
+        self.assertEqual(signals.keys_in("version 1-2 update"), set())
         self.assertEqual(signals.keys_in(""), set())
 
 
 class TestLink(unittest.TestCase):
-    def test_커밋_메시지로_연결한다(self):
+    def test_it_links_by_commit_message(self):
         linked = signals.link(tasks(), [commit("ECHO-2", 1)], [])
         self.assertEqual(len(linked["ECHO-2"]["commits"]), 1)
         self.assertEqual(linked["ECHO-1"]["commits"], [])
 
-    def test_PR_제목과_브랜치로_연결한다(self):
+    def test_it_links_by_pull_request_title_and_branch(self):
         linked = signals.link(tasks(), [], [pull(1, "ECHO-3")])
         self.assertEqual(len(linked["ECHO-3"]["pulls"]), 1)
 
-    def test_보드에_없는_키는_버린다(self):
+    def test_it_drops_keys_that_are_not_on_the_board(self):
         linked = signals.link(tasks(), [commit("ECHO-99", 1)], [])
         self.assertNotIn("ECHO-99", linked)
         self.assertTrue(all(not v["commits"] for v in linked.values()))
@@ -116,48 +116,48 @@ class TestMismatches(unittest.TestCase):
     def find(self, ms, kind, key=None):
         return [m for m in ms if m["kind"] == kind and (key is None or m["key"] == key)]
 
-    def test_완료인데_PR이_열려있다(self):
+    def test_done_but_the_pull_request_is_open(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [], [pull(1, "ECHO-1")]), TODAY)
         self.assertTrue(self.find(ms, "done_with_open_pr", "ECHO-1"))
 
-    def test_진행중인데_커밋이_오래됐다(self):
+    def test_in_progress_but_the_commits_are_old(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [commit("ECHO-2", 9)], []), TODAY)
         m = self.find(ms, "stalled", "ECHO-2")
         self.assertTrue(m)
-        self.assertIn("9일 전", m[0]["detail"])
+        self.assertIn("9 days ago", m[0]["detail"])
 
-    def test_최근_커밋이면_멈춤이_아니다(self):
+    def test_a_recent_commit_is_not_a_stall(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [commit("ECHO-2", 1)], []), TODAY)
         self.assertFalse(self.find(ms, "stalled"))
 
-    def test_할일인데_커밋이_있다(self):
+    def test_to_do_but_there_are_commits(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [commit("ECHO-3", 1)], []), TODAY)
         self.assertTrue(self.find(ms, "undeclared_progress", "ECHO-3"))
 
-    def test_진행중인데_커밋이_아예_없다(self):
+    def test_in_progress_with_no_commits_at_all(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [commit("ECHO-2", 1)], []), TODAY)
         self.assertTrue(self.find(ms, "no_code_activity", "ECHO-4"))
 
-    def test_PR이_리뷰를_기다린다(self):
+    def test_a_pull_request_waiting_on_review(self):
         t = tasks()
         ms = signals.mismatches(
             t,
             signals.link(
-                t, [commit("ECHO-2", 1)], [pull(7, "ECHO-2", updated_days=4, reviewers=["갑"])]
+                t, [commit("ECHO-2", 1)], [pull(7, "ECHO-2", updated_days=4, reviewers=["Ada"])]
             ),
             TODAY,
         )
         m = self.find(ms, "review_waiting", "ECHO-2")
         self.assertTrue(m)
-        self.assertIn("4일째", m[0]["detail"])
-        self.assertIn("갑", m[0]["detail"])
+        self.assertIn("4 days", m[0]["detail"])
+        self.assertIn("Ada", m[0]["detail"])
 
-    def test_초안_PR은_리뷰대기가_아니다(self):
+    def test_a_draft_pull_request_is_not_waiting_on_review(self):
         t = tasks()
         ms = signals.mismatches(
             t,
@@ -166,23 +166,23 @@ class TestMismatches(unittest.TestCase):
         )
         self.assertFalse(self.find(ms, "review_waiting"))
 
-    def test_근거_링크를_함께_준다(self):
+    def test_it_hands_back_the_evidence_links(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [], [pull(1, "ECHO-1")]), TODAY)
         self.assertTrue(ms[0]["evidence"])
 
-    def test_담당자와_상태를_함께_준다(self):
+    def test_it_hands_back_the_owner_and_the_status(self):
         t = tasks()
         ms = signals.mismatches(t, signals.link(t, [commit("ECHO-3", 1)], []), TODAY)
         m = self.find(ms, "undeclared_progress")[0]
-        self.assertEqual(m["assignee"], "갑")
+        self.assertEqual(m["assignee"], "Ada")
         self.assertEqual(m["status"], "To Do")
 
 
 class TestIdentityMerge(unittest.TestCase):
-    """실제 저장소에서 한 사람이 이름과 login 으로 갈려 집중도가 낮게 나온 적이 있다."""
+    """One person once split across a git name and a login, dragging concentration down."""
 
-    def test_같은_이메일이면_한_사람이다(self):
+    def test_the_same_email_is_the_same_person(self):
         cs = [
             commit("ECHO-1", 1, email="a@t.test", login=None, name="shji"),
             commit("ECHO-1", 2, email="a@t.test", login="Sihyeon-Ji", name="Sihyeon Ji"),
@@ -191,44 +191,44 @@ class TestIdentityMerge(unittest.TestCase):
         self.assertEqual(len(m), 1)
         row = next(iter(m.values()))
         self.assertEqual(row["commits"], 2)
-        self.assertEqual(row["author"], "Sihyeon-Ji")  # login 을 표시 이름으로
+        self.assertEqual(row["author"], "Sihyeon-Ji")  # the login becomes the display name
         self.assertIn("shji", row["aliases"])
 
-    def test_이메일이_다르면_다른_사람이다(self):
+    def test_different_emails_are_different_people(self):
         cs = [
             commit("ECHO-1", 1, email="a@t.test"),
-            commit("ECHO-1", 1, email="b@t.test", author="을"),
+            commit("ECHO-1", 1, email="b@t.test", author="Bo"),
         ]
         self.assertEqual(len(signals.merge_identities(cs)), 2)
 
-    def test_병합_후_집중도가_올라간다(self):
+    def test_concentration_rises_after_the_merge(self):
         cs = [
             commit("ECHO-1", 1, email="a@t.test", name="shji"),
             commit("ECHO-1", 1, email="a@t.test", login="Sihyeon-Ji"),
-            commit("ECHO-1", 1, email="b@t.test", author="을"),
+            commit("ECHO-1", 1, email="b@t.test", author="Bo"),
         ]
         team = signals.team_activity({"commits": cs, "pulls": [], "branches": []}, TODAY)
         self.assertEqual(team["concentration"], 0.67)
 
 
 class TestTeamActivity(unittest.TestCase):
-    def test_한_사람에_몰리면_짚는다(self):
+    def test_it_flags_work_piling_onto_one_person(self):
         cs = [commit("ECHO-1", 1) for _ in range(5)]
         t = signals.team_activity({"commits": cs, "pulls": [], "branches": []}, TODAY)
         self.assertEqual(t["concentration"], 1.0)
-        self.assertTrue(any("한 사람" in n for n in t["notes"]))
+        self.assertTrue(any("one person" in n for n in t["notes"]))
 
-    def test_PR이_없으면_리뷰절차_미가동을_짚는다(self):
+    def test_no_pull_requests_means_no_review_process(self):
         t = signals.team_activity(
             {"commits": [commit("ECHO-1", 1)], "pulls": [], "branches": []}, TODAY
         )
-        self.assertTrue(any("PR 이 한 건도 없다" in n for n in t["notes"]))
+        self.assertTrue(any("not a single pull request" in n for n in t["notes"]))
 
-    def test_커밋이_없으면_그것도_신호다(self):
+    def test_no_commits_is_a_signal_too(self):
         t = signals.team_activity({"commits": [], "pulls": [], "branches": []}, TODAY)
-        self.assertTrue(any("커밋이 없다" in n for n in t["notes"]))
+        self.assertTrue(any("no commits at all" in n for n in t["notes"]))
 
-    def test_기간_밖_커밋은_세지_않는다(self):
+    def test_commits_outside_the_window_are_not_counted(self):
         cs = [commit("ECHO-1", 30), commit("ECHO-2", 1)]
         self.assertEqual(
             signals.team_activity({"commits": cs, "pulls": [], "branches": []}, TODAY)["commits"], 1
@@ -236,20 +236,20 @@ class TestTeamActivity(unittest.TestCase):
 
 
 class TestEvidenceRequired(unittest.TestCase):
-    """근거가 없을 때 경고하지 않는다 — 모르는 것을 '없다'고 말하면 전부 잡음이 된다."""
+    """Stay quiet without evidence — call "unknown" "nothing" and it is all noise."""
 
-    def test_키_규칙을_안_쓰면_태스크_신호를_내지_않는다(self):
+    def test_without_evidence_it_produces_no_task_signal(self):
         snap = {
             "repo": "x/y",
             "commits": [
                 {
                     "sha": "1",
                     "date": TODAY.isoformat(),
-                    "author": "갑",
+                    "author": "nobody we know",
                     "login": None,
-                    "name": "갑",
+                    "name": "nobody we know",
                     "email": "a@t",
-                    "message": "그냥 커밋",
+                    "message": "just a commit",
                     "url": "",
                 }
             ],
@@ -259,22 +259,22 @@ class TestEvidenceRequired(unittest.TestCase):
         s = signals.summary(tasks(), snap, TODAY)
         self.assertFalse(s["key_convention_in_use"])
         self.assertEqual(s["mismatches"], [])
-        self.assertIn("연결할 근거가 없는", s["note"])
+        self.assertIn("absence of evidence", s["note"])
 
-    def test_규칙을_쓰면_신호가_나온다(self):
+    def test_with_evidence_the_signal_appears(self):
         snap = {"repo": "x/y", "commits": [commit("ECHO-2", 9)], "pulls": [], "branches": []}
         s = signals.summary(tasks(), snap, TODAY)
         self.assertTrue(s["key_convention_in_use"])
         self.assertTrue(s["mismatches"])
         self.assertIsNone(s["note"])
 
-    def test_저장소_신호는_규칙과_무관하게_나온다(self):
+    def test_repository_signals_do_not_depend_on_a_key_convention(self):
         snap = {"repo": "x/y", "commits": [], "pulls": [], "branches": []}
         self.assertTrue(signals.summary(tasks(), snap, TODAY)["team"]["notes"])
 
 
 class TestMemoryRepo(unittest.TestCase):
-    """GitHub 어댑터와 같은 모양이어야 signals 가 백엔드를 모른 채 돌아간다."""
+    """It has to match the GitHub adapter's shape for signals to stay backend-agnostic."""
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -285,59 +285,65 @@ class TestMemoryRepo(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.dir, ignore_errors=True)
 
-    def test_snapshot_모양이_같다(self):
+    def test_the_snapshot_shape_matches(self):
         s = self.repo.snapshot()
-        self.assertEqual(set(s), {"repo", "info", "commits", "pulls", "branches"})
+        # `people` is what ties commit authors to board assignees
+        self.assertEqual(set(s), {"repo", "info", "commits", "pulls", "branches", "people"})
         self.assertIn("default_branch", s["info"])
 
-    def test_커밋은_최신순이다(self):
+    def test_commits_come_back_newest_first(self):
         ds = [c["date"] for c in self.repo.commits(10)]
         self.assertEqual(ds, sorted(ds, reverse=True))
 
-    def test_상태로_PR을_거른다(self):
+    def test_it_filters_pull_requests_by_state(self):
         self.assertTrue(all(p["state"] == "open" for p in self.repo.pulls("open")))
 
-    def test_쓰기_메서드가_없다(self):
+    def test_there_are_no_write_methods(self):
         for name in ("create_issue", "comment", "set_fields", "transition", "link", "push"):
             self.assertFalse(hasattr(self.repo, name), name)
 
-    def test_파일이_없어도_깨지지_않는다(self):
-        r = MemoryRepo(os.path.join(self.dir, "없음.json"))
+    def test_a_missing_file_does_not_break_it(self):
+        r = MemoryRepo(os.path.join(self.dir, "nope.json"))
         self.assertEqual(r.snapshot()["commits"], [])
 
 
 class TestSeededRepo(unittest.TestCase):
-    """심어둔 어긋남이 실제로 검출되는가 — 이 테스트가 시연의 사전 점검이다."""
+    """Is the planted divergence really detected — this test is the demo's pre-flight check."""
 
     def setUp(self):
         self.data = seed_repo.build(TODAY)
         self.tasks = schedule.from_jira_issues(seed.build(TODAY))
-        self.summary = signals.summary(self.tasks, {**self.data, "planted": None}, TODAY)
+        self.summary = signals.summary(self.tasks, self.data, TODAY)
 
-    def test_같은_시드는_같은_저장소를_만든다(self):
+    def test_the_same_seed_builds_the_same_repository(self):
         self.assertEqual(seed_repo.build(TODAY), seed_repo.build(TODAY))
 
-    def test_키_규칙이_돈다(self):
-        self.assertTrue(self.summary["key_convention_in_use"])
+    def test_it_links_without_any_key(self):
+        # Real repositories carry no ticket key. Author, timing, vocabulary and path have to do it.
+        self.assertFalse(self.summary["key_convention_in_use"])
         self.assertGreater(self.summary["linked_tasks"], 5)
+        quality = self.summary["link_quality"]
+        self.assertEqual(quality["by_key"], 0)
+        self.assertGreater(quality["inferred"], 20)
+        self.assertGreater(quality["mean_confidence"], 0.5)
 
-    def test_심어둔_어긋남이_전부_검출된다(self):
+    def test_every_planted_divergence_is_detected(self):
         found = {(m["key"], m["kind"]) for m in self.summary["mismatches"]}
         for p in self.data["planted"]:
-            self.assertIn((p["key"], p["kind"]), found, f"{p['key']} {p['kind']} 미검출")
+            self.assertIn((p["key"], p["kind"]), found, f"{p['key']} {p['kind']} not detected")
 
-    def test_네_종류가_모두_나온다(self):
+    def test_all_four_kinds_show_up(self):
         kinds = {m["kind"] for m in self.summary["mismatches"]}
         self.assertEqual(
             kinds & {"stalled", "done_with_open_pr", "undeclared_progress", "review_waiting"},
             {"stalled", "done_with_open_pr", "undeclared_progress", "review_waiting"},
         )
 
-    def test_가상_인물만_등장한다(self):
+    def test_only_fictional_people_appear(self):
         authors = {c["author"] for c in self.data["commits"]}
         self.assertEqual(authors, set(seed_repo.LOGIN.values()))
 
-    def test_JSON으로_직렬화된다(self):
+    def test_it_serialises_to_json(self):
         json.dumps(self.summary, ensure_ascii=False)
 
 

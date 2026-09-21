@@ -1,21 +1,22 @@
-"""시드를 실제 Jira 샌드박스에 생성한다.
+"""Create the seed in a real Jira sandbox.
 
-data/seed.py 가 만든 40건을 그대로 Jira 이슈로 올린다 — 요약·마감일·스토리포인트·상태·Blocks
-의존관계까지.
+It pushes the 40 issues the board seed built straight into Jira — summary, due date, story
+points, status and Blocks dependencies.
 
-담당자: 샌드박스에는 실제 계정이 하나뿐이라 가상 인물 4명을 배정할 수 없다.
-        대신 `owner-<이름>` 라벨로 싣고, schedule.owner_label() 이 이를 담당자로 읽는다.
+Assignees: the sandbox has exactly one real account, so four fictional people cannot be
+           assigned. They ride on an `owner-<name>` label instead, which
+           schedule.owner_label() reads back as the owner.
 
-상태: 이 프로젝트의 상태 이름이 한국어(할 일/진행 중/완료)라 시드의 영어 상태를 매핑한다.
+Status: the seed names statuses in English. What the target project calls them is its
+        own business, so the transition is looked up on the issue itself.
 
-안전: 쓰기는 WRITE_ALLOWLIST 를 통과해야 하고, 이 스크립트는 --approve 없이는 아무것도 만들지
-않는다.
+Safety: writes must pass WRITE_ALLOWLIST, and this script creates nothing without --approve.
 
-실행:
-  python data/seed_jira.py                    무엇을 만들지 미리보기 (dry-run)
-  python data/seed_jira.py --approve          실제 생성
-  python data/seed_jira.py --approve --limit 3   앞 3건만 (연결 확인용)
-  python data/seed_jira.py --approve --from 3    앞 3건은 건너뛰고 이어서
+Run:
+  python -m pmo_agent.seeds.jira_seed                       preview only (dry run)
+  python -m pmo_agent.seeds.jira_seed --approve             create for real
+  python -m pmo_agent.seeds.jira_seed --approve --limit 3   the first 3 only
+  python -m pmo_agent.seeds.jira_seed --approve --from 3    skip the first 3 and carry on
 """
 
 from __future__ import annotations
@@ -27,16 +28,40 @@ from pmo_agent import schedule
 from pmo_agent.adapters.jira import Jira, WriteBlocked
 from pmo_agent.seeds import board as seed
 
-STATUS_MAP = {"To Do": "할 일", "In Progress": "진행 중", "In Review": "진행 중", "Done": "완료"}
+# The seed names its statuses in English. What the target site calls them is the site's
+# own business — the name is fixed when the project is created, in whatever language
+# that was — so nothing is hardcoded here. schedule.status_alike() matches the two, and
+# the transition is looked up on the issue, the only place that knows what it offers.
+SEED_STATUS = {"In Review": "In Progress"}  # the board has no review column
+
+
+def _wanted(name: str) -> str:
+    """The status the seed wants, in the seed's own words."""
+    name = (name or "").strip() or "To Do"
+    return SEED_STATUS.get(name, name)
+
+
+def _site_name(jira: Jira, key: str, wanted: str) -> str:
+    """What this project calls the status the seed asked for.
+
+    A site set up in another language offers its own wording where the seed says
+    In Progress. Asking the issue what transitions it has is the only reliable way to
+    find out, and it keeps the seed working whatever language the project was made in.
+    """
+    for t in jira.transitions(key):
+        name = (t.get("to") or {}).get("name") or t.get("name") or ""
+        if schedule.status_alike(name, wanted):
+            return name
+    return wanted
 
 
 def plan(today: dt.date | None = None, limit: int = 0) -> list:
-    """생성할 이슈 목록 (Jira 필드 형태로 정리)."""
+    """The issues to create, arranged as Jira fields."""
     issues = seed.build(today or dt.date.today())
     if limit:
         keys = {i["key"] for i in issues[:limit]}
         issues = issues[:limit]
-        for i in issues:  # 범위 밖을 가리키는 링크는 떼어낸다
+        for i in issues:  # drop links that point outside the range
             i["fields"]["issuelinks"] = [
                 link
                 for link in i["fields"]["issuelinks"]
@@ -52,7 +77,7 @@ def plan(today: dt.date | None = None, limit: int = 0) -> list:
                 "duedate": f["duedate"],
                 "points": f["customfield_10016"],
                 "owner": (f.get("assignee") or {}).get("displayName", ""),
-                "status": STATUS_MAP.get((f.get("status") or {}).get("name", ""), "할 일"),
+                "status": _wanted((f.get("status") or {}).get("name", "")),
                 "blocks": [
                     link["outwardIssue"]["key"]
                     for link in f["issuelinks"]
@@ -70,15 +95,15 @@ def create(
     pre: dict | None = None,
     link_rows: list | None = None,
 ) -> dict:
-    """이슈 생성 → 상태 전이 → 링크 연결. seed_key → 실제 Jira key 매핑을 돌려준다.
+    """Create issues → transition status → link them. Returns seed_key → real Jira key.
 
-    pre: 이미 만들어 둔 seed_key→실제key (이어서 시드할 때).
-    link_rows: 링크를 걸 대상 행 (기본은 이번에 만든 rows). 이어서 시드할 때는 전체를 넘긴다.
+    pre: seed_key → real key for issues already created (when continuing a seed).
+    link_rows: the rows to link (defaults to the rows created now). When continuing, pass them all.
     """
     mapping, errors = dict(pre or {}), []
     fresh = set()
     for r in rows:
-        extra = {"labels": [f"{schedule.OWNER_PREFIX}{r['owner']}"] if r["owner"] else []}
+        extra = {"labels": [schedule.owner_tag(r["owner"])] if r["owner"] else []}
         if r["points"]:
             extra["customfield_10016"] = r["points"]
         try:
@@ -86,7 +111,7 @@ def create(
                 r["summary"], duedate=r["duedate"], extra=extra, approve=approve
             )
         except WriteBlocked as e:
-            return {"error": f"쓰기 차단: {e}", "created": mapping}
+            return {"error": f"write blocked: {e}", "created": mapping}
         except Exception as e:
             errors.append({"seed_key": r["seed_key"], "step": "create", "error": str(e)[:200]})
             continue
@@ -95,9 +120,9 @@ def create(
             continue
         mapping[r["seed_key"]] = res["key"]
         fresh.add(r["seed_key"])
-        if r["status"] != "할 일":
+        if not schedule.status_alike(r["status"], "To Do"):
             try:
-                jira.transition(res["key"], r["status"], approve=True)
+                jira.transition(res["key"], _site_name(jira, res["key"], r["status"]), approve=True)
             except Exception as e:
                 errors.append(
                     {"seed_key": r["seed_key"], "step": "transition", "error": str(e)[:200]}
@@ -105,7 +130,7 @@ def create(
     if approve:
         for r in link_rows or rows:
             for b in r["blocks"]:
-                # 이번에 새로 만든 쪽이 한 쪽이라도 끼어야 건다 — 기존 링크 중복 생성을 피한다
+                # Link only if at least one side was created now — avoids duplicating links
                 if (
                     r["seed_key"] in mapping
                     and b in mapping
@@ -127,31 +152,31 @@ def main(argv) -> None:
         limit = int(argv[argv.index("--limit") + 1])
     start = int(argv[argv.index("--from") + 1]) if "--from" in argv else 0
     all_rows = plan(limit=limit)
-    # 이미 만든 앞부분은 건너뛴다. 키가 1:1로 맞으므로 seed_key 를 그대로 실제 key 로 쓴다.
+    # Skip what was already created. The keys map 1:1, so seed_key doubles as the real key.
     pre = {r["seed_key"]: r["seed_key"] for r in all_rows[:start]}
     rows = all_rows[start:]
     j = Jira()
-    print(f"대상: {j.site} / 프로젝트 {j.project}")
-    print(f"생성할 이슈 {len(rows)}건  (담당자는 owner-* 라벨로 기록)")
+    print(f"target: {j.site} / project {j.project}")
+    print(f"{len(rows)} issues to create  (owners recorded as owner-* labels)")
     for r in rows[:5]:
         print(
             f"  {r['seed_key']:>8}  {r['summary'][:34]:<34} {r['status']:<6} "
-            f"마감 {r['duedate']} · {r['points']}점 · {r['owner']}"
+            f"due {r['duedate']} · {r['points']} points · {r['owner']}"
             + (f" · blocks {','.join(r['blocks'])}" if r["blocks"] else "")
         )
     if len(rows) > 5:
-        print(f"  … 외 {len(rows) - 5}건")
+        print(f"  … and {len(rows) - 5} more")
     if not approve:
-        print("\n미리보기입니다. 실제로 만들려면 --approve 를 붙이세요.")
+        print("\nThis is a preview. Add --approve to create them.")
         return
-    print("\n생성 중…")
+        print("\ncreating…")
     out = create(j, rows, approve=True, pre=pre, link_rows=all_rows)
     if out.get("error"):
         print(" ", out["error"])
         return
-    print(f" 생성 {len(out['created']) - len(pre)}건, 오류 {len(out['errors'])}건")
+    print(f" created {len(out['created']) - len(pre)}, errors {len(out['errors'])}")
     for e in out["errors"][:5]:
-        print("  오류:", e)
+        print("  error:", e)
 
 
 if __name__ == "__main__":

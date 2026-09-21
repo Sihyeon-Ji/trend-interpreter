@@ -1,11 +1,11 @@
-"""로컬 보드 어댑터 — Jira 없이 전체 루프를 돌리기 위한 백엔드.
+"""The local board adapter — a backend for running the whole loop without Jira.
 
-Jira 어댑터와 '같은 모양'을 돌려준다 (fields.status.name, issuelinks, customfield_10016 …).
-그래서 schedule.from_jira_issues / tools.py / approve.py 는 한 줄도 바뀌지 않는다 —
-PM 도구에 종속되지 않는다는 주장이 코드로 증명되는 지점이다 (SETUP.md 1-4 의 Kaneo 도 같은 자리에
-꽂힌다).
+It returns *the same shapes* as the Jira adapter (fields.status.name, issuelinks,
+customfield_10016 and so on), so schedule.from_jira_issues, tools.py and approve.py do not
+change by a single line — this is where "not tied to one PM tool" stops being a claim and
+becomes something the code demonstrates (Kaneo, from SETUP.md 1-4, plugs into the same socket).
 
-저장은 JSON 파일 하나. 계정도 네트워크도 필요 없고, 쓰기는 Jira 와 동일하게 approve 게이트를 탄다.
+Storage is one JSON file. No account, no network, and writes go through the same approve gate.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ STATUSES = ("To Do", "In Progress", "In Review", "Done")
 
 
 class MemoryBoard:
-    """파일 한 개를 보드로 쓰는 어댑터. Jira 클래스와 메서드 이름·반환 모양이 같다."""
+    """An adapter that treats one file as the board. Same methods and shapes as the Jira class."""
 
     def __init__(self, path: str | None = None, project: str = "ECHO", issues=None):
         self.path: str | None = path or STORE
@@ -30,11 +30,11 @@ class MemoryBoard:
         self.site = "local"
         self.allow = ["local"]
         self._issues = None
-        if issues is not None:  # 파일 없이 메모리만 쓰는 모드 (테스트용)
+        if issues is not None:  # memory-only mode, no file (for tests)
             self._issues = {i["key"]: i for i in issues}
             self.path = None
 
-    # ---------- 저장소 ----------
+    # ---------- storage ----------
     def _load(self) -> dict:
         if self._issues is not None:
             return self._issues
@@ -62,17 +62,21 @@ class MemoryBoard:
                 indent=1,
             )
 
-    # ---------- 읽기 ----------
+    # ---------- reads ----------
     def whoami(self):
-        return {"displayName": "로컬 보드", "emailAddress": "local@echo-pmo", "accountId": "local"}
+        return {
+            "displayName": "local board",
+            "emailAddress": "local@echo-pmo",
+            "accountId": "local",
+        }
 
     def project_info(self):
-        return {"key": self.project, "name": "Echo PMO (로컬)", "projectTypeKey": "software"}
+        return {"key": self.project, "name": "Echo PMO (local)", "projectTypeKey": "software"}
 
     def search(self, jql=None, limit=100, **_):
-        """JQL 전체를 해석하지는 않는다.
+        """This does not interpret the whole of JQL.
 
-        status / assignee 필터와 duedate 정렬만 본다 — list_tasks 가 쓰는 범위다.
+        Only status and assignee filters and a duedate sort — the range list_tasks uses.
         """
         issues = list(self._load().values())
         for field in ("status", "assignee"):
@@ -87,7 +91,7 @@ class MemoryBoard:
     def issue(self, key):
         i = self._load().get(key)
         if not i:
-            raise RuntimeError(f"{key} 없음 (로컬 보드)")
+            raise RuntimeError(f"no {key} (local board)")
         return i
 
     def transitions(self, key):
@@ -98,7 +102,7 @@ class MemoryBoard:
             if s != cur
         ]
 
-    # ---------- 쓰기 (Jira 와 동일하게 approve 게이트) ----------
+    # ---------- writes (the same approve gate as Jira) ----------
     def create_issue(
         self,
         summary,
@@ -150,7 +154,7 @@ class MemoryBoard:
         tr = next((t for t in self.transitions(key) if status_alike(t["name"], to_name)), None)
         if not tr:
             return {
-                "error": f"'{to_name}' 전이 없음",
+                "error": f"no transition to '{to_name}'",
                 "available": [t["name"] for t in self.transitions(key)],
             }
         if not approve:
@@ -159,12 +163,12 @@ class MemoryBoard:
         f["status"] = {"name": tr["name"]}
         f["status_changed_at"] = dt.datetime.now().isoformat(
             timespec="seconds"
-        )  # Jira 의 변경 이력에 대응
+        )  # the counterpart of Jira's change history
         self._save()
         return {"issue": key, "status": tr["name"]}
 
     def done_since(self, days=7, limit=100):
-        """최근 days 일 안에 완료로 바뀐 이슈. Jira 의 done_since() 와 같은 역할."""
+        """Issues moved to done in the last `days` days. The same role as Jira's done_since()."""
         from pmo_agent.schedule import DONE
 
         since = (dt.date.today() - dt.timedelta(days=int(days))).isoformat()
@@ -200,7 +204,7 @@ def _field_name(issue: dict, field: str) -> str:
 
 
 def make_issue(key, summary, status="To Do", assignee="", duedate=None, points=None, blocks=()):
-    """보드에 넣을 이슈 한 건 (Jira search() 응답과 같은 모양)."""
+    """One issue to put on the board (shaped like a Jira search() response)."""
     return {
         "key": key,
         "fields": {

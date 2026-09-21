@@ -1,22 +1,23 @@
-"""Outlook 캘린더 어댑터 (Microsoft Graph) — 회의로 먹힌 시간을 읽는다.
+"""The Outlook calendar adapter (Microsoft Graph) — it reads the time meetings have taken.
 
-보드는 '무엇을 해야 하나', 저장소는 '무엇을 했나'를 담는다.
-캘린더는 **'무엇을 할 시간이 남았나'** 를 담는다 — 다른 두 곳에는 없는 값이다.
+The board holds what has to be done; the repository holds what was done.
+The calendar holds **how much time is left to do it in** — a number neither of the others has.
 
-**읽기 전용이다.** 일정을 만들거나 고치는 메서드를 두지 않는다.
-남의 캘린더에 무언가를 쓰는 사고는 코드 경로가 없어야 막힌다.
+**Read-only.** There is no method here that creates or edits an event.
+Writing into someone else's calendar by accident is only really prevented by there
+being no code path at all.
 
-⚠ 실호출 미검증. Azure 앱 등록과 동의가 필요해 구조만 준비돼 있다.
-   `CALENDAR_BACKEND=memory` 로 두면 로컬 캘린더로 같은 계산이 돈다.
+⚠ Unverified against a real call. It needs an Azure app registration and consent, so only the
+   structure is here. With `CALENDAR_BACKEND=memory` the same maths runs on the local calendar.
 
-준비 (사람이 직접):
-  1. https://entra.microsoft.com → 앱 등록 → 이름 아무거나, 개인 계정 허용
-  2. 인증 → '퍼블릭 클라이언트 흐름 허용' 켜기 (기기 코드 흐름을 쓴다)
-  3. API 사용 권한 → Microsoft Graph → 위임됨 → Calendars.Read, User.Read → 동의
-  4. .env 에 MS_CLIENT_ID=<응용 프로그램(클라이언트) ID>
+Setup (by hand):
+  1. https://entra.microsoft.com → App registrations → any name, allow personal accounts
+  2. Authentication → turn on "Allow public client flows" (this uses the device code flow)
+  3. API permissions → Microsoft Graph → Delegated → Calendars.Read, User.Read → consent
+  4. MS_CLIENT_ID=<Application (client) ID> in .env
 
-토큰은 기기 코드 흐름으로 받아 .ms_token.json 에 캐시한다 (.gitignore 대상).
-클라이언트 비밀은 쓰지 않는다 — 퍼블릭 클라이언트라 비밀을 파일에 둘 이유가 없다.
+The token comes from the device code flow and is cached in .ms_token.json (gitignored).
+No client secret — this is a public client, so there is no reason to keep a secret in a file.
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ TIMEOUT = 40
 
 
 class CalendarError(RuntimeError):
-    """Graph 호출 또는 인증 실패."""
+    """A Graph call or the authentication failed."""
 
 
 def _post(url: str, form: dict) -> dict:
@@ -54,13 +55,13 @@ def _post(url: str, form: dict) -> dict:
     except urllib.error.HTTPError as e:
         body = e.read()[:400].decode("utf-8", "ignore")
         try:
-            return json.loads(body)  # 기기 코드 흐름은 대기 중에도 오류 본문을 준다
+            return json.loads(body)  # the device code flow returns an error body while it waits
         except json.JSONDecodeError:
-            raise CalendarError(f"Graph 인증 {e.code}: {body}") from None
+            raise CalendarError(f"Graph auth {e.code}: {body}") from None
 
 
 class MSCalendar:
-    """Outlook 캘린더. MemoryCalendar 와 메서드 이름·반환 모양이 같다 (ports.Calendar)."""
+    """The Outlook calendar. Same methods and shapes as MemoryCalendar (ports.Calendar)."""
 
     def __init__(self, client_id: str | None = None, workday_hours: float = WORKDAY_HOURS):
         self.client_id = client_id or env("MS_CLIENT_ID")
@@ -68,9 +69,11 @@ class MSCalendar:
         self.workday_hours = workday_hours
         self._token: str | None = None
         if not self.client_id:
-            raise CalendarError("MS_CLIENT_ID 미설정 — 모듈 docstring 의 준비 단계를 보라")
+            raise CalendarError(
+                "MS_CLIENT_ID is not set — see the setup steps in the module docstring"
+            )
 
-    # ---------- 인증 ----------
+    # ---------- authentication ----------
     def _cached(self) -> str | None:
         if not os.path.exists(TOKEN_CACHE):
             return None
@@ -89,9 +92,10 @@ class MSCalendar:
             json.dump(blob, handle)
 
     def token(self) -> str:
-        """캐시된 토큰이 있으면 쓰고, 없으면 기기 코드 흐름으로 받는다.
+        """Use the cached token if there is one, otherwise run the device code flow.
 
-        사용자가 브라우저에서 코드를 넣어야 하므로 대화형이다 — 서버에서는 캐시가 있어야 한다.
+        The user has to type a code in a browser, so it is interactive — on a server the cache
+        has to be there already.
         """
         if self._token:
             return self._token
@@ -101,7 +105,7 @@ class MSCalendar:
             return cached
         start = _post(f"{AUTHORITY}/devicecode", {"client_id": self.client_id, "scope": SCOPE})
         if "user_code" not in start:
-            raise CalendarError(f"기기 코드 발급 실패: {str(start)[:200]}")
+            raise CalendarError(f"could not get a device code: {str(start)[:200]}")
         print(f"\n  {start.get('message', '')}\n")
         deadline = time.time() + float(start.get("expires_in", 900))
         interval = float(start.get("interval", 5))
@@ -120,10 +124,10 @@ class MSCalendar:
                 self._token = blob["access_token"]
                 return self._token
             if blob.get("error") not in ("authorization_pending", "slow_down"):
-                raise CalendarError(f"인증 실패: {blob.get('error_description', blob)}")
+                raise CalendarError(f"authentication failed: {blob.get('error_description', blob)}")
             if blob.get("error") == "slow_down":
                 interval += 5
-        raise CalendarError("기기 코드가 만료됐다. 다시 시도하라.")
+        raise CalendarError("the device code expired. Try again.")
 
     def _get(self, path: str, params: dict | None = None):
         url = f"{GRAPH}{path}"
@@ -134,7 +138,7 @@ class MSCalendar:
             headers={
                 "Authorization": f"Bearer {self.token()}",
                 "Accept": "application/json",
-                # 시간대를 명시하지 않으면 UTC 로 오고, 하루 경계가 밀린다
+                # Without an explicit time zone these come back in UTC and the day boundary shifts
                 "Prefer": 'outlook.timezone="Asia/Seoul"',
             },
         )
@@ -146,15 +150,15 @@ class MSCalendar:
                 f"Graph {path} → {e.code}: {e.read()[:300].decode('utf-8', 'ignore')}"
             ) from None
 
-    # ---------- 읽기 ----------
+    # ---------- reads ----------
     def whoami(self) -> str:
         return self._get("/me", {"$select": "displayName,mail"}).get("displayName", "?")
 
     def events(self, days: int = 20, attendee: str = "") -> list:
-        """앞으로 days 일의 일정. Graph 는 '내 캘린더'만 준다 —
-        팀 전체를 보려면 각자 동의하거나 조직 권한이 필요하다.
+        """Events for the next `days` days. Graph only ever gives *my* calendar —
+        seeing the whole team needs each person's consent or an organisation permission.
 
-        attendee 는 반환값을 거르는 용도이고, 조회 대상은 항상 로그인한 사용자다.
+        `attendee` filters the return value; the query is always about the logged-in user.
         """
         start = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + _dt.timedelta(days=int(days))
@@ -172,7 +176,7 @@ class MSCalendar:
         out = []
         for item in raw:
             if item.get("showAs") in ("free", "workingElsewhere"):
-                continue  # 시간을 실제로 먹지 않는 일정은 뺀다
+                continue  # drop events that do not actually consume time
             hours, day, hhmm = self._duration(item)
             if hours <= 0:
                 continue
@@ -199,7 +203,7 @@ class MSCalendar:
         return round((e - s).total_seconds() / 3600.0, 2), s.date().isoformat(), s.strftime("%H:%M")
 
     def busy_hours(self, days: int = 20) -> dict:
-        """{사람: {ISO날짜: 회의시간}} — availability.from_busy_hours 가 받는 모양."""
+        """{person: {ISO date: meeting hours}} — the shape availability.from_busy_hours takes."""
         out: dict[str, dict[str, float]] = {}
         for e in self.events(days):
             out.setdefault(e["attendee"], {})

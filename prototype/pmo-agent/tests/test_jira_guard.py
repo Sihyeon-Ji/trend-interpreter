@@ -1,9 +1,9 @@
-"""Jira 어댑터 안전 가드 테스트 — 네트워크 없이 검증한다.
+"""Jira adapter safety-guard tests — verified with no network.
 
-이 가드가 하는 일은 하나다: 샌드박스가 아닌 사이트로는 쓰기 요청이 나가지 않게 막는 것.
-그리고 .env 표기 흔들림(https:// 접두사, 끝 슬래시, 대문자) 때문에 가드가 오작동하지 않게 하는 것.
+The guard does one thing: stop a write request leaving for any site that is not the sandbox.
+And it must not misfire on how .env is written (an https:// prefix, a trailing slash, capitals).
 
-실행: python -m unittest discover -s tests -v      (D:/echo-pmo 에서)
+Run: python -m pytest tests/test_jira_guard.py -q
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def jira(site=SANDBOX, allow=SANDBOX + ",localhost"):
 
 
 class TestHostNormalize(unittest.TestCase):
-    def test_프로토콜과_끝슬래시를_떼어낸다(self):
+    def test_it_strips_the_protocol_and_the_trailing_slash(self):
         for v in (
             "https://demo.atlassian.net",
             "http://demo.atlassian.net/",
@@ -32,7 +32,7 @@ class TestHostNormalize(unittest.TestCase):
         ):
             self.assertEqual(_host(v), SANDBOX, v)
 
-    def test_빈값도_처리한다(self):
+    def test_it_handles_an_empty_value(self):
         self.assertEqual(_host(""), "")
         self.assertEqual(_host(None), "")
 
@@ -41,38 +41,38 @@ class TestAllowlist(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("WRITE_ALLOWLIST", None)
 
-    def test_표기가_달라도_같은_사이트로_인정한다(self):
-        # .env 에 https:// 를 붙여 적은 경우 — 예전에는 이것 때문에 쓰기가 전부 막혔다
+    def test_a_different_spelling_is_still_the_same_site(self):
+        # An https:// written into .env — this once blocked every write
         j = jira(site="https://demo.atlassian.net", allow="https://demo.atlassian.net/,localhost")
         self.assertEqual(j.site, SANDBOX)
         self.assertIn(SANDBOX, j.allow)
 
-    def test_허용된_사이트는_쓰기가_통과한다(self):
+    def test_an_allowed_site_lets_writes_through(self):
         j = jira()
         self.assertIn(j.site, j.allow)
 
-    def test_실서비스_도메인은_쓰기가_막힌다(self):
+    def test_a_live_domain_is_blocked(self):
         j = jira(site=REAL, allow=SANDBOX)
         with self.assertRaises(WriteBlocked):
             j._call("POST", "/issue", {"x": 1}, write=True)
 
-    def test_차단_메시지에_사이트와_허용목록이_들어간다(self):
+    def test_the_block_message_names_the_site_and_the_allowlist(self):
         j = jira(site=REAL, allow=SANDBOX)
         try:
             j._call("PUT", "/issue/X", {}, write=True)
-            self.fail("차단되지 않았다")
+            self.fail("it was not blocked")
         except WriteBlocked as e:
             self.assertIn(REAL, str(e))
             self.assertIn(SANDBOX, str(e))
 
-    def test_허용목록이_비면_localhost만_남는다(self):
+    def test_an_empty_allowlist_leaves_only_localhost(self):
         os.environ.pop("WRITE_ALLOWLIST", None)
         j = Jira(site=SANDBOX, email="a@b.c", token="t", project="ECHO")
         self.assertNotIn(SANDBOX, j.allow)
 
 
 class TestWriteGateDefaults(unittest.TestCase):
-    """쓰기 함수는 approve 없이는 네트워크에 나가지 않는다 (dry_run)."""
+    """A write function never reaches the network without approve (dry_run)."""
 
     def setUp(self):
         self.j = jira()
@@ -80,24 +80,24 @@ class TestWriteGateDefaults(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("WRITE_ALLOWLIST", None)
 
-    def test_기본은_전부_dry_run이다(self):
+    def test_everything_is_a_dry_run_by_default(self):
         self.assertTrue(self.j.create_issue("x")["dry_run"])
         self.assertTrue(self.j.comment("ECHO-1", "x")["dry_run"])
         self.assertTrue(self.j.set_fields("ECHO-1", {"duedate": "2026-10-01"})["dry_run"])
         self.assertTrue(self.j.link("ECHO-1", "ECHO-2")["dry_run"])
 
-    def test_dry_run은_무엇을_바꿀지_보여준다(self):
+    def test_a_dry_run_shows_what_it_would_change(self):
         self.assertEqual(
             self.j.set_fields("ECHO-1", {"duedate": "2026-10-01"})["would_set"],
             {"duedate": "2026-10-01"},
         )
-        self.assertEqual(self.j.comment("ECHO-1", "확인 요청")["text"], "확인 요청")
+        self.assertEqual(self.j.comment("ECHO-1", "please confirm")["text"], "please confirm")
 
 
 class TestConfigErrors(unittest.TestCase):
-    def test_설정이_비면_바로_알려준다(self):
-        # env 를 비워 끼운다 — 실제 .env 가 있으면 생성자가 거기서 값을 주워 와 테스트가
-        # 통과해버린다
+    def test_missing_settings_are_reported_at_once(self):
+        # env is slotted in empty — with a real .env the constructor would pick values up
+        # from there and the test would pass for the wrong reason
         import pmo_agent.adapters.jira as J
 
         keep, J.env = J.env, lambda k, d="": d

@@ -1,7 +1,7 @@
-"""Jira Cloud REST v3 어댑터 — API 토큰(Basic auth) 직결. Claude 커넥터/OAuth 사용하지 않음.
-안전 가드: WRITE_ALLOWLIST 에 없는 사이트로는 쓰기 호출이 아예 나가지 않는다 (회사 실 Jira 사고
-방지).
-쓰기 함수는 dry_run 기본값 True — approve=True 를 명시해야 실제로 반영된다."""
+"""The Jira Cloud REST v3 adapter — straight API token (Basic auth). No Claude connector, no OAuth.
+Safety guard: a write to a site that is not in WRITE_ALLOWLIST never leaves the process (so a
+company's live Jira cannot be touched by accident).
+Write functions default to dry_run=True — approve=True has to be spelled out to apply anything."""
 
 from __future__ import annotations
 
@@ -13,17 +13,17 @@ import urllib.request
 
 from pmo_agent.env import env
 
-DONE_NAMES = ("완료", "Done", "종료")  # 사이트 언어에 따라 달라 둘 다 넣는다
+DONE_NAMES = ("완료", "Done", "종료")  # varies with the site language, so carry both
 
 
 def _host(v: str) -> str:
-    """사이트 문자열을 호스트만 남겨 정규화. https:// 나 끝 슬래시가 붙어도 같은 사이트로 본다.
-    (.env 에 https:// 를 붙여 적었다가 쓰기가 통째로 막히는 사고를 막는다.)"""
+    """Normalise a site string down to the host. https:// or a trailing slash is the same site.
+    (This stops an https:// in .env from silently blocking every write.)"""
     return (v or "").strip().replace("https://", "").replace("http://", "").rstrip("/").lower()
 
 
 def _alike(a, b):
-    """상태 이름 비교는 schedule 의 별칭표에 맡긴다 (순환 import 를 피해 지연 로딩)."""
+    """Status-name comparison is schedule's alias table's job (imported late to avoid a cycle)."""
     from pmo_agent.schedule import status_alike
 
     return status_alike(a, b)
@@ -41,14 +41,14 @@ class Jira:
         self.project = project or env("JIRA_PROJECT_KEY", "ECHO")
         self.allow = [_host(s) for s in env("WRITE_ALLOWLIST", "localhost").split(",") if s.strip()]
         if not (self.site and self.email and self.token):
-            raise RuntimeError("JIRA_SITE / JIRA_EMAIL / JIRA_API_TOKEN 미설정 — SETUP.md 1-2 참고")
+            raise RuntimeError("JIRA_SITE / JIRA_EMAIL / JIRA_API_TOKEN not set — see SETUP.md 1-2")
 
     # ---------- low level ----------
     def _call(self, method, path, body=None, params=None, write=False):
         if write and self.site not in self.allow:
             raise WriteBlocked(
-                f"쓰기 차단: {self.site} 는 WRITE_ALLOWLIST({self.allow}) 에 없음. 샌드박스에서만 "
-                f"쓰기 허용."
+                f"write blocked: {self.site} is not in WRITE_ALLOWLIST({self.allow}). "
+                f"Writes are allowed in the sandbox only."
             )
         url = f"https://{self.site}/rest/api/3{path}"
         if params:
@@ -76,7 +76,7 @@ class Jira:
 
     @staticmethod
     def adf(text: str) -> dict:
-        """Jira v3 는 본문이 ADF(Atlassian Document Format)."""
+        """Jira v3 wants the body in ADF (Atlassian Document Format)."""
         return {
             "type": "doc",
             "version": 1,
@@ -94,8 +94,8 @@ class Jira:
     def project_info(self):
         return self._call("GET", f"/project/{self.project}")
 
-    # fields 는 키워드 전용이다 — 위치 인자 순서를 로컬 보드와 맞춰야
-    # 두 어댑터가 실제로 교체 가능하다 (ports.Board).
+    # `fields` is keyword-only — matching the positional order of the local board is what makes
+    # the two adapters genuinely interchangeable (ports.Board).
     def search(
         self,
         jql=None,
@@ -137,8 +137,8 @@ class Jira:
         return self._call("GET", f"/issue/{key}")
 
     def done_since(self, days=7, limit=100):
-        """최근 days 영업일 안에 '완료'로 바뀐 이슈. Jira 의 상태 변경 이력(JQL CHANGED)을 쓴다 —
-        우리 에이전트를 거치지 않고 사람이 직접 바꾼 것도 잡힌다."""
+        """Issues moved to Done within the last `days` business days, via Jira's status history
+        (JQL CHANGED) — so it also catches what a person changed without going through us."""
         names = ", ".join(f'"{n}"' for n in DONE_NAMES)
         return self.search(
             f"project = {self.project} AND status CHANGED TO ({names}) AFTER -{int(days)}d",
@@ -196,7 +196,7 @@ class Jira:
         )
         if not tr:
             return {
-                "error": f"'{to_name}' 전이 없음",
+                "error": f"no transition to '{to_name}'",
                 "available": [t["name"] for t in self.transitions(key)],
             }
         if not approve:
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     j = Jira()
     me = j.whoami()
     print(
-        "연결 OK:",
+        "connection OK:",
         me.get("displayName"),
         me.get("emailAddress"),
         "| site",
@@ -228,6 +228,8 @@ if __name__ == "__main__":
         "| project",
         j.project,
     )
-    print("쓰기 허용 사이트:", j.allow)
+    print("sites writes are allowed to:", j.allow)
     issues = j.search(limit=5)
-    print(f"이슈 {len(issues)}건 샘플:", [(i["key"], i["fields"]["summary"][:30]) for i in issues])
+    print(
+        f"{len(issues)} issues, sample:", [(i["key"], i["fields"]["summary"][:30]) for i in issues]
+    )

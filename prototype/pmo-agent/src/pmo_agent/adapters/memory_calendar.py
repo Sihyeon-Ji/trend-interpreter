@@ -1,10 +1,10 @@
-"""로컬 캘린더 어댑터 — OAuth 없이 가용 시간 계산을 돌리기 위한 백엔드.
+"""The local calendar adapter — a backend for running the availability maths without OAuth.
 
-보드(memory.py)·저장소(memory_repo.py)와 같은 발상이다.
-MS Graph 어댑터와 **같은 모양**을 돌려주므로 availability.py 와 capacity.py 는
-어느 쪽에 붙어 있는지 알 필요가 없다.
+Same idea as the board (memory.py) and the repo (memory_repo.py).
+It returns **the same shapes** as the MS Graph adapter, so availability.py and capacity.py
+never need to know which one is connected.
 
-읽기 전용이다 — 남의 일정을 만들거나 지울 경로가 없다.
+Read-only — there is no path to create or delete anyone's events.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ STORE = str(data_dir() / "calendar_state.json")
 
 
 class MemoryCalendar:
-    """파일 한 개를 캘린더로 쓰는 어댑터. MS Graph 어댑터와 메서드 이름·반환 모양이 같다."""
+    """An adapter that treats one file as the calendar. Same method names and shapes as MS Graph."""
 
     def __init__(self, path: str | None = None, data=None):
         self.path: str | None = None if data is not None else (path or STORE)
@@ -34,12 +34,12 @@ class MemoryCalendar:
                 self._data = {"source": "local", "events": []}
         return self._data
 
-    # ---------- 읽기 ----------
+    # ---------- reads ----------
     def whoami(self) -> str:
         return "local"
 
     def events(self, days: int = 20, attendee: str = "") -> list:
-        """앞으로 days 영업일 안의 일정. attendee 를 주면 그 사람 것만."""
+        """Events within the next `days` business days. Pass `attendee` for one person's."""
         rows = list(self._load().get("events", []))
         if attendee:
             rows = [e for e in rows if e.get("attendee") == attendee]
@@ -47,7 +47,7 @@ class MemoryCalendar:
         return rows
 
     def busy_hours(self, days: int = 20) -> dict:
-        """{사람: {ISO날짜: 회의시간}} — availability.from_busy_hours 가 받는 모양."""
+        """{person: {ISO date: meeting hours}} — the shape availability.from_busy_hours takes."""
         out: dict[str, dict[str, float]] = {}
         for e in self.events(days):
             who, day = e.get("attendee", ""), (e.get("date") or "")[:10]

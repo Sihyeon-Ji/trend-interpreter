@@ -1,14 +1,15 @@
-"""GitHub 어댑터 — 코드에서 오는 '실제 진척' 신호를 읽는다.
+"""The GitHub adapter — it reads the *actual progress* signal coming from the code.
 
-보드(Jira)는 사람이 적은 상태를 담고, 여기는 실제로 일어난 일을 담는다.
-둘을 맞대야만 나오는 것이 있다:
-"티켓은 진행 중인데 8일째 커밋이 없다", "완료인데 PR 이 아직 열려 있다".
+The board (Jira) holds the status a person wrote down; this holds what really happened.
+Some things only appear when the two are lined up:
+"the ticket is in progress but there has been no commit for eight days", "it is done but the
+pull request is still open".
 
-**읽기 전용이다.** 이 모듈에는 쓰기 메서드가 아예 없다 — 실수로 남의 저장소에 무언가를 만들 경로가
-없다.
-인증은 이미 로그인된 `gh` CLI 를 그대로 쓴다 (토큰을 .env 에 따로 두지 않는다).
+**Read-only.** There is no write method in this module at all — there is no path by which we
+could accidentally create something in someone else's repository.
+Auth rides on an already logged-in `gh` CLI (no separate token in .env).
 
-설정: .env 의 GITHUB_REPO=owner/repo
+Setting: GITHUB_REPO=owner/repo in .env
 """
 
 from __future__ import annotations
@@ -21,12 +22,12 @@ import subprocess
 from pmo_agent.env import env
 
 TIMEOUT = 60
-# Windows 에서 winget 설치 직후 PATH 가 갱신되지 않은 셸을 위한 보조 경로
+# A fallback path for Windows shells whose PATH has not refreshed after a winget install
 FALLBACK_GH = r"C:\Program Files\GitHub CLI\gh.exe"
 
 
 class GitHubError(RuntimeError):
-    """gh 실행 또는 API 호출 실패."""
+    """gh failed to run, or the API call failed."""
 
 
 def gh_path() -> str:
@@ -36,17 +37,18 @@ def gh_path() -> str:
     if os.path.exists(FALLBACK_GH):
         return FALLBACK_GH
     raise GitHubError(
-        "gh CLI 를 찾을 수 없다. `winget install GitHub.cli` 후 새 터미널에서 `gh auth login`."
+        "cannot find the gh CLI. Run `winget install GitHub.cli`, "
+        "then `gh auth login` in a new terminal."
     )
 
 
 class GitHub:
-    """gh CLI 를 통해 저장소를 읽는다. 쓰기 메서드는 의도적으로 없다."""
+    """Reads a repository through the gh CLI. There are deliberately no write methods."""
 
     def __init__(self, repo: str | None = None):
         self.repo = (repo or env("GITHUB_REPO", "")).strip()
         if not self.repo or "/" not in self.repo:
-            raise GitHubError("GITHUB_REPO 미설정 — .env 에 owner/repo 형식으로 넣어라")
+            raise GitHubError("GITHUB_REPO is not set — put owner/repo in .env")
 
     # ---------- low level ----------
     def _api(self, path: str, jq: str | None = None):
@@ -63,15 +65,15 @@ class GitHub:
                 errors="replace",
             )
         except subprocess.TimeoutExpired:
-            raise GitHubError(f"gh api 시간 초과: {path}") from None
+            raise GitHubError(f"gh api timed out: {path}") from None
         except OSError as e:
-            raise GitHubError(f"gh 실행 실패: {e}") from None
+            raise GitHubError(f"could not run gh: {e}") from None
         if out.returncode != 0:
-            raise GitHubError(f"gh api {path} 실패: {(out.stderr or '')[:300]}")
+            raise GitHubError(f"gh api {path} failed: {(out.stderr or '')[:300]}")
         text = (out.stdout or "").strip()
         if not text:
             return []
-        if jq:  # --jq 는 줄 단위 출력이라 각 줄을 파싱한다
+        if jq:  # --jq prints line by line, so parse each line
             rows = []
             for line in text.splitlines():
                 line = line.strip()
@@ -80,7 +82,7 @@ class GitHub:
             return rows
         return json.loads(text)
 
-    # ---------- 읽기 ----------
+    # ---------- reads ----------
     def whoami(self) -> str:
         r = self._api("user", ".login")
         return r[0] if r else "?"
@@ -96,7 +98,7 @@ class GitHub:
         }
 
     def commits(self, limit: int = 100, branch: str = "") -> list:
-        """최근 커밋. 메시지 첫 줄과 작성자, 날짜만 남긴다."""
+        """Recent commits, keeping only the subject line, the author and the date."""
         q = f"repos/{{repo}}/commits?per_page={min(int(limit), 100)}"
         if branch:
             q += f"&sha={branch}"
@@ -112,8 +114,9 @@ class GitHub:
                 {
                     "sha": c["sha"][:7],
                     "date": (ca.get("date") or "")[:10],
-                    # 표시는 login 우선, 동일인 판정은 email 로 한다.
-                    # 커밋 이메일이 계정에 연결돼 있지 않으면 login 이 비고 이름만 남는다.
+                    # Display prefers login; identity is decided by email.
+                    # If the commit email is not tied to an account, login comes
+                    # back empty and only the git name remains.
                     "author": login or ca.get("name", "?"),
                     "login": login,
                     "name": ca.get("name", ""),
@@ -125,7 +128,7 @@ class GitHub:
         return out
 
     def pulls(self, state: str = "all", limit: int = 50) -> list:
-        """PR 목록. 리뷰 대기 판단에 필요한 최소 필드만."""
+        """Pull requests, with only the fields the review-wait check needs."""
         raw = self._api(f"repos/{{repo}}/pulls?state={state}&per_page={min(int(limit), 100)}")
         return [
             {
@@ -163,16 +166,16 @@ class GitHub:
         return [{"login": c.get("login"), "role": c.get("role_name")} for c in raw]
 
     def pull_commits(self, number: int) -> list:
-        """PR 하나에 달린 커밋. 기본 브랜치에 아직 안 올라온 작업을 보기 위한 것."""
+        """The commits on one pull request — for seeing work not yet on the default branch."""
         raw = self._api(f"repos/{{repo}}/pulls/{int(number)}/commits?per_page=100")
         return self._shape(raw)
 
     def snapshot(self, commit_limit: int = 100) -> dict:
-        """한 번에 필요한 것을 모아 온다 — 신호 계산은 agent/signals.py 가 한다.
+        """Fetch everything needed in one go — signals.py does the calculating.
 
-        기본 브랜치 커밋만 보면 **진행 중인 작업이 통째로 안 보인다** — 아직 머지되지
-        않았으니 당연하다. 그러면 "진행 중인데 커밋이 하나도 없다"는 엉뚱한 신호가 나온다.
-        그래서 열린 PR 의 커밋을 함께 가져와 합친다.
+        Look only at the default branch and **work in flight disappears entirely** — of course
+        it does, it has not been merged. Then out comes the nonsense signal "in progress with
+        no commits at all". So the open pull requests' commits are fetched and merged in.
         """
         pulls = self.pulls("all")
         commits = self.commits(commit_limit)
@@ -186,7 +189,7 @@ class GitHub:
                         seen.add(commit["sha"])
                         commits.append(commit)
             except GitHubError:
-                continue  # PR 하나를 못 읽어도 나머지는 살린다
+                continue  # one unreadable pull request should not lose the rest
         commits.sort(key=lambda c: c["date"], reverse=True)
         return {
             "repo": self.repo,
@@ -199,9 +202,9 @@ class GitHub:
 
 if __name__ == "__main__":
     g = GitHub()
-    print("계정:", g.whoami(), "| 저장소:", g.repo)
+    print("account:", g.whoami(), "| repo:", g.repo)
     s = g.snapshot(20)
-    print("기본 브랜치:", s["info"]["default_branch"], "| 브랜치", len(s["branches"]), "개")
-    print("커밋", len(s["commits"]), "건 | PR", len(s["pulls"]), "건")
+    print("default branch:", s["info"]["default_branch"], "|", len(s["branches"]), "branches")
+    print(len(s["commits"]), "commits |", len(s["pulls"]), "pull requests")
     for c in s["commits"][:5]:
         print(f"  {c['date']}  {c['author']:<12} {c['message'][:50]}")

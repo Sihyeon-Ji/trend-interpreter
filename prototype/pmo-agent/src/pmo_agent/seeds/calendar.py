@@ -1,15 +1,15 @@
-"""가상 캘린더 — world.py 시뮬레이션에서 '시간이 간 곳'만 투영한다.
+"""The fictional calendar — the projection of *where the time went* in the world simulation.
 
-다른 두 도구와 결정적으로 다른 점: **과거와 미래를 둘 다 담는다.**
+What makes it different from the other two tools: **it holds both past and future.**
 
-  과거 회의 → "그 2주간 왜 진도가 안 나갔나"에 답한다
-  미래 회의 → "앞으로 얼마나 쓸 수 있나"를 계산한다 (capacity.py 의 입력)
+  past meetings   → answer "why did nothing move over those two weeks"
+  future meetings → compute "how much time is left" (the input to capacity.py)
 
-읽기 전용 데이터다 — 남의 일정을 만들거나 고치지 않는다.
+Read-only data — nothing here creates or edits anyone's events.
 
-실행:
-  python -m pmo_agent.seeds.calendar            data/calendar_state.json 생성
-  python -m pmo_agent.seeds.calendar --print    저장하지 않고 요약만
+Run:
+  python -m pmo_agent.seeds.calendar            write data/calendar_state.json
+  python -m pmo_agent.seeds.calendar --print    summary only, save nothing
 """
 
 from __future__ import annotations
@@ -44,10 +44,10 @@ def describe(data: dict, today: dt.date) -> dict:
     people = sorted({e["attendee"] for e in data["events"]})
     past = [e for e in data["events"] if e["date"] < today.isoformat()]
     return {
-        "이벤트": len(data["events"]),
-        "과거/미래": f"{len(past)} / {len(data['events']) - len(past)}",
-        "기간": f"미래 {data['horizon_days']}영업일",
-        "회의 부담": [av.meeting_load(avail, p, today, 10) for p in people],
+        "events": len(data["events"]),
+        "past/future": f"{len(past)} / {len(data['events']) - len(past)}",
+        "window": f"{data['horizon_days']} business days ahead",
+        "meeting_load": [av.meeting_load(avail, p, today, 10) for p in people],
     }
 
 
@@ -57,5 +57,5 @@ if __name__ == "__main__":
     print(json.dumps(describe(data, today), ensure_ascii=False, indent=1))
     if "--print" not in sys.argv:
         result = write(today=today)
-        print(f"\n저장: {result['path']}  (이벤트 {result['events']}건)")
-        print("사용: CALENDAR_BACKEND=memory 로 두면 capacity 가 이 캘린더를 본다.")
+        print(f"\nsaved: {result['path']}  ({result['events']} events)")
+        print("use: with CALENDAR_BACKEND=memory, capacity reads this calendar.")

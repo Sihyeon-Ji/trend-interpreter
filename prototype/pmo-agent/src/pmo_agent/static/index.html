@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -66,47 +66,47 @@
 <body>
 <header>
   <h1>Echo PMO</h1>
-  <span class="tag" id="board">연결 확인 중…</span>
-  <span class="muted" style="font-size:13px">일정 계산은 코드가 · 판단과 설명은 Gemini 가 · 쓰기는 사람 승인 뒤에만</span>
+  <span class="tag" id="board">checking connection…</span>
+  <span class="muted" style="font-size:13px">code computes the schedule · Gemini judges and explains · writes wait for a person</span>
 </header>
 
 <main>
   <div class="grid" id="cards"></div>
 
   <section>
-    <h2>실현 가능한 일정</h2>
-    <p class="hint">의존관계 → 사람 용량 → 회의 시간 순으로 제약을 하나씩 더해 봅니다. 각 단계가 며칠씩 더하는지 보입니다.</p>
-    <div id="cap" class="muted">불러오는 중…</div>
+    <h2>The achievable schedule</h2>
+    <p class="hint">Constraints are added one at a time: dependencies, then people's capacity, then meeting time. Each step shows what it costs in days.</p>
+    <div id="cap" class="muted">loading…</div>
   </section>
 
   <section>
-    <h2>지연 위험</h2>
-    <p class="hint">근거는 전부 계산 결과에서 나옵니다. 모델이 만든 숫자가 아닙니다.</p>
-    <div id="risks" class="muted">불러오는 중…</div>
+    <h2>At risk of slipping</h2>
+    <p class="hint">Every reason comes from the calculation. None of these numbers came from a model.</p>
+    <div id="risks" class="muted">loading…</div>
   </section>
 
   <section>
-    <h2>보드와 코드의 대조</h2>
-    <p class="hint">보드에 적힌 상태와 실제 커밋·PR 을 맞대 봅니다. 한쪽만 봐서는 보이지 않는 것입니다.</p>
-    <div id="sig" class="muted">불러오는 중…</div>
+    <h2>Board against code</h2>
+    <p class="hint">The status on the board, lined up against the real commits and pull requests — what neither side shows alone.</p>
+    <div id="sig" class="muted">loading…</div>
   </section>
 
   <section>
-    <h2>메모 · 필기 사진 반영</h2>
-    <p class="hint">회의 메모나 손으로 쓴 노트를 넣으면 변경 제안을 만듭니다. 승인 전에는 아무것도 반영되지 않습니다.</p>
-    <textarea id="memo" placeholder="예) 스키마 설계는 DB 선택이 늦어져서 28일까지. API 연동은 오늘 끝남."></textarea>
+    <h2>Notes and handwritten photos</h2>
+    <p class="hint">Drop in a meeting note or a handwritten one and it builds change proposals. Nothing is applied before approval.</p>
+    <textarea id="memo" placeholder="e.g. Schema design slipped to the 28th because the DB choice took longer. API client finished today."></textarea>
     <div class="row">
       <input type="file" id="img" accept="image/png,image/jpeg,image/webp,application/pdf">
-      <button id="go">읽기</button>
+      <button id="go">Read it</button>
       <span id="ingestMsg" class="muted"></span>
     </div>
     <div id="proposals" style="margin-top:16px"></div>
   </section>
 
   <section>
-    <h2>주간 리포트</h2>
-    <p class="hint">같은 보드에서 항상 같은 글이 나옵니다 — 리포트 생성에는 모델을 쓰지 않습니다.</p>
-    <button class="ghost" id="rep">생성</button>
+    <h2>Weekly report</h2>
+    <p class="hint">The same board always produces the same text — no model is used to write it.</p>
+    <button class="ghost" id="rep">Generate</button>
     <pre id="report" style="margin-top:14px"></pre>
   </section>
 </main>
@@ -122,7 +122,7 @@ async function boot(){
   try{
     const b = await get("/api/board");
     $("#board").textContent = `${b.site} · ${b.project}`;
-  }catch(e){ $("#board").textContent = "백엔드 연결 실패"; }
+  }catch(e){ $("#board").textContent = "backend unreachable"; }
 
   try{
     const [s, c] = await Promise.all([get("/api/schedule"), get("/api/capacity")]);
@@ -140,43 +140,43 @@ function renderCards(s, c){
   const card = (k, v, sub, cls="") =>
     `<div class="card"><div class="k">${k}</div><div class="v ${cls}">${v}</div><div class="s">${sub||""}</div></div>`;
   $("#cards").innerHTML =
-    card("진행", `${s.done}/${s.total}`, `${pct}% 완료`) +
-    card("예측 완료일", s.predicted_finish, "의존관계만 반영") +
-    card("실현 가능 완료일", c.capacity_finish,
+    card("progress", `${s.done}/${s.total}`, `${pct}% done`) +
+    card("forecast finish", s.predicted_finish, "dependencies only") +
+    card("achievable finish", c.capacity_finish,
          c.calendar_applied
-           ? `사람 용량 + 회의 반영 · +${c.slip_vs_unconstrained}영업일 (회의 ${c.meeting_slip_days}일)`
-           : `사람 용량 반영 · +${c.slip_vs_unconstrained}영업일`, "warn") +
-    card("지연 위험", `${s.risks.length}건`, `임계경로 ${s.critical_path.length}건`,
+           ? `capacity + meetings · +${c.slip_vs_unconstrained} business days (${c.meeting_slip_days} from meetings)`
+           : `capacity applied · +${c.slip_vs_unconstrained} business days`, "warn") +
+    card("at risk", `${s.risks.length}`, `critical path ${s.critical_path.length}`,
          s.risks.length ? "bad" : "good");
 }
 
 function renderCap(c){
   const b = c.bottleneck;
   const max = Math.max(...c.resources.map(r => r.busy_days), 1);
-  let h = b ? `<div class="banner">병목은 <b>${esc(b.assignee)}</b> 입니다 — 남은 ${b.busy_days}영업일,
-      가동률 ${Math.round(b.utilization*100)}%${b.lost_to_meetings ? `, 회의로 ${b.lost_to_meetings}일 소실` : ""}.
-      이 사람이 비는 <b>${b.free_at}</b>가 프로젝트의 하한선입니다.</div>` : "";
-  h += `<table><tr><th>기준</th><th>완료일</th></tr>
-    <tr><td class="muted">의존관계만 반영</td><td class="mono">${c.unconstrained_finish}</td></tr>`;
+  let h = b ? `<div class="banner">The bottleneck is <b>${esc(b.assignee)}</b> — ${b.busy_days} business days left,
+      ${Math.round(b.utilization*100)}% utilised${b.lost_to_meetings ? `, ${b.lost_to_meetings} days lost to meetings` : ""}.
+      They free up on <b>${b.free_at}</b>, which is the floor for the project.</div>` : "";
+  h += `<table><tr><th>constraint</th><th>finish</th></tr>
+    <tr><td class="muted">dependencies only</td><td class="mono">${c.unconstrained_finish}</td></tr>`;
   if(c.calendar_applied)
-    h += `<tr><td class="muted">사람 용량 반영</td><td class="mono">${c.finish_without_meetings}</td></tr>
-      <tr><td><b>회의 시간까지 반영</b></td><td class="mono"><b>${c.capacity_finish}</b>
-        <span class="pill">회의 +${c.meeting_slip_days}일</span></td></tr>`;
+    h += `<tr><td class="muted">plus people's capacity</td><td class="mono">${c.finish_without_meetings}</td></tr>
+      <tr><td><b>plus meeting time</b></td><td class="mono"><b>${c.capacity_finish}</b>
+        <span class="pill">meetings +${c.meeting_slip_days}d</span></td></tr>`;
   else
-    h += `<tr><td><b>사람 용량까지 반영</b></td><td class="mono"><b>${c.capacity_finish}</b></td></tr>`;
+    h += `<tr><td><b>plus people's capacity</b></td><td class="mono"><b>${c.capacity_finish}</b></td></tr>`;
   h += `</table>`;
   if(!c.calendar_applied)
-    h += `<div class="banner">캘린더가 연결되지 않아 전원이 하루를 온전히 쓴다고 가정했습니다.
-      회의를 반영하면 더 늦어집니다.</div>`;
+    h += `<div class="banner">No calendar is connected, so everyone is assumed to have whole days.
+      With meetings it gets later.</div>`;
 
-  h += `<table style="margin-top:14px"><tr><th>담당</th><th>남은 영업일</th>
-    ${c.calendar_applied ? "<th>회의</th><th>실가용</th>" : ""}
-    <th style="width:26%">부하</th><th>가동률</th><th>마지막 작업 종료</th></tr>`;
+  h += `<table style="margin-top:14px"><tr><th>owner</th><th>days left</th>
+    ${c.calendar_applied ? "<th>meetings</th><th>usable</th>" : ""}
+    <th style="width:26%">load</th><th>utilisation</th><th>last finish</th></tr>`;
   for(const r of c.resources){
     const w = Math.round(r.busy_days / max * 100);
     const cls = r.utilization >= .9 ? "max" : r.utilization >= .65 ? "hot" : "";
     const cal = c.calendar_applied
-      ? `<td class="mono">${r.lost_to_meetings}일</td>
+      ? `<td class="mono">${r.lost_to_meetings}d</td>
          <td class="mono">${(10 - r.lost_to_meetings).toFixed(1)}/10</td>` : "";
     h += `<tr><td>${esc(r.assignee)}</td><td class="mono">${r.busy_days}</td>${cal}
       <td><span class="bar ${cls}"><i style="width:${w}%"></i></span></td>
@@ -184,32 +184,32 @@ function renderCap(c){
   }
   h += `</table>`;
   if(c.waiting_tasks?.length){
-    h += `<p class="hint" style="margin-top:16px">선행은 끝났는데 <b>담당자가 바빠서</b> 기다리는 태스크입니다. 의존관계가 아니라 사람이 원인입니다.</p>
-      <table><tr><th>태스크</th><th>담당</th><th>대기</th><th>시작 예정</th></tr>`;
+    h += `<p class="hint" style="margin-top:16px">Tasks whose dependencies are met but whose <b>owner is busy</b>. The cause is a person, not a dependency.</p>
+      <table><tr><th>task</th><th>owner</th><th>waiting</th><th>starts</th></tr>`;
     for(const w of c.waiting_tasks)
       h += `<tr><td><span class="key">${esc(w.key)}</span> ${esc(w.summary)}</td><td>${esc(w.assignee)}</td>
-        <td class="mono">${w.waiting_days}일</td><td class="mono">${w.start}</td></tr>`;
+        <td class="mono">${w.waiting_days}d</td><td class="mono">${w.start}</td></tr>`;
     h += `</table>`;
   }
-  h += `<div class="row"><button class="ghost" id="rb">재배치 제안 계산</button><span id="rbMsg" class="muted"></span></div>
+  h += `<div class="row"><button class="ghost" id="rb">Look for a rebalance</button><span id="rbMsg" class="muted"></span></div>
         <div id="rbOut" style="margin-top:12px"></div>`;
   $("#cap").innerHTML = h;
   $("#rb").onclick = rebalance;
 }
 
 async function rebalance(){
-  $("#rbMsg").innerHTML = '<span class="spin"></span> 계산 중…';
+  $("#rbMsg").innerHTML = '<span class="spin"></span> calculating…';
   $("#rb").disabled = true;
   try{
     const r = await get("/api/rebalance");
     let h = r.moves.length
-      ? `<div class="banner ok">${r.moves.length}건을 옮기면 <b>${r.before} → ${r.after}</b>
-           (${r.gain_days}영업일 단축) 됩니다. 제안일 뿐이며 반영되지 않았습니다.</div>
-         <table><tr><th>태스크</th><th>이동</th><th>단축</th><th>이동 후 완료일</th></tr>`
-      : `<div class="banner">옮겨서 단축할 수 있는 태스크가 없습니다.</div>`;
+      ? `<div class="banner ok">Moving ${r.moves.length} tasks brings the finish <b>${r.before} → ${r.after}</b>
+           (${r.gain_days} business days earlier). A proposal only; nothing has been applied.</div>
+         <table><tr><th>task</th><th>move</th><th>gain</th><th>finish after</th></tr>`
+      : `<div class="banner">No task can be moved to pull the finish in.</div>`;
     for(const m of r.moves)
       h += `<tr><td><span class="key">${esc(m.key)}</span> ${esc(m.summary)}</td>
-        <td>${esc(m.from)} → <b>${esc(m.to)}</b></td><td class="mono">${m.gain_days}일</td>
+        <td>${esc(m.from)} → <b>${esc(m.to)}</b></td><td class="mono">${m.gain_days}d</td>
         <td class="mono">${m.new_finish}</td></tr>`;
     if(r.moves.length) h += `</table>`;
     $("#rbOut").innerHTML = h;
@@ -218,52 +218,52 @@ async function rebalance(){
 }
 
 function renderRisks(s){
-  if(!s.risks.length){ $("#risks").textContent = "없습니다."; return; }
-  let h = `<table><tr><th>태스크</th><th>담당</th><th>마감</th><th>예상 완료</th><th>지연</th><th>근거</th></tr>`;
+  if(!s.risks.length){ $("#risks").textContent = "Nothing."; return; }
+  let h = `<table><tr><th>task</th><th>owner</th><th>due</th><th>forecast</th><th>slip</th><th>why</th></tr>`;
   for(const r of s.risks.slice(0, 8))
     h += `<tr><td><span class="key">${esc(r.key)}</span> ${esc(r.summary)}</td><td>${esc(r.assignee||"-")}</td>
       <td class="mono">${r.duedate||"-"}</td><td class="mono">${r.predicted_finish}</td>
-      <td class="mono">${r.delay_days||0}일</td><td class="muted">${esc(r.reasons[0])}</td></tr>`;
+      <td class="mono">${r.delay_days||0}d</td><td class="muted">${esc(r.reasons[0])}</td></tr>`;
   h += `</table>`;
-  if(s.risks.length > 8) h += `<p class="hint">외 ${s.risks.length - 8}건</p>`;
+  if(s.risks.length > 8) h += `<p class="hint">and ${s.risks.length - 8} more</p>`;
   $("#risks").innerHTML = h;
 }
 
 const KIND = {
-  done_with_open_pr:  ["완료인데 PR 열림", "bad"],
-  stalled:            ["멈춤", "bad"],
-  review_waiting:     ["리뷰 대기", "warn"],
-  no_code_activity:   ["커밋 없음", "warn"],
-  undeclared_progress:["상태 미갱신", ""],
+  done_with_open_pr:  ["done, PR still open", "bad"],
+  stalled:            ["stalled", "bad"],
+  review_waiting:     ["waiting on review", "warn"],
+  no_code_activity:   ["no commits", "warn"],
+  undeclared_progress:["status not updated", ""],
 };
 
 function renderSignals(g){
   const t = g.team || {};
   let h = `<div class="grid" style="margin-bottom:14px">
-    <div class="card"><div class="k">최근 ${t.window_days||14}일 커밋</div><div class="v">${t.commits||0}</div>
-      <div class="s">기여자 ${(t.contributors||[]).length}명</div></div>
-    <div class="card"><div class="k">기여 집중도</div>
+    <div class="card"><div class="k">commits in ${t.window_days||14} days</div><div class="v">${t.commits||0}</div>
+      <div class="s">${(t.contributors||[]).length} contributors</div></div>
+    <div class="card"><div class="k">contribution concentration</div>
       <div class="v ${t.concentration>=0.8?"bad":t.concentration>=0.6?"warn":""}">${t.concentration ?? 0}</div>
-      <div class="s">1.0 이면 한 사람</div></div>
-    <div class="card"><div class="k">열린 PR</div><div class="v ${t.stale_prs?"warn":""}">${t.open_prs||0}</div>
-      <div class="s">리뷰 정체 ${t.stale_prs||0}건</div></div>
-    <div class="card"><div class="k">어긋난 태스크</div>
+      <div class="s">1.0 means one person</div></div>
+    <div class="card"><div class="k">open pull requests</div><div class="v ${t.stale_prs?"warn":""}">${t.open_prs||0}</div>
+      <div class="s">${t.stale_prs||0} stuck in review</div></div>
+    <div class="card"><div class="k">tasks that disagree</div>
       <div class="v ${(g.mismatches||[]).length?"bad":"good"}">${(g.mismatches||[]).length}</div>
       <div class="s">${g.repo||""}</div></div></div>`;
   for(const n of (t.notes||[])) h += `<div class="banner">${esc(n)}</div>`;
   if(g.note) h += `<div class="banner">${esc(g.note)}</div>`;
   if((g.mismatches||[]).length){
-    h += `<table><tr><th>태스크</th><th>담당</th><th>종류</th><th>내용</th></tr>`;
+    h += `<table><tr><th>task</th><th>owner</th><th>kind</th><th>detail</th></tr>`;
     for(const m of g.mismatches.slice(0,8)){
       const [label, cls] = KIND[m.kind] || [m.kind, ""];
       const link = (m.evidence||[])[0];
       h += `<tr><td><span class="key">${esc(m.key)}</span> ${esc(m.summary)}</td><td>${esc(m.assignee||"-")}</td>
         <td><span class="pill" style="${cls==="bad"?"color:var(--bad);border-color:var(--bad)":
              cls==="warn"?"color:var(--warn);border-color:var(--warn)":""}">${esc(label)}</span></td>
-        <td class="muted">${esc(m.detail)}${link?` <a href="${esc(link)}" target="_blank" style="color:var(--accent)">근거</a>`:""}</td></tr>`;
+        <td class="muted">${esc(m.detail)}${link?` <a href="${esc(link)}" target="_blank" style="color:var(--accent)">evidence</a>`:""}</td></tr>`;
     }
     h += `</table>`;
-    if(g.mismatches.length>8) h += `<p class="hint">외 ${g.mismatches.length-8}건</p>`;
+    if(g.mismatches.length>8) h += `<p class="hint">and ${g.mismatches.length-8} more</p>`;
   }
   $("#sig").innerHTML = h;
 }
@@ -272,12 +272,12 @@ $("#go").onclick = async () => {
   const fd = new FormData();
   fd.append("text", $("#memo").value);
   if($("#img").files[0]) fd.append("image", $("#img").files[0]);
-  $("#ingestMsg").innerHTML = '<span class="spin"></span> 읽는 중…';
+  $("#ingestMsg").innerHTML = '<span class="spin"></span> reading…';
   $("#go").disabled = true; $("#proposals").innerHTML = "";
   try{
     const r = await fetch("/api/ingest", {method:"POST", body: fd});
     const j = await r.json();
-    if(!r.ok) throw new Error(j.detail || "실패");
+    if(!r.ok) throw new Error(j.detail || "failed");
     renderProposals(j);
   }catch(e){ $("#proposals").innerHTML = `<div class="banner err">${esc(e.message)}</div>`; }
   $("#ingestMsg").textContent = ""; $("#go").disabled = false;
@@ -288,28 +288,28 @@ function renderProposals(j){
   const appliable = lastProposals.filter(p => p.tool !== "note");
   let h = "";
   if(j.impact)
-    h += `<div class="banner">반영하면 예상 완료일 <b>${j.impact.predicted_finish_before} →
-      ${j.impact.predicted_finish_after}</b>, 위험 ${j.impact.risks_before}건 → ${j.impact.risks_after}건</div>`;
+    h += `<div class="banner">Applying this moves the forecast finish <b>${j.impact.predicted_finish_before} →
+      ${j.impact.predicted_finish_after}</b>, tasks at risk ${j.impact.risks_before} → ${j.impact.risks_after}</div>`;
   if(!appliable.length && !(j.questions||[]).length)
-    h += `<div class="banner">읽어낸 변경이 없습니다.</div>`;
+    h += `<div class="banner">No change could be read out of it.</div>`;
 
   appliable.forEach((p, i) => {
     const a = p.args, label =
-      p.tool === "propose_field_update" ? `마감 ${a.duedate}` :
-      p.tool === "propose_transition"   ? `상태 → ${a.to_status}` :
-                                          `코멘트 "${a.text}"`;
+      p.tool === "propose_field_update" ? `due ${a.duedate}` :
+      p.tool === "propose_transition"   ? `status → ${a.to_status}` :
+                                          `comment "${a.text}"`;
     h += `<label class="prop"><input type="checkbox" data-i="${i+1}" checked>
       <span><span class="key">${esc(a.key)}</span> ${esc(label)}
       <span class="pill">${p.tool.replace("propose_","")}</span></span></label>`;
   });
   for(const n of (j.notes||[]))
-    h += `<div class="prop"><span class="pill">메모</span><span class="muted">${esc(n)} — 태스크에 붙지 않아 반영 대상이 아닙니다</span></div>`;
+    h += `<div class="prop"><span class="pill">note</span><span class="muted">${esc(n)} — not tied to a task, so there is nothing to apply</span></div>`;
   for(const q of (j.questions||[]))
     h += `<div class="banner">${esc(q)}</div>`;
 
   if(appliable.length)
-    h += `<div class="row"><button id="ap">선택 반영</button>
-      <span class="muted">승인 전에는 아무것도 반영되지 않았습니다 (applied=false)</span>
+    h += `<div class="row"><button id="ap">Apply selected</button>
+      <span class="muted">nothing has been applied yet (applied=false)</span>
       <span id="apMsg" class="muted"></span></div>`;
   $("#proposals").innerHTML = h;
   if(appliable.length) $("#ap").onclick = doApprove;
@@ -317,22 +317,22 @@ function renderProposals(j){
 
 async function doApprove(){
   const idx = [...document.querySelectorAll('#proposals input:checked')].map(e => +e.dataset.i);
-  if(!idx.length){ $("#apMsg").textContent = "고른 항목이 없습니다."; return; }
-  if(!confirm(`${idx.length}건을 실제 보드에 반영합니다. 계속할까요?`)) return;
-  $("#ap").disabled = true; $("#apMsg").innerHTML = '<span class="spin"></span> 반영 중…';
+  if(!idx.length){ $("#apMsg").textContent = "Nothing selected."; return; }
+  if(!confirm(`This will apply ${idx.length} change(s) to the real board. Continue?`)) return;
+  $("#ap").disabled = true; $("#apMsg").innerHTML = '<span class="spin"></span> applying…';
   try{
     const r = await fetch("/api/approve", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({proposals: lastProposals, indices: idx, confirm: true, source: "web"})});
     const j = await r.json();
     $("#proposals").insertAdjacentHTML("beforeend",
-      `<div class="banner ${j.failed ? "err" : "ok"}">반영 ${j.applied}건 / 실패 ${j.failed||0}건 — 감사 로그에 기록됐습니다.</div>`);
+      `<div class="banner ${j.failed ? "err" : "ok"}">applied ${j.applied} / failed ${j.failed||0} — recorded in the audit log.</div>`);
     boot();
   }catch(e){ $("#apMsg").textContent = e.message; }
   $("#ap").disabled = false; $("#apMsg").textContent = "";
 }
 
 $("#rep").onclick = async () => {
-  $("#report").textContent = "생성 중…";
+  $("#report").textContent = "generating…";
   const r = await fetch("/api/report");
   $("#report").textContent = await r.text();
 };

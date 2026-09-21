@@ -1,11 +1,11 @@
-"""스케줄 엔진 — CPM 임계경로 · 지연 전파 · 완료 예측. 순수 파이썬(표준 라이브러리만).
+"""The schedule engine — CPM critical path, delay propagation, finish forecast. Pure Python.
 
-설계 원칙(SETUP.md): 숫자와 날짜는 전부 여기서 계산한다. Gemini 는 이 결과를 인용만 한다.
-이 모듈은 Jira 를 import 하지 않는다 — dict 리스트만 받으므로 자격증명 없이 단위 테스트가 된다.
-Jira 응답을 넣으려면 from_jira_issues() 로 변환해서 쓴다.
+Design rule (SETUP.md): every number and date is computed here. Gemini only quotes the result.
+This module never imports Jira — it takes lists of dicts, so it unit-tests without credentials.
+To feed it a Jira response, convert with from_jira_issues().
 
-용어: ES/EF 가장 이른 시작·종료, LS/LF 가장 늦은 시작·종료, slack 여유일(0이면 임계경로).
-기간은 전부 '영업일'(주말 제외) 단위이고, EF 는 그 날 업무 종료 시점을 가리킨다.
+Terms: ES/EF earliest start/finish, LS/LF latest start/finish, slack spare days (0 = critical path).
+All durations are in business days (weekends excluded), and EF means end of business that day.
 """
 
 from __future__ import annotations
@@ -15,8 +15,9 @@ from dataclasses import dataclass, field
 
 DONE = {"done", "완료", "closed", "resolved", "종료"}
 
-# 같은 뜻으로 쓰이는 상태 이름들. Jira 사이트 언어에 따라 '완료'/'Done' 이 섞이고,
-# 모델은 영어로 답하는 경향이 있어 어댑터가 이 표로 이어 준다.
+# Status names that mean the same thing. A Jira site reports them in its own language
+# while a model tends to answer in English, so the adapters bridge through this table.
+# Each group is one meaning; add a language by adding its words to the right group.
 STATUS_ALIASES = [
     {"done", "완료", "종료", "closed", "resolved"},
     {"in progress", "진행 중", "진행중", "doing", "wip"},
@@ -26,7 +27,7 @@ STATUS_ALIASES = [
 
 
 def status_alike(a: str, b: str) -> bool:
-    """두 상태 이름이 같은 뜻인가. 공백·대소문자 차이와 한/영 표기를 흡수한다."""
+    """Do two status names mean the same thing? Absorbs case, spacing and language."""
     na, nb = (a or "").strip().lower(), (b or "").strip().lower()
     if na == nb:
         return True
@@ -39,22 +40,22 @@ def status_alike(a: str, b: str) -> bool:
     return any(na in g and nb in g for g in STATUS_ALIASES)
 
 
-DAYS_PER_POINT = 1.0  # 스토리포인트 1 = 영업일 1
-DEFAULT_DURATION = 2.0  # 포인트가 없을 때 가정하는 기간(영업일)
+DAYS_PER_POINT = 1.0  # 1 story point = 1 business day
+DEFAULT_DURATION = 2.0  # duration assumed when there are no points (business days)
 
 
 class CycleError(ValueError):
-    """의존관계에 순환이 있어 일정을 계산할 수 없다."""
+    """The dependencies have a cycle, so no schedule can be computed."""
 
 
-# ---------- 영업일 계산 ----------
+# ---------- business-day arithmetic ----------
 def is_workday(d: _dt.date, holidays=()) -> bool:
     return d.weekday() < 5 and d not in set(holidays)
 
 
 def add_workdays(start: _dt.date, days: float, holidays=()) -> _dt.date:
-    """start 에서 영업일 days 만큼 뒤의 날짜. 음수면 그만큼 앞으로 간다.
-    days=0 이면 start 자신(주말이면 다음 영업일로 보정)."""
+    """The date `days` business days after `start`; negative counts backwards.
+    days=0 gives start itself (nudged to the next business day if it is a weekend)."""
     d, n = start, int(round(days))
     step = _dt.timedelta(days=-1 if n < 0 else 1)
     while not is_workday(d, holidays):
@@ -67,7 +68,7 @@ def add_workdays(start: _dt.date, days: float, holidays=()) -> _dt.date:
 
 
 def workdays_between(a: _dt.date, b: _dt.date, holidays=()) -> int:
-    """a→b 영업일 수. b 가 a 보다 앞서면 음수."""
+    """Business days from a to b. Negative when b is before a."""
     if b < a:
         return -workdays_between(b, a, holidays)
     n, d = 0, a
@@ -86,7 +87,7 @@ def parse_date(v):
     return _dt.date.fromisoformat(str(v)[:10])
 
 
-# ---------- 태스크 ----------
+# ---------- tasks ----------
 @dataclass
 class Task:
     key: str
@@ -95,8 +96,8 @@ class Task:
     assignee: str = ""
     duedate: _dt.date | None = None
     points: float | None = None
-    deps: list = field(default_factory=list)  # 선행 태스크 key 목록 (이게 끝나야 시작 가능)
-    progress: float = 0.0  # 0.0~1.0, 진행 중 태스크의 완료율
+    deps: list = field(default_factory=list)  # keys that must finish before this can start
+    progress: float = 0.0  # 0.0-1.0, how far an in-progress task has got
 
     @property
     def duration(self) -> float:
@@ -108,14 +109,14 @@ class Task:
 
     @property
     def remaining(self) -> float:
-        """남은 기간(영업일). 완료면 0, 진행 중이면 progress 반영."""
+        """Business days left. Zero when done; in progress accounts for progress."""
         if self.is_done:
             return 0.0
         return self.duration * (1.0 - min(max(self.progress, 0.0), 1.0))
 
 
 def to_tasks(rows) -> dict:
-    """dict(또는 Task) 리스트 → {key: Task}. 존재하지 않는 key 를 가리키는 deps 는 버린다."""
+    """List of dicts (or Tasks) → {key: Task}. deps pointing at unknown keys are dropped."""
     out = {}
     for r in rows:
         if isinstance(r, Task):
@@ -139,20 +140,26 @@ def to_tasks(rows) -> dict:
 OWNER_PREFIX = "owner-"
 
 
+def owner_tag(name: str) -> str:
+    """A name → the label that carries it. Jira labels cannot contain spaces, so they
+    become underscores; owner_label() puts them back."""
+    return f"{OWNER_PREFIX}{(name or '').strip().replace(' ', '_')}"
+
+
 def owner_label(fields: dict) -> str:
-    """Jira 계정이 없는 가상 담당자를 라벨(owner-이름)로 싣는다.
-    샌드박스에는 실제 계정이 하나뿐이라, 담당자별 부하를 보여주려면 이 폴백이 필요하다."""
+    """Carry fictional assignees with no Jira account on a label (owner-<name>).
+    The sandbox has exactly one real account, so showing per-owner load needs this fallback."""
     for label in fields.get("labels") or []:
         if label.startswith(OWNER_PREFIX):
-            return label[len(OWNER_PREFIX) :]
+            return label[len(OWNER_PREFIX) :].replace("_", " ")
     return ""
 
 
 def from_jira_issues(issues) -> dict:
-    """Jira search() 응답 → {key: Task}.
+    """Jira search() response → {key: Task}.
 
-    Blocks 링크 해석: 이슈에 inwardIssue 가 있으면 '~에 의해 차단됨'(그 이슈가 선행),
-    outwardIssue 가 있으면 '~를 차단함'(이 이슈가 그쪽의 선행).
+    Reading Blocks links: an inwardIssue means "blocked by" (that issue comes first),
+    an outwardIssue means "blocks" (this issue comes first).
     """
     rows, blocks = {}, []
     for i in issues:
@@ -179,7 +186,7 @@ def from_jira_issues(issues) -> dict:
     return to_tasks(rows.values())
 
 
-# ---------- 그래프 ----------
+# ---------- graph ----------
 def successors(tasks: dict) -> dict:
     succ: dict[str, list[str]] = {k: [] for k in tasks}
     for k, t in tasks.items():
@@ -201,13 +208,13 @@ def topo_order(tasks: dict) -> list:
             if indeg[s] == 0:
                 queue.append(s)
     if len(order) != len(tasks):
-        raise CycleError("의존관계 순환: " + ", ".join(sorted(set(tasks) - set(order))))
+        raise CycleError("dependency cycle: " + ", ".join(sorted(set(tasks) - set(order))))
     return order
 
 
 # ---------- CPM ----------
 def cpm(tasks: dict, start: _dt.date, holidays=()) -> dict:
-    """임계경로 계산. 반환: {tasks: {key: {...}}, finish, duration_days, critical_path}"""
+    """Critical path. Returns {tasks: {key: {...}}, finish, duration_days, critical_path}"""
     order, succ = topo_order(tasks), successors(tasks)
     es: dict[str, float] = {}
     ef: dict[str, float] = {}
@@ -246,9 +253,9 @@ def cpm(tasks: dict, start: _dt.date, holidays=()) -> dict:
     }
 
 
-# ---------- 완료 예측 ----------
+# ---------- finish forecast ----------
 def forecast(tasks: dict, today: _dt.date, holidays=()) -> dict:
-    """남은 작업량 기준 예상 완료일. 완료 태스크는 0일로 보고 오늘부터 다시 굴린다."""
+    """Forecast from the work left. Done tasks count as 0 days and it replays from today."""
     order = topo_order(tasks)
     out: dict[str, dict] = {}
     ef: dict[str, float] = {}
@@ -275,17 +282,17 @@ def forecast(tasks: dict, today: _dt.date, holidays=()) -> dict:
 
 
 def propagate(tasks: dict, key: str, slip_days: float, today: _dt.date, holidays=()) -> dict:
-    """특정 태스크가 slip_days 만큼 밀렸을 때 후행 태스크가 각각 며칠씩 밀리는지.
+    """If one task slips by slip_days, how many days does each downstream task move?
 
-    여유(slack)가 있으면 그만큼 흡수되고 남은 만큼만 전파된다.
+    Slack absorbs part of it; only what is left over propagates.
     """
     if key not in tasks:
-        return {"error": f"알 수 없는 태스크: {key}"}
+        return {"error": f"unknown task: {key}"}
     base = forecast(tasks, today, holidays)
     bumped = {k: Task(**dict(t.__dict__)) for k, t in tasks.items()}
     hit = bumped[key]
     hit.points = (tasks[key].remaining + slip_days) / DAYS_PER_POINT
-    hit.progress, hit.status = 0.0, ""  # 밀린 만큼 남은 것으로 다시 본다
+    hit.progress, hit.status = 0.0, ""  # treat the slip as work still outstanding
     after = forecast(bumped, today, holidays)
     moved = []
     for k in after["tasks"]:
@@ -323,7 +330,7 @@ def risks(
     slack_threshold: float = 1.0,
     holidays=(),
 ) -> list:
-    """지연 위험 태스크를 근거와 함께 정렬해 반환. Gemini 가 그대로 인용할 수 있는 형태."""
+    """Tasks at risk, sorted, with their evidence — in a shape Gemini can quote verbatim."""
     fc = forecast(tasks, today, holidays)["tasks"]
     cp = cpm(tasks, start or today, holidays)["tasks"]
     succ, out = successors(tasks), []
@@ -333,15 +340,15 @@ def risks(
         why = []
         if fc[k]["late"]:
             why.append(
-                f"예상 완료 {fc[k]['predicted_finish']} > 마감 {t.duedate} "
-                f"({fc[k]['delay_days']}일 초과)"
+                f"forecast finish {fc[k]['predicted_finish']} > due {t.duedate} "
+                f"({fc[k]['delay_days']} days over)"
             )
         if cp[k]["critical"]:
-            why.append("임계경로 상의 태스크 (여유 0일)")
+            why.append("on the critical path (zero slack)")
         elif cp[k]["slack_days"] <= slack_threshold:
-            why.append(f"여유 {cp[k]['slack_days']}일뿐")
+            why.append(f"only {cp[k]['slack_days']} days of slack")
         if t.duedate and t.duedate < today:
-            why.append(f"마감일 {t.duedate} 경과")
+            why.append(f"past its due date of {t.duedate}")
         if not why:
             continue
         out.append(
@@ -364,7 +371,7 @@ def risks(
 
 
 def summary(tasks: dict, today: _dt.date, start: _dt.date | None = None, holidays=()) -> dict:
-    """리포트용 한 덩어리. 날짜는 ISO 문자열로 직렬화해 그대로 JSON 에 넣을 수 있다."""
+    """One bundle for the report. Dates serialize to ISO strings so it drops into JSON."""
     start = start or today
     c, f = cpm(tasks, start, holidays), forecast(tasks, today, holidays)
     return iso(
@@ -382,7 +389,7 @@ def summary(tasks: dict, today: _dt.date, start: _dt.date | None = None, holiday
 
 
 def iso(o):
-    """date 를 ISO 문자열로 바꾼 사본. JSON 직렬화용."""
+    """A copy with dates turned into ISO strings, for JSON."""
     if isinstance(o, _dt.date):
         return o.isoformat()
     if isinstance(o, dict):

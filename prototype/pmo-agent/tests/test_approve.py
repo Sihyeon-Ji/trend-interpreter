@@ -1,8 +1,8 @@
-"""승인 게이트 단위 테스트 — 가짜 Jira 로 실제 쓰기 없이 검증한다.
+"""Approval gate unit tests — verified against a fake Jira, with no real writes.
 
-핵심 관심사는 하나다: 사람이 명시적으로 고른 것만 반영되는가.
+One thing matters: is only what a person explicitly chose ever applied.
 
-실행: python -m unittest discover -s tests -v      (D:/echo-pmo 에서)
+Run: python -m pytest tests/test_approve.py -q
 """
 
 from __future__ import annotations
@@ -22,20 +22,23 @@ from pmo_agent.adapters.jira import WriteBlocked  # noqa: E402
 
 PROPOSALS = [
     {"tool": "propose_field_update", "args": {"key": "ECHO-2", "duedate": "2026-09-28"}},
-    {"tool": "propose_comment", "args": {"key": "ECHO-2", "text": "DB 선택 지연으로 마감 연기"}},
+    {
+        "tool": "propose_comment",
+        "args": {"key": "ECHO-2", "text": "due date moved, DB choice late"},
+    },
     {"tool": "propose_transition", "args": {"key": "ECHO-3", "to_status": "In Progress"}},
-    {"tool": "note", "args": {"text": "정기 회의 취소"}},
+    {"tool": "note", "args": {"text": "team sync cancelled"}},
 ]
 
 
 def answers(*seq):
-    """input() 대신 끼울 함수 — 정해진 답을 순서대로 돌려준다."""
+    """Something to slot in place of input() — it returns the given answers in order."""
     it = iter(seq)
     return lambda _prompt="": next(it, "")
 
 
 class GateTestCase(unittest.TestCase):
-    """로그를 임시 파일로 돌리고 가짜 Jira 를 끼운다."""
+    """Point the log at a temp file and slot in a fake Jira."""
 
     def setUp(self):
         self.fake = FakeJira()
@@ -66,62 +69,62 @@ class GateTestCase(unittest.TestCase):
 
 
 class TestModelCannotApprove(unittest.TestCase):
-    """모델이 승인 경로에 손댈 수 없다는 것이 이 프로젝트의 핵심 안전장치다."""
+    """That the model cannot touch the approval path is this project's central safeguard."""
 
-    def test_툴_레이어에는_approve_True가_없다(self):
+    def test_the_tool_layer_never_passes_approve_true(self):
         self.assertNotIn("approve=True", inspect.getsource(tools))
 
-    def test_승인함수는_Gemini에_노출되지_않는다(self):
+    def test_the_approve_functions_are_not_exposed_to_gemini(self):
         names = set(tools.REGISTRY) | {d["name"] for d in tools.DECLARATIONS}
         self.assertFalse(names & {"apply", "gate", "approve", "select"})
 
-    def test_반영함수는_전부_approve_True로_부른다(self):
+    def test_every_apply_function_is_called_with_approve_true(self):
         for name, fn in approve.APPLIERS.items():
             self.assertIn("approve=True", inspect.getsource(fn), name)
 
 
 class TestSelect(unittest.TestCase):
-    def test_엔터는_아무것도_고르지_않는다(self):
-        for s in ("", "  ", "n", "no", "q", "아니오"):
+    def test_enter_chooses_nothing(self):
+        for s in ("", "  ", "n", "no", "q"):
             self.assertEqual(approve.select(s, 3), [], s)
 
-    def test_번호를_고른다(self):
+    def test_it_takes_numbers(self):
         self.assertEqual(approve.select("1,3", 3), [0, 2])
         self.assertEqual(approve.select("2", 3), [1])
 
-    def test_공백으로_구분해도_된다(self):
+    def test_spaces_work_as_separators(self):
         self.assertEqual(approve.select("1 3", 3), [0, 2])
 
-    def test_범위를_고른다(self):
+    def test_it_takes_a_range(self):
         self.assertEqual(approve.select("1-3", 3), [0, 1, 2])
 
-    def test_all만이_전체승인이다(self):
+    def test_only_all_approves_everything(self):
         self.assertEqual(approve.select("all", 3), [0, 1, 2])
-        self.assertEqual(approve.select("전부", 2), [0, 1])
-        self.assertEqual(approve.select("y", 3), [])  # yes 는 전체승인이 아니다
+        self.assertEqual(approve.select("a", 2), [0, 1])
+        self.assertEqual(approve.select("y", 3), [])  # yes is not approve-everything
 
-    def test_범위를_벗어난_번호는_버린다(self):
+    def test_numbers_out_of_range_are_dropped(self):
         self.assertEqual(approve.select("0,5,2", 3), [1])
 
-    def test_쓰레기_입력은_아무것도_고르지_않는다(self):
-        self.assertEqual(approve.select("어쩌고저쩌고", 3), [])
+    def test_junk_input_chooses_nothing(self):
+        self.assertEqual(approve.select("blah blah blah", 3), [])
 
-    def test_중복은_한_번만(self):
+    def test_duplicates_count_once(self):
         self.assertEqual(approve.select("2,2,2", 3), [1])
 
 
 class TestRender(GateTestCase):
-    def test_반영대상에만_번호가_붙는다(self):
+    def test_only_applicable_proposals_are_numbered(self):
         s = approve.render(PROPOSALS)
         self.assertIn("[ 1]", s)
         self.assertIn("[ 3]", s)
-        self.assertNotIn("[ 4]", s)  # note 는 번호 없음
-        self.assertIn("반영 안 함", s)
+        self.assertNotIn("[ 4]", s)  # a note gets no number
+        self.assertIn("not applied", s)
 
-    def test_아직_반영되지_않았음을_알린다(self):
-        self.assertIn("아직 아무것도 반영되지 않았습니다", approve.render(PROPOSALS))
+    def test_it_says_nothing_has_been_applied_yet(self):
+        self.assertIn("nothing has been applied yet", approve.render(PROPOSALS))
 
-    def test_일정_영향을_같이_보여준다(self):
+    def test_it_shows_the_schedule_impact_too(self):
         s = approve.render(
             PROPOSALS,
             {
@@ -129,42 +132,42 @@ class TestRender(GateTestCase):
                 "predicted_finish_after": "2026-10-07",
                 "risks_before": 2,
                 "risks_after": 3,
-                "newly_at_risk": [{"key": "ECHO-5", "summary": "통합 테스트"}],
+                "newly_at_risk": [{"key": "ECHO-5", "summary": "Integration tests"}],
             },
         )
         self.assertIn("2026-10-02 → 2026-10-07", s)
         self.assertIn("ECHO-5", s)
 
-    def test_제안이_없어도_깨지지_않는다(self):
-        self.assertIn("제안 없음", approve.render([]))
+    def test_no_proposals_does_not_break_it(self):
+        self.assertIn("nothing proposed", approve.render([]))
 
 
 class TestApply(GateTestCase):
-    def test_고른_것만_approve_True로_나간다(self):
+    def test_only_what_was_chosen_goes_out_with_approve_true(self):
         out = approve.apply(PROPOSALS, [0], jira=self.fake, source="t")
         self.assertEqual(out["applied"], 1)
         self.assertEqual(
             self.fake.calls[-1], ("set_fields", "ECHO-2", {"duedate": "2026-09-28"}, True)
         )
 
-    def test_고르지_않은_것은_건드리지_않는다(self):
+    def test_what_was_not_chosen_is_untouched(self):
         approve.apply(PROPOSALS, [0], jira=self.fake)
         self.assertEqual([c[0] for c in self.fake.calls], ["set_fields"])
 
-    def test_note는_번호에서_빠져_반영되지_않는다(self):
+    def test_a_note_has_no_number_and_is_never_applied(self):
         out = approve.apply(PROPOSALS, [0, 1, 2], jira=self.fake)
         self.assertEqual(out["applied"], 3)
         self.assertNotIn("note", [c[0] for c in self.fake.calls])
 
-    def test_빈_선택은_아무것도_하지_않는다(self):
+    def test_an_empty_choice_does_nothing(self):
         out = approve.apply(PROPOSALS, [], jira=self.fake)
         self.assertEqual((out["applied"], self.fake.calls), (0, []))
 
-    def test_없는_번호는_실패로_남는다(self):
+    def test_a_number_that_does_not_exist_is_recorded_as_a_failure(self):
         out = approve.apply(PROPOSALS, [99], jira=self.fake)
         self.assertEqual((out["applied"], out["failed"]), (0, 1))
 
-    def test_한_건이_실패해도_나머지는_계속한다(self):
+    def test_one_failure_does_not_stop_the_rest(self):
         def boom(*a, **k):
             raise RuntimeError("Jira 500")
 
@@ -172,9 +175,9 @@ class TestApply(GateTestCase):
         out = approve.apply(PROPOSALS, [0, 1], jira=self.fake)
         self.assertEqual((out["applied"], out["failed"]), (1, 1))
 
-    def test_쓰기차단은_사고기록으로_남는다(self):
+    def test_a_blocked_write_is_recorded_as_an_incident(self):
         def blocked(*a, **k):
-            raise WriteBlocked("cytur.atlassian.net 는 WRITE_ALLOWLIST 에 없음")
+            raise WriteBlocked("cytur.atlassian.net is not in WRITE_ALLOWLIST")
 
         self.fake.set_fields = blocked
         out = approve.apply(PROPOSALS, [0], jira=self.fake, source="t")
@@ -185,53 +188,53 @@ class TestApply(GateTestCase):
 
 
 class TestAuditLog(GateTestCase):
-    def test_반영한_것이_한_줄씩_남는다(self):
+    def test_each_applied_change_gets_a_line(self):
         approve.apply(PROPOSALS, [0, 2], jira=self.fake, source="memo.json")
         rows = self.logged()
         self.assertEqual(len(rows), 2)
         self.assertEqual({r["source"] for r in rows}, {"memo.json"})
         self.assertTrue(all(r["ok"] and r["at"] for r in rows))
 
-    def test_무엇을_바꿨는지_인자까지_남는다(self):
+    def test_the_record_includes_the_arguments(self):
         approve.apply(PROPOSALS, [0], jira=self.fake)
         self.assertEqual(self.logged()[0]["args"], {"key": "ECHO-2", "duedate": "2026-09-28"})
 
-    def test_반영하지_않으면_로그도_없다(self):
+    def test_nothing_applied_means_nothing_logged(self):
         approve.apply(PROPOSALS, [], jira=self.fake)
         self.assertEqual(self.logged(), [])
 
 
 class TestGate(GateTestCase):
-    def test_엔터만_치면_아무것도_반영되지_않는다(self):
+    def test_pressing_enter_applies_nothing(self):
         out, text = self.run_gate("")
         self.assertEqual(out["applied"], 0)
         self.assertEqual(self.fake.calls, [])
-        self.assertIn("아무것도 반영하지 않았습니다", text)
+        self.assertIn("Nothing was applied", text)
 
-    def test_번호를_골라도_최종확인이_필요하다(self):
-        out, text = self.run_gate("1", "아니")
+    def test_choosing_a_number_still_needs_the_final_confirmation(self):
+        out, text = self.run_gate("1", "nope")
         self.assertEqual(out["applied"], 0)
         self.assertEqual(self.fake.calls, [])
-        self.assertIn("취소했습니다", text)
+        self.assertIn("Cancelled", text)
 
-    def test_yes까지_해야_반영된다(self):
+    def test_only_yes_applies_it(self):
         out, _ = self.run_gate("1", "yes")
         self.assertEqual(out["applied"], 1)
         self.assertEqual(self.fake.calls[-1][-1], True)
 
-    def test_반영전에_무엇을_바꿀지_보여준다(self):
+    def test_it_shows_what_will_change_before_applying(self):
         _, text = self.run_gate("1", "no")
         self.assertIn("ECHO-2", text)
         self.assertIn("2026-09-28", text)
 
-    def test_전체승인도_확인을_거친다(self):
+    def test_approve_everything_still_needs_confirmation(self):
         out, _ = self.run_gate("all", "yes")
         self.assertEqual(out["applied"], 3)
 
-    def test_반영할_것이_없으면_묻지도_않는다(self):
-        out, text = self.run_gate(proposals=[{"tool": "note", "args": {"text": "메모"}}])
+    def test_with_nothing_to_apply_it_does_not_even_ask(self):
+        out, text = self.run_gate(proposals=[{"tool": "note", "args": {"text": "a note"}}])
         self.assertEqual(out["applied"], 0)
-        self.assertNotIn("정말 반영할까요", text)
+        self.assertNotIn("Really apply", text)
 
 
 if __name__ == "__main__":

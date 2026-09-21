@@ -1,56 +1,58 @@
-# 평가 케이스
+# Evaluation cases
 
-팀 워크플로 문서가 요구하는 **성공 5 / 실패·엣지 5** 케이스입니다.
-`../tools/evaluate.py` 가 실행합니다.
+The **5 success / 5 failure-and-edge** cases the team workflow document asks for (there are 7
+on the restraint side). `../tools/evaluate.py` runs them.
 
 ```bash
 cd prototype/pmo-agent
-python tools/evaluate.py          # 결과 표
-python tools/evaluate.py --json   # 기계가 읽을 형태 (실패 시 exit 1)
+python tools/evaluate.py          # the result table
+python tools/evaluate.py --json   # machine-readable (exit 1 on failure)
 ```
 
-## 정답지가 어디서 오는가
+## Where the answer key comes from
 
-케이스에 답을 하드코딩하지 않습니다. `src/pmo_agent/seeds/world.py` 가 프로젝트를
-하루 단위로 시뮬레이션하면서 **무엇이 진짜 원인인지**를 `World.truths` 에 적어 둡니다.
-평가는 그 정답지를 실행 시점에 읽어 옵니다.
+Answers are never hardcoded into a case. `src/pmo_agent/seeds/world.py` simulates the project
+one day at a time and records **what the real cause was** in `World.truths`. The evaluation
+reads that answer key at run time.
 
 ```
-world.simulate()  →  truths (정답지)  →  cases.jsonl 의 truth 필드가 참조
-                  →  board / repo / calendar 투영  →  엔진이 계산
-                                                        ↓
-                                              둘이 맞는가?
+world.simulate()  →  truths (the answer key)  →  referenced by each case's truth field
+                  →  board / repo / calendar projections  →  the engine computes
+                                                              ↓
+                                                        do they agree?
 ```
 
-날짜에 따라 태스크 키가 달라지므로 이 방식이어야 합니다. `ECHO-8` 같은 키를 적어 두면
-내일 깨집니다.
+It has to work this way because task keys shift with the date. Write `ECHO-8` into a case and
+it breaks tomorrow.
 
-## 두 묶음
+## Two groups
 
-### detect — 심어 둔 것을 찾아내는가
+### detect — does it find what was planted
 
-| id | 무엇을 심었나 |
+| id | what was planted |
 |---|---|
-| `root-cause-visible` | 외부 IdP 스펙 변경으로 인증 구현이 8영업일 막혔다 |
-| `stalled-detected` | 착수만 하고 손을 놓은 태스크 (보드는 '진행 중') |
-| `undeclared-progress-detected` | 커밋은 있는데 보드는 '할 일' |
-| `premature-done-detected` | 보드는 완료인데 PR 이 열려 있다 |
-| `meeting-overload-detected` | 앞으로 회의가 가장 많은 사람 |
+| `root-cause-visible` | an external IdP spec change blocked authentication for 8 business days |
+| `stalled-detected` | a task started and then dropped (the board says In Progress) |
+| `undeclared-progress-detected` | there are commits, but the board says To Do |
+| `premature-done-detected` | the board says Done while a pull request is open |
+| `meeting-overload-detected` | whoever has the most meetings ahead |
 
-### restraint — 없는 것을 지어내지 않는가
+### restraint — does it refrain from inventing
 
-| id | 무엇을 확인하나 |
+| id | what it checks |
 |---|---|
-| `no-evidence-no-warning` | 커밋에 태스크 키가 없으면 태스크 단위 경고를 내지 않는다 |
-| `cycle-is-error-not-crash` | 순환 의존은 예외로 죽지 않고 오류로 돌아온다 |
-| `invented-key-becomes-question` | 모델이 지어낸 키는 반영되지 않고 질문이 된다 |
-| `no-write-without-approval` | 고르지 않으면 쓰기 호출 자체가 나가지 않는다 |
-| `no-calendar-no-meeting-claim` | 캘린더가 없으면 회의를 반영했다고 말하지 않는다 |
+| `no-evidence-no-warning` | with no author, timing, path or vocabulary, it links nothing |
+| `cycle-is-error-not-crash` | a dependency cycle comes back as an error, not an exception |
+| `invented-key-becomes-question` | a key the model made up is never applied; it becomes a question |
+| `no-write-without-approval` | with nothing chosen, no write call goes out at all |
+| `no-calendar-no-meeting-claim` | with no calendar, it never claims meetings were accounted for |
+| `inference-declared` | an inferred link is declared an estimate, with a confidence |
+| `assist-stays-in-candidates` | even with the model on, no invented key and no overturned rule link |
 
-**두 번째 묶음이 더 중요합니다.** 못 찾는 것은 아쉬운 정도지만, 없는 것을 있다고 하거나
-승인 없이 쓰는 것은 신뢰를 통째로 잃습니다.
+**The second group matters more.** Missing something is a pity; claiming something that is not
+there, or writing without approval, loses the trust entirely.
 
-## 케이스 형식
+## The shape of a case
 
 ```json
 {
@@ -58,18 +60,39 @@ world.simulate()  →  truths (정답지)  →  cases.jsonl 의 truth 필드가 
   "group": "detect",
   "check": "signals_mismatch",
   "truth": "stalled",
-  "ask": "보드 상태와 실제 코드 진척이 어긋난 게 있나",
-  "why": "착수만 하고 손을 놓은 태스크가 있다"
+  "ask": "is anything out of step between the board and the actual code",
+  "why": "A task was started and then dropped"
 }
 ```
 
-- `check` — `tools/evaluate.py` 의 `CHECKS` 에 등록된 검사 함수
-- `truth` — `World.truths` 에서 찾을 정답 종류 (detect 묶음만)
-- `ask` — 사람이 에이전트에게 실제로 물을 법한 문장. 모델 경로를 붙일 때 입력으로 쓴다
+- `check` — a check function registered in `CHECKS` in `tools/evaluate.py`
+- `truth` — the kind of answer to look up in `World.truths` (the detect group only)
+- `ask` — the sentence a person would really put to the agent. It is the input when the model
+  path is wired in
 
-## 지금 다루지 않는 것
+## No ticket keys
 
-- **모델 출력의 문장 품질** — 숫자는 코드가 계산하고 모델은 인용만 하므로, 여기서는
-  계산이 맞는지만 본다. 문장 평가는 별도 과제다
-- **실제 손글씨 판독률** — 합성 이미지로만 검증했다 (`tools/make_note.py`)
-- **Gemini 호출** — 평가는 네트워크를 타지 않는다. 키 없이 돌아야 CI 에 넣을 수 있다
+The commits in the demo repository carry **no** `ECHO-12`-style key. Real repositories are like
+that, and joining things up when there is no key is what this agent does. Put the keys in and
+we would only ever solve the easy version, the one string matching already handles.
+
+The same goes for the handwritten demo note (`tools/make_note.py`): it names the work the way a
+person would, and `ingest.resolve()` has to work out which task each line means.
+
+`src/pmo_agent/linking.py` joins by author, timing, vocabulary and path, and leaves it alone
+when it is close. The correct links live separately, in `world.to_repo()`'s `link_truth`, so
+accuracy can be measured (currently precision 1.00 / recall 0.84 — the result of preferring no
+link to a wrong one).
+
+With `LINK_ASSIST=on`, only the links the rules gave up on go to the model. The evaluation
+checks the boundary with a **fake model**: inventing a key outside the candidates, or
+overturning a link the rules settled, is a failure.
+
+## Not covered here
+
+- **the quality of the model's prose** — code computes the numbers and the model only quotes
+  them, so this only checks that the calculation is right. Evaluating prose is a separate job
+- **real handwriting accuracy** — verified against synthetic images only (`tools/make_note.py`)
+- **Gemini calls** — the evaluation never touches the network. It has to run without a key to
+  belong in CI. The model assist's *performance* (recall 0.99 / precision 0.99) was measured by
+  hand, not here

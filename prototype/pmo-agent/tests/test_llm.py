@@ -1,8 +1,8 @@
-"""llm.py 테스트 — 네트워크 없이 요청 조립·재시도·오류 처리를 검증한다.
+"""llm.py tests — request assembly, retries and error handling, with no network.
 
-단위 테스트는 절대 실제 API 를 호출하지 않는다. urlopen 을 통째로 갈아끼운다.
+A unit test never calls the real API. urlopen is replaced wholesale.
 
-실행: python -m unittest discover -s tests -v      (D:/echo-pmo 에서)
+Run: python -m pytest tests/test_llm.py -q
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class FakeResponse(io.BytesIO):
 
 def ok(payload=None):
     return FakeResponse(
-        json.dumps(payload or {"candidates": [{"content": {"parts": [{"text": "네"}]}}]}).encode()
+        json.dumps(payload or {"candidates": [{"content": {"parts": [{"text": "yes"}]}}]}).encode()
     )
 
 
@@ -38,7 +38,7 @@ def http_error(code):
 
 
 class LLMTestCase(unittest.TestCase):
-    """환경과 네트워크를 둘 다 격리한다."""
+    """Isolate both the environment and the network."""
 
     env = {
         "GEMINI_API_KEY": "test-key",
@@ -50,7 +50,7 @@ class LLMTestCase(unittest.TestCase):
         self.calls = []
         self.keep_env, llm.env = llm.env, lambda k, d="": self.env.get(k, d)
         self.keep_open, self.keep_sleep = llm.urllib.request.urlopen, llm.time.sleep
-        llm.time.sleep = lambda s: None  # 재시도 대기는 건너뛴다
+        llm.time.sleep = lambda s: None  # skip the retry wait
         llm.urllib.request.urlopen = self.fake_open
 
     def tearDown(self):
@@ -69,7 +69,7 @@ class LLMTestCase(unittest.TestCase):
 
 
 class TestRequestBuilding(LLMTestCase):
-    def test_aistudio_는_키를_URL에_싣는다(self):
+    def test_aistudio_puts_the_key_in_the_url(self):
         self.responses = [ok()]
         llm.generate(BODY)
         url = self.calls[0].full_url
@@ -77,19 +77,19 @@ class TestRequestBuilding(LLMTestCase):
         self.assertIn("gemini-3.6-flash:generateContent", url)
         self.assertIn("key=test-key", url)
 
-    def test_모델을_인자로_덮어쓸_수_있다(self):
+    def test_the_model_can_be_overridden_per_call(self):
         self.responses = [ok()]
         llm.generate(BODY, model="gemini-3.1-flash-lite")
         self.assertIn("gemini-3.1-flash-lite", self.calls[0].full_url)
 
-    def test_키가_없으면_호출하지_않는다(self):
+    def test_with_no_key_it_never_calls(self):
         self.env = {"GEMINI_API_KEY": ""}
         self.responses = []
         with self.assertRaises(llm.LLMError):
             llm.generate(BODY)
         self.assertEqual(self.calls, [])
 
-    def test_본문이_JSON으로_실린다(self):
+    def test_the_body_goes_out_as_json(self):
         self.responses = [ok()]
         llm.generate(BODY)
         self.assertEqual(json.loads(self.calls[0].data), BODY)
@@ -102,14 +102,14 @@ class TestVertexBackend(LLMTestCase):
         "GCP_REGION": "asia-northeast3",
     }
 
-    def test_프로젝트가_없으면_바로_알려준다(self):
+    def test_a_missing_project_is_reported_straight_away(self):
         self.env = {"LLM_BACKEND": "vertex", "GCP_PROJECT_ID": ""}
         self.responses = []
         with self.assertRaises(llm.LLMError) as e:
             llm.generate(BODY)
         self.assertIn("GCP_PROJECT_ID", str(e.exception))
 
-    def test_ADC_토큰을_헤더에_싣는다(self):
+    def test_the_adc_token_rides_in_the_header(self):
         keep, llm._vertex_token = llm._vertex_token, lambda: "ya29.fake"
         self.responses = [ok()]
         try:
@@ -120,14 +120,14 @@ class TestVertexBackend(LLMTestCase):
         self.assertIn("aiplatform.googleapis.com", req.full_url)
         self.assertIn("echo-pmo-2026", req.full_url)
         self.assertEqual(req.get_header("Authorization"), "Bearer ya29.fake")
-        self.assertNotIn("key=", req.full_url)  # 키가 URL 에 새지 않는다
+        self.assertNotIn("key=", req.full_url)  # the key never leaks into the URL
 
-    def test_백엔드_이름을_읽는다(self):
+    def test_it_reads_the_backend_name(self):
         self.assertEqual(llm.backend(), "vertex")
 
 
 class TestRetry(LLMTestCase):
-    """재시도 루프만 따로 본다 — 폴백을 꺼서 모델 하나에 대한 동작을 격리한다."""
+    """The retry loop on its own — fallback is off, to isolate one model's behaviour."""
 
     env = {
         "GEMINI_API_KEY": "test-key",
@@ -136,32 +136,32 @@ class TestRetry(LLMTestCase):
         "LLM_BACKEND": "aistudio",
     }
 
-    def test_과부하는_재시도한다(self):
+    def test_overload_is_retried(self):
         self.responses = [http_error(503), http_error(429), ok()]
         self.assertTrue(llm.generate(BODY, verbose=False))
         self.assertEqual(len(self.calls), 3)
 
-    def test_재시도를_다_쓰면_오류를_올린다(self):
+    def test_exhausting_the_retries_raises(self):
         self.responses = [http_error(503)] * llm.RETRIES
         with self.assertRaises(llm.LLMError):
             llm.generate(BODY, verbose=False)
         self.assertEqual(len(self.calls), llm.RETRIES)
 
-    def test_코드_문제는_즉시_올린다(self):
+    def test_our_own_bug_is_raised_at_once(self):
         self.responses = [http_error(400)]
         with self.assertRaises(llm.LLMError) as e:
             llm.generate(BODY, verbose=False)
-        self.assertEqual(len(self.calls), 1)  # 400 은 재시도해도 소용없다
+        self.assertEqual(len(self.calls), 1)  # retrying a 400 changes nothing
         self.assertIn("400", str(e.exception))
 
-    def test_오류_본문을_메시지에_담는다(self):
+    def test_the_error_body_goes_into_the_message(self):
         self.responses = [http_error(404)]
         with self.assertRaises(llm.LLMError) as e:
             llm.generate(BODY, verbose=False)
         self.assertIn("error", str(e.exception))
 
-    def test_네트워크_오류도_재시도한다(self):
-        self.responses = [urllib.error.URLError("끊김"), ok()]
+    def test_a_network_error_is_retried_too(self):
+        self.responses = [urllib.error.URLError("dropped"), ok()]
         self.assertTrue(llm.generate(BODY, verbose=False))
 
 
@@ -176,15 +176,15 @@ class TestFallbackModel(LLMTestCase):
     def models_called(self):
         return [u.full_url.split("/models/")[1].split(":")[0] for u in self.calls]
 
-    def test_주모델이_계속_과부하면_대체모델로_넘어간다(self):
+    def test_a_main_model_that_keeps_overloading_moves_to_the_fallback(self):
         self.responses = [http_error(503)] * llm.RETRIES + [ok()]
         self.assertTrue(llm.generate(BODY, verbose=False))
         called = self.models_called()
         self.assertEqual(called[0], "gemini-3.6-flash")
         self.assertEqual(called[-1], "gemini-3.5-flash")
 
-    def test_설정_오류는_폴백하지_않는다(self):
-        # 키가 없는 것은 모델을 바꿔도 같다. 예전에는 여기서도 '대체 모델로 넘어간다'고 알렸다.
+    def test_a_config_error_does_not_fall_back(self):
+        # A missing key is missing for every model. This used to announce a fallback here too.
         self.env = {**self.env, "GEMINI_API_KEY": ""}
         self.responses = []
         with self.assertRaises(llm.LLMError) as e:
@@ -192,14 +192,14 @@ class TestFallbackModel(LLMTestCase):
         self.assertEqual(self.calls, [])
         self.assertIsNone(e.exception.status)
 
-    def test_상태코드가_예외에_실린다(self):
+    def test_the_status_code_rides_on_the_exception(self):
         self.responses = [http_error(400)]
         with self.assertRaises(llm.LLMError) as e:
             llm.generate(BODY, verbose=False)
         self.assertEqual(e.exception.status, 400)
 
-    def test_본문에_낀_숫자에_속지_않는다(self):
-        # 응답 본문에 '503' 이 우연히 들어 있어도 400 은 폴백 대상이 아니다
+    def test_it_is_not_fooled_by_a_number_inside_the_body(self):
+        # A 400 is not a fallback case even when '503' happens to appear in the response body
         import io as _io
         import urllib.error as _ue
 
@@ -209,20 +209,20 @@ class TestFallbackModel(LLMTestCase):
             llm.generate(BODY, verbose=False)
         self.assertEqual(len(self.calls), 1)
 
-    def test_과부하가_아니면_모델을_바꾸지_않는다(self):
+    def test_anything_but_overload_keeps_the_same_model(self):
         self.responses = [http_error(400)]
         with self.assertRaises(llm.LLMError):
             llm.generate(BODY, verbose=False)
         self.assertEqual(set(self.models_called()), {"gemini-3.6-flash"})
 
-    def test_폴백을_끄면_한_모델만_쓴다(self):
+    def test_turning_the_fallback_off_leaves_one_model(self):
         self.env = {**self.env, "GEMINI_FALLBACK_MODEL": ""}
         self.responses = [http_error(503)] * llm.RETRIES
         with self.assertRaises(llm.LLMError):
             llm.generate(BODY, verbose=False)
         self.assertEqual(set(self.models_called()), {"gemini-3.6-flash"})
 
-    def test_대체모델도_실패하면_오류를_올린다(self):
+    def test_a_failing_fallback_raises_too(self):
         self.responses = [http_error(503)] * (llm.RETRIES * 2)
         with self.assertRaises(llm.LLMError):
             llm.generate(BODY, verbose=False)
@@ -230,9 +230,9 @@ class TestFallbackModel(LLMTestCase):
 
 
 class TestLogSafety(LLMTestCase):
-    """안내 문구 출력이 실패해도 요청은 살아 있어야 한다 (Windows cp949 사고 재발 방지)."""
+    """A failed progress message must not cost the request (the Windows cp949 incident)."""
 
-    def test_출력이_터져도_재시도가_계속된다(self):
+    def test_retries_continue_even_when_printing_blows_up(self):
         import builtins
 
         keep = builtins.print
@@ -248,7 +248,7 @@ class TestLogSafety(LLMTestCase):
             builtins.print = keep
         self.assertEqual(len(self.calls), 2)
 
-    def test_로그_함수는_예외를_삼킨다(self):
+    def test_the_log_function_swallows_exceptions(self):
         import builtins
 
         keep, builtins.print = (
@@ -256,21 +256,21 @@ class TestLogSafety(LLMTestCase):
             lambda *a, **k: (_ for _ in ()).throw(OSError("closed")),
         )
         try:
-            llm._log("아무거나")
+            llm._log("anything")
         finally:
             builtins.print = keep
 
 
 class TestHelpers(LLMTestCase):
-    def test_텍스트_파트를_이어붙인다(self):
-        r = {"candidates": [{"content": {"parts": [{"text": "가"}, {"text": "나"}]}}]}
-        self.assertEqual(llm.text_of(r), "가나")
+    def test_it_joins_the_text_parts(self):
+        r = {"candidates": [{"content": {"parts": [{"text": "a"}, {"text": "b"}]}}]}
+        self.assertEqual(llm.text_of(r), "ab")
 
-    def test_빈_응답도_처리한다(self):
+    def test_an_empty_response_is_handled(self):
         self.assertEqual(llm.text_of({}), "")
         self.assertEqual(llm.parts_of({}), [])
 
-    def test_파트를_그대로_돌려준다(self):
+    def test_it_hands_the_parts_back_as_they_are(self):
         r = {"candidates": [{"content": {"parts": [{"functionCall": {"name": "x"}}]}}]}
         self.assertEqual(llm.parts_of(r), [{"functionCall": {"name": "x"}}])
 

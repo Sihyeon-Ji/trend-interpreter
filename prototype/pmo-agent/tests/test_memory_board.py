@@ -1,8 +1,8 @@
-"""로컬 보드 어댑터 테스트 — Jira 와 '같은 모양'인지가 핵심이다.
+"""Local board adapter tests — the point is that it is *the same shape* as Jira.
 
-모양이 같아야 schedule/tools/approve 가 백엔드를 몰라도 된다.
+Same shape is what lets schedule, tools and approve ignore which backend is in use.
 
-실행: python -m unittest discover -s tests -v      (D:/echo-pmo 에서)
+Run: python -m pytest tests/test_memory_board.py -q
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from pmo_agent.adapters.memory import MemoryBoard, make_issue  # noqa: E402
 
 def sample():
     return [
-        make_issue("ECHO-1", "요구사항 정리", "Done", "한서준", "2026-09-18", 3, blocks=["ECHO-2"]),
+        make_issue("ECHO-1", "Requirements", "Done", "Maya", "2026-09-18", 3, blocks=["ECHO-2"]),
         make_issue(
-            "ECHO-2", "스키마 설계", "In Progress", "민아름", "2026-09-24", 4, blocks=["ECHO-3"]
+            "ECHO-2", "Schema design", "In Progress", "Leo", "2026-09-24", 4, blocks=["ECHO-3"]
         ),
-        make_issue("ECHO-3", "API 구현", "To Do", "한서준", "2026-09-29", 5),
+        make_issue("ECHO-3", "API build", "To Do", "Maya", "2026-09-29", 5),
     ]
 
 
@@ -43,70 +43,70 @@ class BoardTestCase(unittest.TestCase):
 
 
 class TestShapeMatchesJira(BoardTestCase):
-    def test_schedule가_그대로_읽는다(self):
+    def test_schedule_reads_it_unchanged(self):
         tasks = schedule.from_jira_issues(self.board.search())
         self.assertEqual(tasks["ECHO-2"].deps, ["ECHO-1"])
         self.assertEqual(tasks["ECHO-1"].points, 3)
         self.assertTrue(tasks["ECHO-1"].is_done)
-        self.assertEqual(tasks["ECHO-2"].assignee, "민아름")
+        self.assertEqual(tasks["ECHO-2"].assignee, "Leo")
 
-    def test_whoami와_project_info가_있다(self):
+    def test_whoami_and_project_info_exist(self):
         self.assertIn("displayName", self.board.whoami())
         self.assertEqual(self.board.project_info()["key"], "ECHO")
 
-    def test_쓰기허용_사이트는_로컬뿐(self):
+    def test_the_only_writable_site_is_local(self):
         self.assertEqual(self.board.allow, ["local"])
 
 
 class TestSearch(BoardTestCase):
-    def test_상태로_거른다(self):
+    def test_it_filters_by_status(self):
         r = self.board.search('project = ECHO AND status = "To Do"')
         self.assertEqual([i["key"] for i in r], ["ECHO-3"])
 
-    def test_담당자로_거른다(self):
-        r = self.board.search('assignee = "한서준"')
+    def test_it_filters_by_assignee(self):
+        r = self.board.search('assignee = "Maya"')
         self.assertEqual({i["key"] for i in r}, {"ECHO-1", "ECHO-3"})
 
-    def test_마감일순으로_정렬한다(self):
+    def test_it_sorts_by_due_date(self):
         self.assertEqual([i["key"] for i in self.board.search()], ["ECHO-1", "ECHO-2", "ECHO-3"])
 
-    def test_limit을_지킨다(self):
+    def test_it_honours_limit(self):
         self.assertEqual(len(self.board.search(limit=2)), 2)
 
-    def test_모르는_JQL은_무시하고_전부_준다(self):
-        self.assertEqual(len(self.board.search("뭔가 이상한 JQL")), 3)
+    def test_jql_it_does_not_understand_returns_everything(self):
+        self.assertEqual(len(self.board.search("some strange JQL")), 3)
 
 
 class TestWriteGate(BoardTestCase):
-    def test_승인없이는_아무것도_바뀌지_않는다(self):
+    def test_nothing_changes_without_approval(self):
         self.assertTrue(self.board.set_fields("ECHO-3", {"duedate": "2026-10-05"})["dry_run"])
-        self.assertTrue(self.board.comment("ECHO-3", "확인 요청")["dry_run"])
+        self.assertTrue(self.board.comment("ECHO-3", "please confirm")["dry_run"])
         self.assertTrue(self.board.transition("ECHO-3", "In Progress")["dry_run"])
-        self.assertTrue(self.board.create_issue("새 태스크")["dry_run"])
+        self.assertTrue(self.board.create_issue("a new task")["dry_run"])
         self.assertEqual(self.reloaded().issue("ECHO-3")["fields"]["duedate"], "2026-09-29")
 
-    def test_승인하면_파일에_남는다(self):
+    def test_approval_writes_it_to_the_file(self):
         self.board.set_fields("ECHO-3", {"duedate": "2026-10-05"}, approve=True)
         self.assertEqual(self.reloaded().issue("ECHO-3")["fields"]["duedate"], "2026-10-05")
 
-    def test_코멘트가_쌓인다(self):
-        self.board.comment("ECHO-3", "첫 코멘트", approve=True)
-        self.board.comment("ECHO-3", "둘째 코멘트", approve=True)
+    def test_comments_accumulate(self):
+        self.board.comment("ECHO-3", "first comment", approve=True)
+        self.board.comment("ECHO-3", "second comment", approve=True)
         self.assertEqual(len(self.reloaded().issue("ECHO-3")["fields"]["comments"]), 2)
 
-    def test_상태전이가_반영된다(self):
+    def test_a_transition_is_applied(self):
         self.board.transition("ECHO-3", "In Progress", approve=True)
         self.assertEqual(self.reloaded().issue("ECHO-3")["fields"]["status"]["name"], "In Progress")
 
-    def test_현재상태로는_전이할_수_없다(self):
+    def test_it_cannot_transition_to_its_current_status(self):
         self.assertIn("error", self.board.transition("ECHO-3", "To Do"))
 
-    def test_새_이슈는_번호가_이어진다(self):
-        r = self.board.create_issue("새 태스크", approve=True)
+    def test_a_new_issue_continues_the_numbering(self):
+        r = self.board.create_issue("a new task", approve=True)
         self.assertEqual(r["key"], "ECHO-4")
         self.assertEqual(len(self.reloaded().search()), 4)
 
-    def test_링크는_양쪽에_달린다(self):
+    def test_a_link_lands_on_both_sides(self):
         self.board.link("ECHO-2", "ECHO-3", approve=True)
         b = self.reloaded()
         self.assertTrue(
@@ -122,52 +122,52 @@ class TestWriteGate(BoardTestCase):
             )
         )
 
-    def test_없는_이슈는_오류(self):
+    def test_an_unknown_issue_is_an_error(self):
         with self.assertRaises(RuntimeError):
             self.board.issue("ECHO-99")
 
 
 class TestDoneHistory(BoardTestCase):
-    def test_전이하면_변경시각이_남는다(self):
+    def test_a_transition_records_the_time(self):
         self.board.transition("ECHO-3", "Done", approve=True)
         f = self.reloaded().issue("ECHO-3")["fields"]
         self.assertIn("status_changed_at", f)
 
-    def test_최근_완료만_돌려준다(self):
-        self.assertEqual(self.board.done_since(7), [])  # 아직 전이한 적 없다
-        self.board.transition("ECHO-3", "완료", approve=True)
+    def test_it_returns_only_recent_completions(self):
+        self.assertEqual(self.board.done_since(7), [])  # nothing has transitioned yet
+        self.board.transition("ECHO-3", "Done", approve=True)
         self.assertEqual([i["key"] for i in self.reloaded().done_since(7)], ["ECHO-3"])
 
-    def test_완료가_아니면_빠진다(self):
+    def test_anything_but_done_is_excluded(self):
         self.board.transition("ECHO-3", "In Progress", approve=True)
         self.assertEqual(self.reloaded().done_since(7), [])
 
-    def test_영어_상태로도_전이된다(self):
+    def test_a_korean_status_name_transitions_too(self):
         r = self.board.transition("ECHO-3", "Done", approve=True)
         self.assertEqual(r["status"], "Done")
 
 
 class TestMemoryOnly(unittest.TestCase):
-    def test_파일없이도_돌아간다(self):
+    def test_it_works_without_a_file(self):
         b = MemoryBoard(issues=sample())
         self.assertIsNone(b.path)
         b.set_fields("ECHO-3", {"duedate": "2026-10-05"}, approve=True)
         self.assertEqual(b.issue("ECHO-3")["fields"]["duedate"], "2026-10-05")
 
-    def test_빈_보드도_깨지지_않는다(self):
+    def test_an_empty_board_does_not_break_it(self):
         b = MemoryBoard(issues=[])
         self.assertEqual(b.search(), [])
 
 
 class TestPersistedFormat(BoardTestCase):
-    def test_사람이_읽을_수_있는_JSON이다(self):
+    def test_the_json_is_human_readable(self):
         with open(self.path, encoding="utf-8") as f:
             data = json.load(f)
         self.assertEqual(data["project"], "ECHO")
         self.assertEqual(len(data["issues"]), 3)
         self.assertIn("saved_at", data)
 
-    def test_저장시각이_갱신된다(self):
+    def test_the_saved_timestamp_is_refreshed(self):
         def saved_at():
             with open(self.path, encoding="utf-8") as f:
                 return json.load(f)["saved_at"]

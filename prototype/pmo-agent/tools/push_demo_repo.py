@@ -1,23 +1,27 @@
-"""시뮬레이션 세계를 진짜 GitHub 비공개 저장소로 올린다 (시연용).
+"""Push the simulated world into a real private GitHub repository (for the demo).
 
-왜 진짜 저장소가 필요한가: 시연에서 "저장소를 읽습니다"라고 말하려면 실제로 읽어야 한다.
-JSON 픽스처는 테스트용으로 남기고, 시연만 진짜 API 를 탄다 (`REPO_BACKEND=github`).
+Why a real repository: to say "it reads the repository" in a demo, it has to actually read one.
+The JSON fixtures stay for the tests; only the demo goes over the real API (`REPO_BACKEND=github`).
 
-왜 지금 올려야 하는가: **PR 생성 시각은 조작할 수 없다.** 커밋 날짜는 과거로 쓸 수 있지만
-PR 은 항상 '지금' 만들어진다. 지금 열어 두면 시연 때는 진짜로 묵은 PR 이 된다.
+Why now: **a pull request's creation time cannot be faked.** Commit dates can be written into
+the past; a PR is always created *now*. Open them today and by demo day they are genuinely stale.
 
-구조:
-  develop            완료된 작업의 커밋 (과거 날짜)
-  feat/echo-NN       아직 안 끝난 작업 — 여기서 PR 을 연다
+Layout:
+  develop          commits for finished work (backdated)
+  feat/auth etc.   work still in flight — the pull requests are opened from here
 
-한계 (정직하게):
-  · 커밋 작성자는 4명으로 보이지만 GitHub 계정과 연결되지는 않는다 (이메일이 가상이라서)
-  · PR 작성자는 전부 인증된 계정 하나다
-  · 협업자가 본인뿐이라 리뷰어 지정은 못 한다 — signals 는 '리뷰어 미지정'으로 처리한다
+No ticket keys in the commit messages. Real repositories are like that, and joining things up
+without a key is what this agent does (src/pmo_agent/linking.py).
 
-실행:
-  python tools/push_demo_repo.py                 무엇을 올릴지 미리보기
-  python tools/push_demo_repo.py --approve       실제 생성·푸시
+Limitations, stated plainly:
+  · there appear to be four commit authors, none tied to GitHub accounts (fictional emails)
+  · every pull request is authored by the one authenticated account
+  · with one collaborator, reviewers cannot be assigned — signals says "no reviewer assigned"
+
+Run:
+  python tools/push_demo_repo.py                 preview what would be pushed
+  python tools/push_demo_repo.py --approve       create and push for real
+  python tools/push_demo_repo.py --approve --reset  replace an existing repo with fresh data
 """
 
 from __future__ import annotations
@@ -32,7 +36,7 @@ import tempfile
 from pmo_agent.adapters.github import gh_path
 from pmo_agent.seeds import world as world_mod
 
-DEFAULT_REPO = "echo-pmo-demo"
+DEFAULT_REPO = "echo-app"  # a name that reads like a product repo — it looks real in the demo
 BRANCH = "develop"
 
 
@@ -47,39 +51,52 @@ def run(args: list, cwd: str, env: dict | None = None, check: bool = True) -> st
         env={**os.environ, **(env or {})},
     )
     if check and out.returncode != 0:
-        raise RuntimeError(f"{' '.join(args[:3])} 실패: {(out.stderr or out.stdout)[:300]}")
+        raise RuntimeError(f"{' '.join(args[:3])} failed: {(out.stderr or out.stdout)[:300]}")
     return (out.stdout or "").strip()
 
 
 def plan(today: dt.date | None = None) -> dict:
-    """올릴 내용. 열린 PR 만 실제로 만든다 — 머지된 PR 은 신호에 쓰이지 않는다."""
+    """What to push. Only open pull requests are created — merged ones carry no signal."""
     world = world_mod.simulate(today)
     board = world_mod.to_board(world)
     repo = world_mod.to_repo(world, board)
+    link_truth = repo["link_truth"]
     open_pulls = [p for p in repo["pulls"] if p["state"] == "open"]
-    open_keys = {p["title"].split()[0] for p in open_pulls}
-    trunk = [c for c in reversed(repo["commits"]) if _key(c) not in open_keys]
+    # The PR titles have no keys either, so pair them up by branch
+    branch_to_key = {}
+    for key, task in world.tasks.items():
+        branch_to_key[world_mod.artifact(task)["branch"]] = key
+    open_keys = {branch_to_key.get(p["branch"], "") for p in open_pulls} - {""}
+    trunk = [c for c in reversed(repo["commits"]) if _key(c, link_truth) not in open_keys]
     return {
         "world": world,
         "board": board,
         "repo": repo,
         "open_pulls": open_pulls,
         "open_keys": open_keys,
-        "trunk": trunk,  # 시간순 (오래된 것부터)
+        "trunk": trunk,  # chronological (oldest first)
+        "link_truth": link_truth,
+        "branch_of": {key: world_mod.artifact(world.tasks[key])["branch"] for key in open_keys},
         "branch_commits": {
-            key: [c for c in reversed(repo["commits"]) if _key(c) == key] for key in open_keys
+            key: [c for c in reversed(repo["commits"]) if _key(c, link_truth) == key]
+            for key in open_keys
         },
     }
 
 
-def _key(commit: dict) -> str:
-    return commit["message"].split()[0]
+def _key(commit: dict, link_truth: dict) -> str:
+    """Which task this commit belonged to — the commit itself does not say.
+
+    To look like a real repository, the message must not carry a ticket key.
+    Only the simulation's answer key (link_truth) knows where it goes.
+    """
+    return link_truth.get(commit["sha"], "")
 
 
 def _commit(cwd: str, commit: dict) -> None:
-    """파일 한 줄을 더하고, 작성 시각을 과거로 못 박아 커밋한다."""
-    key = _key(commit)
-    path = os.path.join(cwd, "work", f"{key}.md")
+    """Touch the real file the commit points at, and pin its authoring time to the past."""
+    rel = (commit.get("files") or ["docs/notes.md"])[0]
+    path = os.path.join(cwd, *rel.split("/"))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(f"- {commit['date']} {commit['message']}\n")
@@ -103,13 +120,13 @@ def build_local(data: dict, cwd: str) -> None:
     run(["git", "init", "-b", BRANCH], cwd)
     with open(os.path.join(cwd, "README.md"), "w", encoding="utf-8") as handle:
         handle.write(
-            "# echo-pmo-demo\n\n"
-            "PMO 에이전트 시연용 **가상** 저장소입니다. 실제 제품 코드가 아닙니다.\n\n"
-            "`prototype/pmo-agent` 의 세계 시뮬레이션에서 생성됐습니다 — "
-            "등장인물·작업 내용은 전부 가상입니다.\n"
+            "# echo-app\n\n"
+            "A **fictional** repository for demonstrating the PMO agent. Not real product code.\n\n"
+            "Generated from the world simulation in `prototype/pmo-agent` — "
+            "every person and every piece of work here is invented.\n"
         )
     run(["git", "add", "-A"], cwd)
-    run(["git", "commit", "-m", "chore: 시연용 가상 저장소 초기화"], cwd)
+    run(["git", "commit", "-m", "chore: initialise the demo repository"], cwd)
 
     for commit in data["trunk"]:
         _commit(cwd, commit)
@@ -117,39 +134,82 @@ def build_local(data: dict, cwd: str) -> None:
     for key, commits in sorted(data["branch_commits"].items()):
         if not commits:
             continue
-        branch = f"feat/{key.lower()}"
+        branch = data["branch_of"][key]
         run(["git", "checkout", "-b", branch, BRANCH], cwd)
         for commit in commits:
             _commit(cwd, commit)
         run(["git", "checkout", BRANCH], cwd)
 
 
-def push(data: dict, cwd: str, owner: str, name: str) -> dict:
+def push(data: dict, cwd: str, owner: str, name: str, reset: bool = False) -> dict:
+    """Create the repository if it is not there, or replace its contents (--reset).
+
+    Replacing does not delete the repository — deletion needs a separate scope (delete_repo),
+    and there is no reason to ask a person for more permission just to change demo data.
+    Instead the history is force-pushed, leftover pull requests are closed, and unused branches go.
+    """
     gh = gh_path()
     full = f"{owner}/{name}"
-    run(
-        [
-            gh,
-            "repo",
-            "create",
-            full,
-            "--private",
-            "--source=.",
-            "--push",
-            "--description",
-            "PMO 에이전트 시연용 가상 저장소 (합성 데이터)",
-        ],
-        cwd,
+    exists = (
+        subprocess.run(
+            [gh, "repo", "view", full, "--json", "name"], capture_output=True, text=True
+        ).returncode
+        == 0
     )
-    run(["git", "push", "--all", "origin"], cwd)
+
+    if not exists:
+        run(
+            [
+                gh,
+                "repo",
+                "create",
+                full,
+                "--private",
+                "--source=.",
+                "--push",
+                "--description",
+                "The Echo product repository (synthetic data for the PMO agent demo)",
+            ],
+            cwd,
+        )
+    else:
+        if not reset:
+            raise RuntimeError(f"{full} already exists. Add --reset to replace it.")
+        for number in _open_pr_numbers(gh, full):
+            run(
+                [
+                    gh,
+                    "pr",
+                    "close",
+                    str(number),
+                    "--repo",
+                    full,
+                    "--comment",
+                    "Closing while the demo data is rebuilt in a new shape.",
+                ],
+                cwd,
+                check=False,
+            )
+        run(["git", "remote", "add", "origin", f"https://github.com/{full}.git"], cwd, check=False)
+        run(["git", "push", "--force", "origin", BRANCH], cwd)
+        for stale in _remote_branches(gh, full):
+            if stale not in {BRANCH, *data["branch_of"].values()}:
+                run(
+                    [gh, "api", "-X", "DELETE", f"repos/{full}/git/refs/heads/{stale}"],
+                    cwd,
+                    check=False,
+                )
+
+    run(["git", "push", "--force", "--all", "origin"], cwd)
 
     made = []
+    by_branch = {v: k for k, v in data["branch_of"].items()}
     for pull in data["open_pulls"]:
-        key = pull["title"].split()[0]
-        branch = f"feat/{key.lower()}"
-        if not data["branch_commits"].get(key):
+        branch = pull["branch"]
+        key = by_branch.get(branch, "")
+        if not key or not data["branch_commits"].get(key):
             continue
-        body = f"{pull['title']}\n\n시연용 가상 PR 입니다. 마지막 작업일: {pull['updated']}\n"
+        body = f"{pull['title']}\n\nA fictional demo PR. Last worked on: {pull['updated']}\n"
         try:
             url = run(
                 [
@@ -171,37 +231,71 @@ def push(data: dict, cwd: str, owner: str, name: str) -> dict:
             )
             made.append(url.splitlines()[-1] if url else key)
         except RuntimeError as e:
-            made.append(f"{key}: 실패 {str(e)[:80]}")
+            made.append(f"{key}: failed {str(e)[:80]}")
     return {"repo": full, "pulls": made}
+
+
+def _open_pr_numbers(gh: str, full: str) -> list:
+    out = subprocess.run(
+        [
+            gh,
+            "pr",
+            "list",
+            "--repo",
+            full,
+            "--state",
+            "open",
+            "--json",
+            "number",
+            "--jq",
+            ".[].number",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ).stdout
+    return [int(x) for x in (out or "").split() if x.isdigit()]
+
+
+def _remote_branches(gh: str, full: str) -> list:
+    out = subprocess.run(
+        [gh, "api", f"repos/{full}/branches", "--jq", ".[].name"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ).stdout
+    return [x.strip() for x in (out or "").splitlines() if x.strip()]
 
 
 def main(argv: list) -> int:
     owner = run([gh_path(), "api", "user", "--jq", ".login"], os.getcwd())
     name = DEFAULT_REPO
     data = plan()
-    print(f"대상: {owner}/{name}  (private)")
-    print(f"  develop 커밋 {len(data['trunk'])}건")
-    print(f"  브랜치 {len(data['branch_commits'])}개, PR {len(data['open_pulls'])}건")
-    print("\n  열 PR:")
+    print(f"target: {owner}/{name}  (private)")
+    print(f"  {len(data['trunk'])} commits on develop")
+    print(f"  {len(data['branch_commits'])} branches, {len(data['open_pulls'])} pull requests")
+    print("\n  pull requests to open:")
     for pull in data["open_pulls"][:6]:
-        print(f"    {pull['title'][:48]:<48} 마지막 작업 {pull['updated']}")
+        print(f"    {pull['title'][:48]:<48} last worked on {pull['updated']}")
     if len(data["open_pulls"]) > 6:
-        print(f"    … 외 {len(data['open_pulls']) - 6}건")
+        print(f"    … and {len(data['open_pulls']) - 6} more")
 
     if "--approve" not in argv:
-        print("\n미리보기입니다. 실제로 만들려면 --approve 를 붙이세요.")
+        print("\nThis is a preview. Add --approve to create them.")
         return 0
 
     cwd = tempfile.mkdtemp(prefix="echo-demo-")
     try:
-        print("\n로컬 이력 생성 중…")
+        print("\nbuilding local history…")
         build_local(data, cwd)
-        print("GitHub 에 생성·푸시 중…")
-        result = push(data, cwd, owner, name)
-        print(f"\n완료: https://github.com/{result['repo']}")
-        print(f"  PR {len(result['pulls'])}건 생성")
-        print(f"\n.env 에 넣으세요:  GITHUB_REPO={result['repo']}")
-        print("시연 시:  REPO_BACKEND=github")
+        print("creating and pushing to GitHub…")
+        result = push(data, cwd, owner, name, reset="--reset" in argv)
+        print(f"\ndone: https://github.com/{result['repo']}")
+        print(f"  {len(result['pulls'])} pull requests created")
+        print(f"\nPut this in .env:  GITHUB_REPO={result['repo']}")
+        print("For the demo:  REPO_BACKEND=github")
     finally:
         shutil.rmtree(cwd, ignore_errors=True)
     return 0

@@ -1,11 +1,11 @@
-"""설정값과 경로를 한 군데서 읽는다.
+"""Settings and paths, read in one place.
 
-예전에는 어댑터가 자기 옆에 붙은 비공개 헬퍼(`_env`)를 서로 import 하고 있었다.
-설정 읽기는 어댑터의 일이 아니므로 여기로 옮겼다 — llm.py 가 Jira 어댑터를 import 하던 고리가
-끊긴다.
+Adapters used to import a private helper (`_env`) sitting next to one of them. Reading
+configuration is not an adapter's job, so it moved here — which breaks the loop where
+llm.py imported the Jira adapter.
 
-값은 프로세스 환경변수를 먼저 보고, 없으면 프로젝트 루트의 .env 를 본다.
-.env 는 커밋되지 않는다 (.gitignore).
+Values come from the process environment first, then from .env at the project root.
+.env is never committed (.gitignore).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 def project_root() -> Path:
-    """prototype/pmo-agent/ — src/pmo_agent/env.py 기준 두 단계 위."""
+    """prototype/pmo-agent/ — two levels above src/pmo_agent/env.py."""
     return Path(__file__).resolve().parents[2]
 
 
@@ -36,7 +36,7 @@ def samples_dir() -> Path:
 
 
 def env(key: str, default: str = "") -> str:
-    """환경변수 → .env → 기본값 순."""
+    """Environment variable, then .env, then the default."""
     value = os.environ.get(key)
     if value:
         return value

@@ -1,1 +1,1 @@
-"""데모 시드 — 보드와 저장소를 같은 가정 위에서 만든다."""
+"""Demo seeds — the board and the repository built on the same assumptions."""

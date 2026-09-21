@@ -1,17 +1,17 @@
-"""Echo PMO 웹 서비스 — Cloud Run 에 올릴 FastAPI 앱.
+"""The Echo PMO web service — the FastAPI app that goes on Cloud Run.
 
-에이전트의 기능을 HTTP 로 연다. 계산·판정 로직은 전부 agent/ 에 그대로 있고,
-여기서는 입출력만 다룬다 — 웹이든 CLI 든 같은 코드가 같은 숫자를 낸다.
+It opens the agent's capabilities over HTTP. All the calculation and judgement stays in the
+package; this file only handles input and output — web or CLI, the same code gives the same numbers.
 
-안전 규칙은 CLI 와 동일하다:
-  · 읽기 엔드포인트는 아무것도 바꾸지 않는다
-  · /api/ingest 는 '제안'까지만 만든다 (applied=false)
-  · /api/approve 는 사용자가 고른 번호 + confirm=true 없이는 아무것도 반영하지 않는다
-    (모델이 부를 수 있는 자리가 아니다 — 사람이 UI 에서 누른 것만 여기로 온다)
+The safety rules are the CLI's rules:
+  · read endpoints change nothing
+  · /api/ingest only ever produces proposals (applied=false)
+  · /api/approve applies nothing without the indices a user picked and confirm=true
+    (this is not somewhere a model can reach — only a person's click in the UI arrives here)
 
-실행:
-  로컬   PMO_BACKEND=memory uvicorn app.main:app --reload --port 8080
-  컨테이너 docker build -t echo-pmo . && docker run -p 8080:8080 --env-file .env echo-pmo
+Run:
+  local      PMO_BACKEND=memory uvicorn pmo_agent.api:app --reload --port 8080
+  container  docker build -t echo-pmo . && docker run -p 8080:8080 --env-file .env echo-pmo
 """
 
 from __future__ import annotations
@@ -30,19 +30,19 @@ from pmo_agent.llm import LLMError  # noqa: E402
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 MAX_UPLOAD = 15 * 1024 * 1024
-UPLOAD = File(None)  # 기본 인자에서 호출하지 않도록 모듈 수준에 둔다
+UPLOAD = File(None)  # kept at module level so it is not called in a default argument
 
 app = FastAPI(
     title="Echo PMO",
     version="0.1.0",
-    description="일정 계산은 코드가, 판단과 설명은 Gemini 가. 쓰기는 사람 승인 뒤에만.",
+    description="Code computes the schedule, Gemini explains it, writes wait for a person.",
 )
 
 
 def _tasks():
     t = tools._fetch()
     if not t:
-        raise HTTPException(503, "보드에 태스크가 없다. 시드를 먼저 생성하라 (data/seed_jira.py).")
+        raise HTTPException(503, "no tasks on the board. Generate the seed first (seeds/).")
     return t
 
 
@@ -50,19 +50,19 @@ def _today(v: str = "") -> dt.date:
     try:
         return schedule.parse_date(v) or dt.date.today()
     except ValueError:
-        raise HTTPException(400, f"날짜 형식이 잘못됐다: {v} (YYYY-MM-DD)") from None
+        raise HTTPException(400, f"bad date format: {v} (YYYY-MM-DD)") from None
 
 
-# ---------- 읽기 ----------
+# ---------- reads ----------
 @app.get("/health")
 def health():
-    """Cloud Run 헬스체크. 백엔드 연결까지는 확인하지 않는다 (기동을 막지 않기 위해)."""
+    """The Cloud Run health check. It does not test the backends — that would block startup."""
     return {"ok": True, "backend": os.environ.get("PMO_BACKEND", "jira"), "version": app.version}
 
 
 @app.get("/api/board")
 def board():
-    """어떤 백엔드에 붙어 있는지. 데모에서 '실제 Jira 입니다'를 보여주는 용도."""
+    """Which backend is connected. For showing "this really is Jira" in the demo."""
     j = tools.jira()
     out = {
         "site": getattr(j, "site", "?"),
@@ -78,19 +78,19 @@ def board():
 
 @app.get("/api/schedule")
 def api_schedule(today: str = ""):
-    """의존관계 기준 일정 — 임계경로, 지연 위험과 그 근거."""
+    """The dependency-only schedule — critical path, tasks at risk, and the evidence."""
     return schedule.summary(_tasks(), _today(today))
 
 
 @app.get("/api/capacity")
 def api_capacity(today: str = ""):
-    """사람 용량까지 반영한 실현 가능한 일정, 병목, 대기 중인 태스크."""
+    """The achievable schedule with capacity applied: the bottleneck and who is waiting."""
     return capacity.summary(_tasks(), _today(today), availability=tools._availability())
 
 
 @app.get("/api/rebalance")
 def api_rebalance(today: str = "", max_moves: int = 3):
-    """병목을 풀 재배치 제안. 계산만 하고 아무것도 바꾸지 않는다."""
+    """A rebalancing proposal to clear the bottleneck. It calculates; it changes nothing."""
     return schedule.iso(
         capacity.rebalance(
             _tasks(),
@@ -103,12 +103,12 @@ def api_rebalance(today: str = "", max_moves: int = 3):
 
 @app.get("/api/calendar")
 def api_calendar(days: int = 10):
-    """담당자별 회의 부담 — 앞으로 N영업일 중 실제로 쓸 수 있는 날이 얼마인지."""
+    """Meeting load per owner — how many of the next N business days are actually usable."""
     from pmo_agent import availability as avail_mod
 
     avail = tools._availability()
     if not avail:
-        raise HTTPException(503, "캘린더가 연결되지 않았다 (CALENDAR_BACKEND 확인).")
+        raise HTTPException(503, "no calendar is connected (check CALENDAR_BACKEND).")
     people = sorted({t.assignee for t in _tasks().values() if t.assignee})
     return {
         "source": getattr(tools.calendar(), "source", "?"),
@@ -119,18 +119,18 @@ def api_calendar(days: int = 10):
 
 @app.get("/api/signals")
 def api_signals(today: str = "", days: int = 14):
-    """보드 상태와 실제 코드 활동의 대조. 한쪽만으로는 보이지 않는 어긋남."""
+    """The board against real code activity — the divergence neither side shows alone."""
     try:
         return signals.summary(_tasks(), tools.repo().snapshot(100), _today(today), days=days)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(502, f"저장소를 읽지 못했다: {str(e)[:200]}") from e
+        raise HTTPException(502, f"could not read the repository: {str(e)[:200]}") from e
 
 
 @app.get("/api/report", response_class=PlainTextResponse)
 def api_report(today: str = "", rebalance: bool = True):
-    """주간 리포트 (마크다운)."""
+    """The weekly report, as Markdown."""
     j = tools.jira()
     done_recent = None
     try:
@@ -152,74 +152,74 @@ def api_report(today: str = "", rebalance: bool = True):
     )
 
 
-# ---------- 메모/사진 → 제안 ----------
+# ---------- notes and photos → proposals ----------
 @app.post("/api/ingest")
 async def api_ingest(
     text: str = Form(""), today: str = Form(""), image: UploadFile | None = UPLOAD
 ):
-    """메모 텍스트와 사진을 읽어 '제안'을 만든다. 아무것도 반영하지 않는다 (applied=false)."""
+    """Read note text and photos and build proposals. Nothing is applied (applied=false)."""
     paths, tmp = [], None
     if image is not None and image.filename:
         raw = await image.read()
         if len(raw) > MAX_UPLOAD:
-            raise HTTPException(413, f"파일이 너무 크다 ({len(raw) / 1048576:.1f}MB > 15MB)")
+            raise HTTPException(413, f"file too large ({len(raw) / 1048576:.1f}MB > 15MB)")
         ext = os.path.splitext(image.filename)[1].lower()
         if ext not in ingest.MIME:
-            raise HTTPException(415, f"지원하지 않는 형식: {ext}")
+            raise HTTPException(415, f"unsupported format: {ext}")
         fd, tmp = tempfile.mkstemp(suffix=ext)
         with os.fdopen(fd, "wb") as f:
             f.write(raw)
         paths = [tmp]
     if not text.strip() and not paths:
-        raise HTTPException(400, "메모 텍스트나 이미지 중 하나는 있어야 한다.")
+        raise HTTPException(400, "there has to be either note text or an image.")
     try:
         return ingest.ingest(text, paths, tasks=_tasks(), today=_today(today))
     except LLMError as e:
-        raise HTTPException(502, f"모델 호출 실패: {e}") from e
+        raise HTTPException(502, f"the model call failed: {e}") from e
     finally:
         if tmp and os.path.exists(tmp):
             os.unlink(tmp)
 
 
-# ---------- 승인 (유일한 쓰기 경로) ----------
+# ---------- approval (the only write path) ----------
 class ApproveBody(BaseModel):
-    proposals: list  # /api/ingest 가 돌려준 proposals 를 그대로
-    indices: list[int] = []  # 사용자가 고른 번호 (1부터)
-    confirm: bool = False  # 최종 확인 — 없으면 아무것도 하지 않는다
+    proposals: list  # exactly what /api/ingest returned
+    indices: list[int] = []  # the numbers the user picked (1-based)
+    confirm: bool = False  # final confirmation — without it, nothing happens
     source: str = "web"
 
 
 @app.post("/api/approve")
 def api_approve(body: ApproveBody):
-    """고른 제안만 실제로 반영한다. CLI 의 승인 게이트와 같은 규칙을 강제한다."""
+    """Apply only the chosen proposals. The same rules the CLI approval gate enforces."""
     items = approve_mod.appliable(body.proposals)
     if not body.confirm:
         return {
             "applied": 0,
             "skipped": len(items),
             "results": [],
-            "message": "confirm=true 없이는 반영하지 않는다.",
+            "message": "nothing is applied without confirm=true.",
         }
     if not body.indices:
-        return {"applied": 0, "skipped": len(items), "results": [], "message": "고른 번호가 없다."}
+        return {"applied": 0, "skipped": len(items), "results": [], "message": "no numbers chosen."}
     bad = [i for i in body.indices if not 1 <= i <= len(items)]
     if bad:
-        raise HTTPException(400, f"범위를 벗어난 번호: {bad} (1~{len(items)})")
+        raise HTTPException(400, f"number out of range: {bad} (1-{len(items)})")
     out = approve_mod.apply(body.proposals, [i - 1 for i in body.indices], source=body.source)
     return out
 
 
 @app.get("/api/approvals")
 def api_approvals(days: int = 7):
-    """최근 반영 내역 (감사 로그). 무엇이 언제 실제로 바뀌었는지."""
+    """What was applied recently (the audit log). What really changed, and when."""
     since = schedule.add_workdays(dt.date.today(), -abs(days))
     return {"since": since.isoformat(), "rows": report.recent_approvals(since)}
 
 
-# ---------- 데모 UI ----------
+# ---------- the demo UI ----------
 @app.get("/")
 def index():
-    # 캐시를 막는다 — UI 를 고치고 새로고침했는데 옛 화면이 나오면 시연 중에 원인을 찾기 어렵다
+    # No caching — editing the UI, refreshing and getting the old screen wastes demo time
     return FileResponse(os.path.join(STATIC, "index.html"), headers={"Cache-Control": "no-store"})
 
 

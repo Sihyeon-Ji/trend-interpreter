@@ -1,4 +1,4 @@
-# 이 후보 프로젝트에서 생성되는 것들 (prototype/ 아래는 각자 관리한다)
+# Things this candidate project generates (everything under prototype/ manages its own)
 .env
 .env.*
 !.env.example

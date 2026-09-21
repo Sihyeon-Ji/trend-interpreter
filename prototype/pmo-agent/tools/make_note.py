@@ -1,10 +1,11 @@
-"""데모용 회의 메모 이미지 생성 — ingest.py 의 멀티모달 경로를 실제로 검증하기 위한 것.
+"""Generate a meeting-note image for the demo, to exercise ingest.py multimodal path for real.
 
-진짜 손글씨는 아니다. 종이 질감·기울어짐·잉크 번짐·줄 간격 흔들림을 넣어
-'폰으로 찍은 메모지'에 가깝게 만든 합성 이미지다.
-실제 손글씨 판독력은 사람이 직접 쓴 사진으로 한 번 더 확인해야 한다 (README 한계 항목).
+This is not real handwriting. It is a synthetic image with paper texture, a slight tilt,
+ink bleed and wobbling line spacing, to get close to "a photo of a notepad".
+How well real handwriting reads still needs one check against a photo a person wrote
+(see the limitations in the README).
 
-실행: python tools/make_note.py [출력경로]
+Run: python tools/make_note.py [output path]
 """
 
 from __future__ import annotations
@@ -18,24 +19,38 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from pmo_agent.env import samples_dir
 
 OUT = str(samples_dir() / "meeting-note.png")
-FONT = r"C:\Windows\Fonts\batang.ttc"  # 명조 계열 — 고딕보다 필기에 가깝다
+FONTS = (  # Ink Free is a handwriting face shipped with Windows; Segoe Script is the fallback
+    r"C:\Windows\Fonts\Inkfree.ttf",
+    r"C:\Windows\Fonts\segoesc.ttf",
+)
 PAPER = (250, 247, 238)
 INK = (32, 38, 60)
 
-# 시드 보드(data/seed.py)의 실제 태스크를 가리킨다 — 데모에서 메모와 보드가 어긋나지 않게.
-# ECHO-27(단위 테스트 보강)은 재배치 제안이 '오태경 → 한서준'으로 집어내는 바로 그 태스크다.
+# The note names the work the way a person would — **no ticket keys.**
+# Real meeting notes do not carry them, and working out which task each line means is
+# exactly what ingest.resolve() is for. Put the keys in and the demo proves nothing.
 LINES = [
-    ("9/21 주간 회의", 0),
+    ("9/21 weekly", 0),
     ("", 0),
-    ("- 인증 구현(ECHO-16) : 외부 IdP 결정 지연", 1),
-    ("   → 마감 10/5로 미룸", 2),
-    ("- ECHO-22 API 연동 오늘 끝남 (완료)", 1),
-    ("- 오태경 부하 큼", 1),
-    ("   단위테스트(ECHO-27) 한서준한테 넘기는거 검토", 2),
-    ("- 정기회의 다음주 월요일 취소", 1),
+    ("- authentication: still waiting on the IdP decision", 1),
+    ("   -> push the due date to 10/5", 2),
+    ("- API client finished today (done)", 1),
+    ("- Maya is overloaded", 1),
+    ("   look at moving the unit tests to Noah", 2),
+    ("- team sync cancelled next Monday", 1),
     ("", 0),
-    ("* 통합테스트(ECHO-28) 일정 다시 봐야 함", 0),
+    ("* integration tests need a fresh date", 0),
 ]
+
+
+def _font(size: int):
+    """The first handwriting face that is actually installed."""
+    for path in FONTS:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def render(path: str = OUT, seed: int = 7) -> str:
@@ -44,7 +59,7 @@ def render(path: str = OUT, seed: int = 7) -> str:
     img = Image.new("RGB", (W, H), PAPER)
     d = ImageDraw.Draw(img)
 
-    # 종이 결: 옅은 얼룩과 가로 괘선
+    # Paper grain: faint blotches and horizontal rules
     for _ in range(1400):
         x, y = rnd.randrange(W), rnd.randrange(H)
         v = rnd.randint(-6, 6)
@@ -58,9 +73,9 @@ def render(path: str = OUT, seed: int = 7) -> str:
             y += 26
             continue
         size = 40 if indent == 0 and text.startswith("9/") else 32
-        font = ImageFont.truetype(FONT, size)
-        x = 70 + indent * 34 + rnd.randint(-3, 3)  # 줄마다 살짝 흔들리게
-        # 글자마다 미세하게 위아래로 흔들어 필기감을 낸다
+        font = _font(size)
+        x = 70 + indent * 34 + rnd.randint(-3, 3)  # wobble each line a little
+        # Nudge each glyph up and down a touch, for a handwritten feel
         for ch in text:
             dy = rnd.randint(-2, 2)
             d.text(
@@ -77,8 +92,8 @@ def render(path: str = OUT, seed: int = 7) -> str:
         y += size + 22
 
     img = img.rotate(rnd.uniform(-1.6, 1.6), resample=Image.BICUBIC, fillcolor=PAPER)
-    img = img.filter(ImageFilter.GaussianBlur(0.6))  # 촬영 초점 흐림
-    # 조명 기울기 (한쪽이 어둡게)
+    img = img.filter(ImageFilter.GaussianBlur(0.6))  # camera focus blur
+    # Lighting gradient (one side darker)
     grad = Image.linear_gradient("L").resize((W, H)).rotate(70, fillcolor=128)
     img = Image.composite(
         img, Image.blend(img, Image.new("RGB", (W, H), (200, 197, 190)), 0.35), grad
@@ -91,4 +106,4 @@ def render(path: str = OUT, seed: int = 7) -> str:
 
 if __name__ == "__main__":
     p = render(sys.argv[1] if len(sys.argv) > 1 else OUT)
-    print("생성:", p, os.path.getsize(p), "bytes")
+    print("written:", p, os.path.getsize(p), "bytes")

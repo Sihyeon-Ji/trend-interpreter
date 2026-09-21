@@ -1,12 +1,13 @@
-"""메모·필기 이미지 → 일정 변경 제안. Gemini 멀티모달 입력 경로.
+"""Notes and handwritten photos → proposed schedule changes. The Gemini multimodal path.
 
-설계 원칙(SETUP.md 그대로): 모델은 '읽기'만 한다 — 사진과 문장에서 무엇을 말하는지 뽑아낼 뿐,
-태스크가 실존하는지·날짜가 말이 되는지·일정에 어떤 영향인지는 전부 이 파일의 코드와 schedule.py 가
-판정한다.
-모델이 지어낸 태스크 키나 상대 날짜는 여기서 걸러져 '사람에게 물을 질문'으로 떨어진다.
+Design rule (straight from SETUP.md): the model only *reads*. It pulls out what a photo or a
+sentence says, and nothing else — whether the task exists, whether the date makes sense, what it
+does to the schedule, all of that is decided by the code in this file and by schedule.py.
+A task key or a relative date the model made up is caught here and turned into a
+question for a person.
 
-네트워크 호출은 call() 하나뿐이고 주입 가능하다 — 그래서 API 키 없이 나머지 전부를 단위 테스트할 수
-있다.
+There is exactly one network call, call(), and it is injectable — which is how everything else
+unit-tests with no API key.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import sys
 
 from pmo_agent import llm, schedule
 
-MAX_BYTES = 15 * 1024 * 1024  # inline 첨부 상한 (그 이상은 Files API 가 필요하다)
+MAX_BYTES = 15 * 1024 * 1024  # inline attachment ceiling (past this you need the Files API)
 MIME = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -31,15 +32,16 @@ MIME = {
     ".pdf": "application/pdf",
 }
 
-EXTRACT_SYSTEM = """너는 회의 메모와 손글씨 노트를 읽어 프로젝트 변경사항을 뽑아내는 추출기다. 규칙:
-1) 문서에 적힌 것만 뽑는다. 추측하거나 보충하지 않는다. 안 읽히면 읽히는 대로만 적고 confidence 를
-낮춘다.
-2) 날짜는 반드시 YYYY-MM-DD 로 적는다. '다음 주 화요일' 같은 표현은
-   주어진 오늘 날짜를 기준으로 환산한다. 불확실하면 duedate 를 비우고 question 에 적는다.
-3) 태스크는 문서에 적힌 그대로 적는다
-   (키 'ECHO-12' 가 있으면 키를, 없으면 제목 문구를). 키를 지어내지 않는다.
-4) 일정 계산은 하지 않는다. 며칠 밀리는지, 무엇이 임계경로인지는 네 일이 아니다.
-5) 담당자 확인이 필요한 것은 question 으로 남긴다."""
+EXTRACT_SYSTEM = """You read meeting notes and handwritten notes and extract project changes. Rules:
+1) Extract only what is written. Do not guess or fill in. If something is unreadable, write what you
+can read and lower the confidence.
+2) Dates must be written YYYY-MM-DD. Convert phrases like "next Tuesday" against the date you are
+   given as today. If you are unsure, leave duedate empty and put it in question.
+3) Write the task exactly as the document does (its key 'ECHO-12' if one is there, otherwise the
+   title text). Never invent a key.
+4) Do not compute schedules. How many days something slips, or what is on the
+   critical path, is not your job.
+5) Anything that needs checking with an owner goes in question."""
 
 SCHEMA = {
     "type": "object",
@@ -49,14 +51,14 @@ SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "task": {"type": "string", "description": "태스크 키 또는 제목 문구"},
-                    "duedate": {"type": "string", "description": "YYYY-MM-DD, 없으면 빈 문자열"},
+                    "task": {"type": "string", "description": "task key or title text"},
+                    "duedate": {"type": "string", "description": "YYYY-MM-DD, empty if none"},
                     "status": {
                         "type": "string",
-                        "description": "예: Done, In Progress. 없으면 빈 문자열",
+                        "description": "e.g. Done, In Progress. Empty if none",
                     },
-                    "note": {"type": "string", "description": "코멘트로 남길 특이사항"},
-                    "confidence": {"type": "number", "description": "0.0~1.0 판독 확신도"},
+                    "note": {"type": "string", "description": "anything to leave as a comment"},
+                    "confidence": {"type": "number", "description": "0.0-1.0 reading confidence"},
                 },
                 "required": ["task"],
             },
@@ -64,33 +66,35 @@ SCHEMA = {
         "notes": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "태스크에 매달리지 않는 일반 특이사항",
+            "description": "general remarks not tied to a task",
         },
         "questions": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "사람에게 확인할 질문",
+            "description": "questions to put to a person",
         },
     },
     "required": ["updates"],
 }
 
 
-# ---------- 입력 만들기 (키 불필요) ----------
+# ---------- building the input (no key needed) ----------
 def mime_of(path: str) -> str:
     ext = os.path.splitext(path)[1].lower()
     if ext not in MIME:
-        raise ValueError(f"지원하지 않는 형식: {ext or path} (지원: {', '.join(sorted(MIME))})")
+        raise ValueError(
+            f"unsupported format: {ext or path} (supported: {', '.join(sorted(MIME))})"
+        )
     return MIME[ext]
 
 
 def attach(path: str) -> dict:
-    """파일 → Gemini inline_data 파트. 크기 상한을 넘으면 거부한다."""
+    """File → a Gemini inline_data part. Refuses anything over the size ceiling."""
     size = os.path.getsize(path)
     if size > MAX_BYTES:
         raise ValueError(
-            f"{os.path.basename(path)} 가 너무 크다 ({size / 1048576:.1f}MB > 15MB). 줄여서 다시 "
-            f"넣어라."
+            f"{os.path.basename(path)} is too large ({size / 1048576:.1f}MB > 15MB). "
+            f"Shrink it and try again."
         )
     with open(path, "rb") as f:
         return {
@@ -99,22 +103,22 @@ def attach(path: str) -> dict:
 
 
 def build_parts(text: str = "", images=(), today: dt.date | None = None, keys=()) -> list:
-    """모델에 보낼 parts. 실존 태스크 키 목록을 같이 줘서 헛다리를 줄인다."""
+    """The parts to send. Real task keys go along too, to cut down on invention."""
     today = today or dt.date.today()
-    head = [f"오늘은 {today.isoformat()} 이다."]
+    head = [f"Today is {today.isoformat()}."]
     if keys:
-        head.append("이 프로젝트에 실제로 존재하는 태스크 키: " + ", ".join(sorted(keys)[:200]))
+        head.append("Task keys that really exist in this project: " + ", ".join(sorted(keys)[:200]))
     if text:
-        head.append("메모:\n" + text)
+        head.append("Note:\n" + text)
     if images:
-        head.append(f"첨부한 이미지 {len(images)}장에서 읽히는 내용도 함께 반영하라.")
+        head.append(f"Also take in what can be read from the {len(images)} attached image(s).")
     return [{"text": "\n\n".join(head)}] + [attach(p) for p in images]
 
 
-# ---------- 모델 호출 (여기만 키가 필요) ----------
+# ---------- the model call (the only place a key is needed) ----------
 def call(parts: list) -> dict:
-    """Gemini 멀티모달 호출. JSON 스키마를 강제해 자유 문장이 섞이지 않게 한다.
-    재시도·오류 본문·백엔드 전환은 llm.py 가 맡는다."""
+    """The Gemini multimodal call. A JSON schema is enforced so no free prose creeps in.
+    Retries, error bodies and backend switching are llm.py's job."""
     return llm.generate(
         {
             "contents": [{"role": "user", "parts": parts}],
@@ -129,9 +133,9 @@ def call(parts: list) -> dict:
 
 
 def parse(resp: dict) -> dict:
-    """Gemini 응답 → {updates, notes, questions}.
+    """Gemini response → {updates, notes, questions}.
 
-    깨진 응답은 예외 대신 빈 결과 + 질문으로 돌려준다.
+    A broken response comes back as an empty result plus a question, never as an exception.
     """
     parts = ((resp.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
     raw = "".join(p.get("text", "") for p in parts).strip()
@@ -139,7 +143,7 @@ def parse(resp: dict) -> dict:
         return {
             "updates": [],
             "notes": [],
-            "questions": ["모델이 아무것도 읽어내지 못했다. 사진이 흐리지 않은지 확인 필요."],
+            "questions": ["The model read nothing at all. Check whether the photo is blurred."],
         }
     try:
         data = json.loads(raw)
@@ -147,7 +151,7 @@ def parse(resp: dict) -> dict:
         return {
             "updates": [],
             "notes": [],
-            "questions": ["모델 응답을 해석하지 못했다. 다시 시도 필요."],
+            "questions": ["The model's response could not be parsed. Try again."],
             "raw": raw[:500],
         }
     return {
@@ -157,12 +161,12 @@ def parse(resp: dict) -> dict:
     }
 
 
-# ---------- 검증 (키 불필요) ----------
+# ---------- validation (no key needed) ----------
 def resolve(name: str, tasks: dict) -> tuple:
-    """모델이 말한 태스크 → 실제 키. 반환 (키 or None, 사유).
-    키 일치 우선, 없으면 제목 부분일치. 여러 개에 걸리면 사람이 고르게 한다."""
+    """What the model called a task → a real key. Returns (key or None, reason).
+    Key match first, then partial title match. If several match, a person chooses."""
     if not name:
-        return None, "태스크가 비어 있다"
+        return None, "the task is empty"
     s = name.strip()
     for k in tasks:
         if k.lower() == s.lower():
@@ -171,13 +175,13 @@ def resolve(name: str, tasks: dict) -> tuple:
     if len(hits) == 1:
         return hits[0], ""
     if len(hits) > 1:
-        return None, f"'{s}' 가 여러 태스크에 걸린다: {', '.join(sorted(hits))}"
-    return None, f"'{s}' 에 해당하는 태스크가 없다"
+        return None, f"'{s}' matches several tasks: {', '.join(sorted(hits))}"
+    return None, f"no task matches '{s}'"
 
 
 def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int = 400) -> dict:
-    """모델 출력 → 적용 가능한 변경(resolved) / 사람에게 물을 것(unresolved).
-    태스크가 실존하고, 날짜가 ISO 이고, 상식적인 범위일 때만 통과시킨다."""
+    """Model output → changes that can be applied (resolved) / things to ask about (unresolved).
+    Only passes what names a real task, with an ISO date in a sensible range."""
     resolved, unresolved = [], []
     questions = list(extraction.get("questions") or [])
     for u in extraction.get("updates") or []:
@@ -197,12 +201,12 @@ def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int 
                 d = schedule.parse_date(due)
             except ValueError:
                 unresolved.append(
-                    {"said": u.get("task"), "reason": f"날짜를 해석할 수 없다: '{due}'", "raw": u}
+                    {"said": u.get("task"), "reason": f"cannot read the date: '{due}'", "raw": u}
                 )
                 continue
             if abs((d - today).days) > max_ahead_days:
                 unresolved.append(
-                    {"said": u.get("task"), "reason": f"날짜가 비상식적이다: {d}", "raw": u}
+                    {"said": u.get("task"), "reason": f"the date makes no sense: {d}", "raw": u}
                 )
                 continue
             item["duedate"] = d.isoformat()
@@ -211,12 +215,12 @@ def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int 
             item["status"] = u["status"].strip()
         if (u.get("note") or "").strip():
             item["note"] = u["note"].strip()
-        if len(item) <= 4:  # key/summary/assignee/confidence 뿐 = 바뀌는 게 없다
-            unresolved.append({"said": u.get("task"), "reason": "바꿀 내용이 없다", "raw": u})
+        if len(item) <= 4:  # key/summary/assignee/confidence only = nothing actually changes
+            unresolved.append({"said": u.get("task"), "reason": "nothing to change", "raw": u})
             continue
         resolved.append(item)
     for r in unresolved:
-        questions.append(f"{r['reason']} — 원문: '{r['said']}'. 어느 태스크를 말하는지 확인 필요.")
+        questions.append(f"{r['reason']} — from: '{r['said']}'. Which task is meant?")
     return {
         "resolved": resolved,
         "unresolved": unresolved,
@@ -226,7 +230,7 @@ def validate(extraction: dict, tasks: dict, today: dt.date, max_ahead_days: int 
 
 
 def impact(resolved: list, tasks: dict, today: dt.date) -> dict:
-    """변경을 적용하면 일정이 어떻게 되는지. 숫자는 전부 schedule.py 가 낸다."""
+    """What the changes would do to the schedule. Every number comes from schedule.py."""
     after = {k: schedule.Task(**dict(t.__dict__)) for k, t in tasks.items()}
     for r in resolved:
         t = after[r["key"]]
@@ -246,7 +250,7 @@ def impact(resolved: list, tasks: dict, today: dt.date) -> dict:
 
 
 def to_proposals(v: dict) -> list:
-    """검증 통과분 → 승인 게이트에 올릴 propose_* 호출 목록. 여기서 실행하지 않는다."""
+    """Validated changes → the propose_* calls for the approval gate. Nothing runs here."""
     out = []
     for r in v.get("resolved") or []:
         if r.get("duedate"):
@@ -262,25 +266,25 @@ def to_proposals(v: dict) -> list:
     for n in v.get("notes") or []:
         out.append(
             {"tool": "note", "args": {"text": n}}
-        )  # 태스크에 안 붙는 특이사항 — 리포트에만 남는다
+        )  # a remark tied to no task — it only reaches the report
     return out
 
 
-# ---------- 조합 ----------
+# ---------- putting it together ----------
 def ingest(
     text: str = "", images=(), tasks: dict | None = None, today: dt.date | None = None, caller=call
 ) -> dict:
-    """메모/이미지 → 검증된 변경 제안 + 일정 영향 + 사람에게 물을 질문.
-    caller 를 바꿔 끼우면 네트워크 없이 돌릴 수 있다 (테스트가 그렇게 한다)."""
+    """Note or image → validated change proposals, schedule impact, and questions for a person.
+    Swap `caller` and it runs with no network (which is what the tests do)."""
     tasks = tasks or {}
     today = today or dt.date.today()
     if not text and not images:
-        return {"error": "메모 텍스트나 이미지 중 하나는 있어야 한다."}
+        return {"error": "there has to be either note text or an image."}
     parts = build_parts(text, images, today, keys=tasks.keys())
     v = validate(parse(caller(parts)), tasks, today)
     v["proposals"] = to_proposals(v)
     v["impact"] = impact(v["resolved"], tasks, today) if v["resolved"] else None
-    v["applied"] = False  # 승인 전에는 아무것도 반영되지 않았다
+    v["applied"] = False  # nothing is applied before approval
     return schedule.iso(v)
 
 

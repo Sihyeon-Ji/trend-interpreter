@@ -1,9 +1,9 @@
-"""평가 케이스가 테스트에서도 돈다 — 시연 전에 깨진 것을 알기 위해.
+"""The evaluation cases also run as tests — so a break shows up before the demo.
 
-`tools/evaluate.py` 를 사람이 돌리는 것만으로는 회귀를 놓친다.
-여기에 묶어 두면 계산을 고칠 때마다 정답지와 맞는지 자동으로 확인된다.
+Running `tools/evaluate.py` by hand is not enough to catch a regression.
+Tied in here, every change to the calculation is checked against the answer key automatically.
 
-실행: pytest -q
+Run: pytest -q
 """
 
 from __future__ import annotations
@@ -18,34 +18,36 @@ sys.path.insert(0, str(TOOLS))
 
 import evaluate  # noqa: E402
 
-TODAY = dt.date(2026, 9, 21)  # 월요일
+TODAY = dt.date(2026, 9, 21)  # a Monday
 
 
 class TestCaseFile:
-    def test_열_건이_있다(self):
+    def test_there_are_twelve(self):
         cases = evaluate.load_cases()
-        assert len(cases) == 10
+        assert len(cases) == 12
 
-    def test_성공_다섯_실패_다섯(self):
+    def test_five_detect_and_seven_restraint(self):
+        # The team document asks for 5 successes and 5 failures. There are more restraint cases —
+        # not inventing what is not there matters more.
         cases = evaluate.load_cases()
         assert sum(1 for c in cases if c["group"] == "detect") == 5
-        assert sum(1 for c in cases if c["group"] == "restraint") == 5
+        assert sum(1 for c in cases if c["group"] == "restraint") == 7
 
-    def test_모든_케이스에_검사가_등록돼_있다(self):
+    def test_every_case_has_a_registered_check(self):
         for case in evaluate.load_cases():
             assert case["check"] in evaluate.CHECKS, case["id"]
 
-    def test_아이디가_겹치지_않는다(self):
+    def test_the_ids_do_not_collide(self):
         ids = [c["id"] for c in evaluate.load_cases()]
         assert len(ids) == len(set(ids))
 
-    def test_왜_심었는지_적혀_있다(self):
-        # 근거 없는 케이스는 나중에 아무도 고치지 못한다
+    def test_each_one_says_why_it_was_planted(self):
+        # A case with no stated reason is one nobody will ever be able to fix
         for case in evaluate.load_cases():
             assert case.get("why"), case["id"]
             assert case.get("ask"), case["id"]
 
-    def test_JSONL_한_줄씩_읽힌다(self):
+    def test_the_jsonl_reads_one_line_at_a_time(self):
         text = evaluate.CASES.read_text(encoding="utf-8")
         for line in text.splitlines():
             if line.strip():
@@ -53,21 +55,21 @@ class TestCaseFile:
 
 
 class TestRun:
-    def test_전부_통과한다(self):
+    def test_they_all_pass(self):
         rows = evaluate.run(TODAY)
         failed = [f"{r['id']}: {r['detail']}" for r in rows if not r["passed"]]
-        assert not failed, "실패: " + " / ".join(failed)
+        assert not failed, "failed: " + " / ".join(failed)
 
-    def test_결과에_근거가_담긴다(self):
+    def test_the_results_carry_their_evidence(self):
         for row in evaluate.run(TODAY):
             assert row["detail"], row["id"]
 
-    def test_오늘_날짜로도_통과한다(self):
-        # 세계는 오늘을 기준으로 만들어진다 — 날짜가 바뀌어도 정답지와 계산이 맞아야 한다
+    def test_it_passes_with_todays_date_too(self):
+        # The world is built around today — the answer key and the calculation must agree whenever
         rows = evaluate.run()
         assert all(r["passed"] for r in rows), [r["id"] for r in rows if not r["passed"]]
 
-    def test_실제_감사로그를_건드리지_않는다(self):
+    def test_it_does_not_touch_the_real_audit_log(self):
         from pmo_agent import approve as approve_mod
 
         before = approve_mod.LOG

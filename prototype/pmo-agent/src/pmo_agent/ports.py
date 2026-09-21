@@ -1,10 +1,11 @@
-"""어댑터가 지켜야 할 인터페이스.
+"""The interfaces an adapter has to keep.
 
-"Jira 어댑터와 로컬 보드는 같은 모양"이라는 말은 지금까지 주석과 테스트로만 유지됐다.
-여기에 Protocol 로 적어 두면 타입 검사기가 강제한다 — 한쪽에만 메서드를 추가하면 mypy 가 잡는다.
-PM 도구에 종속되지 않는다는 주장의 근거가 문서가 아니라 검사 결과가 된다.
+"The Jira adapter and the local board are the same shape" was, until now, held up by
+comments and tests alone. Written here as a Protocol, the type checker enforces it —
+add a method to one side only and mypy catches it. The claim that this is not tied to
+one PM tool then rests on a check result rather than on documentation.
 
-Protocol 이라 어댑터가 이 모듈을 import 할 필요는 없다 (구조적 타이핑).
+These are Protocols, so adapters never import this module (structural typing).
 """
 
 from __future__ import annotations
@@ -14,15 +15,15 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class Board(Protocol):
-    """태스크 보드. Jira Cloud 와 로컬 JSON 보드가 이 모양을 따른다.
+    """A task board. Jira Cloud and the local JSON board both take this shape.
 
-    쓰기 메서드는 전부 approve 인자를 받고, 기본값은 '반영하지 않음'이다.
+    Every write method takes an `approve` argument, defaulting to "do not apply".
     """
 
     project: str
     site: str
 
-    # 읽기
+    # reads
     def whoami(self) -> dict[str, Any]: ...
     def project_info(self) -> dict[str, Any]: ...
     def search(self, jql: str | None = ..., limit: int = ...) -> list[dict[str, Any]]: ...
@@ -30,7 +31,7 @@ class Board(Protocol):
     def transitions(self, key: str) -> list[dict[str, Any]]: ...
     def done_since(self, days: int = ..., limit: int = ...) -> list[dict[str, Any]]: ...
 
-    # 쓰기 (approve=False 면 dry_run 결과만 돌려준다)
+    # writes (approve=False returns the dry-run result only)
     def comment(self, key: str, text: str, approve: bool = ...) -> dict[str, Any]: ...
     def set_fields(
         self, key: str, fields: dict[str, Any], approve: bool = ...
@@ -43,10 +44,10 @@ class Board(Protocol):
 
 @runtime_checkable
 class Repo(Protocol):
-    """코드 저장소. GitHub 과 로컬 JSON 저장소가 이 모양을 따른다.
+    """A code repository. GitHub and the local JSON repo both take this shape.
 
-    **읽기 전용이다.** 쓰기 메서드를 여기 추가하지 않는다 — 추가하면 그 순간
-    '남의 저장소에 무언가를 만들 경로가 없다'는 보장이 사라진다.
+    **Read-only.** Do not add a write method here — the moment you do, the guarantee
+    that there is no path to create anything in someone else's repository is gone.
     """
 
     repo: str
@@ -62,11 +63,11 @@ class Repo(Protocol):
 
 @runtime_checkable
 class Calendar(Protocol):
-    """캘린더. MS Graph(Outlook) 와 로컬 JSON 캘린더가 이 모양을 따른다.
+    """A calendar. MS Graph (Outlook) and the local JSON calendar both take this shape.
 
-    **읽기 전용이다.** 남의 일정을 만들거나 지울 경로를 두지 않는다.
-    보드·저장소와 달리 여기서 나오는 값은 '무엇을 했나'가 아니라
-    '무엇을 할 시간이 남았나'다 — capacity.py 의 입력이다.
+    **Read-only.** There is no path to create or delete anyone's events.
+    Unlike the board and the repo, what comes out of here is not "what was done" but
+    "how much time is left to do it in" — the input to capacity.py.
     """
 
     source: str

@@ -1,14 +1,14 @@
-"""주간 리포트 — schedule.py 의 계산 결과를 마크다운으로 옮긴다.
+"""The weekly report — schedule.py's results, moved into Markdown.
 
-여기에 계산은 없다. 숫자는 전부 schedule.py 가 내고, 이 파일은 배치와 문장만 담당한다.
-Gemini 도 쓰지 않는다 — 리포트는 매주 같은 모양이어야 하고, 같은 보드에서 같은 글이 나와야 한다.
-
-한계를 문서에 적어 둔다: 보드에 '언제 완료됐는지'가 없어서 '이번 주에 끝난 일'은 알 수 없다.
-대신 승인 로그(logs/approvals.jsonl)로 '이번 주에 무엇을 반영했는지'를 보여준다.
-
-실행:
-  PMO_BACKEND=memory python agent/report.py            리포트 출력
-  PMO_BACKEND=memory python agent/report.py --save     reports/ 에 저장
+There is no calculation here. Every number comes from schedule.py; this file does layout and prose.
+It does not use Gemini either — a report should look the same every week, and the same board
+should produce the same text.
+One limitation is written into the report itself: the board has no record of *when* something was
+completed, so "finished this week" cannot be derived. Instead the approval log
+(logs/approvals.jsonl) shows what was actually applied this week.
+Run:
+  PMO_BACKEND=memory python -m pmo_agent.report            print the report
+  PMO_BACKEND=memory python -m pmo_agent.report --save     write it to reports/
 """
 
 from __future__ import annotations
@@ -33,31 +33,31 @@ def _d(v) -> str:
 
 
 def question_for(r: dict) -> str:
-    """위험 한 건 → 담당자에게 물을 한 문장 (SYSTEM 규칙 4 를 코드로 고정)."""
-    who = r.get("assignee") or "담당자"
+    """One risk → one sentence to put to its owner (SYSTEM rule 4, pinned down in code)."""
+    who = r.get("assignee") or "the owner"
     if r.get("delay_days"):
         base = (
-            f"{who}님, {r['key']}({r['summary']})가 마감 {_d(r['duedate'])}보다 "
-            f"{r['delay_days']}일 늦을 것으로 보입니다"
+            f"{who}: {r['key']} ({r['summary']}) looks like it will finish "
+            f"{r['delay_days']} days past its due date of {_d(r['duedate'])}"
         )
     elif r.get("critical"):
-        base = f"{who}님, {r['key']}({r['summary']})는 여유가 없는 임계경로 작업입니다"
+        base = f"{who}: {r['key']} ({r['summary']}) is on the critical path with no slack"
     else:
-        base = f"{who}님, {r['key']}({r['summary']})의 여유가 {r['slack_days']}일뿐입니다"
+        base = f"{who}: {r['key']} ({r['summary']}) has only {r['slack_days']} days of slack"
     if r.get("blocks"):
-        base += f" — 끝나야 {', '.join(r['blocks'][:3])}가 시작됩니다"
-    return base + ". 현재 진행 상황과 예상 완료일을 알려주실 수 있을까요?"
+        base += f" — {', '.join(r['blocks'][:3])} cannot start until it lands"
+    return base + ". Could you share where it stands and when you expect it to finish?"
 
 
 def workload(tasks: dict) -> list:
-    """담당자별 남은 작업량. 누구에게 몰려 있는지 보는 용도."""
+    """Work left per owner. For seeing where it has piled up."""
     by: dict[str, dict] = {}
     for t in tasks.values():
         if t.is_done:
             continue
         row = by.setdefault(
-            t.assignee or "(미배정)",
-            {"assignee": t.assignee or "(미배정)", "count": 0, "days": 0.0},
+            t.assignee or "(unassigned)",
+            {"assignee": t.assignee or "(unassigned)", "count": 0, "days": 0.0},
         )
         row["count"] += 1
         row["days"] += t.remaining
@@ -67,30 +67,31 @@ def workload(tasks: dict) -> list:
 
 
 def due_soon(tasks: dict, today: dt.date, within: int = 5) -> list:
-    """앞으로 N영업일 안에 마감인 미완료 태스크."""
+    """Unfinished tasks due within the next N business days."""
     limit = schedule.add_workdays(today, within)
     out = [t for t in tasks.values() if not t.is_done and t.duedate and today <= t.duedate <= limit]
     return sorted(out, key=lambda t: (t.duedate, t.key))
 
 
 def committed_finish(tasks: dict) -> dt.date | None:
-    """팀이 약속한 완료일 = 태스크 마감일 중 가장 늦은 것.
+    """The finish the team committed to = the latest task due date.
 
-    CPM 으로 '오늘 시작하면 언제 끝나나'를 계획값으로 쓰면 예측값과 거의 같아져 비교가 무의미해진다.
-    리포트에서 의미 있는 비교는 '약속한 날 vs 지금 예측' 이다.
+    Using CPM's "if we started today, when would we finish" as the plan makes it almost identical
+    to the forecast, so the comparison says nothing. The comparison worth printing is
+    "the date we promised vs. what we now forecast".
     """
     ds = [t.duedate for t in tasks.values() if t.duedate]
     return max(ds) if ds else None
 
 
 def overdue(tasks: dict, today: dt.date) -> list:
-    """마감일이 이미 지났는데 안 끝난 것."""
+    """Past its due date and still not finished."""
     out = [t for t in tasks.values() if not t.is_done and t.duedate and t.duedate < today]
     return sorted(out, key=lambda t: (t.duedate, t.key))
 
 
 def recent_approvals(since: dt.date, path: str | None = None) -> list:
-    """since 이후 실제로 반영된 변경. 승인 로그가 없으면 빈 목록."""
+    """Changes actually applied since `since`. Empty when there is no approval log."""
     p = path or LOG
     if not os.path.exists(p):
         return []
@@ -119,7 +120,7 @@ def weekly(
     code: dict | None = None,
     availability: dict | None = None,
 ) -> str:
-    """주간 리포트 마크다운 한 덩어리."""
+    """The whole weekly report, as Markdown."""
     today = today or dt.date.today()
     since = schedule.add_workdays(today, -5)
     c = schedule.cpm(tasks, today)
@@ -130,143 +131,145 @@ def weekly(
     slip = schedule.workdays_between(committed, f["project_finish"]) if committed else 0
     late = overdue(tasks, today)
 
-    L = [f"# {project} 주간 리포트 — {today.isoformat()}", ""]
+    L = [f"# {project} weekly report — {today.isoformat()}", ""]
 
     L += [
-        "## 한눈에",
+        "## At a glance",
         "",
-        "| 항목 | 값 |",
+        "| item | value |",
         "|---|---|",
-        f"| 진행 | {done}/{len(tasks)}건 완료 ({round(done / max(len(tasks), 1) * 100)}%) |",
-        f"| 약속한 완료일 | {_d(committed)} |",
-        f"| 예측 완료일 | **{_d(f['project_finish'])}** ({'+' if slip > 0 else ''}{slip}영업일) |",
-        f"| 임계경로 | {len(c['critical_path'])}건 |",
-        f"| 지연 위험 | {len(rs)}건 |",
-        f"| 마감 경과 | {len(late)}건 |",
+        f"| progress | {done}/{len(tasks)} done ({round(done / max(len(tasks), 1) * 100)}%) |",
+        f"| committed finish | {_d(committed)} |",
+        f"| forecast finish | **{_d(f['project_finish'])}** "
+        f"({'+' if slip > 0 else ''}{slip} business days) |",
+        f"| critical path | {len(c['critical_path'])} tasks |",
+        f"| at risk of slipping | {len(rs)} |",
+        f"| past due | {len(late)} |",
         "",
     ]
 
     if slip > 0:
         L += [
-            f"> 예측이 약속한 완료일보다 **{slip}영업일** 늦습니다. 아래 위험 항목이 원인입니다.",
+            f"> The forecast is **{slip} business days** past the committed finish. "
+            f"The risks below are why.",
             "",
         ]
     elif slip < 0:
-        L += [f"> 예측이 약속한 완료일보다 {abs(slip)}영업일 빠릅니다.", ""]
+        L += [f"> The forecast is {abs(slip)} business days ahead of the committed finish.", ""]
 
     if done_recent is not None:
-        L += ["## 이번 주에 끝난 일", ""]
+        L += ["## Finished this week", ""]
         if done_recent:
-            L += ["| 태스크 | 담당 |", "|---|---|"]
+            L += ["| task | owner |", "|---|---|"]
             L += [f"| {t.key} {t.summary} | {t.assignee or '-'} |" for t in done_recent]
         else:
-            L.append("없습니다.")
+            L.append("Nothing.")
         L.append("")
 
-    L += ["## 지연 위험", ""]
+    L += ["## At risk of slipping", ""]
     if not rs:
-        L += ["없습니다.", ""]
+        L += ["Nothing.", ""]
     else:
         L += [
-            "| 태스크 | 담당 | 마감 | 예상 완료 | 지연 | 여유 | 근거 |",
+            "| task | owner | due | forecast | slip | slack | why |",
             "|---|---|---|---|---|---|---|",
         ]
         for r in rs[:TOP_RISKS]:
             L.append(
                 f"| {r['key']} {r['summary']} | {r['assignee'] or '-'} | {_d(r['duedate'])} | "
-                f"{_d(r['predicted_finish'])} | {r['delay_days'] or 0}일 | {r['slack_days']}일 | "
+                f"{_d(r['predicted_finish'])} | {r['delay_days'] or 0}d | {r['slack_days']}d | "
                 f"{r['reasons'][0]} |"
             )
         if len(rs) > TOP_RISKS:
-            L.append(f"| … | | | | | | 외 {len(rs) - TOP_RISKS}건 |")
+            L.append(f"| … | | | | | | and {len(rs) - TOP_RISKS} more |")
         L.append("")
 
     L += [
-        "## 임계경로",
+        "## Critical path",
         "",
-        (" → ".join(f"`{k}`" for k in c["critical_path"]) if c["critical_path"] else "없음"),
+        (" → ".join(f"`{k}`" for k in c["critical_path"]) if c["critical_path"] else "none"),
         "",
-        "이 경로가 밀리면 프로젝트 완료일이 그대로 밀립니다.",
+        "If this path slips, the project finish slips with it.",
         "",
     ]
 
     soon = due_soon(tasks, today)
-    L += ["## 이번 주 마감 예정", ""]
+    L += ["## Due this week", ""]
     if soon:
-        L += ["| 태스크 | 담당 | 마감 |", "|---|---|---|"]
+        L += ["| task | owner | due |", "|---|---|---|"]
         L += [f"| {t.key} {t.summary} | {t.assignee or '-'} | {_d(t.duedate)} |" for t in soon]
     else:
-        L.append("없습니다.")
+        L.append("Nothing.")
     L.append("")
 
     if late:
-        L += ["## 마감 경과", "", "| 태스크 | 담당 | 마감 | 상태 |", "|---|---|---|---|"]
+        L += ["## Past due", "", "| task | owner | due | status |", "|---|---|---|---|"]
         L += [
             f"| {t.key} {t.summary} | {t.assignee or '-'} | {_d(t.duedate)} | {t.status} |"
             for t in late[:TOP_RISKS]
         ]
         if len(late) > TOP_RISKS:
-            L.append(f"| … | | | 외 {len(late) - TOP_RISKS}건 |")
+            L.append(f"| … | | | and {len(late) - TOP_RISKS} more |")
         L.append("")
 
-    L += ["## 담당자별 남은 작업", "", "| 담당 | 건수 | 남은 영업일 |", "|---|---|---|"]
+    L += ["## Work left per owner", "", "| owner | tasks | business days left |", "|---|---|---|"]
     L += [f"| {w['assignee']} | {w['count']} | {w['days']} |" for w in workload(tasks)]
     L.append("")
 
-    # --- 사람 용량을 반영한 일정 ---
+    # --- the schedule with people's capacity applied ---
     lv = cap.levelled(tasks, today, availability=availability)
     lv_plain = cap.levelled(tasks, today) if availability else lv
     L += [
-        "## 실현 가능한 일정",
+        "## The achievable schedule",
         "",
-        "| 기준 | 완료일 |",
+        "| constraint | finish |",
         "|---|---|",
-        f"| 의존관계만 반영 | {_d(lv['unconstrained_finish'])} |",
+        f"| dependencies only | {_d(lv['unconstrained_finish'])} |",
     ]
     if availability:
-        # 각 제약이 며칠씩 더하는지 분리해서 보여준다 — 합쳐 놓으면 원인을 못 짚는다
+        # Show what each constraint adds on its own — rolled together, the cause is invisible
         meeting_slip = schedule.workdays_between(lv_plain["project_finish"], lv["project_finish"])
         L += [
-            f"| 사람 용량 반영 | {_d(lv_plain['project_finish'])} |",
-            f"| **회의 시간까지 반영** | **{_d(lv['project_finish'])}** "
-            f"(+{lv['slip_vs_unconstrained']}영업일, 이 중 회의가 {meeting_slip}일) |",
+            f"| plus people's capacity | {_d(lv_plain['project_finish'])} |",
+            f"| **plus meeting time** | **{_d(lv['project_finish'])}** "
+            f"(+{lv['slip_vs_unconstrained']} business days, {meeting_slip} of them meetings) |",
             "",
         ]
     else:
         L += [
-            f"| **사람 용량까지 반영** | **{_d(lv['project_finish'])}** "
-            f"(+{lv['slip_vs_unconstrained']}영업일) |",
+            f"| **plus people's capacity** | **{_d(lv['project_finish'])}** "
+            f"(+{lv['slip_vs_unconstrained']} business days) |",
             "",
-            "> 캘린더가 연결되지 않아 전원이 하루를 온전히 쓴다고 가정했습니다. "
-            "회의를 반영하면 더 늦어집니다.",
+            "> No calendar is connected, so everyone is assumed to have whole days. "
+            "With meetings it gets later.",
             "",
         ]
     if lv["bottleneck"]:
         b = lv["bottleneck"]
         L += [
-            f"> 병목은 **{b['assignee']}** 입니다 — 남은 {b['busy_days']}영업일, 가동률 "
+            f"> The bottleneck is **{b['assignee']}** — {b['busy_days']} business days left, "
             f"{b['utilization']}. "
-            f"이 사람이 비는 {_d(b['free_at'])}가 프로젝트의 하한선입니다.",
+            f"They free up on {_d(b['free_at'])}, which is the floor for the project.",
             "",
         ]
     if availability:
         L += [
-            "| 담당 | 남은 영업일 | 회의로 잃는 시간 | 실가용 | 가동률 | 마지막 작업 종료 |",
+            "| owner | days left | lost to meetings | usable | utilisation | last finish |",
             "|---|---|---|---|---|---|",
         ]
         for r in lv["resources"]:
             m = avail_mod.meeting_load(availability, r["assignee"], today, 10)
             L.append(
-                f"| {r['assignee']} | {r['busy_days']} | {m['lost_hours']}시간 |"
-                f" {m['available_days']}/10일 | {r['utilization']} | {_d(r['free_at'])} |"
+                f"| {r['assignee']} | {r['busy_days']} | {m['lost_hours']}h |"
+                f" {m['available_days']}/10d | {r['utilization']} | {_d(r['free_at'])} |"
             )
     else:
         L += [
-            "| 담당 | 동시 처리 | 남은 영업일 | 가동률 | 마지막 작업 종료 |",
+            "| owner | concurrent | business days left | utilisation | last finish |",
             "|---|---|---|---|---|",
         ]
         L += [
-            f"| {r['assignee']} | {r['capacity']}건 | {r['busy_days']} | {r['utilization']} | "
+            f"| {r['assignee']} | {r['capacity']} | {r['busy_days']} | {r['utilization']} | "
             f"{_d(r['free_at'])} |"
             for r in lv["resources"]
         ]
@@ -274,14 +277,14 @@ def weekly(
     waiting = cap.blocked_by_people(lv)
     if waiting:
         L += [
-            "선행 작업은 끝났는데 **담당자가 바빠서** 기다리는 태스크입니다. 의존관계가 아니라 "
-            "사람이 원인입니다.",
+            "Tasks whose dependencies are met but whose **owner is busy**. The cause is a person, "
+            "not a dependency.",
             "",
-            "| 태스크 | 담당 | 대기 | 시작 예정 |",
+            "| task | owner | waiting | starts |",
             "|---|---|---|---|",
         ]
         L += [
-            f"| {w['key']} {w['summary']} | {w['assignee']} | {w['waiting_days']}일 | "
+            f"| {w['key']} {w['summary']} | {w['assignee']} | {w['waiting_days']}d | "
             f"{_d(w['start'])} |"
             for w in waiting
         ]
@@ -289,45 +292,47 @@ def weekly(
 
     if rebalance:
         rb = cap.rebalance(tasks, today, availability=availability)
-        L += ["## 재배치 제안", ""]
+        L += ["## Rebalancing proposal", ""]
         if rb["moves"]:
             L += [
-                f"아래 {len(rb['moves'])}건을 옮기면 완료일이 **{_d(rb['before'])} → "
+                f"Moving the {len(rb['moves'])} tasks below brings the finish from "
+                f"**{_d(rb['before'])} → "
                 f"{_d(rb['after'])}"
-                f" ({rb['gain_days']}영업일 단축)** 됩니다.",
+                f" ({rb['gain_days']} business days earlier)**.",
                 "",
-                "| 태스크 | 이동 | 단축 | 이동 후 완료일 |",
+                "| task | move | gain | finish after |",
                 "|---|---|---|---|",
             ]
             L += [
-                f"| {m['key']} {m['summary']} | {m['from']} → {m['to']} | {m['gain_days']}일 | "
+                f"| {m['key']} {m['summary']} | {m['from']} → {m['to']} | {m['gain_days']}d | "
                 f"{_d(m['new_finish'])} |"
                 for m in rb["moves"]
             ]
             L += [
                 "",
-                "제안일 뿐이며 반영되지 않았습니다. 실제 이동은 담당자 합의가 필요합니다.",
+                "A proposal only; nothing has been applied. A real move needs the owners to agree.",
                 "",
             ]
         else:
-            L += ["옮겨서 단축할 수 있는 태스크가 없습니다.", ""]
+            L += ["No task can be moved to pull the finish in.", ""]
 
     if code:
         L += [
-            "## 보드와 코드의 대조",
+            "## Board against code",
             "",
-            f"저장소 `{code.get('repo', '?')}` 기준. 보드에 적힌 상태와 실제 커밋·PR 을 맞대 본 "
-            f"결과입니다.",
+            f"From repository `{code.get('repo', '?')}`. The status written on the board, "
+            f"lined up against the actual commits and pull requests.",
             "",
         ]
         t = code.get("team") or {}
         L += [
-            "| 항목 | 값 |",
+            "| item | value |",
             "|---|---|",
-            f"| 최근 {t.get('window_days', 14)}일 커밋 | {t.get('commits', 0)}건 |",
-            f"| 기여 집중도 | {t.get('concentration', 0)} (1.0 이면 한 사람) |",
-            f"| 열린 PR | {t.get('open_prs', 0)}건 (리뷰 정체 {t.get('stale_prs', 0)}건) |",
-            f"| 마지막 커밋 | {t.get('last_commit') or '-'} |",
+            f"| commits in the last {t.get('window_days', 14)} days | {t.get('commits', 0)} |",
+            f"| contribution concentration | {t.get('concentration', 0)} (1.0 = one person) |",
+            f"| open pull requests | {t.get('open_prs', 0)} "
+            f"({t.get('stale_prs', 0)} stuck in review) |",
+            f"| last commit | {t.get('last_commit') or '-'} |",
             "",
         ]
         for n in t.get("notes") or []:
@@ -339,9 +344,9 @@ def weekly(
         ms = code.get("mismatches") or []
         if ms:
             L += [
-                "보드와 코드가 어긋난 태스크입니다. 한쪽만 봐서는 보이지 않습니다.",
+                "Tasks where the board and the code disagree. Neither side shows this alone.",
                 "",
-                "| 태스크 | 담당 | 종류 | 내용 |",
+                "| task | owner | kind | detail |",
                 "|---|---|---|---|",
             ]
             L += [
@@ -350,22 +355,22 @@ def weekly(
                 for m in ms[:TOP_RISKS]
             ]
             if len(ms) > TOP_RISKS:
-                L.append(f"| … | | | 외 {len(ms) - TOP_RISKS}건 |")
+                L.append(f"| … | | | and {len(ms) - TOP_RISKS} more |")
             L.append("")
         elif code.get("key_convention_in_use"):
-            L += ["어긋난 태스크가 없습니다.", ""]
+            L += ["Nothing disagrees.", ""]
 
-    L += ["## 확인 필요", ""]
+    L += ["## Needs checking", ""]
     if rs:
         L += [f"{i}. {question_for(r)}" for i, r in enumerate(rs[:5], 1)]
     else:
-        L.append("없습니다.")
+        L.append("Nothing.")
     L.append("")
 
     ap = recent_approvals(since, approvals_path)
-    L += [f"## 최근 반영 내역 ({_d(since)} 이후)", ""]
+    L += [f"## Applied recently (since {_d(since)})", ""]
     if ap:
-        L += ["| 시각 | 변경 | 대상 |", "|---|---|---|"]
+        L += ["| time | change | target |", "|---|---|---|"]
         L += [
             f"| {r['at']} | {r['tool'].replace('propose_', '')} | "
             f"{r['args'].get('key', '-')} "
@@ -374,18 +379,19 @@ def weekly(
             for r in ap
         ]
     else:
-        L.append("없습니다.")
+        L.append("Nothing.")
     L += [
         "",
         "---",
         "",
-        "숫자는 전부 `schedule.py`(CPM·영업일)와 `capacity.py`(자원 제약)가 계산했습니다. 주말은 "
-        "제외됩니다.",
-        "보드-코드 대조는 커밋·PR 에 태스크 키(ECHO-12)가 적혀 있을 때만 태스크 단위로 동작합니다.",
-        "용량 반영 일정은 담당자 1인당 동시 1건을 가정합니다. 실제 팀 운영 방식이 다르면 capacity "
-        "인자로 조정합니다.",
-        "'이번 주에 끝난 일'은 보드의 상태 변경 이력에서 가져옵니다 — 에이전트를 거치지 않은 "
-        "변경도 포함됩니다.",
+        "Every number came from `schedule.py` (CPM, business days) and `capacity.py` "
+        "(resource constraints). Weekends are excluded.",
+        "Board-to-code links do not need a ticket key; where one is missing the link is inferred "
+        "and declared as such, with a confidence.",
+        "The capacity schedule assumes one concurrent task per person. Adjust the `capacity` "
+        "argument if the team works differently.",
+        '"Finished this week" comes from the board\'s status history — including changes that '
+        "never went through the agent.",
         "",
     ]
     return "\n".join(L)
@@ -409,15 +415,15 @@ if __name__ == "__main__":
     done_recent = None
     try:
         done_recent = list(schedule.from_jira_issues(board.done_since(7)).values())
-    except Exception as e:  # 이력 조회를 지원하지 않는 백엔드면 섹션을 생략한다
-        print(f"(완료 이력 조회 생략: {str(e)[:80]})", file=sys.stderr)
+    except Exception as e:  # a backend with no history support just loses this section
+        print(f"(skipping completion history: {str(e)[:80]})", file=sys.stderr)
     code = None
     try:
         from pmo_agent.tools import repo
 
         code = signals.summary(_fetch(), repo().snapshot(100), today)
-    except Exception as e:  # 저장소가 없거나 인증이 없으면 이 섹션만 생략한다
-        print(f"(코드 신호 생략: {str(e)[:80]})", file=sys.stderr)
+    except Exception as e:  # no repository or no credentials loses only this section
+        print(f"(skipping code signals: {str(e)[:80]})", file=sys.stderr)
     text = weekly(
         _fetch(),
         today,
@@ -428,4 +434,4 @@ if __name__ == "__main__":
     )
     print(text)
     if "--save" in sys.argv:
-        print(f"\n저장: {save(text, today)}")
+        print(f"\nsaved: {save(text, today)}")

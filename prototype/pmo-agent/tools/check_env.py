@@ -1,6 +1,6 @@
-"""Echo PMO 환경 점검 — 실제 호출까지 해서 '연결되는지'를 확인한다.
-사용: python tools/check_env.py          (D:/echo-pmo 에서)
-계정·키 발급은 사람이, 검증은 이 스크립트가."""
+"""Echo PMO environment check — it makes real calls to confirm things actually connect.
+Use: python tools/check_env.py          (from prototype/pmo-agent)
+Accounts and keys are a person's job; verifying them is this script's."""
 
 from __future__ import annotations
 
@@ -63,9 +63,9 @@ def port_open(port):
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-print("=" * 78 + "\nEcho PMO 환경 점검 (Gemini 직결)\n" + "=" * 78)
+print("=" * 78 + "\nEcho PMO environment check (direct to Gemini)\n" + "=" * 78)
 
-print("\n[런타임]")
+print("\n[runtime]")
 for c, need in (
     ("python", True),
     ("node", False),
@@ -77,16 +77,16 @@ for c, need in (
     row(
         OK if v else (NO if need else WARN),
         c,
-        v or ("설치 필요" if need else "선택 (Kaneo/배포 때)"),
+        v or ("needs installing" if need else "optional (Kaneo / deploy)"),
     )
 
-print("\n[필수 키] .env")
+print("\n[required keys] .env")
 for k, hint in (
     ("GEMINI_API_KEY", "SETUP 1-1"),
     ("JIRA_SITE", "SETUP 1-2"),
     ("JIRA_EMAIL", "SETUP 1-2"),
     ("JIRA_API_TOKEN", "SETUP 1-2"),
-    ("JIRA_PROJECT_KEY", "예: ECHO"),
+    ("JIRA_PROJECT_KEY", "e.g. ECHO"),
 ):
     v = ENV.get(k, "")
     shown = (
@@ -94,7 +94,7 @@ for k, hint in (
     )
     row(OK if v else NO, k, shown or hint)
 
-print("\n[실제 연결 테스트]")
+print("\n[live connection tests]")
 key = ENV.get("GEMINI_API_KEY")
 if key:
     try:
@@ -104,19 +104,21 @@ if key:
         want = ENV.get("GEMINI_MODEL", "gemini-2.5-flash")
         row(
             OK,
-            "Gemini 키 유효",
-            f"모델 {len(ms)}개"
-            + (f" · {want} 사용 가능" if any(want in m for m in ms) else f" · ⚠ {want} 없음"),
+            "Gemini key valid",
+            f"{len(ms)} models"
+            + (f" · {want} available" if any(want in m for m in ms) else f" · ⚠ no {want}"),
         )
-        # function calling 왕복 1회
+        # one function-calling round trip
         body = {
-            "contents": [{"role": "user", "parts": [{"text": "ECHO-1 태스크 상세를 조회해줘"}]}],
+            "contents": [
+                {"role": "user", "parts": [{"text": "show me the details of task ECHO-1"}]}
+            ],
             "tools": [
                 {
                     "functionDeclarations": [
                         {
                             "name": "get_task",
-                            "description": "태스크 조회",
+                            "description": "read a task",
                             "parameters": {
                                 "type": "object",
                                 "properties": {"key": {"type": "string"}},
@@ -140,12 +142,12 @@ if key:
         row(
             OK if fc else WARN,
             "Gemini function calling",
-            f"호출됨: {fc['name']}({fc.get('args')})" if fc else "함수 호출 없이 텍스트만 반환",
+            f"called: {fc['name']}({fc.get('args')})" if fc else "text only, no function call",
         )
     except Exception as e:
-        row(NO, "Gemini 검증 실패", str(e)[:70])
+        row(NO, "Gemini check failed", str(e)[:70])
 else:
-    row(NO, "Gemini 검증", "키 없음")
+    row(NO, "Gemini check", "no key")
 
 site, email, tok = (
     ENV.get("JIRA_SITE", "").replace("https://", "").rstrip("/"),
@@ -161,7 +163,7 @@ if site and email and tok:
         )
         with urllib.request.urlopen(req, timeout=30) as r:
             me = json.load(r)
-        row(OK, "Jira 인증", f"{me.get('displayName')} <{me.get('emailAddress')}> @ {site}")
+        row(OK, "Jira auth", f"{me.get('displayName')} <{me.get('emailAddress')}> @ {site}")
         pk = ENV.get("JIRA_PROJECT_KEY", "ECHO")
         req = urllib.request.Request(
             f"https://{site}/rest/api/3/project/{pk}",
@@ -169,34 +171,34 @@ if site and email and tok:
         )
         with urllib.request.urlopen(req, timeout=30) as r:
             p = json.load(r)
-        row(OK, "Jira 프로젝트", f"{p.get('key')} · {p.get('name')} · {p.get('projectTypeKey')}")
+        row(OK, "Jira project", f"{p.get('key')} · {p.get('name')} · {p.get('projectTypeKey')}")
     except urllib.error.HTTPError as e:
-        row(NO, "Jira 인증 실패", f"HTTP {e.code} — 토큰/이메일/사이트 확인")
+        row(NO, "Jira auth failed", f"HTTP {e.code} — check the token, email and site")
     except Exception as e:
-        row(NO, "Jira 연결 실패", str(e)[:70])
+        row(NO, "Jira connection failed", str(e)[:70])
 else:
-    row(NO, "Jira 검증", "JIRA_SITE/EMAIL/API_TOKEN 미설정")
+    row(NO, "Jira check", "JIRA_SITE/EMAIL/API_TOKEN not set")
 
-print("\n[선택 서비스]")
+print("\n[optional services]")
 for port, name in ((1337, "Kaneo API"), (5432, "Postgres")):
     row(
         OK if port_open(port) else WARN,
         f"localhost:{port} ({name})",
-        "열림" if port_open(port) else "미기동 (2단계)",
+        "open" if port_open(port) else "not running (stage 2)",
     )
 
-print("\n[안전 가드]")
+print("\n[safety guards]")
 allow = ENV.get("WRITE_ALLOWLIST", "")
-row(OK if os.path.exists(os.path.join(ROOT, ".gitignore")) else NO, ".gitignore", ".env 커밋 차단")
+row(OK if os.path.exists(os.path.join(ROOT, ".gitignore")) else NO, ".gitignore", "blocks .env")
 bad = [d for d in ("cytur.atlassian.net",) if d in (allow + " " + site)]
 row(
     NO if bad else OK,
-    "샌드박스 격리",
-    f"실서비스 도메인 감지: {bad}" if bad else f"허용 목록: {allow or '(미설정)'}",
+    "sandbox isolation",
+    f"live domain detected: {bad}" if bad else f"allowlist: {allow or '(not set)'}",
 )
 
 print("\n" + "=" * 78)
 print(
-    "MISS 는 SETUP.md 해당 번호를 보고 발급하세요. "
-    '전부 OK 면: python -m pmo_agent.run "..." 로 첫 루프 실행.'
+    "For each MISS, follow the matching number in SETUP.md. "
+    'All OK: run the first loop with python -m pmo_agent.run "...".'
 )
