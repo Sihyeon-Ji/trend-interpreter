@@ -76,6 +76,7 @@ def mismatches(tasks: dict, linked: dict, today: _dt.date) -> list:
                     "done_with_open_pr",
                     f"closed as done while PR #{open_prs[0]['number']} is still open",
                     [p["url"] for p in open_prs],
+                    number=open_prs[0]["number"],
                 )
             )
         elif in_progress and not cs:
@@ -90,6 +91,9 @@ def mismatches(tasks: dict, linked: dict, today: _dt.date) -> list:
                     "stalled",
                     f"in progress, but the last commit was {idle} days ago ({last})",
                     [c["url"] for c in cs[:2]],
+                    idle_days=idle,
+                    last=last,
+                    status=t.status,
                 )
             )
         elif not in_progress and not t.is_done and cs:
@@ -100,6 +104,9 @@ def mismatches(tasks: dict, linked: dict, today: _dt.date) -> list:
                     "undeclared_progress",
                     f"the board says '{t.status}' but there are {len(cs)} commits (last {last})",
                     [c["url"] for c in cs[:2]],
+                    commits=len(cs),
+                    last=last,
+                    status=t.status,
                 )
             )
 
@@ -118,6 +125,9 @@ def mismatches(tasks: dict, linked: dict, today: _dt.date) -> list:
                             else " (no reviewer assigned)"
                         ),
                         [p["url"]],
+                        number=p["number"],
+                        waited=wait,
+                        reviewers=list(p["reviewers"]),
                     )
                 )
     order = {
@@ -131,7 +141,13 @@ def mismatches(tasks: dict, linked: dict, today: _dt.date) -> list:
     return out
 
 
-def _m(key, t, kind, detail, evidence):
+def _m(key, t, kind, detail, evidence, **facts):
+    """One mismatch. `detail` is the English sentence; `facts` is what it was built from.
+
+    Both, because they are for different readers. A person wants the sentence; anything
+    that has to render it differently — another language, a chart, a different medium —
+    needs the numbers, and pulling them back out of the prose is how that goes wrong.
+    """
     return {
         "key": key,
         "summary": t.summary,
@@ -139,6 +155,7 @@ def _m(key, t, kind, detail, evidence):
         "status": t.status,
         "kind": kind,
         "detail": detail,
+        "facts": facts,
         "evidence": evidence,
     }
 

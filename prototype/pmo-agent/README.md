@@ -378,6 +378,7 @@ uvicorn pmo_agent.api:app --port 8080
 | endpoint | what it gives |
 |---|---|
 | `GET /api/board` | which backends are connected |
+| `GET /api/sources` | the four tools behind every answer, and which one can write |
 | `GET /api/schedule` | critical path and tasks at risk |
 | `GET /api/capacity` | the achievable schedule and the bottleneck |
 | `GET /api/rebalance` | a rebalancing proposal |

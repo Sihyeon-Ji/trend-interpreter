@@ -137,14 +137,23 @@ site that is not on the allowlist never leaves the process.
 
 ## 8. Wireframe / screens
 
-One page, four sections, no build step (`src/pmo_agent/static/index.html`, zero
-dependencies):
+One page, no build step (`src/pmo_agent/static/index.html`, zero dependencies):
 
+- **The four tools** — across the top: Jira, GitHub, Outlook, Notion, each showing whether
+  it is live or running on its local twin, what it supplies, and whether it can write. Only
+  Jira can, and it says "only what a person approves"
+- **The agent** — directly under them, with arrows from each: *joins* commits to tasks with
+  no ticket key, *computes* every date, *asks* the model to read prose and pictures, *waits*
+  for a person. The band exists so the one thing a reader should take away is on the screen
+  rather than in the README
 - **Schedule** — forecast, critical path, what is at risk
 - **Capacity** — the bottleneck, and what a handover would buy
 - **Board against code** — where the two disagree, with evidence links
-- **Why it stopped** — causes by source, what they account for, what is left over
+- **Why it stopped** — each cause tagged with the tool it came from, what it accounts for,
+  how far the causes overlap, and what is left over
 - **Free-form input** — a note or a photo, and the proposals it produced
+
+Every section header carries the tools it drew on, so no number on the page is unattributed.
 
 Screenshots in §12.
 

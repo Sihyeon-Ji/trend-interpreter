@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from pmo_agent import approve as approve_mod  # noqa: E402
-from pmo_agent import capacity, ingest, report, schedule, signals, tools
+from pmo_agent import capacity, i18n, ingest, report, schedule, signals, tools
 from pmo_agent.llm import LLMError  # noqa: E402
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -76,10 +76,77 @@ def board():
     return out
 
 
+LIVE = {"Jira", "GitHub", "MSCalendar", "NotionNotes"}
+
+# What each tool is *for*. The point of the product is that no one row can answer the
+# question on its own, so the dashboard shows the four together and says who writes.
+SOURCES = (
+    ("board", "Jira", "status, dependencies, due dates", True),
+    ("repo", "GitHub", "commits, pull requests, changed paths", False),
+    ("calendar", "Outlook", "meeting hours per person", False),
+    ("notes", "Notion", "what was decided, in words", False),
+)
+
+
+@app.get("/api/sources")
+def api_sources(lang: str = ""):
+    """The four tools behind every answer: which is connected, and which one can write.
+
+    No network calls. Asking each service to prove itself would make the page slow and
+    could make it fail, and the panels below already show whether the data arrived — this
+    says what is *configured*, which is a different and honestly smaller claim.
+    """
+    build = {
+        "board": lambda: tools.jira(),
+        "repo": lambda: tools.repo(),
+        "calendar": lambda: tools.calendar(),
+        "notes": lambda: tools.notes(),
+    }
+    out = []
+    for role, label, supplies, writes in SOURCES:
+        row = {"role": role, "tool": label, "supplies": supplies, "writes": writes}
+        try:
+            adapter = build[role]()
+        except Exception as e:  # a missing key is a state to show, not a page that fails
+            out.append({**row, "kind": "", "live": False, "identity": "", "error": str(e)[:120]})
+            continue
+        kind = type(adapter).__name__
+        row["kind"] = kind
+        row["live"] = kind in LIVE
+        row["identity"] = _identity(adapter, role)
+        out.append(row)
+    return i18n.apply(
+        {
+            "sources": out,
+            # The agent's own job, in the words the README uses, so the page states it too
+            "agent": {
+                "joins": "commits to tasks with no ticket key — author, timing, vocabulary, path",
+                "computes": "every date and every day-count, in schedule.py and capacity.py",
+                "asks": "the model reads prose and pictures; it never produces a number",
+                "waits": "nothing reaches the board until a person picks it",
+            },
+        },
+        "sources",
+        lang,
+    )
+
+
+def _identity(adapter, role: str) -> str:
+    """What this adapter is pointed at, from what it already knows. Never a network call."""
+    if role == "board":
+        site = str(getattr(adapter, "site", "") or "local board").replace("https://", "")
+        return f"{site.rstrip('/')} / {getattr(adapter, 'project', '?')}"
+    if role == "repo":
+        return str(getattr(adapter, "repo", "") or "local repository")
+    if role == "notes":
+        return str(getattr(adapter, "source", "") or "local archive")
+    return str(getattr(adapter, "source", "") or "local calendar")
+
+
 @app.get("/api/schedule")
-def api_schedule(today: str = ""):
+def api_schedule(today: str = "", lang: str = ""):
     """The dependency-only schedule — critical path, tasks at risk, and the evidence."""
-    return schedule.summary(_tasks(), _today(today))
+    return i18n.apply(schedule.summary(_tasks(), _today(today)), "schedule", lang)
 
 
 @app.get("/api/capacity")
@@ -118,10 +185,11 @@ def api_calendar(days: int = 10):
 
 
 @app.get("/api/signals")
-def api_signals(today: str = "", days: int = 14):
+def api_signals(today: str = "", days: int = 14, lang: str = ""):
     """The board against real code activity — the divergence neither side shows alone."""
     try:
-        return signals.summary(_tasks(), tools._snapshot(100), _today(today), days=days)
+        found = signals.summary(_tasks(), tools._snapshot(100), _today(today), days=days)
+        return i18n.apply(found, "signals", lang)
     except HTTPException:
         raise
     except Exception as e:
@@ -129,7 +197,7 @@ def api_signals(today: str = "", days: int = 14):
 
 
 @app.get("/api/cause")
-def api_cause(key: str = "", today: str = ""):
+def api_cause(key: str = "", today: str = "", lang: str = ""):
     """Why a task stopped. Empty key returns whatever has been silent longest.
 
     This is the only endpoint that needs all three tools at once, which is the point:
@@ -139,7 +207,7 @@ def api_cause(key: str = "", today: str = ""):
     out = tools.explain_stall(key=key, today=today)
     if "error" in out:
         raise HTTPException(502 if "repository" in out["error"] else 404, out["error"])
-    return out
+    return i18n.apply(out, "cause", lang)
 
 
 @app.get("/api/report", response_class=PlainTextResponse)

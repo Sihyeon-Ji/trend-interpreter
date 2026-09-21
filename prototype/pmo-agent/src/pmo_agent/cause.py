@@ -331,6 +331,10 @@ def explain(
                 "kind": "dependency_open",
                 "days": span["days"],
                 "detail": f"{len(open_deps)} dependencies are not done yet",
+                # The numbers the sentence was built from. A caller that has to say this
+                # some other way — another language, a chart — should not have to parse
+                # English back out of it.
+                "facts": {"open": len(open_deps)},
                 "evidence": [f"{d} {tasks[d].summary} ({tasks[d].status})" for d in open_deps[:3]],
                 "source": "board",
             }
@@ -346,6 +350,7 @@ def explain(
                     "kind": "waiting_on_review",
                     "days": waited,
                     "detail": f"PR #{pull.get('number')} has been open with no movement",
+                    "facts": {"number": pull.get("number"), "waited": waited},
                     "evidence": [pull.get("url", "")] if pull.get("url") else [],
                     "source": "repo",
                 }
@@ -361,6 +366,13 @@ def explain(
                 "kind": "owner_in_meetings",
                 "days": met["lost_days"],
                 "detail": detail,
+                "facts": {
+                    "who": who,
+                    "hours": met["hours"],
+                    "top_title": met["top_title"],
+                    "top_hours": met["top_hours"],
+                    "days_with_meetings": met["days_with_meetings"],
+                },
                 "evidence": [f"{met['days_with_meetings']} days carried meetings"],
                 "source": "calendar",
             }
@@ -375,6 +387,7 @@ def explain(
                 "detail": (
                     f"{who} made {other['commits']} commits in this stretch, none of them here"
                 ),
+                "facts": {"who": who, "commits": other["commits"], "days": other["days"]},
                 "evidence": [f"{k} {tasks[k].summary}" for k in other["tasks"] if k in tasks],
                 "source": "repo",
             }
@@ -396,6 +409,12 @@ def explain(
                 "kind": "decision_recorded",
                 "days": 0,
                 "detail": _clip(note.get("body") or ""),
+                "facts": {
+                    "title": note.get("title", ""),
+                    "author": note.get("author", ""),
+                    "date": note.get("date", ""),
+                    "coverage": score,
+                },
                 "evidence": [
                     f"{note.get('title', '')} — {note.get('author', '')}, {note.get('date', '')}",
                     f"matched to this task by inference, coverage {score}",
