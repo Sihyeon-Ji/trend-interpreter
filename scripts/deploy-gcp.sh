@@ -2,12 +2,20 @@
 set -euo pipefail
 : "${PROJECT_ID:?}" "${REGION:?}" "${SERVICE:?}" "${GEMINI_MODEL:?}"
 image=${1:?Usage: deploy-gcp.sh IMAGE_DIGEST}
-gcloud run deploy "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
-  --image="$image" --service-account="builder-cup-runtime@$PROJECT_ID.iam.gserviceaccount.com" \
-  --port=8080 --cpu=1 --memory=512Mi --concurrency=10 --min=0 --max=2 --timeout=120 \
-  --set-env-vars="MODEL_PROVIDER=gemini,GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=$GEMINI_MODEL" \
-  --set-secrets=DEMO_API_KEY=builder-cup-demo-key:latest \
-  --no-traffic --tag=candidate --quiet
+deploy_args=(
+  "$SERVICE" --project="$PROJECT_ID" --region="$REGION"
+  --image="$image" --service-account="builder-cup-runtime@$PROJECT_ID.iam.gserviceaccount.com"
+  --port=8080 --cpu=1 --memory=512Mi --concurrency=10 --min=0 --max=2 --timeout=120
+  --set-env-vars="MODEL_PROVIDER=gemini,GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=$GEMINI_MODEL"
+  --set-secrets=DEMO_API_KEY=builder-cup-demo-key:latest
+  --tag=candidate --quiet
+)
+# Cloud Run rejects --no-traffic when the service does not exist yet. Later releases keep the
+# serving revision in place until the candidate smoke checks pass.
+if gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
+  deploy_args+=(--no-traffic)
+fi
+gcloud run deploy "${deploy_args[@]}"
 gcloud run services add-iam-policy-binding "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
   --member=allUsers --role=roles/run.invoker --quiet >/dev/null
 service_json=$(mktemp)
