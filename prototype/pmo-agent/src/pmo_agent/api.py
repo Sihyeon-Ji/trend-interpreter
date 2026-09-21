@@ -102,6 +102,22 @@ def api_projects():
     return {"projects": projects.summary(), "default": projects.default().key}
 
 
+@app.get("/api/queue")
+def api_queue(today: str = "", project: str = "", limit: int = 8, lang: str = ""):
+    """What is waiting for a person today. The front door.
+
+    Not a status panel. The research this was built from says the problem is coordination
+    labour rather than a shortage of information — knowledge workers lose 352 hours a year
+    to *talking about* work — so this is the small decisions and messages nobody has got
+    round to, already prepared, each needing only a yes or a no.
+    """
+    try:
+        found = tools.todays_queue(today=today, project=project, limit=limit)
+        return i18n.apply(found, "queue", lang)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from None
+
+
 @app.get("/api/rollup")
 def api_rollup(today: str = "", lang: str = ""):
     """Every project on one line, worst first. The screen for somebody who will not open five.

@@ -29,6 +29,9 @@ from pmo_agent import (
     schedule,
     signals,
 )
+from pmo_agent import (
+    queue as queue_mod,
+)
 from pmo_agent.adapters.jira import Jira
 from pmo_agent.env import env
 from pmo_agent.ports import Board, Calendar, Repo
@@ -581,6 +584,58 @@ def closing_decisions(today: str = "", project: str = "") -> dict:
     return decide.deadlines(tasks, _today(today), availability=_availability())
 
 
+def todays_queue(today: str = "", project: str = "", limit: int = 8) -> dict:
+    """What is waiting for a person today, most perishable first.
+
+    The research this was built from says the problem is not a shortage of information —
+    knowledge workers lose 352 hours a year to *talking about* work, not to not knowing.
+    So this is not another status panel. It is the handful of small decisions and
+    messages nobody has got round to, already prepared, each needing only a yes or a no.
+
+    Nothing is done here. Every item names where it came from, because an item a person
+    cannot check is one they have to take on trust.
+    """
+    when = _today(today)
+    tasks = _fetch(project=project)
+    if not tasks:
+        return {"error": "no tasks."}
+
+    closing, alerts, reconciled, questions = {}, [], {}, []
+    # A source that fell over is recorded, not swallowed. One 429 used to leave this
+    # empty and the empty queue then said three reassuring things nobody had checked.
+    blind: list = []
+
+    try:
+        closing = closing_decisions(today=today, project=project)
+    except Exception as e:
+        blind.append({"check": "decisions", "error": str(e)[:120]})
+
+    # Only the blocked work that crosses a boundary is worth a message. Walking every
+    # task would produce a queue nobody reads, which is the failure mode this replaces.
+    try:
+        after = schedule.successors(tasks)
+        for key, nexts in after.items():
+            if not nexts or tasks[key].is_done:
+                continue
+            found = who_to_tell(key, project=project)
+            if found.get("crosses_teams"):
+                alerts.append(found)
+            if len(alerts) >= 3:
+                break
+    except Exception as e:
+        blind.append({"check": "blocked", "error": str(e)[:120]})
+
+    try:
+        reconciled = reconcile_notes(today=today, project=project)
+        questions = list(reconciled.get("questions") or [])
+    except Exception as e:
+        blind.append({"check": "notes", "error": str(e)[:120]})
+
+    return queue_mod.build(
+        closing, alerts, reconciled, questions, when, limit=int(limit), blind=blind
+    )
+
+
 def track_issues(today: str = "", project: str = "", save: bool = True) -> dict:
     """File this run's findings in the issue register and report what is open.
 
@@ -784,6 +839,7 @@ REGISTRY = {
         reconcile_notes,
         project_health,
         rollup_projects,
+        todays_queue,
         make_report,
         report_template,
         weigh_options,
@@ -1125,6 +1181,24 @@ DECLARATIONS = [
                 "path": {"type": "string", "description": "path to the sample report"},
             },
             "required": ["path"],
+        },
+    },
+    {
+        "name": "todays_queue",
+        "description": (
+            "What is waiting for a person today, most perishable first: a decision about "
+            "to close, somebody who should be told their work is blocked, a board change "
+            "the meeting notes imply. Each is already prepared and needs only a yes or a "
+            "no. Nothing here has been done, and every item names where it came from."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "today": {
+                    "type": "string",
+                    "description": "reference date YYYY-MM-DD, empty for today",
+                },
+            },
         },
     },
 ]

@@ -249,6 +249,10 @@ def deadlines(tasks: dict, today: _dt.date | None = None, availability=None, top
                 "key": risk["key"],
                 "summary": risk["summary"],
                 "owner": risk.get("assignee", ""),
+                # Who would take it. It was only ever inside the English sentence, and
+                # reading a name back out of a sentence is the parse this codebase
+                # exists not to do.
+                "to": hand.get("needs", ""),
                 "decision": hand["what"],
                 "buys_days": hand["gain_days"],
                 "expires": hand["expires"],

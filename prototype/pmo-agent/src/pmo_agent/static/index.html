@@ -90,6 +90,60 @@
   .scrim[hidden]{display:none}
   main{max-width:1120px;margin:0 auto;padding:24px 28px 90px}
 
+  /* ---------- what is waiting for you ----------
+     The research this was built from says the problem is coordination labour, not a
+     shortage of information: 60% of a knowledge worker's time goes to work about work,
+     352 hours a year to talking about it. So the front door is the work already
+     prepared, not another status panel. */
+  .todo{background:var(--surface);border:1px solid var(--line2);border-radius:12px;
+        box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+  .todo>.hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:16px 20px 12px}
+  .todo>.hd b{font-size:16px;font-weight:650;letter-spacing:-.02em}
+  .todo>.hd .say{font-size:13px;color:var(--dim);flex:1 1 300px;min-width:0}
+  .todo>.hd .say.wait{color:var(--faint)}
+  .todo>.hd .say.wait::after{content:"";display:inline-block;width:7px;height:7px;
+    margin-left:7px;border-radius:50%;background:var(--accent);
+    animation:pulse 1.1s ease-in-out infinite;vertical-align:middle}
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+  .todo>.hd .say.bad{color:var(--bad)}
+  .todo .none{padding:4px 20px 18px;font-size:13.5px;color:var(--good)}
+  .todo .none.blind{color:var(--warn)}
+  .task{display:grid;grid-template-columns:auto 1fr auto;gap:4px 13px;align-items:start;
+        padding:13px 20px;border-top:1px solid var(--line)}
+  .task:hover{background:var(--raised)}
+  .task.urgent{background:var(--warn-bg)}
+  .tag{font:9.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;border-radius:5px;
+       padding:3px 8px;white-space:nowrap;align-self:center;border:1px solid var(--line2);
+       color:var(--faint);background:var(--surface)}
+  .tag.decide{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+  .tag.tell{color:var(--accent);border-color:#c3cffa;background:var(--accent-bg)}
+  .tag.apply{color:var(--good);border-color:var(--good-line);background:var(--good-bg)}
+  .task .what{font-size:13.5px;font-weight:600;letter-spacing:-.01em;min-width:0}
+  .task .why{grid-column:2;font-size:12.5px;color:var(--dim);line-height:1.5}
+  .task .from{grid-column:2;font:10.5px var(--mono);color:var(--faint);margin-top:3px}
+  .task .go{align-self:center;font-size:12.5px;color:var(--accent);white-space:nowrap;
+            background:none;border:1px solid var(--line2);border-radius:7px;padding:5px 11px;
+            cursor:pointer;font-weight:600}
+  .task .go:hover{background:var(--accent-bg);filter:none}
+  .task .also{grid-column:2;margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+              font-size:11.5px;color:var(--faint)}
+  .task .also span{font:10.5px var(--mono);border:1px solid var(--line2);border-radius:5px;
+                   padding:2px 6px;color:var(--dim);background:var(--raised)}
+  .task .draft{grid-column:2;margin-top:8px;font-size:12.5px;color:var(--dim);
+               background:var(--raised);border:1px solid var(--line);border-radius:7px;
+               padding:9px 11px;line-height:1.55}
+  .task details.draft{padding:0}
+  .task details.draft summary{cursor:pointer;padding:7px 11px;font-size:11.5px;
+                              color:var(--accent);font-weight:600;list-style:none}
+  .task details.draft summary::-webkit-details-marker{display:none}
+  .task details.draft summary::before{content:"\25B8  "}
+  .task details[open].draft summary::before{content:"\25BE  "}
+  .task details.draft[open]{padding:0 0 10px}
+  .task details.draft > :not(summary){padding:0 11px}
+  .task .draft.plain{white-space:pre-wrap}
+  .todo .foot{padding:11px 20px;border-top:1px solid var(--line);background:var(--raised);
+              font-size:12px;color:var(--faint)}
+
   /* ---------- every project on one line ---------- */
   .roll{background:var(--surface);border:1px solid var(--line);border-radius:12px;
         box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
@@ -303,6 +357,8 @@
 </aside>
 
 <main>
+  <div class="todo" id="todo" hidden></div>
+
   <div class="roll" id="roll" hidden></div>
 
   <div class="pipe">
@@ -341,10 +397,10 @@
   </section>
 
   <section id="sec-cause">
-    <div class="shead"><h2 data-t="causeT">Why did it stop?</h2>
+    <div class="shead"><h2 data-t="causeT">How much of the silence can be accounted for?</h2>
       <span class="uses"><span>jira</span><span>github</span><span>outlook</span><span>notion</span></span></div>
-    <p class="hint" data-t="causeH">The one answer that needs every tool at once. The verdict comes first; the
-      evidence is underneath it.</p>
+    <p class="hint" data-t="causeH">Not a retelling of the past. This is how far each row above can be
+      trusted: which silent days have a trace in some tool, and which have none at all.</p>
     <div id="cause" class="muted">loading&hellip;</div>
   </section>
 
@@ -390,8 +446,8 @@ const KO = {
   riskH: "모든 근거는 계산에서 나옵니다. 여기 있는 숫자 중 모델이 만든 것은 하나도 없습니다.",
   sigT: "보드와 코드는 어디서 어긋나 있나요?",
   sigH: "누군가 입력해 둔 상태와 실제로 일어난 커밋을 나란히 놓습니다. 커밋에는 티켓 키가 없어서, 연결은 추론한 결과입니다.",
-  causeT: "이 작업은 왜 멈췄나요?",
-  causeH: "네 도구가 동시에 필요한 유일한 답입니다. 결론을 먼저 보여 드리고, 근거는 그 아래에 있습니다.",
+  causeT: "이 침묵 중 설명되는 건 얼마인가요?",
+  causeH: "과거를 해설하는 화면이 아닙니다. 위의 각 줄을 어디까지 믿어도 되는지 — 멈춰 있던 날 중 어느 날에 흔적이 있고, 어느 날은 아예 보이지 않는지를 말합니다.",
   ingestT: "메모나 손글씨 사진 읽기",
   ingestH: "모델이 읽고, 그것이 무슨 뜻인지는 코드가 계산합니다. 직접 선택하기 전에는 아무것도 반영되지 않습니다.",
   repT: "주간 리포트",
@@ -455,6 +511,18 @@ const KO = {
   unassigned: "미배정",
   heard: "들린 내용",
   evidence: "근거 보기",
+  todoT: "오늘 확인할 것",
+  todoNone: "오늘은 확인할 게 없습니다.",
+  todoFoot: "여기 아무것도 실행되지 않았습니다. 에이전트가 준비했고, 결정은 사람이 합니다.",
+  look: "보기",
+  waitBusy: "선행 관계는 다 끝났는데 <b>담당자가 바쁩니다</b> — 원인이 선행 작업이 아니라 사람입니다.",
+  canWrite: "쓰기 가능 — 사람이 승인한 것만",
+  readOnly: "읽기 전용 — 쓰기 메서드 자체가 없습니다",
+  verb_joins: "연결", verb_computes: "계산", verb_asks: "질의", verb_waits: "대기",
+  todoAlso: "함께 처리", todoDraft: "보낼 문구", todoHide: "접기",
+  todoWait: "선택지를 계산하고 회의록을 읽는 중입니다…",
+  todoBlind: "일부는 확인하지 못했습니다.",
+  todoFail: "이건 계산하지 못했습니다. 아래 화면들은 그대로 쓸 수 있습니다.",
   freeFromCol: "여유 시작",
   move: "이동",
   gain: "단축",
@@ -467,13 +535,13 @@ const KO = {
   setH: "이 브라우저에만 저장됩니다. 에이전트가 계산하는 내용은 바뀌지 않습니다.",
   setTheme: "테마", tLight: "밝게", tDark: "어둡게", tAuto: "시스템",
   setAccent: "강조 색",
-  setDensity: "밀도", dCosy: "넘넘하게", dCompact: "초밀하게",
+  setDensity: "밀도", dCosy: "넉넉하게", dCompact: "촘촘하게",
   setShow: "보일 섹션",
   setReset: "기본값으로",
   secCap: "누구를 기다리나요",
   secRisk: "기한을 놓칠 작업",
   secSig: "보드 ↔ 코드",
-  secCause: "멈췄 이유",
+  secCause: "멈춘 이유",
   secIngest: "메모 · 사진 읽기",
   secRep: "주간 리포트",
 };
@@ -502,6 +570,8 @@ let PROJECT = "";
 
 async function boot(){
   get("/api/rollup").then(renderRollup).catch(() => {});
+  queueWaiting();
+  get("/api/queue").then(renderQueue).catch(queueFailed);
   get("/api/sources").then(renderSources)
     .catch(e => $("#srcs").innerHTML = `<div class="banner err">${esc(e.message)}</div>`);
 
@@ -522,6 +592,82 @@ async function boot(){
 // behind the same interface, which is what lets the whole thing run with no accounts at all.
 // Only one of the four can write, and it says so.
 const STATE_KO = {risk: "\uc704\ud5d8", watch: "\uc8fc\uc758", ok: "\uc591\ud638", unknown: "\ubaa8\ub984"};
+
+// Where a row's evidence actually lives. A decision is a capacity question; a message
+// rests on the silence accounting; a board change rests on the note it was read from.
+const EVIDENCE = {
+  decide: "sec-cap", tell: "sec-cause", apply: "sec-ingest", check: "sec-ingest",
+};
+
+const KIND_TAG = {
+  decide: "\uacb0\uc815", tell: "\uc54c\ub9bc", apply: "\ubc18\uc601", check: "\ud655\uc778",
+};
+
+// It costs every option and reads every note before it can say anything, which takes
+// about half a minute. Claiming the space up front means the reader is not moved down
+// the page by a panel that lands late.
+function queueWaiting(){
+  $("#todo").hidden = false;
+  $("#todo").innerHTML = `<div class="hd"><b>${t("todoT", "Waiting on you")}</b>
+    <span class="say wait">${t("todoWait",
+      "Costing the options and reading the notes\u2026")}</span></div>`;
+}
+
+// A front door that fails silently is worse than one that is empty: empty means nothing
+// needs you, and this does not mean that.
+function queueFailed(e){
+  $("#todo").hidden = false;
+  $("#todo").innerHTML = `<div class="hd"><b>${t("todoT", "Waiting on you")}</b>
+    <span class="say bad">${t("todoFail",
+      "This could not be worked out. The panels below still hold.")}</span></div>`;
+}
+
+// The front door. Not a status panel \u2014 the small decisions and messages nobody has got
+// round to, already prepared, each needing only a yes or a no. Every row says where it
+// came from, because a row somebody cannot check is one they have to take on trust.
+function renderQueue(g){
+  const items = g.items || [];
+  $("#todo").hidden = false;
+  let h = `<div class="hd"><b>${t("todoT", "Waiting on you")}</b>
+    <span class="say">${esc(g.note || "")}</span></div>`;
+  if(!items.length){
+    // Green is for "nothing is wrong", not for "nothing came back". When a source
+    // could not be reached the headline above already says so, and repeating the
+    // reassurance underneath it in the good-news colour would outshout it.
+    h += (g.blind || []).length
+      ? `<div class="none blind">${t("todoBlind", "Some checks did not run.")}</div>`
+      : `<div class="none">${t("todoNone", "Nothing needs you today.")}</div>`;
+    $("#todo").innerHTML = h;
+    return;
+  }
+  for(const i of items){
+    const label = L === "ko" ? (KIND_TAG[i.kind] || i.kind) : i.kind;
+    h += `<div class="task ${i.urgent ? "urgent" : ""}">
+      <span class="tag ${esc(i.kind)}">${esc(label)}</span>
+      <span class="what">${esc(i.title)}</span>
+      ${i.key ? `<button class="go" data-k="${esc(i.key)}" data-kind="${esc(i.kind)}"
+                >${t("look", "look")}</button>` : "<span></span>"}
+      <span class="why">${esc(i.why)}</span>
+      ${(i.also || []).length ? `<div class="also">${t("todoAlso", "together with")}:
+        ${i.also.map(a => `<span>${esc(a.key)}</span>`).join("")}</div>` : ""}
+      ${i.draft ? `<details class="draft"><summary>${t("todoDraft", "the message")}</summary>
+        ${esc(i.draft)}</details>` : ""}
+      ${i.quote ? `<div class="draft plain">\u201c${esc(i.quote)}\u201d</div>` : ""}
+      <span class="from">${t("from", "from")}: ${esc(i.source || "")}</span>
+    </div>`;
+  }
+  h += `<div class="foot">${t("todoFoot",
+    "Nothing here has been done. The agent prepared it; you decide.")}`
+    + (g.more ? ` \u00b7 ${g.more} more` : "") + `</div>`;
+  $("#todo").innerHTML = h;
+  // Jumping to the evidence is the whole reason the panels below still exist.
+  $("#todo").onclick = e => {
+    const b = e.target.closest(".go");
+    if(!b) return;
+    document.getElementById(EVIDENCE[b.dataset.kind] || "sec-cause")
+      ?.scrollIntoView({behavior: "smooth"});
+  };
+}
 
 function renderRollup(g){
   const rows = g.projects || [];
@@ -556,13 +702,15 @@ function renderSources(g){
       <div class="gives">${esc(s.supplies)}</div>
       <div class="who" title="${esc(s.identity || s.error || "")}">${esc(s.identity || s.error || "—")}</div>
       <div class="mode ${s.writes ? "rw" : "ro"}">${s.writes
-        ? "can write — only what a person approves" : "read-only — no write method exists"}</div>
+        ? t("canWrite", "can write — only what a person approves")
+        : t("readOnly", "read-only — no write method exists")}</div>
     </div>`).join("");
   const j = g.agent || {};
   $("#jobs").innerHTML = [
     ["joins", j.joins], ["computes", j.computes], ["asks", j.asks], ["waits", j.waits],
   ].filter(([, w]) => w).map(([v, w]) =>
-    `<div class="job"><span class="verb">${v}</span><span class="what">${esc(w)}</span></div>`).join("");
+    `<div class="job"><span class="verb">${t("verb_" + v, v)}</span>
+      <span class="what">${esc(w)}</span></div>`).join("");
 }
 
 // The headline is a comparison, not a number. A date on its own means nothing; "three weeks
@@ -663,8 +811,8 @@ function renderCap(c){
   h += `</table>`;
 
   if(c.waiting_tasks && c.waiting_tasks.length){
-    h += `<p class="hint" style="margin:20px 0 10px">Dependencies met, but the <b>owner is busy</b> &mdash;
-      the cause is a person, not a dependency.</p>
+    h += `<p class="hint" style="margin:20px 0 10px">${t("waitBusy",
+      "Dependencies met, but the <b>owner is busy</b> &mdash; the cause is a person, not a dependency.")}</p>
       <table><tr><th>${t("task", "task")}</th><th>${t("owner", "owner")}</th>
         <th class="num">${t("waiting", "waiting")}</th>
         <th class="num">${t("starts", "starts")}</th></tr>`;
@@ -777,8 +925,11 @@ function renderCause(g){
       }
       h += `</table></div>`;
       if(r.overlap > 0)
-        h += `<p class="aside">These overlap by ${r.overlap}d &mdash; a day in meetings that also carried
-          a commit elsewhere is still one day, so the verdict above is less than this column adds to.</p>`;
+        h += `<p class="aside">${L === "ko"
+          ? `이 중 ${r.overlap}일은 겹칩니다 — 회의를 하면서 다른 곳에 커밋한 날도 하루는 하루라서, `
+            + `위의 결론은 이 열을 더한 값보다 작습니다.`
+          : `These overlap by ${r.overlap}d &mdash; a day in meetings that also carried a commit `
+            + `elsewhere is still one day, so the verdict above is less than this column adds to.`}</p>`;
     }
     h += `</div>`;
   }
@@ -796,19 +947,20 @@ function evidence(m){
 }
 
 function renderSignals(g){
-  const t = g.team || {};
+  // `tm`, not `t`: the translator is called t, and a local of that name hid it here.
+  const tm = g.team || {};
   const mis = g.mismatches || [];
   let h = `<div class="mini" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px">
     <div class="stat"><div class="k">${t("disagree", "tasks that disagree")}</div>
       <div class="v ${mis.length?"bad":"good"}">${mis.length}</div><div class="s">${esc(g.repo||"")}</div></div>
-    <div class="stat"><div class="k">${t("commitsIn", "commits")} &middot; ${(g.team||{}).window_days||14}d</div><div class="v">${t.commits||0}</div>
-      <div class="s">${(t.contributors||[]).length}${L === "ko" ? t("contributors", "") : " contributors"}</div></div>
+    <div class="stat"><div class="k">${t("commitsIn", "commits")} &middot; ${tm.window_days||14}d</div><div class="v">${tm.commits||0}</div>
+      <div class="s">${(tm.contributors||[]).length}${L === "ko" ? t("contributors", "") : " contributors"}</div></div>
     <div class="stat"><div class="k">${t("concentration", "concentration")}</div>
-      <div class="v ${t.concentration>=0.8?"bad":t.concentration>=0.6?"warn":""}">${t.concentration ?? 0}</div>
+      <div class="v ${tm.concentration>=0.8?"bad":tm.concentration>=0.6?"warn":""}">${tm.concentration ?? 0}</div>
       <div class="s">${t("oneMeans", "1.0 means one person")}</div></div>
-    <div class="stat"><div class="k">${t("openPrs", "open pull requests")}</div><div class="v ${t.stale_prs?"warn":""}">${t.open_prs||0}</div>
-      <div class="s">${(g.team||{}).stale_prs||0}${L === "ko" ? t("stuck", "") : " stuck in review"}</div></div></div>`;
-  for(const n of (t.notes||[])) h += `<div class="banner flat">${esc(n)}</div>`;
+    <div class="stat"><div class="k">${t("openPrs", "open pull requests")}</div><div class="v ${tm.stale_prs?"warn":""}">${tm.open_prs||0}</div>
+      <div class="s">${tm.stale_prs||0}${L === "ko" ? t("stuck", "") : " stuck in review"}</div></div></div>`;
+  for(const n of (tm.notes||[])) h += `<div class="banner flat">${esc(n)}</div>`;
   if(g.note) h += `<div class="banner flat">${esc(g.note)}</div>`;
   if(mis.length){
     h += `<table><tr><th>${t("task", "task")}</th><th>${t("owner", "owner")}</th>

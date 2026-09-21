@@ -379,6 +379,7 @@ uvicorn pmo_agent.api:app --port 8080
 |---|---|
 | `GET /api/board` | which backends are connected |
 | `GET /api/projects` | every project this agent watches, and what kind of work each is |
+| `GET /api/queue` | what is waiting for a person today — the front door |
 | `GET /api/rollup` | every project on one line, worst first |
 | `GET /api/health` | an operations project's queue, instead of a finish date |
 | `GET /api/sources` | the four tools behind every answer, and which one can write |
@@ -409,7 +410,7 @@ python tools/evaluate.py --dates 13   # and at 13 dates, four months out
 python tools/measure_links.py    # link precision and recall against the answer key
 ```
 
-**713 tests, around twenty seconds.** No network, no accounts — every one of them runs on
+**768 tests, around twenty seconds.** No network, no accounts — every one of them runs on
 a laptop with the wifi off. Most finish in under a second. The slow ones are the honest
 kind: `test_readme.py` spawns a collection pass to check that the number in this very
 sentence is still true, and `test_linking_accuracy.py` rebuilds the world at eight
@@ -434,6 +435,8 @@ different dates because one good day is not a result.
 | `test_decide.py` | the options table, their expiry, and the choice it refuses to make |
 | `test_warehouse.py` | the flat rows, and the finish date a queue never gets |
 | `test_extract.py` | a template read from a document, and the headings it cannot fill |
+| `test_queue.py` | the day's queue: what it refuses to invent, and what it never does |
+| `test_i18n_queue.py` | the Korean queue, written from numbers, and the particles it never guesses |
 | `test_notion.py` | reading a real Notion payload, and staying the same shape as the local archive |
 | `test_readme.py` | this file's own checkable claims still match the code |
 | `test_signals.py` | divergence detection, identity merge, silence without evidence |

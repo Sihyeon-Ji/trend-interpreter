@@ -70,7 +70,8 @@ class TestInventory:
         assert served == listed, f"only served: {served - listed} | only listed: {listed - served}"
 
     def test_every_test_file_is_in_the_table(self):
-        listed = set(re.findall(r"\| `(test_[a-z_]+\.py)`", README))
+        # Digits belong in a test name as much as letters do: test_i18n_queue.py.
+        listed = set(re.findall(r"\| `(test_[a-z0-9_]+\.py)`", README))
         actual = {p.name for p in (ROOT / "tests").glob("test_*.py")}
         assert actual == listed, f"only real: {actual - listed} | only listed: {listed - actual}"
 

@@ -227,6 +227,91 @@ def health_note(payload: dict) -> str:
     return said
 
 
+# ----------------------------------------------------------------------- the queue
+def queue_title(item: dict) -> str:
+    """What the row is, in Korean. Built from `facts`, never parsed back out of English."""
+    f, kind = item.get("facts") or {}, item.get("kind")
+    if kind == "decide":
+        return f"{item.get('key', '')} → {f.get('to', '')} 님에게 넘기기"
+    if kind == "tell":
+        # No particle after the key: 이/가 depends on its last digit, and the key varies.
+        return f"{f.get('who', '')} 님에게 알리기 — {item.get('key', '')} 때문에 막혀 있습니다"
+    if kind == "apply":
+        moves = []
+        if f.get("duedate"):
+            moves.append(f"기한 {f.get('duedate_was') or '—'} → {f['duedate']}")
+        if f.get("status"):
+            moves.append(f"상태 {f.get('status_was') or '—'} → {f['status']}")
+        return f"{f.get('key', '')}: {' · '.join(moves) or '코멘트'}"
+    return item.get("title", "")
+
+
+def queue_why(item: dict) -> str:
+    """Why it is on the list today."""
+    f, kind = item.get("facts") or {}, item.get("kind")
+    if kind == "decide":
+        left = f.get("left", 0)
+        when = "오늘이 지나면" if not left else f"영업일 {_n(left)}일 뒤에는"
+        return (
+            f"{f.get('owner', '')} 님의 일을 덜어냅니다. "
+            f"영업일 {_n(f.get('buys'))}일을 벌 수 있고, {when} 의미가 없어집니다"
+            f" — {f.get('expires', '')}까지"
+        )
+    if kind == "tell":
+        teams = ", ".join(f.get("teams") or [])
+        return f"{teams} 팀으로 넘어가는 건이라, 데일리 스탠드업에서는 나오지 않습니다"
+    if kind == "apply":
+        where = f.get("where") or ""
+        return f"“{where}” 에서 읽었습니다" if where else "회의록에서 읽었습니다"
+    if kind == "check":
+        return "에이전트가 스스로 정하지 못했습니다"
+    return item.get("why", "")
+
+
+QUEUE_SOURCE = {
+    "schedule + capacity": "일정 · 용량 계산",
+    "board dependencies": "보드의 선행 관계",
+    "meeting notes": "회의록",
+    "the agent": "에이전트",
+}
+
+
+BLIND_SAYS = {
+    "decisions": "닫히려는 선택지가 있는지",
+    "blocked": "팀을 넘어 막혀 있는 사람이 있는지",
+    "notes": "회의록과 보드가 어긋났는지",
+}
+
+
+def queue_note(payload: dict) -> str:
+    """The one-line headline. An empty queue names what was looked at, or it is not believable."""
+    f = payload.get("note_facts") or {}
+    total = f.get("total") or 0
+    missed = [BLIND_SAYS.get(b, b) for b in f.get("blind") or []]
+    if not total:
+        if missed:
+            # 못 봤다와 없다는 다른 말입니다. 안심시키는 문장은 본 것에만 씁니다.
+            return (
+                "아무것도 오지 않았지만 없다는 뜻은 아닙니다 — "
+                + ", ".join(missed)
+                + " 확인하지 못했습니다."
+            )
+        return (
+            "오늘은 확인할 게 없습니다. 닫히는 결정도, 팀을 넘어 막혀 있는 사람도, "
+            "회의록과 어긋난 보드도 없습니다."
+        )
+    said = f"{_n(total)}건이 확인을 기다립니다"
+    if f.get("key") and f.get("left") is not None:
+        said += (
+            f". 가장 급한 건 {f['key']} — 이 선택지가 사라지기까지 "
+            f"영업일 {_n(f['left'])}일 남았습니다"
+        )
+    said += "."
+    if missed:
+        said += " 더 있을 수 있습니다 — " + ", ".join(missed) + " 확인하지 못했습니다."
+    return said
+
+
 def apply(payload: dict, what: str, lang: str) -> dict:
     """Re-render one endpoint's prose in `lang`. English is returned untouched.
 
@@ -264,6 +349,14 @@ def apply(payload: dict, what: str, lang: str) -> dict:
                 row.get("headline_label", ""), row.get("headline_label", "")
             )
         payload["note"] = rollup_note(payload)
+    elif what == "queue":
+        for row in payload.get("items") or []:
+            row["title"] = queue_title(row)
+            row["why"] = queue_why(row)
+            row["source"] = QUEUE_SOURCE.get(row.get("source", ""), row.get("source", ""))
+            # `draft` stays as it is: it is a message for an English board, and a Korean
+            # sentence pasted into that thread would be the wrong kind of help.
+        payload["note"] = queue_note(payload)
     elif what == "health":
         payload["note"] = health_note(payload)
     elif what == "sources":
