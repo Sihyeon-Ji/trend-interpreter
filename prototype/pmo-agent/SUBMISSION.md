@@ -6,23 +6,35 @@ command that produces it is next to it.
 
 Two sections are **not** filled in, because they are decisions rather than work:
 
-- **§14 GitHub Public Repository** — this lives in a private team repository with push
-  disabled, and only `prototype/pmo-agent/` belongs to this candidate project
+- **§14 GitHub Public Repository** — this lives in a private team repository, and only
+  `prototype/pmo-agent/` belongs to this candidate project
 - **§14 Final Product Link** — needs a Cloud Run deployment, which needs a GCP project
 
 ---
 
 ## 1. Brief about the idea
 
-A PMO agent that answers the question every project-management tool leaves out: **why did
-this stop?**
+A PMO agent that opens on **the work already waiting for a yes or a no**, not on another
+status panel.
 
-Jira knows a task's status. Git knows the last commit was twelve days ago. The calendar
-knows its owner spent those days in incident calls. A meeting note holds the only sentence
-that says what the incident *was*. No one of them can answer, and nobody joins them up by
-hand, so the question gets asked in a standup instead.
+The measured problem is not a shortage of information. Knowledge workers give 60% of their
+time to work *about* work and 352 hours a year to talking about it; adding a dashboard adds
+to that number. What the coordination actually consists of is a handful of small things
+nobody has got round to — somebody should be told their work is blocked, a date agreed in a
+meeting is not on the board, a handover is still worth making but will not be next week.
+Each is five minutes of thinking and twenty of chasing.
 
-For a delivery lead or PM running work across those four tools.
+So the agent prepares them and stops. The first screen is that queue, most perishable
+first, and the only thing a person supplies is the decision.
+
+Underneath it sits the join that makes the queue checkable: Jira knows a task's status, Git
+knows the last commit was twelve days ago, the calendar knows its owner spent those days in
+incident calls, and a meeting note holds the only sentence saying what the incident *was*.
+No one of them can account for the silence. That accounting is not the product — it is the
+evidence each row rests on, and the reason a person can act on a row without re-deriving it.
+
+For a delivery lead or PM running work across those four tools, and for the executive who
+will open one screen rather than five.
 
 ## 2. Opportunities
 
@@ -90,14 +102,52 @@ Concretely, and each one is checked by a test:
 
 ## 6. Features
 
-1. **Keyless board ↔ code linking** — author, timing, vocabulary and path, with a margin
-   over the runner-up, and the confidence attached
-2. **Root-cause reconstruction** — four tools lined up, honest accounting of the days
-3. **Achievable scheduling** — dependencies, then capacity, then meeting load
-4. **Vetted rebalancing** — a handover only to someone with history in that area
-5. **Free-form and handwritten input** — a typed note or a photo becomes proposals
-6. **Approval-gated writes** — nothing reaches the board until a person picks it
-7. **Drift detection** — where the board and the code disagree, with the evidence
+**The front door**
+
+1. **Today's queue** (`queue.py`) — the decisions, messages and board edits waiting on a
+   person, most perishable first. Rows for one colleague fold into one question, every row
+   names its source, nothing is done, and a queue that could not run says so instead of
+   reporting a clear day
+2. **Options, costed** (`decide.py`) — what each move buys in business days and when it
+   stops being worth making. The agent prices the choices; it does not pick one
+
+**The join underneath**
+
+3. **Keyless board ↔ code linking** (`linking.py`) — author, timing, vocabulary and path,
+   with a margin over the runner-up, and the confidence attached
+4. **Root-cause accounting** (`cause.py`) — four tools lined up, each day counted once, the
+   overlap stated and the remainder left unexplained rather than filled in
+5. **Achievable scheduling** (`schedule.py`, `capacity.py`) — dependencies, then capacity,
+   then meeting load, with the cost of each constraint shown separately
+6. **Drift detection** (`signals.py`) — where the board and the code disagree, with evidence
+7. **Vetted rebalancing** (`familiarity.py`) — a handover only to someone the repository
+   shows has worked in that area
+
+**Reading and writing prose**
+
+8. **Meeting notes against the board** (`reconcile.py`) — only the differences, as proposed
+   edits with the sentence each was read from
+9. **Free-form, handwritten and spoken input** (`ingest.py`) — a typed note, a photo or an
+   audio file becomes proposals
+10. **Report templates from a document** (`extract.py`, `render.py`) — feed it last
+    quarter's report and it extracts the section order, then issues the next one in that
+    shape as md, docx, xlsx or pptx
+11. **Approval-gated writes** (`approve.py`) — nothing reaches the board until a person
+    picks it, and a site outside `WRITE_ALLOWLIST` never leaves the process
+
+**Across projects, over time**
+
+12. **Several projects at once** (`projects.py`) — build work and operations work, each
+    judged by what it actually has. Operations gets arrival and closing rates and a median
+    age; it never gets a finish date
+13. **Issue register** (`register.py`) — what went wrong, who it reaches downstream, and a
+    `LAPSED` state for a problem that stopped being reported without being fixed
+14. **Executive roll-up** (`rollup.py`) — every project on one line, worst first, carrying
+    its unexplained days rather than folding them away
+15. **Warehouse export** (`warehouse.py`) — flat rows and a partitioned BigQuery schema, so
+    the answer is kept every day instead of only computed today
+16. **Korean throughout** (`i18n.py`) — re-rendered from the numbers each sentence was built
+    from, never translated out of the English
 
 ## 7. Process flow
 
@@ -117,43 +167,64 @@ Concretely, and each one is checked by a test:
             ┌────────────────────────────────────┐
             │  schedule.py   CPM, slack, slip     │  ← every number comes from here
             │  capacity.py   one task per person  │
-            │  cause.py      why it stopped       │
+            │  cause.py      days accounted for   │
+            │  decide.py     what a move buys     │
             └────────────────┬───────────────────┘
                              ▼
-     free-form note ──► ingest.py ──► Gemini ──► proposals  (applied: false)
-     or a photo                       reads,     ├─ confident  → for approval
-                                      never       ├─ unsure    → a question
-                                      computes    └─ unknown key → refused
+     note · photo ─────► ingest.py ───► Gemini ──► proposals  (applied: false)
+     or audio            reconcile.py   reads,     ├─ confident  → for approval
+                                        never      ├─ unsure    → a question
+                                        computes   └─ unknown key → refused
                              │
+                             ▼
+            ┌────────────────────────────────────┐
+            │  queue.py      what needs a person  │  ← the first screen
+            │                folded, sourced,     │
+            │                nothing done         │
+            └────────────────┬───────────────────┘
                              ▼
                     a person ticks what they want
                              │
                              ▼
               approve.py ──► WRITE_ALLOWLIST ──► Jira (audit log)
+
+  alongside: register.py · health.py · rollup.py   → several projects on one screen
+             extract.py · render.py               → a report in an existing shape
+             warehouse.py                         → the same answers, kept daily
 ```
 
 The two gates are the point: **the model never reaches the last arrow**, and a write to a
-site that is not on the allowlist never leaves the process.
+site that is not on the allowlist never leaves the process. The queue sits between the
+calculation and the person for the same reason — it prepares, and stops.
 
 ## 8. Wireframe / screens
 
 One page, no build step (`src/pmo_agent/static/index.html`, zero dependencies):
 
-- **The four tools** — across the top: Jira, GitHub, Outlook, Notion, each showing whether
-  it is live or running on its local twin, what it supplies, and whether it can write. Only
-  Jira can, and it says "only what a person approves"
+- **Waiting on you** — first, above everything. Each row is one decision, message or board
+  edit: what it is, what it buys, when it stops being worth doing, and where it came from.
+  Work landing on one colleague folds into a single row with the rest as chips; a drafted
+  message stays collapsed until asked for. The footer says nothing here has been run
+- **All projects** — one line each, worst first, build and operations judged by different
+  headlines. Operations never shows a finish date, because it does not have one
+- **The four tools** — Jira, GitHub, Outlook, Notion, each showing whether it is live or
+  running on its local twin, what it supplies, and whether it can write. Only Jira can, and
+  it says "only what a person approves"
 - **The agent** — directly under them, with arrows from each: *joins* commits to tasks with
   no ticket key, *computes* every date, *asks* the model to read prose and pictures, *waits*
-  for a person. The band exists so the one thing a reader should take away is on the screen
-  rather than in the README
+  for a person
 - **Schedule** — forecast, critical path, what is at risk
 - **Capacity** — the bottleneck, and what a handover would buy
-- **Board against code** — where the two disagree, with evidence links
-- **Why it stopped** — each cause tagged with the tool it came from, what it accounts for,
-  how far the causes overlap, and what is left over
-- **Free-form input** — a note or a photo, and the proposals it produced
+- **Board against code** — where the two disagree, with the evidence
+- **How much of the silence is accounted for** — each cause tagged with the tool it came
+  from, the days it explains, how far the causes overlap, and what is left over. It is no
+  longer a headline: it is what the *look* button on a queue row opens, because how far a
+  row can be trusted is the question it actually answers
+- **Read a note, or a photo of one** — and the proposals it produced
+- **Weekly report** — a template extracted from an existing document, issued in its shape
 
-Every section header carries the tools it drew on, so no number on the page is unattributed.
+Every section header carries the tools it drew on, so no number on the page is
+unattributed. The whole page reads in English or Korean, re-rendered from the same numbers.
 
 Screenshots in §12.
 
@@ -229,9 +300,14 @@ Not captured yet. The dashboard is the thing to shoot, and it runs with no accou
 PMO_BACKEND=memory REPO_BACKEND=memory python -m uvicorn pmo_agent.api:app --port 8080
 ```
 
-Verified rendering at 1280px with every section populated: the four headline cards, the
-constraint table, the load bars, the board-against-code table with its evidence links,
-and the cause section with its overlap note.
+Verified rendering at 1280px in both languages with every section populated: the queue
+with its folded rows and collapsed drafts, the roll-up, the four headline cards, the
+constraint table, the load bars, the board-against-code table, and the accounting section
+with its overlap note.
+
+The queue costs every option and reads every note before it can answer, which takes about
+half a minute. It claims its place on the page from the first paint and says it is working,
+rather than landing late and pushing the reader down the page.
 
 ## 13. Next steps
 
@@ -239,13 +315,20 @@ From the README's own limitations list, which is where this project keeps what i
 proven:
 
 - **Vertex AI on a real GCP project**, and Cloud Run — matches the track's suggested stack
-  and removes the free tier's daily cap
+  and removes the free tier's daily cap. The team already has the project and a verified
+  Cloud Run service; this needs its own service alongside it
+- **Firestore for the issue register**, which is a JSON file today
+- **Search over the register** (Vertex AI Search), so a recurring fault is found by
+  description rather than by category
 - **Handwriting against a real photo** — verified only against generated images so far
 - **The Outlook calendar against a real tenant** — structure only today (needs an Azure app
   registration)
 - **A notes workspace this agent did not shape** — the Notion rows were written by
   `tools/notion_seed.py`, so the columns are the ones it expects
 - **Postgres** for the board, matching what the team repository adopted
+- **The demo script** (`tools/demo.py`) still walks the eight steps of §4 and stops there.
+  It predates the queue, the roll-up and the report templates, so the fastest path through
+  the newer half of the product is the dashboard, not the script
 
 Beyond the prototype: the same reconstruction applies to any team whose record of work is
 split across a tracker, a repository, a calendar and a document store. Nothing in
