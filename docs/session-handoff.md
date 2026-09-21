@@ -7,7 +7,7 @@ four members and one developer, who also owns infrastructure. Use one repository
 API, model-runtime and infrastructure directories. Keep operations small enough for one person.
 
 - Repository: [Sihyeon-Ji/2026-google-ai-builder-cup](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup).
-- Development and default branch: `develop`. Pushes run CI.
+- Development and default branch: `develop`. Pushes do not run CI automatically.
 - Deployment branch: `release/gcp`. Pushes trigger CI, image build and GCP deployment.
 - GCP project: `stunning-crane-508614-c1` (number `266542883304`).
 - Billing was linked and cloud deployment resumed on 2026-09-21. The deployment target is Tokyo
@@ -24,6 +24,7 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
 | CI maintenance (`63b59fa`) | Updated GitHub Actions and pinned them to official release commit SHAs. |
 | Validation-only workflow (`2167858`) | Made plain `make` show help, forced `make eval` to mock, separated `eval-live` and `infra-apply`, added a billing preflight, and recorded Notion/GCP restrictions. |
 | This handoff | Renamed the sample directory to `evaluation-cases`, updated its runner and documentation, and recorded remaining work. |
+| First cloud release (`07ef775`) | Applied the Tokyo foundation, fixed first-service deployment handling, deployed Cloud Run and verified a real Gemini request. |
 
 ## Completed and verified
 
@@ -41,17 +42,19 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
 - Docker Desktop originally referenced the old `/Users/sihyeon` disk path after the Mac account was
   renamed to `sean`. The existing disk was found under the current home directory, and the engine later
   started successfully. Container checks confirmed it was operational.
+- Terraform applied 25 foundation resources in Tokyo. GitHub Workload Identity authentication and the
+  release workflow succeeded without a stored service-account key.
+- Cloud Run revision `builder-cup-00001-luh` serves 100% of traffic at
+  `https://builder-cup-7jftqxfz3q-an.a.run.app`. Static UI, health, anonymous rejection and authenticated
+  `gemini-3.5-flash` inference all passed. The real call returned HTTP 200 with token usage metadata.
 
-## Prepared but not verified live
+## Remaining work
 
 | Area | Current state | Next step |
 | --- | --- | --- |
-| GCP infrastructure | Terraform and bootstrap script prepared; billing is linked and deployment is authorized. | Apply the foundation in Tokyo and verify the resulting resources. |
-| Release deployment | Workflow and `release/gcp` branch prepared. | After infrastructure exists, fast-forward the branch from `develop`, push it, and watch deployment. |
-| Real Gemini | Adapter tested with mocked HTTP responses, not an actual model request. | Once billing/API/model access and quota are ready, run a real evaluation and a deployed UI request. |
 | Local Gemma/vLLM | Separate Linux/NVIDIA Compose profile and connection guide prepared. | Obtain GPU model, VRAM and driver details; validate model/image compatibility and run inference. |
 | GitHub and Notion plugins | Installed, but latest MCP calls returned `USER_NOT_LOGGED_IN`. CLI authentication does not authenticate the GitHub plugin. | Complete OAuth in each installed plugin, then verify reads of the specified repository/page only. |
-| Budget and alerts | Optional Terraform budget and monitoring dashboard definitions exist, not deployed. | Choose budget/currency/recipients when deployment resumes; budget alerts do not stop spending. |
+| Budget and alerts | Monitoring dashboard is deployed. An optional Terraform billing budget is not configured. | Choose a KRW budget and recipients; budget alerts do not stop spending. |
 | Theme and evaluation quality | Theme remains undecided; current evaluation is a contract smoke check. | Collect user scenarios, representative data and domain-specific success/failure cases. |
 
 Tokens were pasted in the conversation. They were not copied into this repository or MCP configuration.

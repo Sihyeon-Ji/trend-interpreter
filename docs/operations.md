@@ -20,7 +20,18 @@ The bootstrap can be rerun: it preserves the existing demo secret version and us
 Before enabling any API or creating resources, it checks that project billing is enabled.
 It writes only public repository IDs to ignored `infra/gcp/github.auto.tfvars.json`.
 The GitHub environment is named `gcp`; no approval gate is configured, so branch pushes deploy automatically.
-For future collaborators, protect release pushes and require successful CI on release PRs.
+The bootstrap creates the state bucket, enables APIs and applies Artifact Registry, service accounts,
+IAM, Workload Identity Federation, Secret Manager metadata, the log metric and the dashboard. It does
+not create a Cloud Run service because that service needs the immutable application image digest.
+The first successful CD run creates the service; later runs create a candidate revision and preserve
+the serving revision until smoke checks pass. Domain mapping is separate and remains absent until the
+team owns a domain.
+
+Only a `release/gcp` push runs automatic checks and deployment. A `develop` push does not start CI;
+use the manual CI workflow when an earlier remote check is needed. The first successful release on
+2026-09-21 took about 4 minutes 38 seconds: 3 minutes 15 seconds for full checks and 1 minute 16 seconds
+for authentication, cached image publication and Cloud Run deployment. Warm build caches can help later
+runs, but the full test suite remains the main part of release time.
 
 Required repository variables (bootstrap sets these):
 

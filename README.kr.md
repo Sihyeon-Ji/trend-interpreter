@@ -148,14 +148,13 @@ docs/                        설치, 구조, 운영, 협업 문서
 
 ## 협업과 배포
 
-공통 개발 브랜치는 `develop`입니다. 코드·설정 push와 PR은 CI를 실행하고,
-Markdown 문서만 바꾼 `develop` push는 제외합니다. 같은 브랜치·PR의 오래된 검증은 취소합니다.
-**GCP 배포와 과금 활성화는 보류 중입니다.** 기본 개발 Compose는 실제 모델 호출용 환경이 아닙니다.
-실제 Gemini 연결은 프로젝트 권한·인증 주입·모델 접근·할당량·과금 준비를 별도로 합의한 뒤 진행합니다.
+공통 개발 브랜치는 `develop`이며 이 브랜치의 push는 GitHub Actions를 실행하지 않습니다.
+기본 개발 Compose는 mock을 사용합니다. GCP 과금 계정이 연결됐고 Cloud Run에서 Vertex AI Gemini를
+사용하는 릴리스가 운영 중이지만, 실제 모델 사용량과 할당량·비용은 계속 확인해야 합니다.
 
-`release/gcp` push는 실제 배포를 실행합니다. 배포 재개 전에는 해당 브랜치에 push하거나
-`scripts/bootstrap-gcp.sh`를 실행하지 마세요. `.env`, 인증정보, 모델 파일, Terraform 상태,
-생성된 평가 결과는 Git에 올리지 않습니다.
+`release/gcp` push는 전체 검증을 한 번 실행한 뒤 이미지 게시와 실제 배포를 수행합니다.
+필요하면 GitHub Actions에서 CI를 수동 실행할 수도 있습니다. `.env`, 인증정보, 모델 파일,
+Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 
 ## 문서와 팀 링크
 

@@ -167,14 +167,13 @@ docs/                        Setup, architecture, operations and team workflow
 
 ## Real Gemini and release
 
-**GCP deployment and billing activation remain paused.** The development stack always uses mock.
-A future real-model configuration needs deliberate credential injection, project permissions,
-model access, quota and billing; successful mock tests do not establish these.
+The development stack uses mock by default. GCP billing is linked, and the release is live on Cloud Run
+with Vertex AI Gemini. Real-model operation still depends on project permissions, quota and billing;
+successful mock tests do not establish these.
 See [operations](docs/operations.md) and [Gemma/vLLM](models/vllm/README.md).
 
-Develop on `develop`; code/configuration pushes run CI. Markdown-only pushes are skipped.
-PRs always run CI, and superseded development/PR runs are canceled. CI can also be started manually. A push to `release/gcp` triggers real image publishing
-and deployment. Do not push that branch or run `scripts/bootstrap-gcp.sh` until deployment resumes.
+Develop on `develop`; pushes do not start GitHub Actions. Fast-forwarding and pushing `release/gcp`
+runs the full checks once, publishes the image and deploys it. CI can also be started manually.
 Never commit credentials, `.env`, model weights, Terraform state or generated evaluation data.
 
 ## Team and documentation

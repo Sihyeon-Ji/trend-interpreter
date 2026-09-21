@@ -340,15 +340,13 @@ docker compose run --rm --build e2e
 
 ## GitHub CI는 언제 실행되나요?
 
-- `develop`에 코드·설정 변경을 push하면 전체 검증을 실행합니다.
-- 변경 파일이 Markdown 문서뿐인 `develop` push는 실행하지 않습니다.
-- `develop`, `release/gcp` 대상 PR은 문서 변경이어도 검증을 실행합니다. 필수 PR 검사 상태가 대기 상태로 남는 것을 피하기 위해서입니다.
-- 같은 브랜치나 PR에 새 변경이 들어오면 이전 검증을 취소하고 최신 변경을 검증합니다.
+- `develop` push와 PR은 자동 검증을 실행하지 않습니다.
+- `release/gcp` push가 배포 워크플로를 시작하고, 그 안에서 전체 CI를 한 번 실행합니다.
 - GitHub Actions의 CI 화면에서 `Run workflow`로 수동 실행할 수도 있습니다.
-- `release/gcp` 배포에서 호출하는 검증은 문서 필터로 생략하지 않고, 새 실행 때문에 취소하지 않습니다.
+- 릴리스 검증은 변경 파일 종류와 관계없이 실행하며 진행 중인 배포를 새 push로 취소하지 않습니다.
 
 `verify`는 작업 이름입니다. 그 안에서 코드 검사·Python 테스트·Mock 평가·브라우저 테스트·Terraform
-검증·배포 이미지 빌드·컨테이너 smoke test를 실행합니다. `develop`은 실제 GCP 배포를 하지 않습니다.
+검증·배포 이미지 빌드·컨테이너 smoke test를 실행합니다. 실제 GCP 배포는 검증 성공 후에만 진행됩니다.
 
 팀원의 PC가 Mac이어도 CI는 Docker의 Linux 실행 환경을 확인하므로 Ubuntu runner를 사용합니다.
 공개 저장소의 표준 runner는 무료이고, 비공개 저장소는 소유자 계정의 요금제별 무료 시간을 사용합니다.
