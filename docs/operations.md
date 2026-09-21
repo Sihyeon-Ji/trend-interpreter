@@ -30,7 +30,8 @@ team owns a domain.
 Only a `release/gcp` push runs automatic checks and deployment. A `develop` push does not start CI;
 use the manual CI workflow when an earlier remote check is needed. The first successful release on
 2026-09-21 took about 4 minutes 38 seconds: 3 minutes 15 seconds for full checks and 1 minute 16 seconds
-for authentication, cached image publication and Cloud Run deployment. Warm build caches can help later
+for authentication, cached image publication and Cloud Run deployment. The next release took about
+4 minutes 4 seconds after removing the duplicate `develop` CI trigger. Warm build caches can help later
 runs, but the full test suite remains the main part of release time.
 
 Required repository variables (bootstrap sets these):

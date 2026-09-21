@@ -44,9 +44,10 @@ API, model-runtime and infrastructure directories. Keep operations small enough 
   started successfully. Container checks confirmed it was operational.
 - Terraform applied 25 foundation resources in Tokyo. GitHub Workload Identity authentication and the
   release workflow succeeded without a stored service-account key.
-- Cloud Run revision `builder-cup-00001-luh` serves 100% of traffic at
+- Cloud Run revision `builder-cup-00003-nec` serves 100% of traffic at
   `https://builder-cup-7jftqxfz3q-an.a.run.app`. Static UI, health, anonymous rejection and authenticated
   `gemini-3.5-flash` inference all passed. The real call returned HTTP 200 with token usage metadata.
+  The release-only workflow also passed on [run 35587198212](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/actions/runs/35587198212).
 
 ## Remaining work
 
