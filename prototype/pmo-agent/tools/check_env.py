@@ -5,6 +5,7 @@ Accounts and keys are a person's job; verifying them is this script's."""
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import json
 import os
 import shutil
@@ -178,6 +179,33 @@ if site and email and tok:
         row(NO, "Jira connection failed", str(e)[:70])
 else:
     row(NO, "Jira check", "JIRA_SITE/EMAIL/API_TOKEN not set")
+
+# --- Notion: the meeting notes. Only checked when it is the configured backend.
+backend = (ENV.get("NOTES_BACKEND", "") or "memory").lower()
+if backend == "notion":
+    from pmo_agent.adapters.notion import NotionError, NotionNotes
+
+    try:
+        archive = NotionNotes()
+        source = archive.data_source()
+        rows = archive.notes(days=400, start=dt.date.today() - dt.timedelta(days=200))
+        row(OK, "Notion auth", f"data source {source[:8]}")
+        # Reachable but empty is the failure people actually hit: the explanation quietly
+        # loses its "what was decided" half and nothing says why.
+        row(
+            OK if rows else WARN,
+            "Notion notes",
+            f"{len(rows)} notes readable"
+            if rows
+            else "reachable but empty - add rows with a Date column, or NOTES_BACKEND=memory",
+        )
+    except NotionError as e:
+        row(NO, "Notion check failed", str(e)[:70])
+    except Exception as e:
+        row(NO, "Notion check failed", str(e)[:70])
+else:
+    row(OK, "Meeting notes", f"{backend} archive (NOTES_BACKEND=notion for the real thing)")
+
 
 print("\n[optional services]")
 for port, name in ((1337, "Kaneo API"), (5432, "Postgres")):

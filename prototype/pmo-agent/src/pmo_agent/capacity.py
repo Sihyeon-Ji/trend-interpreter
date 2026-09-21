@@ -170,11 +170,19 @@ def rebalance(
     max_moves: int = 3,
     holidays=(),
     availability: dict | None = None,
+    can_take=None,
 ) -> dict:
     """Search for a task to move off the bottleneck owner that would pull the finish date in.
 
     Greedy, one move at a time, taking whichever pulls hardest. A proposal only; nothing is applied.
     Finished tasks and already-started ones (progress>0) stay put — handing those over rarely works.
+
+    `can_take(task, person) -> bool` filters out handovers that would not survive contact
+    with the team. Without it the search treats people as interchangeable units of time,
+    which is how you end up proposing that the person who has never touched the API take
+    over the migration. What makes a handover plausible is not capacity's business to
+    decide, so the caller supplies the judgement; `tools.py` builds it from who has
+    actually committed where.
     """
     base = levelled(tasks, today, capacity, holidays, availability)
     cur, moves = _copy(tasks), []
@@ -193,6 +201,8 @@ def rebalance(
         for k in movable:
             for other in people:
                 if other == b["assignee"]:
+                    continue
+                if can_take and not can_take(cur[k], other):
                     continue
                 trial = _copy(cur)
                 trial[k].assignee = other

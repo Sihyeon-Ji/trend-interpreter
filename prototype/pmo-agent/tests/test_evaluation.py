@@ -22,16 +22,16 @@ TODAY = dt.date(2026, 9, 21)  # a Monday
 
 
 class TestCaseFile:
-    def test_there_are_twelve(self):
+    def test_there_are_fifteen(self):
         cases = evaluate.load_cases()
-        assert len(cases) == 12
+        assert len(cases) == 15
 
-    def test_five_detect_and_seven_restraint(self):
+    def test_seven_detect_and_eight_restraint(self):
         # The team document asks for 5 successes and 5 failures. There are more restraint cases —
         # not inventing what is not there matters more.
         cases = evaluate.load_cases()
-        assert sum(1 for c in cases if c["group"] == "detect") == 5
-        assert sum(1 for c in cases if c["group"] == "restraint") == 7
+        assert sum(1 for c in cases if c["group"] == "detect") == 7
+        assert sum(1 for c in cases if c["group"] == "restraint") == 8
 
     def test_every_case_has_a_registered_check(self):
         for case in evaluate.load_cases():

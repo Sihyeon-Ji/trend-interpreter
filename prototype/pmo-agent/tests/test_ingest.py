@@ -12,7 +12,7 @@ import os
 import tempfile
 import unittest
 
-from pmo_agent import ingest  # noqa: E402
+from pmo_agent import ingest, schedule  # noqa: E402
 from pmo_agent.schedule import to_tasks  # noqa: E402
 
 TODAY = dt.date(2026, 9, 21)
@@ -153,6 +153,28 @@ class TestResolve(unittest.TestCase):
 
     def test_a_partial_title_match_is_found(self):
         self.assertEqual(ingest.resolve("schema", tasks())[0], "ECHO-2")
+
+    def test_it_matches_whole_words_not_letters(self):
+        # "search" inside "Competitor research" used to make a clear reference ambiguous.
+        # The restraint was working; the ambiguity was invented.
+        t = schedule.to_tasks(
+            [
+                {"key": "ECHO-1", "summary": "Search", "assignee": "Kim"},
+                {"key": "ECHO-2", "summary": "Competitor research", "assignee": "Kim"},
+            ]
+        )
+        assert ingest.resolve("search", t)[0] == "ECHO-1"
+        assert ingest.resolve("research", t)[0] == "ECHO-2"
+
+    def test_a_word_that_really_fits_two_tasks_still_goes_to_a_person(self):
+        t = schedule.to_tasks(
+            [
+                {"key": "ECHO-1", "summary": "Authentication", "assignee": "Kim"},
+                {"key": "ECHO-2", "summary": "Authentication approach", "assignee": "Kim"},
+            ]
+        )
+        key, why = ingest.resolve("authentication", t)
+        assert key is None and "ECHO-1" in why and "ECHO-2" in why
 
     def test_several_matches_go_to_a_person(self):
         key, why = ingest.resolve("API", tasks())  # matches both API tasks

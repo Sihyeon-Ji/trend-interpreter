@@ -92,6 +92,12 @@
   </section>
 
   <section>
+    <h2>Why it stopped</h2>
+    <p class="hint">The one answer that needs every tool at once. Each cause carries the business days it accounts for <b>on its own</b> — they are not added up, because a day spent in meetings that also carried a commit elsewhere is still one day. Whatever is left over is stated rather than filled in, and a written decision names the reason rather than the duration, so it carries no days.</p>
+    <div id="cause" class="muted">loading…</div>
+  </section>
+
+  <section>
     <h2>Notes and handwritten photos</h2>
     <p class="hint">Drop in a meeting note or a handwritten one and it builds change proposals. Nothing is applied before approval.</p>
     <textarea id="memo" placeholder="e.g. Schema design slipped to the 28th because the DB choice took longer. API client finished today."></textarea>
@@ -129,6 +135,8 @@ async function boot(){
     renderCards(s, c); renderCap(c); renderRisks(s);
     get("/api/signals").then(renderSignals)
       .catch(e => $("#sig").innerHTML = `<div class="banner err">${esc(e.message)}</div>`);
+    get("/api/cause").then(renderCause)
+      .catch(e => $("#cause").innerHTML = `<div class="banner err">${esc(e.message)}</div>`);
   }catch(e){
     $("#cap").innerHTML = `<div class="banner err">${esc(e.message)}</div>`;
     $("#risks").textContent = "";
@@ -236,6 +244,43 @@ const KIND = {
   no_code_activity:   ["no commits", "warn"],
   undeclared_progress:["status not updated", ""],
 };
+
+const SOURCE = { board: "board", repo: "repo", calendar: "calendar", notes: "notes" };
+
+function renderCause(g){
+  const rows = g.worst || [];
+  if(!rows.length){ $("#cause").textContent = "Nothing has stopped."; return; }
+  let h = "";
+  if(!g.calendar_read)
+    h += `<div class="banner">No calendar behind us, so the "where did the time go" half is missing.</div>`;
+  if(!g.notes_read)
+    h += `<div class="banner">${esc(g.notes_note || "No meeting notes")} — so nothing here can say what was decided.</div>`;
+  for(const r of rows){
+    const left = r.unexplained_days > 0;
+    h += `<div class="banner ${left ? "" : "ok"}" style="margin-bottom:6px">
+      <b>${esc(r.key)}</b> ${esc(r.summary)} — silent <b>${r.window.days}</b> business days
+      since ${esc(r.window.since)} (${esc(r.assignee || "unassigned")})</div>`;
+    if(!r.causes.length){
+      h += `<p class="hint" style="margin:0 0 18px 2px">Nothing in any tool accounts for it.</p>`;
+    } else {
+      h += `<table style="margin-bottom:8px"><tr><th style="width:12%">source</th><th>what happened</th><th style="width:14%">accounts for</th></tr>`;
+      for(const c of r.causes){
+        const weight = c.kind === "decision_recorded" ? "written down" : `${c.days}d`;
+        const where = c.kind === "decision_recorded" && c.evidence?.length
+          ? `<div class="s" style="margin-top:4px">${esc(c.evidence[0])}</div>` : "";
+        h += `<tr><td><span class="pill">${esc(SOURCE[c.source] || c.source)}</span></td>
+          <td>${esc(c.detail)}${where}</td><td class="mono">${esc(weight)}</td></tr>`;
+      }
+      h += `</table>`;
+      if(r.overlap > 0)
+        h += `<p class="hint" style="margin:6px 0 8px 2px;font-size:12px;font-style:italic">These overlap by ${r.overlap}d — a day
+          in meetings that also carried a commit elsewhere is still one day, so the total
+          below is less than the column above adds to.</p>`;
+    }
+    h += `<p class="hint" style="margin:0 0 20px 2px">${esc(r.note)}</p>`;
+  }
+  $("#cause").innerHTML = h;
+}
 
 function renderSignals(g){
   const t = g.team || {};

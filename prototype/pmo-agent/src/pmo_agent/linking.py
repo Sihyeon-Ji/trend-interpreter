@@ -152,6 +152,21 @@ def _overlap(left: set, right: set) -> float:
     return len(left & right) / len(left | right)
 
 
+def mentions(text: str, task) -> float:
+    """How much of a task's own vocabulary a piece of text contains, 0 to 1.
+
+    `_overlap` is symmetric, which is right for a commit subject and a task title — two
+    short strings that should look alike. It is wrong for a meeting note: a paragraph
+    that names the task once scores near zero purely because it also says forty other
+    words. What matters there is coverage in one direction — does this document contain
+    the words that identify this task — so that is what this measures.
+    """
+    want = _features(task.summary)
+    if not want:
+        return 0.0
+    return len(want & _features(text)) / len(want)
+
+
 def _date(value: str):
     try:
         return _dt.date.fromisoformat((value or "")[:10])

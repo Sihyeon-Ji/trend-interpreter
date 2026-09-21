@@ -7,13 +7,14 @@ Same order and same screens every time, so the demo never has to improvise.
     2. what changes once capacity and meetings go in   ← the differentiator
     3. what moving something would buy
     4. what shows when the board meets the code  ← invisible from either side alone
-    5. what a photo of a meeting note gives      (Gemini multimodal)
-    6. what gets proposed / still not applied
-    7. approval is what applies it               (without --approve it stops here)
+    5. why it stopped                            ← needs all three at once
+    6. what a photo of a meeting note gives      (Gemini multimodal)
+    7. what gets proposed / still not applied
+    8. approval is what applies it               (without --approve it stops here)
 
 Run:
   python tools/demo.py                  read-only (changes nothing)
-  python tools/demo.py --approve        also applies the first of the step-6 proposals
+  python tools/demo.py --approve        also applies the first of the step-7 proposals
   PMO_BACKEND=memory python tools/demo.py   with the local board, no accounts
 """
 
@@ -22,6 +23,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import sys
+import textwrap
 import time
 
 from pmo_agent import approve as approve_mod  # noqa: E402
@@ -104,12 +106,21 @@ def main(argv) -> int:
         )
 
     # ---- 3 ----
-    step(3, "what moving something would buy", "a proposal only — the move is a person's call")
-    rb = capacity.rebalance(tasks, today, max_moves=3, availability=availability)
+    step(
+        3,
+        "what moving something would buy",
+        "offered only to someone who has worked in that area — a proposal, not a decision",
+    )
+    # The repository decides who could plausibly take a task, so the demo vets the moves
+    # the same way the tool layer does rather than quietly skipping the check.
+    handover, _why = tools._handover_check(tasks)
+    rb = capacity.rebalance(tasks, today, max_moves=3, availability=availability, can_take=handover)
+    rb["handovers_vetted"] = bool(handover)
     if rb["moves"]:
         print(
             f"  {len(rb['moves'])} moves → {rb['before']} → {rb['after']} "
             f"({rb['gain_days']} business days earlier)"
+            + ("" if rb.get("handovers_vetted") else "   [handovers not vetted]")
         )
         for m in rb["moves"]:
             print(
@@ -122,7 +133,7 @@ def main(argv) -> int:
     # ---- 3.5 ----
     step(4, "the board against the code", "invisible from one side — a different kind of signal")
     try:
-        sig = signals.summary(tasks, tools.repo().snapshot(100), today)
+        sig = signals.summary(tasks, tools._snapshot(100), today)
         t = sig["team"]
         print(
             f"  repo {sig['repo']}  {t['commits']} commits in {t['window_days']} days, "
@@ -137,8 +148,35 @@ def main(argv) -> int:
     except Exception as e:
         print(f"  (could not read the repository: {str(e)[:90]})")
 
+    # ---- 3.7 ----
+    step(5, "why it stopped", "the only answer that needs every tool at once")
+    try:
+        found = tools.explain_stall(today=today.isoformat())
+        if not found.get("calendar_read"):
+            print("  (no calendar behind us, so the 'where did the time go' half is missing)")
+        if not found.get("notes_read"):
+            why = found.get("notes_note") or "no meeting notes"
+            print(f"  ({why} — so nothing here can say what was actually decided)")
+        for row in found.get("worst", [])[:3]:
+            print("")
+            print(
+                f"  {row['key']} {row['summary'][:34]}  silent {row['window']['days']}d"
+                f"  ({row['assignee'] or 'unassigned'})"
+            )
+            for c in row["causes"]:
+                print(f"    [{c['source']:<8}] {c['detail'][:110]}")
+                if c["source"] == "notes":
+                    print(f"              written in: {c['evidence'][0]}")
+            if not row["causes"]:
+                print("    (nothing in any tool accounts for it)")
+            lines = textwrap.wrap(row["note"], 86)
+            for i, line in enumerate(lines):
+                print(f"    {'->' if not i else '  '} {line}")
+    except Exception as e:
+        print(f"  (could not explain: {str(e)[:90]})")
+
     # ---- 4 ----
-    step(5, "a photo of a meeting note", "Gemini multimodal — the model reads, the code decides")
+    step(6, "a photo of a meeting note", "Gemini multimodal — the model reads, the code decides")
     if not os.path.exists(NOTE):
         print("  no sample note. First run:  python tools/make_note.py")
         return 1
@@ -150,7 +188,7 @@ def main(argv) -> int:
         return 1
 
     # ---- 5 ----
-    step(6, "what was read out", "applied=false — nothing has been applied yet")
+    step(7, "what was read out", "applied=false — nothing has been applied yet")
     for x in r["resolved"]:
         what = (
             f"due {x.get('duedate_was')} → {x['duedate']}"
@@ -173,7 +211,7 @@ def main(argv) -> int:
         )
 
     # ---- 6 ----
-    step(7, "approval", "only what a person picked is written. The model cannot call this step")
+    step(8, "approval", "only what a person picked is written. The model cannot call this step")
     print(approve_mod.render(r["proposals"], r["impact"]))
     items = approve_mod.appliable(r["proposals"])
     if not do_approve:

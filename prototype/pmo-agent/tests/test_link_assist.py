@@ -205,3 +205,115 @@ class TestQuality:
             tasks(), [commit("a1", "feat: implement authentication")], [], {"Ada": "Ada"}
         )
         assert linking.quality(linked)["by_model"] == 0
+
+
+class TestItSaysWhatTheModelDid:
+    """A rate-limited run looks exactly like a rules-only run from the outside.
+
+    That is fine at runtime — the commit stays unlinked, which is true — but a caller who
+    then reports the figure as "with model assist" is publishing the rules-only number
+    under a name that claims otherwise. So the assistant records what happened.
+    """
+
+    def items(self, n=2):
+        known = tasks()
+        return [
+            {
+                "commit": commit(f"s{i}", f"feat: work {i}"),
+                "candidates": [
+                    {"key": "ECHO-1", "score": 0.5, "reasons": []},
+                    {"key": "ECHO-2", "score": 0.4, "reasons": []},
+                ],
+                "tasks": known,
+            }
+            for i in range(n)
+        ]
+
+    def test_it_counts_what_it_asked_and_what_came_back(self):
+        assist = link_assist.assistant(
+            caller_returning([{"sha": "s0", "key": "ECHO-1", "confidence": 0.8}])
+        )
+        assist(self.items(2))
+        assert assist.stats["asked"] == 2
+        assert assist.stats["answered"] == 1
+        assert assist.stats["failed_batches"] == 0
+
+    def test_a_failed_batch_is_recorded_not_swallowed(self):
+        from pmo_agent import llm
+
+        def boom(_prompt):
+            raise llm.LLMError("Gemini 429: {\n  quota\n}")
+
+        assist = link_assist.assistant(boom)
+        assert assist(self.items(2)) == {}
+        assert assist.stats["failed_batches"] == 1
+        assert assist.stats["answered"] == 0
+
+    def test_the_recorded_error_is_one_line(self):
+        # A provider error is a JSON blob with newlines in it; unflattened it wrecks a report
+        from pmo_agent import llm
+
+        def boom(_prompt):
+            raise llm.LLMError('Gemini 429: {\n  "error": {\n    "code": 429\n  }\n}')
+
+        assist = link_assist.assistant(boom)
+        assist(self.items(1))
+        assert "\n" not in assist.stats["error"]
+        assert assist.stats["error"].startswith("Gemini 429")
+
+    def test_one_bad_batch_does_not_take_the_others_down(self):
+        from pmo_agent import llm
+
+        calls = {"n": 0}
+
+        def flaky(_prompt):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise llm.LLMError("429")
+            return response([{"sha": "s2", "key": "ECHO-1", "confidence": 0.8}])
+
+        assist = link_assist.assistant(flaky, batch=2)
+        got = assist(self.items(4))
+        assert list(got) == ["s2"] and got["s2"]["key"] == "ECHO-1"
+        assert (assist.stats["batches"], assist.stats["failed_batches"]) == (2, 1)
+
+
+class TestTheMeasurementRefusesToOverclaim:
+    def row(self, asked, answered, failed=0, error=""):
+        return {
+            "assist": {
+                "asked": asked,
+                "answered": answered,
+                "batches": 1,
+                "failed_batches": failed,
+                "error": error,
+            }
+        }
+
+    def test_a_silent_model_is_called_out_in_capitals(self):
+        import measure_links
+
+        said = measure_links.assist_note([self.row(8, 0, failed=1, error="Gemini 429")])
+        assert "ANSWERED NOTHING" in said
+        assert "do not report them as assisted" in said
+        assert "Gemini 429" in said
+
+    def test_a_working_model_is_reported_plainly(self):
+        import measure_links
+
+        said = measure_links.assist_note([self.row(8, 8)])
+        assert said == "the model placed 8 of the 8 commits the rules left open."
+
+    def test_nothing_left_open_means_the_model_was_never_called(self):
+        import measure_links
+
+        said = measure_links.assist_note([self.row(0, 0)])
+        assert "never called" in said
+
+    def test_a_partly_working_model_still_reports_the_failures(self):
+        import measure_links
+
+        said = measure_links.assist_note([self.row(8, 4, failed=1)])
+        assert "placed 4 of the 8" in said
+        assert "1 batch failed" in said  # not "1 batches"
+        assert measure_links.assist_note([self.row(8, 4, failed=2)]).endswith("2 batches failed.")

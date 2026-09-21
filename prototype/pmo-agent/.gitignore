@@ -12,3 +12,4 @@ data/repo_state.json
 logs/
 reports/
 data/calendar_state.json
+data/notes_state.json

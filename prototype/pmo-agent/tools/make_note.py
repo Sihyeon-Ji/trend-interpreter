@@ -10,13 +10,16 @@ Run: python tools/make_note.py [output path]
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import random
 import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from pmo_agent import capacity, schedule
 from pmo_agent.env import samples_dir
+from pmo_agent.seeds import world as world_mod
 
 OUT = str(samples_dir() / "meeting-note.png")
 FONTS = (  # Ink Free is a handwriting face shipped with Windows; Segoe Script is the fallback
@@ -29,18 +32,74 @@ INK = (32, 38, 60)
 # The note names the work the way a person would — **no ticket keys.**
 # Real meeting notes do not carry them, and working out which task each line means is
 # exactly what ingest.resolve() is for. Put the keys in and the demo proves nothing.
-LINES = [
-    ("9/21 weekly", 0),
-    ("", 0),
-    ("- authentication: still waiting on the IdP decision", 1),
-    ("   -> push the due date to 10/5", 2),
-    ("- API client finished today (done)", 1),
-    ("- Maya is overloaded", 1),
-    ("   look at moving the unit tests to Noah", 2),
-    ("- team sync cancelled next Monday", 1),
-    ("", 0),
-    ("* integration tests need a fresh date", 0),
-]
+#
+# It is built from the current world rather than typed out once. A note that says "the
+# API client finished today" is worth nothing the week the board already has it done:
+# the proposal becomes a no-op and the "here is what this would do to the schedule" line
+# comes out unchanged. Deriving it keeps the note true to the data it is read against.
+
+
+def _short(summary: str) -> str:
+    """The task named the way someone would say it out loud, with the phase dropped."""
+    return summary.split("]")[-1].strip().lower()
+
+
+def lines(today: dt.date | None = None) -> list:
+    """The note's content, in (text, indent) pairs."""
+    world = world_mod.simulate(today)
+    board = world_mod.to_board(world)
+    tasks = schedule.from_jira_issues(board["issues"])
+    day = world.today
+
+    blocked = tasks.get(world.incident["key"])
+    loaded = capacity.levelled(tasks, day)["bottleneck"]
+    busy = (loaded or {}).get("assignee", "")
+
+    # Something genuinely unfinished, so "it is done" is a real change to propose
+    finished = next(
+        (
+            t
+            for t in tasks.values()
+            if not t.is_done and not schedule.status_alike(t.status, "To Do")
+        ),
+        None,
+    )
+    # Something the overloaded person is holding, so the handover line has a point
+    hand_over = next(
+        (t for t in tasks.values() if not t.is_done and t.assignee == busy and t is not blocked),
+        None,
+    )
+    relief = next((t.assignee for t in tasks.values() if t.assignee and t.assignee != busy), "")
+    undated = next(
+        (
+            t
+            for t in tasks.values()
+            if not t.is_done and t is not finished and t is not hand_over and t is not blocked
+        ),
+        None,
+    )
+    later = schedule.add_workdays(day, 10)
+
+    out = [(f"{day.month}/{day.day} weekly", 0), ("", 0)]
+    if blocked:
+        out += [
+            (f"- {_short(blocked.summary)}: still waiting on the IdP decision", 1),
+            (f"   -> push the due date to {later.month}/{later.day}", 2),
+        ]
+    if finished:
+        out.append((f"- {_short(finished.summary)} finished today (done)", 1))
+    if hand_over and relief:
+        out += [
+            (f"- {busy.split()[0]} is overloaded", 1),
+            (f"   look at moving {_short(hand_over.summary)} to {relief.split()[0]}", 2),
+        ]
+    out.append(("- team sync cancelled next Monday", 1))
+    if undated:
+        out += [("", 0), (f"* {_short(undated.summary)} needs a fresh date", 0)]
+    return out
+
+
+LINES = lines()
 
 
 def _font(size: int):

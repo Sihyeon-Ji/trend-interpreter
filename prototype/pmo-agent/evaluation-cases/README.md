@@ -1,6 +1,6 @@
 # Evaluation cases
 
-The **5 success / 5 failure-and-edge** cases the team workflow document asks for (there are 7
+The **5 success / 5 failure-and-edge** cases the team workflow document asks for (there are 8
 on the restraint side). `../tools/evaluate.py` runs them.
 
 ```bash
@@ -36,6 +36,8 @@ it breaks tomorrow.
 | `undeclared-progress-detected` | there are commits, but the board says To Do |
 | `premature-done-detected` | the board says Done while a pull request is open |
 | `meeting-overload-detected` | whoever has the most meetings ahead |
+| `cause-reaches-the-incident` | the incident is only visible as the shape of one calendar |
+| `cause-quotes-the-written-decision` | the sentence behind the stall exists only in a meeting note |
 
 ### restraint — does it refrain from inventing
 
@@ -48,6 +50,7 @@ it breaks tomorrow.
 | `no-calendar-no-meeting-claim` | with no calendar, it never claims meetings were accounted for |
 | `inference-declared` | an inferred link is declared an estimate, with a confidence |
 | `assist-stays-in-candidates` | even with the model on, no invented key and no overturned rule link |
+| `cause-admits-the-unexplained` | with nothing in any tool, no cause is named |
 
 **The second group matters more.** Missing something is a pity; claiming something that is not
 there, or writing without approval, loses the trust entirely.
@@ -77,11 +80,14 @@ that, and joining things up when there is no key is what this agent does. Put th
 we would only ever solve the easy version, the one string matching already handles.
 
 The same goes for the handwritten demo note (`tools/make_note.py`): it names the work the way a
-person would, and `ingest.resolve()` has to work out which task each line means.
+person would, and `ingest.resolve()` has to work out which task each line means. And for the
+meeting notes in `seeds/notes.py` — a team writing minutes does not annotate them with issue
+IDs, so `linking.mentions()` has to decide which task a paragraph is about, and leaves it
+alone when two fit equally well.
 
 `src/pmo_agent/linking.py` joins by author, timing, vocabulary and path, and leaves it alone
 when it is close. The correct links live separately, in `world.to_repo()`'s `link_truth`, so
-accuracy can be measured (currently precision 1.00 / recall 0.84 — the result of preferring no
+accuracy can be measured (currently precision 1.00 / recall 0.89 — the result of preferring no
 link to a wrong one).
 
 With `LINK_ASSIST=on`, only the links the rules gave up on go to the model. The evaluation
@@ -94,5 +100,5 @@ overturning a link the rules settled, is a failure.
   them, so this only checks that the calculation is right. Evaluating prose is a separate job
 - **real handwriting accuracy** — verified against synthetic images only (`tools/make_note.py`)
 - **Gemini calls** — the evaluation never touches the network. It has to run without a key to
-  belong in CI. The model assist's *performance* (recall 0.99 / precision 0.99) was measured by
-  hand, not here
+  belong in CI. The model assist's *performance* was measured by hand on an earlier dataset
+  (recall 0.99 / precision 0.99) and has not been re-measured since, so treat it as history

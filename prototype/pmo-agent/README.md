@@ -38,13 +38,28 @@ docs: draft information architecture          docs/information-architecture.md
 commit alone — a wrong link is worse than no link.
 
 ```
-69 commits → right 58 / wrong 0 / unlinked 11
-precision 1.00 | recall 0.84 | mean confidence 0.85
+$ python tools/measure_links.py --dates 8
+
+2026-09-21   61 commits  right 53 / wrong 0 / unlinked 8   precision 1.00 | recall 0.87
+2026-10-13   63 commits  right 54 / wrong 0 / unlinked 9   precision 1.00 | recall 0.86
+2026-11-04   62 commits  right 53 / wrong 0 / unlinked 9   precision 1.00 | recall 0.85
+…
+worst of 8: precision 1.00 | recall 0.85 — no wrong links at any date
 ```
 
-The accuracy is **measurable**, because the world simulation knows the answer (`link_truth`).
-And when a link was inferred, the result says so — state an inference as fact and nobody can
-catch it when it is wrong.
+**precision 1.00**, **recall 0.85** at worst, measured at **8 dates** — roughly 490 commits,
+not one lucky run. The two are not equally important and are not treated as such. A wrong
+link puts somebody else's commit on a task and every number built on top inherits it
+silently, so there is no acceptable rate of that and `test_linking_accuracy.py` admits
+none. A commit it refuses to place is merely reported as unlinked, which is the restraint
+working; recall has a floor rather than a target.
+
+The accuracy is **measurable** because the world simulation knows the answer (`link_truth`),
+and the adapters never expose it — the linker sees what a real repository would give it and
+nothing else. The measurement runs at several dates because the world regenerates from
+`today`, so a rule that happens to suit this week shows up straight away. And when a link
+was inferred, the result says so: state an inference as fact and nobody can catch it when
+it is wrong.
 
 The demo data is honest about difficulty: the first commit on a task names it in full, and
 later ones drop into the team's shorthand ("the sign-in flow", "the alert board"), the way real
@@ -52,24 +67,124 @@ history reads. That is where linking gets hard, and it is the realistic case.
 
 #### The model only speaks where the rules were silent (`LINK_ASSIST=on`)
 
-The 11 unlinked commits are the ones the rules could not separate from the runner-up. Only
+The 7 unlinked commits are the ones the rules could not separate from the runner-up. Only
 those go to Gemini (`link_assist.py`). It picks **from the candidate list only**, answers
 `unknown` when it does not know, and every answer is validated. A link the rules already
 settled is out of the model's reach.
 
 ```
-rules only       right 56 / wrong 0   recall 0.81 | precision 1.00
-rules + model    right 68 / wrong 1   recall 0.99 | precision 0.99
+$ python tools/measure_links.py --assist
+
+rules only       right 53 / wrong 0 / unlinked 8   recall 0.87 | precision 1.00
+rules + model    right 61 / wrong 0 / unlinked 0   recall 1.00 | precision 1.00
+                 the model placed 8 of the 8 commits the rules left open
 ```
 
-**Turning it on raises recall and lowers precision.** So it is off by default. A model-decided
-link is marked `how="model"`, and the result's note says separately that some links were the
-model's call.
+That last line is there because of a mistake this made while being measured. A
+rate-limited call leaves the commit unlinked, which is honest at runtime — but from the
+outside an assisted run where every call was refused is **indistinguishable** from a
+rules-only run, and it was reported as assisted twice before anyone noticed the numbers
+had not moved. `assistant()` now records what the model was asked and what came back, and
+the measurement refuses to label a run assisted when the model answered nothing.
 
-*(Those two measurements come from the Korean-language dataset this was first built on; the
-English dataset measures 0.84 recall at 1.00 precision for the rules alone.)*
+It is still off by default, and the reason is worth stating plainly: **that result is three
+runs on one 63-commit dataset.** On the Korean dataset this was first built against, the same
+mechanism reached 0.99 recall while dropping precision to 0.99 — one wrong link. A wrong link
+is the thing the rules exist to avoid, so paying per call for a result that can go either way
+is the caller's decision, not a default.
 
-### 2. "A possible schedule" and "an achievable schedule" are different things
+A model-decided link is marked `how="model"`, and the result's note says separately that some
+links were the model's call rather than the rules'.
+
+### 2. It answers "why", which no single tool can
+
+Every other part of this says *what* is wrong: this task will slip, the board and the code
+disagree. A PM cannot act on that. They need why.
+
+No one tool holds the answer. The board knows a dependency is open. The repository knows the
+last commit was three weeks ago — and that the owner kept committing elsewhere. The calendar
+knows that person spent those same days in incident calls. And a meeting note, if anyone
+wrote one, holds the only sentence that says what the incident actually *was*. Put all four
+side by side:
+
+```
+ECHO-16 [Build] Authentication  silent 10d  (Maya Okonkwo)
+  [notes   ] External IdP spec change: the identity provider changed its token
+             format, forcing a redesign. Authentication cannot move until we
+             agree the new shape.
+             written in: Incident response — Maya Okonkwo, 2026-09-04
+  [calendar] Maya Okonkwo lost 22.0h to meetings over this stretch,
+             15.0h of it "Incident response"
+  [repo    ] Maya Okonkwo made 2 commits in this stretch, none of them here
+  -> 4.5 of 11 silent business days are accounted for; 6.5 are not.
+     They left a trace in the repository or the calendar on 9 of those 11 days;
+     on the other 2 there is none at all, which is a blind spot rather than a reason.
+```
+
+**The days are counted once each.** The causes are not added together: a person who spent
+Tuesday in meetings *and* committed to another task on Tuesday has one Tuesday, not two.
+Adding them up is the obvious implementation and it was the one here — on real data two
+causes came to 15.4 days of a 16-day silence when the honest figure was 6.6. Worse, it was
+invisible: the total was capped at the length of the window, so the overcount came out as
+"all 14 silent business days are accounted for", the most confident sentence this module
+can produce. **A cap is not a check.** Each cause still reports what it accounts for on
+its own, and the report states how far they overlap, so the list and the total can both
+be read as true.
+
+That last line separates two things that land in the same leftover number and are opposite
+problems. A day the owner was demonstrably at work — a commit to another task, a meeting —
+and did not come here is a question to ask them. A day they left no trace anywhere is not
+unexplained so much as **unobserved**, and the question is which system nobody connected.
+Reported as one number, "5.2 days unexplained" reads like ignorance in both cases; it is
+only ignorance in the second. Every commit counts towards a trace, including the ones the
+linker could not place — using only the linked set would turn the agent's own uncertainty
+into somebody's missing week.
+
+That note carries no ticket key — a team writing minutes does not annotate them with issue
+IDs — so tying it to the task is the same inference problem as tying a commit to one, and
+`linking.py` does both. A note that fits two tasks equally well is used for neither.
+
+The notes come from Notion (`NOTES_BACKEND=notion`), which is where most teams actually keep
+them, or from the local archive for a demo without accounts. Both are read-only: there is no
+method on either adapter that edits a page, because an agent has no business rewriting what
+someone typed in a meeting.
+
+When there are no notes to read, the answer says so and why — a backend that is configured
+but empty looks exactly like one that was never set up, and an explanation that quietly
+arrives thinner is the failure this whole project is built to avoid.
+
+The Notion database needs three columns: a **Title**, a **Date**, and a person or short text
+column for the author. Their names do not matter — they are matched by type, so a workspace
+that calls them anything still works.
+
+To fill an empty one:
+
+```bash
+python tools/notion_seed.py --approve   # creates the pages and the two missing columns
+python tools/notion_csv.py              # or a CSV for ⋯ → Merge with CSV, by hand
+```
+
+Both are *setup* scripts. The adapter itself stays read-only — an agent writing into
+someone's workspace is not a capability worth having — and the seeder refuses a database
+that already has rows, because an empty one is a demo fixture and a full one is somebody's
+actual notes.
+
+This is the argument for connecting a fourth tool rather than polishing one: the status is
+in Jira, the silence is in Git, the hours are in the calendar, and the sentence is in the
+minutes. No single one of them can answer the question.
+
+**Every cause carries the business days it accounts for**, so they rank by how much they
+actually explain, and the remainder is stated out loud:
+
+```
+ECHO-32 [Hardening] Security review  silent 17d
+  -> 8.2 of 17 silent business days are accounted for; 8.8 are not.
+```
+
+When nothing explains it, that is the answer — `cause.py` never names a cause it cannot
+show evidence for. A named cause ends the conversation; an admitted gap starts one.
+
+### 3. "A possible schedule" and "an achievable schedule" are different things
 
 Add the constraints one at a time and the finish date moves. Each step's cost is shown
 separately:
@@ -89,7 +204,7 @@ Someone holding 38 business days of work while the project finishes in 22 only a
 Meeting data is in neither the board nor the repository. It is only in the calendar — **that is
 the reason for connecting more than one tool.**
 
-### 3. The model does not produce the numbers
+### 4. The model does not produce the numbers
 
 - schedule, delay, critical path and load all come from `schedule.py` / `capacity.py`
   (standard library only)
@@ -104,7 +219,7 @@ def test_the_tool_layer_never_passes_approve_true(self):
     self.assertNotIn("approve=True", inspect.getsource(tools))
 ```
 
-### 4. Every write waits for a person
+### 5. Every write waits for a person
 
 - the only write tools the model can call are `propose_*`, and they return dry-run results
 - the application happens in exactly one place, `approve.py`, which the model cannot call
@@ -113,7 +228,7 @@ def test_the_tool_layer_never_passes_approve_true(self):
 - a write aimed at anything but the sandbox is stopped with `WriteBlocked` — and the attempt
   itself is recorded
 
-### 5. The input is free-form
+### 6. The input is free-form
 
 Nothing has to be structured. A sentence from a meeting note works, and so does **a photo of a
 handwritten one**. Gemini reads it, code validates it, a person approves it.
@@ -135,7 +250,8 @@ world.simulate()          what actually happened (18 business days back + 25 for
    │
    ├─→ board      what people **wrote down**   (where it diverges is the signal)
    ├─→ repo       what was actually **done**   (commits and PRs, no ticket keys)
-   └─→ calendar   where the time **went**      (past and future meetings)
+   ├─→ calendar   where the time **went**      (past and future meetings)
+   └─→ notes      what was **decided**         (prose, no ticket keys either)
 ```
 
 The story planted in it: *an external IdP changed its spec, authentication stalled for 8
@@ -154,6 +270,8 @@ src/pmo_agent/
   schedule.py     CPM critical path, business days, delay propagation, forecast  (stdlib only)
   capacity.py     resource-constrained scheduling, bottleneck, rebalance search  (stdlib only)
   availability.py meeting hours → availability                                   (stdlib only)
+  cause.py        why a task stopped, from all four tools                        (stdlib only)
+  familiarity.py  who has worked where, so a handover is one that could happen    (stdlib only)
   linking.py      ties commits to tasks with no ticket key                       (stdlib only)
   link_assist.py  asks the model only about links the rules could not settle     (Gemini, off by default)
   signals.py      board status against code activity                             (stdlib only)
@@ -167,7 +285,8 @@ src/pmo_agent/
   ports.py        adapter interfaces (Protocols — enforced by mypy)
   adapters/       jira · memory (board) / github · memory_repo (repository)
                   ms_calendar · memory_calendar (calendar)
-  seeds/          world (the simulation) → board · repo · calendar projections
+                  notion · memory_notes (meeting notes)
+  seeds/          world (the simulation) → board · repo · calendar · notes projections
 ```
 
 The calculation has no external dependencies. **Every unit test runs with no API key and no
@@ -190,8 +309,9 @@ pip install -e ".[dev]"
 python -m pmo_agent.seeds.board      # 40 issues
 python -m pmo_agent.seeds.repo       # the repository (commits and PRs)
 python -m pmo_agent.seeds.calendar   # the calendar (past and future meetings)
+python -m pmo_agent.seeds.notes      # the meeting notes
 
-PMO_BACKEND=memory REPO_BACKEND=memory CALENDAR_BACKEND=memory python tools/demo.py
+PMO_BACKEND=memory REPO_BACKEND=memory python tools/demo.py
 ```
 
 ### Connected for real
@@ -205,15 +325,41 @@ python tools/push_demo_repo.py --approve       # create the demo repository on G
 python -m pmo_agent.run "is the current schedule realistically achievable"
 ```
 
+**Against a real GitHub repository, turn on `REPO_FILES`.** The commit list API does not
+include which files a commit touched, and the path is what separates two tasks the same
+person has open. Fetching them costs one API call per commit — about 30 seconds for a
+demo-sized repo — and buys roughly a quarter more links at noticeably higher confidence
+(measured on `onzl-c/echo-app`: 39 links at 0.73 → 50 at 0.83). The local backend has the
+paths already and ignores the flag.
+
+**The live data is a snapshot and drifts.** The simulation rebuilds its dates from *today*
+on every run; a seeded Jira board and a pushed repository are frozen at the moment they were
+created. After a day or two nobody notices. After a week the board says a task is due next
+Wednesday while the world has it three weeks late, and every explanation built on top reads
+wrong. Before a demo, re-sync:
+
+```bash
+python tools/retitle_jira.py --approve            # summaries, owners, due dates, statuses
+python tools/push_demo_repo.py --approve --reset  # commits and pull requests
+```
+
+`retitle_jira.py` updates the existing issues rather than seeding new ones, so the keys stay
+put. It restores statuses too, which is what makes the demo repeatable — run it with
+`--approve` once and a task moves to Done, and without putting the board back the next run
+has nothing left to change. Note that recreating the repository resets every pull request's creation time, so any
+"waiting on review for N days" signal starts from zero again.
+
 Backends swap through environment variables. The code does not change.
 
 | variable | values | for |
 |---|---|---|
 | `PMO_BACKEND` | `jira` / `memory` | the board |
 | `REPO_BACKEND` | `github` / `memory` | the repository |
-| `CALENDAR_BACKEND` | `msgraph` / `memory` | the calendar |
+| `CALENDAR_BACKEND` | `memory` / `msgraph` | the calendar — local unless Graph is set up |
+| `NOTES_BACKEND` | `notion` / `memory` | the meeting notes |
 | `LLM_BACKEND` | `aistudio` / `vertex` | the model |
 | `LINK_ASSIST` | `off` / `on` | model help for unsettled links |
+| `REPO_FILES` | `off` / `on` | fetch each commit's paths (slower, better links) |
 
 ### As a web service
 
@@ -223,13 +369,16 @@ uvicorn pmo_agent.api:app --port 8080
 
 | endpoint | what it gives |
 |---|---|
+| `GET /api/board` | which backends are connected |
 | `GET /api/schedule` | critical path and tasks at risk |
 | `GET /api/capacity` | the achievable schedule and the bottleneck |
 | `GET /api/rebalance` | a rebalancing proposal |
 | `GET /api/signals` | board against code |
+| `GET /api/cause` | why a task stopped (empty key = the worst offenders) |
 | `GET /api/calendar` | meeting load per owner |
 | `POST /api/ingest` | note or photo → proposals (`applied:false`) |
 | `POST /api/approve` | apply the chosen proposals (`confirm:true` required) |
+| `GET /api/approvals` | what was applied recently (the audit log) |
 | `GET /api/report` | the weekly report (Markdown) |
 
 Container: `docker build -t pmo-agent prototype/pmo-agent`
@@ -243,17 +392,25 @@ The same standards as the repository root (py312, ruff `E/F/I/UP/B`, line-length
 
 ```bash
 ruff check . && ruff format --check . && mypy && pytest -q
-python tools/evaluate.py     # the 12 evaluation cases
+python tools/evaluate.py         # the 15 evaluation cases
+python tools/measure_links.py    # link precision and recall against the answer key
 ```
 
-**333 tests, under four seconds.** No network, no accounts.
+**456 tests, eight to fourteen seconds.** No network, no accounts. Most of them finish in
+under a second; the spread is `test_readme.py`, which spawns a collection pass to check
+that the number in this very sentence is still true.
 
 | file | what it covers |
 |---|---|
 | `test_schedule.py` | CPM, business days, delay propagation, cycle detection, status aliases |
 | `test_capacity.py` | non-overlapping intervals, no wasted idle time, bottleneck, rebalance |
 | `test_availability.py` | meetings → availability, unchanged behaviour with no calendar |
+| `test_cause.py` | root-cause reconstruction, and silence when there is no evidence |
+| `test_familiarity.py` | handover plausibility, and getting out of the way without evidence |
 | `test_link_assist.py` | the boundary the model must not cross |
+| `test_linking_accuracy.py` | the headline precision and recall, measured at several dates |
+| `test_notion.py` | reading a real Notion payload, and staying the same shape as the local archive |
+| `test_readme.py` | this file's own checkable claims still match the code |
 | `test_signals.py` | divergence detection, identity merge, silence without evidence |
 | `test_tools.py` | declarations match implementations, read tools never write |
 | `test_ingest.py` | image encoding, task matching, date validation |
@@ -265,7 +422,7 @@ python tools/evaluate.py     # the 12 evaluation cases
 | `test_report.py` | report numbers agree with the calculation |
 | `test_evaluation.py` | every evaluation case passes |
 
-The cases live in [evaluation-cases/](evaluation-cases/) — 5 detect, **7 restraint**.
+The cases live in [evaluation-cases/](evaluation-cases/) — 7 detect, **8 restraint**.
 Restraint matters more: missing something is a pity, but claiming something that is not there,
 or writing without approval, loses the trust entirely.
 
@@ -273,10 +430,13 @@ or writing without approval, loses the trust entirely.
 
 ## Known limitations
 
-- rule-based link recall is **0.84**. The rest is left unlinked — the result of preferring no
+- rule-based link recall is **0.89** on the simulated repository, where every signal is
+  present. Against the real one it is lower: commit emails are not tied to GitHub accounts,
+  and the paths cost an API call each (see `REPO_FILES` above) The rest is left unlinked — the result of preferring no
   link to a wrong one
-- with `LINK_ASSIST=on` recall reaches **0.99**, but precision drops from 1.00 to **0.99**.
-  Which trade is right is the using team's call, so it is off by default and offered as a choice
+- with `LINK_ASSIST=on` the remaining links were all correct across three runs here, but the
+  same mechanism cost a point of precision on the earlier dataset. One dataset is not a
+  measurement, so it stays off by default and is offered as a choice
 - when a commit email is not tied to a GitHub account, one person can split in two (they are
   merged by email, which is not perfect)
 - **1 story point = 1 business day** is an assumption (`DAYS_PER_POINT`). Change the constant
@@ -284,11 +444,25 @@ or writing without approval, loses the trust entirely.
 - **one concurrent task** and an **eight-hour day** are the defaults. Adjust via the `capacity`
   argument
 - the rebalance search is **greedy**. It offers candidates for a person to judge, not an optimum
-- it does not model whether a handover is possible, or differences in skill
+- a handover is only offered to someone the repository shows has committed in that area
+  (`familiarity.py`). That is evidence of having been there, not of being the right person —
+  it cannot see who is learning it, who is on leave, or who would rather not. And it needs
+  file paths, so against a real repository it needs `REPO_FILES=on` to work at all; when it
+  cannot judge, the proposal says it was not vetted rather than implying it was
+- the live Jira board and demo repository are snapshots. They drift from the simulation as
+  soon as the date moves, so they need re-syncing before a demo (see above)
+- a cause is only as good as what the tools recorded. Someone who was ill, or stuck on a
+  problem they never wrote down, leaves no trace — `cause.py` counts those days and says
+  they are a blind spot rather than guessing at one, which is the honest answer but not a
+  satisfying one. It cannot tell leave from a repository nobody connected, and does not try
 - handwriting recognition is **verified only against synthetic images** (`tools/make_note.py`).
   A check against real handwriting is still outstanding
 - the Outlook calendar is **structure only** and unverified against a real call (it needs an
   Azure app registration)
+- the Notion adapter reads a live workspace (verified: token, data-source discovery and the
+  query all work against a real database). The demo database is still empty, so the notes
+  evidence in a live run comes from the local archive until rows exist — and the result says
+  which, rather than quietly arriving thinner
 - the Vertex AI path is **unverified** too (it needs a GCP project)
 - the PostgreSQL the team repository recently adopted is not used here yet. The local board is
   a JSON file

@@ -9,6 +9,7 @@ Read-only — there is no path to create or delete anyone's events.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import os
 
@@ -38,9 +39,21 @@ class MemoryCalendar:
     def whoami(self) -> str:
         return "local"
 
-    def events(self, days: int = 20, attendee: str = "") -> list:
-        """Events within the next `days` business days. Pass `attendee` for one person's."""
-        rows = list(self._load().get("events", []))
+    def events(self, days: int = 20, attendee: str = "", start=None) -> list:
+        """Events in the `days` calendar days from `start` (today by default).
+
+        Pass an earlier `start` to look backwards — that is how cause.py finds out
+        what a person was doing while a task sat still.
+        """
+        first = start or _dt.date.today()
+        if isinstance(first, str):
+            first = _dt.date.fromisoformat(first[:10])
+        last = first + _dt.timedelta(days=int(days))
+        rows = [
+            e
+            for e in self._load().get("events", [])
+            if e.get("date") and first.isoformat() <= e["date"][:10] < last.isoformat()
+        ]
         if attendee:
             rows = [e for e in rows if e.get("attendee") == attendee]
         rows.sort(key=lambda e: (e.get("date", ""), e.get("start", "")))

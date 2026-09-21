@@ -16,6 +16,7 @@ import base64
 import datetime as dt
 import json
 import os
+import re
 import sys
 
 from pmo_agent import llm, schedule
@@ -162,16 +163,27 @@ def parse(resp: dict) -> dict:
 
 
 # ---------- validation (no key needed) ----------
+def _mentions(needle: str, haystack: str) -> bool:
+    """Does the title contain this phrase as words, rather than as letters?
+
+    A plain substring test made "search" match "Competitor research", which turned a
+    clear reference into a question about two tasks. The restraint was working; the
+    ambiguity was invented. Whole words only.
+    """
+    words = re.escape(needle.strip())
+    return bool(re.search(rf"(?<![0-9a-z]){words}(?![0-9a-z])", haystack, re.IGNORECASE))
+
+
 def resolve(name: str, tasks: dict) -> tuple:
     """What the model called a task → a real key. Returns (key or None, reason).
-    Key match first, then partial title match. If several match, a person chooses."""
+    Key match first, then a whole-word title match. If several match, a person chooses."""
     if not name:
         return None, "the task is empty"
     s = name.strip()
     for k in tasks:
         if k.lower() == s.lower():
             return k, ""
-    hits = [k for k, t in tasks.items() if s.lower() in (t.summary or "").lower()]
+    hits = [k for k, t in tasks.items() if _mentions(s, t.summary or "")]
     if len(hits) == 1:
         return hits[0], ""
     if len(hits) > 1:

@@ -154,13 +154,18 @@ class MSCalendar:
     def whoami(self) -> str:
         return self._get("/me", {"$select": "displayName,mail"}).get("displayName", "?")
 
-    def events(self, days: int = 20, attendee: str = "") -> list:
-        """Events for the next `days` days. Graph only ever gives *my* calendar —
-        seeing the whole team needs each person's consent or an organisation permission.
+    def events(self, days: int = 20, attendee: str = "", start=None) -> list:
+        """Events in the `days` days from `start` (today by default). Graph only ever
+        gives *my* calendar — seeing the whole team needs each person's consent or an
+        organisation permission.
 
         `attendee` filters the return value; the query is always about the logged-in user.
+        An earlier `start` looks backwards, which is what cause.py needs.
         """
-        start = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        first = start or _dt.date.today()
+        if isinstance(first, str):
+            first = _dt.date.fromisoformat(first[:10])
+        start = _dt.datetime.combine(first, _dt.time.min)
         end = start + _dt.timedelta(days=int(days))
         raw = self._get(
             "/me/calendarView",

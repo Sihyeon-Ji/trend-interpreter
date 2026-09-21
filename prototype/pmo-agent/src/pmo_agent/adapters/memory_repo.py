@@ -79,7 +79,14 @@ class MemoryRepo:
     def collaborators(self) -> list:
         return list(self._load().get("collaborators", []))
 
-    def snapshot(self, commit_limit: int = 100) -> dict:
+    def commit_files(self, sha: str) -> list:
+        """The paths one commit touched. Already in the file, so this costs nothing."""
+        for commit in self._load().get("commits", []):
+            if commit.get("sha") == sha:
+                return list(commit.get("files") or [])
+        return []
+
+    def snapshot(self, commit_limit: int = 100, with_files: bool = False) -> dict:
         data = self._load()
         return {
             "repo": data.get("repo", self.repo),

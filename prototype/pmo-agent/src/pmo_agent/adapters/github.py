@@ -170,7 +170,12 @@ class GitHub:
         raw = self._api(f"repos/{{repo}}/pulls/{int(number)}/commits?per_page=100")
         return self._shape(raw)
 
-    def snapshot(self, commit_limit: int = 100) -> dict:
+    def commit_files(self, sha: str) -> list:
+        """The paths one commit touched. One API call each — the list endpoint omits them."""
+        detail = self._api(f"repos/{{repo}}/commits/{sha}")
+        return [f["filename"] for f in (detail.get("files") or [])]
+
+    def snapshot(self, commit_limit: int = 100, with_files: bool = False) -> dict:
         """Fetch everything needed in one go — signals.py does the calculating.
 
         Look only at the default branch and **work in flight disappears entirely** — of course
@@ -191,6 +196,15 @@ class GitHub:
             except GitHubError:
                 continue  # one unreadable pull request should not lose the rest
         commits.sort(key=lambda c: c["date"], reverse=True)
+        if with_files:
+            # Worth roughly a quarter more links and a good deal more confidence, because
+            # the path is what separates two tasks the same person is working on. It costs
+            # one API call per commit, which is why the caller has to ask for it.
+            for commit in commits:
+                try:
+                    commit["files"] = self.commit_files(commit["sha"])
+                except GitHubError:
+                    commit["files"] = []
         return {
             "repo": self.repo,
             "info": self.repo_info(),

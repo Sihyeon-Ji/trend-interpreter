@@ -119,6 +119,9 @@ def weekly(
     done_recent: list | None = None,
     code: dict | None = None,
     availability: dict | None = None,
+    stalls: list | None = None,
+    stalls_note: str = "",
+    can_take=None,
 ) -> str:
     """The whole weekly report, as Markdown."""
     today = today or dt.date.today()
@@ -291,7 +294,11 @@ def weekly(
         L.append("")
 
     if rebalance:
-        rb = cap.rebalance(tasks, today, availability=availability)
+        # `can_take` decides which handovers are worth offering. Without it the moves are
+        # arithmetic on availability alone, and the section below says so rather than
+        # letting "move this to Leo" read the same either way.
+        rb = cap.rebalance(tasks, today, availability=availability, can_take=can_take)
+        rb["handovers_vetted"] = bool(can_take)
         L += ["## Rebalancing proposal", ""]
         if rb["moves"]:
             L += [
@@ -310,7 +317,20 @@ def weekly(
             ]
             L += [
                 "",
-                "A proposal only; nothing has been applied. A real move needs the owners to agree.",
+                (
+                    "A proposal only; nothing has been applied. A real move needs the owners "
+                    "to agree."
+                ),
+                (
+                    "Each move is offered only to someone the repository shows has worked in "
+                    "that area."
+                )
+                if rb.get("handovers_vetted")
+                else (
+                    f"These moves were **not** vetted against who has worked where "
+                    f"({rb.get('handover_note') or 'no repository history'}), so they are "
+                    f"arithmetic on availability alone."
+                ),
                 "",
             ]
         else:
@@ -359,6 +379,42 @@ def weekly(
             L.append("")
         elif code.get("key_convention_in_use"):
             L += ["Nothing disagrees.", ""]
+
+    if stalls:
+        L += [
+            "## Why the stalled work stopped",
+            "",
+            "Reconstructed by lining the board, the repository, the calendar and the "
+            "meeting notes up against each other. Each cause carries the business days it "
+            "accounts for; whatever is left over is stated rather than filled in. A written "
+            "decision names the reason rather than the duration, so it carries no days.",
+            "",
+        ]
+        if stalls_note:
+            L += [f"> {stalls_note}, so no cause below can say what was decided.", ""]
+        for row in stalls:
+            L += [
+                f"**{row['key']} {row['summary']}** — silent {row['window']['days']} business "
+                f"days since {_d(row['window']['since'])} ({row['assignee'] or 'unassigned'})",
+                "",
+            ]
+            for c in row["causes"]:
+                weight = (
+                    "written down"
+                    if c["kind"] == "decision_recorded"
+                    else f"accounts for {c['days']} days on its own"
+                )
+                L.append(f"- `{c['source']}` {c['detail']} — {weight}")
+            if not row["causes"]:
+                L.append("- nothing in any tool accounts for it")
+            if row.get("overlap"):
+                # Each cause states its own claim, and they land on the same days. Saying so
+                # is the only way the list above and the total below can both be read as true.
+                L.append(
+                    f"- *these overlap by {row['overlap']} days — a day in meetings that also "
+                    f"carried a commit elsewhere is still one day*"
+                )
+            L += ["", f"> {row['note']}", ""]
 
     L += ["## Needs checking", ""]
     if rs:
@@ -419,9 +475,9 @@ if __name__ == "__main__":
         print(f"(skipping completion history: {str(e)[:80]})", file=sys.stderr)
     code = None
     try:
-        from pmo_agent.tools import repo
+        from pmo_agent.tools import _snapshot
 
-        code = signals.summary(_fetch(), repo().snapshot(100), today)
+        code = signals.summary(_fetch(), _snapshot(100), today)
     except Exception as e:  # no repository or no credentials loses only this section
         print(f"(skipping code signals: {str(e)[:80]})", file=sys.stderr)
     text = weekly(

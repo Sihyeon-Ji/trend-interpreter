@@ -26,7 +26,8 @@ packages = ["src/pmo_agent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src", "tests"]
+# tools/ too: the accuracy measurement lives there and a test holds the README to it
+pythonpath = ["src", "tests", "tools"]
 
 [tool.ruff]
 target-version = "py312"

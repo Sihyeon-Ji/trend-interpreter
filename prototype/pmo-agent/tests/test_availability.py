@@ -195,7 +195,9 @@ class TestCalendarSeed:
             p: av.meeting_load(avail, p, TODAY, 10)["lost_days"]
             for p in {e["attendee"] for e in data["events"]}
         }
-        assert max(loads, key=lambda p: loads[p]) == planted["assignee"]
+        # The answer key lists everyone tied at the top; any of them is a right answer
+        want = planted.get("tied") or [planted["assignee"]]
+        assert max(loads, key=lambda p: loads[p]) in want
 
     def test_there_is_a_day_that_disappears_entirely(self):
         data = cal_seed.build(TODAY)

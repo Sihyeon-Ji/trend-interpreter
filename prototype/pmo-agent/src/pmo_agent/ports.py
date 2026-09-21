@@ -58,7 +58,8 @@ class Repo(Protocol):
     def pulls(self, state: str = ..., limit: int = ...) -> list[dict[str, Any]]: ...
     def reviews(self, number: int) -> list[dict[str, Any]]: ...
     def branches(self) -> list[str]: ...
-    def snapshot(self, commit_limit: int = ...) -> dict[str, Any]: ...
+    def commit_files(self, sha: str) -> list[str]: ...
+    def snapshot(self, commit_limit: int = ..., with_files: bool = ...) -> dict[str, Any]: ...
 
 
 @runtime_checkable
@@ -67,11 +68,36 @@ class Calendar(Protocol):
 
     **Read-only.** There is no path to create or delete anyone's events.
     Unlike the board and the repo, what comes out of here is not "what was done" but
-    "how much time is left to do it in" — the input to capacity.py.
+    "how much time is left to do it in" — the input to capacity.py. Asked about days
+    that have already gone, it answers the other question too: where the time went,
+    which is what cause.py needs to explain a stall.
     """
 
     source: str
 
     def whoami(self) -> str: ...
-    def events(self, days: int = ..., attendee: str = ...) -> list[dict[str, Any]]: ...
+    def events(
+        self, days: int = ..., attendee: str = ..., start: Any = ...
+    ) -> list[dict[str, Any]]: ...
     def busy_hours(self, days: int = ...) -> dict[str, dict[str, float]]: ...
+
+
+@runtime_checkable
+class Notes(Protocol):
+    """A meeting-notes archive. The local JSON archive takes this shape; Notion,
+    Confluence or Google Docs would sit behind the same one.
+
+    **Read-only.** An agent has no business editing what someone wrote in a meeting,
+    and the only way to guarantee that is for the method not to exist.
+
+    This is the one tool that holds *words*. The board has a status, the repo has a
+    diff, the calendar has hours — only a note says what was decided, and it says it
+    in prose, with no ticket key in sight.
+    """
+
+    source: str
+
+    def whoami(self) -> str: ...
+    def notes(
+        self, days: int = ..., author: str = ..., start: Any = ...
+    ) -> list[dict[str, Any]]: ...

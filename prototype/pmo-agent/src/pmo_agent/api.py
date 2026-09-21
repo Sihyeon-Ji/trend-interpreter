@@ -121,11 +121,25 @@ def api_calendar(days: int = 10):
 def api_signals(today: str = "", days: int = 14):
     """The board against real code activity — the divergence neither side shows alone."""
     try:
-        return signals.summary(_tasks(), tools.repo().snapshot(100), _today(today), days=days)
+        return signals.summary(_tasks(), tools._snapshot(100), _today(today), days=days)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(502, f"could not read the repository: {str(e)[:200]}") from e
+
+
+@app.get("/api/cause")
+def api_cause(key: str = "", today: str = ""):
+    """Why a task stopped. Empty key returns whatever has been silent longest.
+
+    This is the only endpoint that needs all three tools at once, which is the point:
+    the board knows the status, the repository knows the silence, and only the calendar
+    knows where that time went.
+    """
+    out = tools.explain_stall(key=key, today=today)
+    if "error" in out:
+        raise HTTPException(502 if "repository" in out["error"] else 404, out["error"])
+    return out
 
 
 @app.get("/api/report", response_class=PlainTextResponse)
@@ -139,9 +153,10 @@ def api_report(today: str = "", rebalance: bool = True):
         pass
     code = None
     try:
-        code = signals.summary(_tasks(), tools.repo().snapshot(100), _today(today))
+        code = signals.summary(_tasks(), tools._snapshot(100), _today(today))
     except Exception:
         pass
+    stalls = tools.explain_stall(today=today) or {}
     return report.weekly(
         _tasks(),
         _today(today),
@@ -149,6 +164,9 @@ def api_report(today: str = "", rebalance: bool = True):
         rebalance=rebalance,
         done_recent=done_recent,
         code=code,
+        stalls=stalls.get("worst"),
+        stalls_note=stalls.get("notes_note", ""),
+        can_take=tools._handover_check(_tasks())[0],
     )
 
 

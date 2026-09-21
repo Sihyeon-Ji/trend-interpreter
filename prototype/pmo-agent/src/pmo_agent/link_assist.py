@@ -103,20 +103,36 @@ def assistant(caller=None, batch: int = BATCH):
     """Build the function to hand to `linking.link(assist=...)`.
 
     Swap `caller` and it runs without a network — the same trick ingest.py uses.
+
+    The returned function carries a `stats` dict recording what actually happened: how
+    many commits were put to the model, how many it placed, and how many batches failed.
+    A failed batch is not an error here — the commits in it stay unlinked, which is the
+    honest outcome — but it is invisible from the outside, and a caller reporting "with
+    model assist" when every call was rate-limited would be publishing a rules-only
+    number under a different name. Whoever says "assisted" should be able to show it was.
     """
     call = caller or _gemini
+    stats: dict = {"asked": 0, "answered": 0, "batches": 0, "failed_batches": 0, "error": ""}
 
     def assist(items: list) -> dict:
         # linking hands over candidate keys only, so attach the task bodies to read
         out: dict = {}
+        stats["asked"] += len(items)
         for start in range(0, len(items), batch):
             chunk = items[start : start + batch]
+            stats["batches"] += 1
             try:
-                out.update(parse(call(build_prompt(chunk))))
-            except llm.LLMError:
-                continue  # one failed batch should not take the others down
+                got = parse(call(build_prompt(chunk)))
+            except llm.LLMError as e:
+                # one failed batch should not take the others down
+                stats["failed_batches"] += 1
+                stats["error"] = " ".join(str(e).split())[:110]
+                continue
+            stats["answered"] += len(got)
+            out.update(got)
         return out
 
+    assist.stats = stats  # type: ignore[attr-defined]
     return assist
 
 

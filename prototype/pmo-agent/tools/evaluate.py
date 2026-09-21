@@ -27,7 +27,7 @@ from pathlib import Path
 
 from pmo_agent import approve as approve_mod
 from pmo_agent import availability as av
-from pmo_agent import capacity, ingest, linking, schedule, signals
+from pmo_agent import capacity, cause, ingest, linking, schedule, signals
 from pmo_agent.seeds import world as world_mod
 
 CASES = Path(__file__).resolve().parents[1] / "evaluation-cases" / "cases.jsonl"
@@ -71,9 +71,63 @@ def meeting_top(ctx, case) -> tuple:
     people = {t.assignee for t in ctx["tasks"].values() if t.assignee}
     loads = {p: av.meeting_load(ctx["avail"], p, ctx["today"], 10)["lost_hours"] for p in people}
     top = max(loads, key=lambda p: loads[p])
-    return top == truth[
-        "assignee"
-    ], f"expected {truth['assignee']} / computed {top} ({loads[top]}h)"
+    # The answer key records everyone tied at the top, because when two people carry the
+    # same hours either answer is right and insisting on one would be the key being wrong.
+    want = truth.get("tied") or [truth["assignee"]]
+    return top in want, f"expected one of {want} / computed {top} ({loads[top]}h)"
+
+
+def cause_names_the_incident(ctx, case) -> tuple:
+    """The incident is in the calendar as meetings. Does the explanation reach it?
+
+    The world blocked a task with an external spec change and dragged its owner into
+    incident calls for the duration. Nothing writes "IdP" anywhere a tool can see it —
+    the only trace is the shape of that person's calendar during the silence.
+    """
+    truth = _truth(ctx["projected"], case["truth"])
+    if not truth:
+        return False, "the answer key has no such entry"
+    out = cause.explain(
+        truth["key"],
+        ctx["tasks"],
+        ctx["projected"]["repo"],
+        ctx["projected"]["calendar"]["events"],
+        ctx["today"],
+    )
+    meetings = [c for c in out.get("causes", []) if c["kind"] == "owner_in_meetings"]
+    if not meetings:
+        return False, f"{truth['key']}: no calendar cause found"
+    # Naming any meeting is not the test — it has to be the incident calls that dominate
+    # that person's calendar, which is the only trace the incident leaves anywhere.
+    calls = world_mod.INCIDENT_MEETING[0]
+    owner = str(ctx["world"].incident.get("owner", ""))
+    hit = any(calls in c["detail"] and owner in c["detail"] for c in meetings)
+    return hit, f"{truth['key']}: {meetings[0]['detail'][:58]}"
+
+
+def cause_quotes_the_decision(ctx, case) -> tuple:
+    """The calendar says three hours went into an incident call. Only a note says what it was.
+
+    This is the whole argument for connecting a fourth tool: the sentence a person needs
+    exists nowhere else. And it has no ticket key in it, so finding it means the note was
+    tied to the task by inference, the same way a commit is.
+    """
+    truth = _truth(ctx["projected"], case["truth"])
+    if not truth:
+        return False, "the answer key has no such entry"
+    out = cause.explain(
+        truth["key"],
+        ctx["tasks"],
+        ctx["projected"]["repo"],
+        ctx["projected"]["calendar"]["events"],
+        ctx["today"],
+        notes=ctx["projected"]["notes"]["notes"],
+    )
+    written = [c for c in out.get("causes", []) if c["kind"] == "decision_recorded"]
+    if not written:
+        return False, f"{truth['key']}: the decision is in a note but was not found"
+    hit = truth["detail"] in written[0]["detail"]
+    return hit, f"{truth['key']}: {written[0]['detail'][:58]}"
 
 
 # ---------- restraint ----------
@@ -221,6 +275,27 @@ def assist_stays_in_candidates(ctx, _case) -> tuple:
     return ok, f"{len(invented)} invented keys, {len(moved)} rule links overturned"
 
 
+def cause_admits_the_unexplained(ctx, _case) -> tuple:
+    """With the calendar and the repository empty, name no cause at all.
+
+    A task can be silent for a month for reasons no tool records. Filling that in with a
+    plausible-sounding cause is worse than saying nothing, because a named cause ends the
+    conversation and an admitted gap starts one.
+    """
+    # It has to be a task with a real gap, or there is nothing to refrain from explaining
+    key = next(
+        k
+        for k, t in ctx["tasks"].items()
+        if not t.is_done and t.duedate and t.duedate < ctx["today"]
+    )
+    out = cause.explain(key, ctx["tasks"], {"commits": [], "pulls": []}, [], ctx["today"])
+    named = [c for c in out.get("causes", []) if c["kind"] != "dependency_open"]
+    ok = not named and out.get("explained_days") == 0 and "not a conclusion" in out.get("note", "")
+    return bool(
+        ok
+    ), f"{key}: {len(named)} causes invented, note {'present' if out.get('note') else 'absent'}"
+
+
 def calendar_absence_declared(ctx, _case) -> tuple:
     """With no calendar, never claim that meetings were accounted for."""
     result = capacity.summary(ctx["tasks"], ctx["today"], availability=None)
@@ -246,6 +321,9 @@ CHECKS = {
     "approval_required": approval_required,
     "calendar_absence_declared": calendar_absence_declared,
     "assist_stays_in_candidates": assist_stays_in_candidates,
+    "cause_names_the_incident": cause_names_the_incident,
+    "cause_admits_the_unexplained": cause_admits_the_unexplained,
+    "cause_quotes_the_decision": cause_quotes_the_decision,
 }
 
 

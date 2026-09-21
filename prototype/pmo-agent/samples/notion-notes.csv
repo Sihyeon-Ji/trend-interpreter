@@ -1,0 +1,13 @@
+﻿Name,Date,Author,Body
+Incident response — authentication,2026-09-18,Maya Okonkwo,"External IdP spec change, call 9: walked the team through the blast radius. Everything downstream of authentication is waiting on the same answer."
+Incident response — authentication,2026-09-17,Maya Okonkwo,"External IdP spec change, call 8: provider acknowledged the ticket, no date given. Authentication stays parked and the phase behind it stays off the plan."
+Team sync,2026-09-14,Maya Okonkwo,Went through the board. Nothing new to flag.
+Incident response — authentication,2026-09-14,Maya Okonkwo,"External IdP spec change, call 7: sketched two shapes for the new token handling. Neither is safe to build on until the provider says which is real, so authentication does not move this week."
+Incident response — authentication,2026-09-11,Maya Okonkwo,"External IdP spec change, call 6: still no written spec from the provider. Authentication stays parked."
+Incident response — authentication,2026-09-10,Maya Okonkwo,"External IdP spec change, call 5: walked the team through the blast radius. Everything downstream of authentication is waiting on the same answer."
+Incident response — authentication,2026-09-08,Maya Okonkwo,"External IdP spec change, call 4: provider acknowledged the ticket, no date given. Authentication stays parked and the phase behind it stays off the plan."
+Team sync,2026-09-07,Leo Fischer,Went through the board. Nothing new to flag.
+Incident response — authentication,2026-09-07,Maya Okonkwo,"External IdP spec change, call 3: sketched two shapes for the new token handling. Neither is safe to build on until the provider says which is real, so authentication does not move this week."
+Team sync,2026-09-07,Noah Brandt,Went through the board. Nothing new to flag.
+Incident response — authentication,2026-09-04,Maya Okonkwo,"External IdP spec change, call 2: still no written spec from the provider. Authentication stays parked."
+Incident response — authentication,2026-09-03,Maya Okonkwo,"External IdP spec change: the identity provider changed its token format, forcing a redesign. Authentication cannot move until we agree the new shape, so it stays parked and the phase behind it slips."
