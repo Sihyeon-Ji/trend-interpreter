@@ -35,7 +35,7 @@ def test_optional_model_states_do_not_fail_mock_or_send_mutations(state, capsys)
         doctor.check_ollama(client)
     output = capsys.readouterr().out
     assert "not-for-logs" not in output and "private-connection-detail" not in output
-    assert ("Local model qwen3.5:4b: installed" in output) == (state == "installed")
+    assert ("Local model gemma4:e4b: installed" in output) == (state == "installed")
     if state != "installed":
         assert "OPTIONAL" in output
 

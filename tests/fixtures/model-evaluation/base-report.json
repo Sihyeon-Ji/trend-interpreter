@@ -3,7 +3,7 @@
   "report_id": "base-report",
   "source": {"commit": "1111111", "dirty": false},
   "suite": {"version": "2026-09-22.1", "sha256": "same-suite"},
-  "model": "qwen3.5:4b",
+  "model": "gemma4:e4b",
   "prompt_version": "extract-v1",
   "settings": {"temperature": 0},
   "runtime": {"digest": "model-a"},

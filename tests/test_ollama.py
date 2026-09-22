@@ -109,3 +109,8 @@ async def test_ollama_connection_failure_never_falls_back():
 def test_ollama_requires_local_endpoint():
     with pytest.raises(ValueError, match="local host endpoint"):
         OllamaProvider(Settings(_env_file=None, ollama_base_url="https://ollama.com"))
+
+
+def test_ollama_requires_gemma4_model():
+    with pytest.raises(ValueError, match="Gemma 4"):
+        OllamaProvider(Settings(_env_file=None, ollama_model="other:4b"))

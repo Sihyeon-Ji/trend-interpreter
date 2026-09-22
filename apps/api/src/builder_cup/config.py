@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     vllm_model: str = "google/gemma-4-E2B-it"
     vllm_api_key: str = "local-development-only"
     ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3.5:4b"
+    ollama_model: str = "gemma4:e4b"
     web_dist: str = "apps/web/dist"
     database_lab_enabled: bool = False
     workflow_lab_enabled: bool = False

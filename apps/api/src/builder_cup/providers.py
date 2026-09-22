@@ -149,6 +149,8 @@ class VllmProvider:
 class OllamaProvider:
     def __init__(self, settings: Settings):
         self.model = settings.ollama_model
+        if not self.model.startswith("gemma4:"):
+            raise ValueError("Ollama lab requires a Gemma 4 model")
         url = httpx.URL(settings.ollama_base_url)
         if url.host not in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}:
             raise ValueError("Ollama lab requires a local host endpoint")

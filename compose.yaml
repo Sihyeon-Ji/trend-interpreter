@@ -208,7 +208,7 @@ services:
     environment:
       MODEL_PROVIDER: ollama
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: qwen3.5:4b
+      OLLAMA_MODEL: gemma4:e4b
       MODEL_TIMEOUT_SECONDS: "120"
       MODEL_MAX_ATTEMPTS: "1"
       SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}

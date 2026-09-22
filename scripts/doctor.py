@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 
 PROBE_TIMEOUT_SECONDS = 3
-LOCAL_MODEL = "qwen3.5:4b"
+LOCAL_MODEL = "gemma4:e4b"
 OLLAMA_URL = "http://host.docker.internal:11434"
 
 
