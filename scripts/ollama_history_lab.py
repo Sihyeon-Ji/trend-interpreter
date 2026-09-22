@@ -17,6 +17,8 @@ from builder_cup.providers import OllamaProvider, Provider, ProviderFailure
 
 class SimulatedFailureProvider:
     def __init__(self, model: str, code: str):
+        if not model.startswith("gemma4:"):
+            raise ValueError("Ollama history lab requires a Gemma 4 model")
         self.model = model
         self.code = code
 
@@ -41,6 +43,7 @@ async def execute(
         raise ValueError(f"Unknown evaluation case: {case_id}")
     run_id = uuid4()
     started = datetime.now(UTC)
+    source_dirty = os.environ.get("SOURCE_DIRTY", "unknown").lower()
     report = {
         "report_schema_version": 1,
         "report_id": str(uuid4()),
@@ -48,7 +51,7 @@ async def execute(
         "started_at": started.isoformat(),
         "source": {
             "commit": os.environ.get("SOURCE_COMMIT", "unknown"),
-            "dirty": os.environ.get("SOURCE_DIRTY", "unknown").lower(),
+            "dirty": source_dirty == "true" if source_dirty in {"true", "false"} else None,
         },
         "suite": {"version": suite.suite_version, "sha256": suite_sha256},
         "case": case.model_dump(mode="json"),

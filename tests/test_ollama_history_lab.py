@@ -21,6 +21,11 @@ class GemmaTestProvider(MockProvider):
     model = "gemma4:test"
 
 
+def test_failure_simulation_requires_gemma4():
+    with pytest.raises(ValueError, match="Gemma 4"):
+        lab.SimulatedFailureProvider("other:4b", "model_unavailable")
+
+
 @pytest.fixture
 def persisted(monkeypatch):
     saved = {}
