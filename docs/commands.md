@@ -220,7 +220,7 @@ OLLAMA_NO_CLOUD=1 OLLAMA_HOST=127.0.0.1:11434 ollama serve
 이 터미널은 열어 두고 다른 터미널에서 모델을 받습니다.
 
 ```bash
-ollama pull qwen3.5:4b
+ollama pull gemma4:e4b
 ollama list
 docker compose run --rm --build ollama-check
 ```
@@ -235,11 +235,11 @@ docker compose run --rm --build ollama-check
 
 이번 검증 PC에는 Homebrew Ollama 0.34.2, 모델과 위 설정을 준비하고 백그라운드 서비스를 시작했습니다.
 다른 팀원은 각자 준비해야 합니다. 모델은 `~/.ollama/models`에 있으며 Git이나 Docker 이미지에 넣지 않습니다.
-모델 파일은 약 3.4GB지만 실행 시 메모리와 추가 디스크 공간도 필요합니다.
+모델 파일은 약 9.6GB이며 실행 시 메모리와 추가 디스크 공간도 필요합니다.
 
 비교 명령은 합성 문서 3개로 Mock 3회·Ollama 4회를 실행합니다. 첫 문서는 실제 모델로 두 번 실행해
 초기 로딩이 포함된 요청과 후속 요청을 비교합니다. 모델이 이미 메모리에 있다면 첫 요청도 빠를 수 있습니다.
-초기 로딩부터 다시 재려면 다른 추론 작업이 없는 때에 `ollama stop qwen3.5:4b` 후 비교 명령을 실행하세요.
+초기 로딩부터 다시 재려면 다른 추론 작업이 없는 때에 `ollama stop gemma4:e4b` 후 비교 명령을 실행하세요.
 
 결과는 `artifacts/ollama-comparison-날짜.json`과 같은 이름의 `.md`로 남습니다.
 **Markdown은 입력·기대 사실·금지할 주장·실제 응답을 읽는 용도**, JSON은 버전·모델 digest·토큰·노드·로딩 시간 확인용입니다.
@@ -249,14 +249,15 @@ Markdown에서 각 사실이 유지되는지 직접 비교하세요. `schema val
 | 상황 | 확인 방법 |
 | --- | --- |
 | 실행 중인 모델·GPU 사용 확인 | `ollama ps` |
-| 모델만 메모리에서 내리기 | `ollama stop qwen3.5:4b` — 다운로드 파일 유지 |
+| 모델만 메모리에서 내리기 | `ollama stop gemma4:e4b` — 다운로드 파일 유지 |
 | 백그라운드 서버 중지 | `brew services stop ollama` |
 | 서버 중단·모델 미설치 | 비교 명령 실패 및 실패 보고서 생성, Mock으로 대체하지 않음 |
 | 일반 웹 화면의 모델 | http://localhost:5173 은 계속 Mock |
 
 Ollama는 루프백에만 바인딩하고 Docker에서 `host.docker.internal`로 접근합니다. 이 Mac에서 연결을 검증했습니다.
 Windows·WSL2의 Ollama 설치와 네트워크는 이번 검증 범위 밖이며, 기존 Mock 개발 흐름에는 영향이 없습니다.
-공식 자료는 [Ollama FAQ](https://docs.ollama.com/faq), [모델 정보](https://ollama.com/library/qwen3.5:4b)를 참고하세요.
+공식 자료는 [Ollama FAQ](https://docs.ollama.com/faq), [Ollama Gemma 4](https://ollama.com/library/gemma4),
+[Google Gemma 4 개요](https://ai.google.dev/gemma/docs/core)를 참고하세요.
 
 ### 평가 suite와 보고서 비교
 

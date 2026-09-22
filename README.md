@@ -122,7 +122,7 @@ Expected HTTP errors are successful failure exercises, not AI quality results. S
 ## Local model comparison
 
 The optional `ollama-check` service calls native Ollama on the Mac host via `host.docker.internal:11434`.
-Install Ollama and pull `qwen3.5:4b` first; see the [Korean lab instructions](docs/commands.md#실제-로컬-모델-비교).
+Install Ollama and pull the required Google model `gemma4:e4b` first; see the [Korean lab instructions](docs/commands.md#실제-로컬-모델-비교).
 It runs the same graph and ten versioned synthetic inputs with Mock and Ollama, then saves timestamped JSON,
 readable Markdown and evidence-review templates under ignored `artifacts/`. Reports include synthetic
 source/output, suite hash, source commit, model digest, usage and load/generation timing; they are evaluation

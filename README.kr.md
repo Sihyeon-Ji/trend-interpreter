@@ -107,7 +107,7 @@ http://localhost:5173 의 **Workflow history**에서 `Run workflow`를 누르고
 
 ## 실제 모델 실습
 
-Mac 호스트에 Ollama와 `qwen3.5:4b` 모델을 준비한 뒤 `docker compose run --rm --build ollama-check`를 실행합니다.
+Mac 호스트에 Ollama와 Google `gemma4:e4b` 모델을 준비한 뒤 `docker compose run --rm --build ollama-check`를 실행합니다.
 버전이 있는 합성 문서 10개를 같은 그래프로 처리하고, 결과·토큰·시간을 `artifacts/`의 JSON과 Markdown 파일에 남깁니다.
 같이 생성되는 수동 검토 양식은 원문/출력 근거와 평가자·시각을 기록하며, `model-eval`로 누락 없는지 확인합니다.
 기본 웹 화면과 실행 이력 실습은 계속 Mock이며, 실제 모델 비교는 이 명령으로 따로 실행합니다.

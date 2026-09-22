@@ -53,7 +53,7 @@ Windows 실제 검증, 패키지 자동 업데이트, 모델 자동 다운로드
 ## 구현 결과
 
 `docker compose run --rm --build doctor`를 추가했습니다. 이 명령은 API·웹 프록시·DB 이력 조회가
-기본 Mock으로 준비됐는지 확인하고, 선택적으로 Docker에서 Ollama 서버와 `qwen3.5:4b` 목록을 조회합니다.
+기본 Mock으로 준비됐는지 확인하고, 선택적으로 Docker에서 Ollama 서버와 `gemma4:e4b` 목록을 조회합니다.
 의존 서비스를 자동 시작하지 않고 GET 요청만 사용하며 DB 비밀번호·Docker 소켓·호스트 `.env`를 받지 않습니다.
 모델 다운로드와 추론도 실행하지 않습니다.
 
