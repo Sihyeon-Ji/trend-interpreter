@@ -60,12 +60,13 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose run --rm --build history-check` | Verify successful/failed workflow history and metadata privacy |
 | `docker compose run --rm --build failure-check` | Reproduce Mock timeout, invalid JSON, branch failure and retry recovery |
 | `docker compose run --rm --build ollama-check` | Explicitly compare Mock with an installed Mac Ollama model; save local reports |
+| `docker compose run --rm --build model-eval validate-suite` | Validate versioned evaluation cases without calling a model |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `model-eval`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
 `db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
@@ -122,9 +123,11 @@ Expected HTTP errors are successful failure exercises, not AI quality results. S
 
 The optional `ollama-check` service calls native Ollama on the Mac host via `host.docker.internal:11434`.
 Install Ollama and pull `qwen3.5:4b` first; see the [Korean lab instructions](docs/commands.md#실제-로컬-모델-비교).
-It runs the same graph and synthetic inputs with Mock and Ollama, then saves timestamped JSON and readable
-Markdown reports under ignored `artifacts/`. Reports include synthetic source/output, model digest, usage and
-load/generation timing; they are evaluation artifacts, not operational logs or PostgreSQL history.
+It runs the same graph and ten versioned synthetic inputs with Mock and Ollama, then saves timestamped JSON,
+readable Markdown and evidence-review templates under ignored `artifacts/`. Reports include synthetic
+source/output, suite hash, source commit, model digest, usage and load/generation timing; they are evaluation
+artifacts, not operational logs or PostgreSQL history. `model-eval` validates the suite and completed reviews,
+and compares reports only when their suite hashes match.
 The default UI/API remains Mock. Real inference is opt-in and never runs in CI. There is no Mock fallback
 on model failure. Schema success is separate from factual quality; the [recorded review](docs/ai-lab-plan.md)
 includes observed omissions and unsupported generalizations.

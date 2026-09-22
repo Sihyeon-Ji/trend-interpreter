@@ -67,6 +67,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 | 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |
 | 실행 이력 저장·조회 검사 | `docker compose run --rm --build history-check` | 성공·실패 실행과 단계별 메타데이터 확인 |
 | 오류·취소·재시도 재현 | `docker compose run --rm --build failure-check` | 예상 실패와 복구를 이력에서 검증 |
+| 모델 평가 suite·검토·보고서 | `docker compose run --rm --build model-eval validate-suite` | 실제 모델 호출 없이 평가 구조 확인 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -256,6 +257,46 @@ Markdown에서 각 사실이 유지되는지 직접 비교하세요. `schema val
 Ollama는 루프백에만 바인딩하고 Docker에서 `host.docker.internal`로 접근합니다. 이 Mac에서 연결을 검증했습니다.
 Windows·WSL2의 Ollama 설치와 네트워크는 이번 검증 범위 밖이며, 기존 Mock 개발 흐름에는 영향이 없습니다.
 공식 자료는 [Ollama FAQ](https://docs.ollama.com/faq), [모델 정보](https://ollama.com/library/qwen3.5:4b)를 참고하세요.
+
+### 평가 suite와 보고서 비교
+
+실제 모델을 호출하지 않고 현재 평가 사례의 구조·버전·해시를 확인합니다.
+
+```bash
+docker compose run --rm --build model-eval validate-suite
+```
+
+`ollama-check` 보고서에는 커밋과 dirty 상태를 자동으로 알 수 없으므로 호스트에서 전달합니다.
+
+```bash
+export SOURCE_COMMIT="$(git rev-parse HEAD)"
+export SOURCE_DIRTY=false
+docker compose run --rm --build ollama-check
+unset SOURCE_COMMIT SOURCE_DIRTY
+```
+
+변경 파일이 있으면 `SOURCE_DIRTY=true`로 기록합니다. `.review.json`은 자동 점수가 아니라 검토 양식입니다.
+평가자와 시각을 기록하고 모든 기준에 상태·출력 근거를 작성한 뒤 보고서와 함께 검증합니다.
+
+```bash
+docker compose run --rm model-eval validate-review \
+  artifacts/REPORT.review.json --report artifacts/REPORT.json
+```
+
+두 보고서의 suite SHA-256이 같을 때 출력 변화, 소요 시간과 토큰 차이를 비교합니다.
+두 수동 검토를 함께 주면 기준별 상태 변화도 기록합니다.
+
+```bash
+docker compose run --rm model-eval compare \
+  artifacts/BASE.json artifacts/CURRENT.json \
+  --base-review artifacts/BASE.review.json \
+  --current-review artifacts/CURRENT.review.json \
+  --output artifacts/model-comparison.json
+```
+
+suite가 바뀌면 명령은 `suite_changed`를 기록하고 직접 비교하지 않습니다.
+토큰이 보고되지 않은 실행의 차이는 `null`이며 0으로 추정하지 않습니다.
+결과 파일은 계속 Git 제외 `artifacts/`에 보관합니다.
 
 ## 패키지 추가·제거·업데이트
 

@@ -88,6 +88,7 @@ flowchart LR
 | 기본 로컬 개발 | `docker compose up -d` | Mock | PostgreSQL | UI/API 개발, graph·이력 실습 |
 | 운영 형태 미리보기 | `docker compose up -d --build preview` | Mock | 사용 안 함 | 단일 container와 static UI 확인 |
 | 로컬 Ollama 비교 | `ollama-check` profile | Mac의 Ollama | 사용 안 함 | 실제 로컬 model 품질 비교 |
+| 모델 평가 관리 | `model-eval` profile | 호출하지 않음 | 사용 안 함 | suite·수동 검토 검증과 보고서 비교 |
 | 로컬 vLLM | 별도 Linux/NVIDIA profile | Gemma 계열 | 선택 | GPU 추론 실험 |
 | GCP 운영 | `release/gcp` push | Gemini | Cloud DB 없음 | 팀 공유 demo |
 

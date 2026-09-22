@@ -1,6 +1,6 @@
 # 02. 모델 평가와 비교 보고서
 
-상태 **계획 작성 완료·구현 미착수** · 우선순위 **먼저** · [전체 계획](README.md)
+상태 **구현·현재 Mac 실제 모델 검증 완료** · 우선순위 **완료** · [전체 계획](README.md)
 
 ## 해결할 문제와 목표
 
@@ -51,3 +51,87 @@
 산출물은 합성 평가 사례, 평가 기준, 비교 보고서 형식과 생성 코드, 재현 가능한 비교 예시입니다.
 원문·생성 결과를 포함한 실행 산출물은 계속 `artifacts/`에 보관하고 Git에는 합성 fixture와 코드·기준만 반영합니다.
 유료 LLM 평가자, 새 대형 모델 다운로드, 모델 학습·미세조정, 도메인별 합격선, 프롬프트 공격 방어 완료 주장은 포함하지 않습니다.
+
+## 구현 결과
+
+`evaluation-cases/ollama-lab.json`을 버전형 객체로 바꾸고 10개 사례를 준비했습니다.
+날짜·시간, 변경 전후 값, 사람과 업무 관계, 부정·미정, 숫자와 단위, 조건부 상태,
+정확한 식별자, 입력 내부의 명령형 문장을 포함합니다. 각 기준에는 안정적인 ID와 원문 근거가 있습니다.
+
+실제 모델 보고서에는 다음 재현 조건을 기록합니다.
+
+- 보고서 ID와 각 실행 ID
+- 평가 suite 버전·SHA-256과 소스 경로
+- 코드 커밋과 dirty 상태
+- Provider·모델·모델 digest·프롬프트 버전·추론 설정
+- 출력·Router 판단·소요 시간·보고된 토큰·런타임 시간
+
+`model-eval` Compose 명령은 모델을 호출하지 않고 suite·수동 검토·보고서 비교를 처리합니다.
+수동 검토 템플릿은 Ollama 후속 실행 10개만 대상으로 만들며, 각 기준을 다음 상태로 기록합니다.
+
+| 상태 | 의미 |
+| --- | --- |
+| `satisfied` | 필수 사실이 유지됐거나 금지 주장이 나타나지 않음 |
+| `omitted` | 원문에 있는 필수 정보가 출력에서 빠짐 |
+| `contradicted` | 원문과 다른 값·이름·관계를 출력함 |
+| `unsupported_addition` | 원문에서 뒷받침하지 않는 주장·범위를 추가함 |
+| `needs_review` | 근거만으로 한 상태를 확정하기 어려움 |
+
+완료된 검토는 평가자·검토 시각·모든 원문/출력 근거가 있어야 하며, 해당 보고서의 실행과 기준을
+빠짐없이 포함해야 합니다. 비교는 suite SHA-256이 같은 보고서에만 적용합니다.
+suite가 달라지면 `suite_changed`로 표시하고 결과 차이를 직접 개선·회귀로 해석하지 않습니다.
+
+## 실행 방법
+
+```bash
+docker compose run --rm --build model-eval validate-suite
+```
+
+실제 모델 비교 때는 코드 상태를 명시합니다.
+
+```bash
+export SOURCE_COMMIT="$(git rev-parse HEAD)"
+export SOURCE_DIRTY=true
+docker compose run --rm --build ollama-check
+unset SOURCE_COMMIT SOURCE_DIRTY
+```
+
+`SOURCE_DIRTY`는 `git status --short`가 비어 있으면 `false`, 변경이 있으면 `true`로 지정합니다.
+생성된 `.review.json`을 원문과 출력에 맞춰 검토한 후 다음처럼 확인합니다.
+
+```bash
+docker compose run --rm model-eval validate-review \
+  artifacts/REPORT.review.json --report artifacts/REPORT.json
+
+docker compose run --rm model-eval compare \
+  artifacts/BASE.json artifacts/CURRENT.json \
+  --base-review artifacts/BASE.review.json \
+  --current-review artifacts/CURRENT.review.json \
+  --output artifacts/model-comparison.json
+```
+
+## 검증 기록 — 2026-09-22
+
+| 확인 항목 | 실제 결과 |
+| --- | --- |
+| suite 검증 | `2026-09-22.1`, 사례 10개, SHA-256 `ce2f8922841075ec5349e94eabf9f66f9ebef2635bec61ea6c59918b96fd4097` |
+| 재현 조건 | 코드 `d574a98`, 모델 digest `2a654d98e6f...eefd`, 프롬프트 `extract-v1`, 추론 설정 기록 |
+| dirty 표시 | 동시 작업의 추적되지 않은 문서가 있어 `true`; 평가 코드·사례 커밋은 별도 식별됨 |
+| 실제 모델 실행 | `qwen3.5:4b`로 10개 사례 후속 실행, 전부 JSON 스키마·Router 기대 결과 통과 |
+| 반복 실행 비교 | 같은 suite로 두 번 실행, 10개 실제 모델 출력 동일, 후속 요청 시간 차이는 -720~+69ms |
+| 수동 근거 검토 | Ollama 후속 실행 10개·기준 54개를 평가자·시각·원문/출력 근거와 함께 검증 |
+| 내용 검토 분류 | `satisfied` 48, `omitted` 1, `contradicted` 2, `unsupported_addition` 3 |
+| 자동 검사 | Python 테스트 72개, Mock 계약 평가 2개, 타입 검사와 웹 빌드 통과 |
+
+기준 보고서는 `ollama-comparison-20260921T233252318742Z.json`, 반복 보고서는
+`ollama-comparison-20260921T233454368218Z.json`, 비교 결과는 `ollama-plan02-comparison.json`입니다.
+모두 현재 PC의 Git 제외 `artifacts/`에만 있으며 clone으로 전달되지 않습니다.
+
+발견한 문제는 오전 11시 누락, 지연의 검토 업무를 준비로 표현, 민수의 마감을 전체 작업으로 확장,
+날짜·장소 결정 범위 일반화, ‘소라’를 ‘소사’로 변경, owner 상태와 지연의 인과관계 추가입니다.
+별도 메모에는 한국어 입력의 영어 출력, 중국어 문자열 혼입, 어색한 상태 표현도 남겼습니다.
+이는 54개 중 48개가 ‘정확도 88.9%’라는 뜻이 아닙니다. 사례와 기준은 독립 표본이 아니며
+도메인 품질 합격선을 정하지 않았습니다.
+
+CI는 실제 Ollama를 호출하지 않습니다. 고정 fixture로 누락 상태, suite 변경 시 비교 차단,
+미보고 토큰, 수동 평가 범위와 JSON 저장을 검증합니다. 실제 추론은 계속 명시적 로컬 실행입니다.
