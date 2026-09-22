@@ -1,6 +1,6 @@
 # 03. 실제 모델 비교와 실행 이력 연결
 
-상태 **계획 작성 완료·구현 미착수** · 우선순위 **02 이후** · [전체 계획](README.md)
+상태 **구현·현재 Mac 실제 Gemma 4 검증 완료** · 우선순위 **완료** · [전체 계획](README.md)
 
 ## 해결할 문제와 목표
 
@@ -13,7 +13,7 @@
 ## 가장 작은 구현 방향
 
 - 기존 `ollama-check`의 파일 비교 흐름을 유지합니다.
-- DB 기록이 필요한 실습에만 opt-in Compose 명령을 제공합니다. 별도 `ollama-history-check` 서비스를 후보로 둡니다.
+- DB 기록이 필요한 실습에만 opt-in `ollama-history-check` Compose 명령을 제공합니다.
 - 이 명령에서 기존 `history.run_with_history`를 재사용하고 보고서의 실행 ID와 DB 실행 ID를 일치시킵니다.
 - 해당 명령에만 앱 DB 비밀번호 볼륨을 읽기 전용으로 연결하고 DB 초기화 완료를 기다립니다.
 - 기존 웹의 목록·상세에서 Provider·모델을 명확히 표시해 Mock과 Ollama 실행을 구분합니다.
@@ -49,3 +49,52 @@ UI 변경이 있으면 실행 항목 선택과 오류 표시에 해당하는 브
 산출물은 opt-in Compose 정의, 최소 실행 코드 변경, 이력 연결 검사와 갱신한 명령어 안내입니다.
 새 DB 열이 정말 필요한지는 구현 전에 확인하며 기존 실행 ID로 충분하면 스키마를 확장하지 않습니다.
 실제 모델을 호출하는 일반 사용자용 웹 기능, 원문 DB 저장, 자동 재개, 실시간 토큰 스트리밍, 클라우드 모델은 포함하지 않습니다.
+
+## 구현 결과
+
+`ollama-history-check` opt-in Compose 서비스를 추가했습니다. 기본 API와 웹은 Mock으로 유지하며,
+이 명령만 Mac의 `gemma4:e4b`, 앱 DB 비밀번호 볼륨과 기존 PostgreSQL을 사용합니다.
+기본 합성 사례는 `meeting`이고 다른 평가 사례 ID도 인자로 선택할 수 있습니다.
+
+실행 전에 기존 `history.run_with_history`가 부모 실행과 5개 대기 노드를 저장합니다.
+Gemma 4 그래프 실행이 끝나면 같은 UUID로 최종 실행·노드 메타데이터를 저장하고,
+Git 제외 JSON 보고서에도 동일한 `run_id`를 기록합니다. 새 DB 열이나 별도 이력 테이블은 추가하지 않았습니다.
+
+보고서에는 고정 합성 입력·생성 결과·코드 상태가 있고, DB에는 다음 메타데이터만 있습니다.
+
+- `provider=ollama`, `model=gemma4:e4b`, 프롬프트 버전
+- 시작·종료·소요 시간과 성공·실패 상태
+- 모델 호출 시도 횟수와 공급자가 보고한 입력·출력 토큰
+- 5개 노드의 상태·시각·소요 시간·안전한 오류 코드
+
+웹 상세 화면은 기존 Provider·모델·토큰·노드 표를 그대로 사용합니다.
+기본 분석이나 일반 Workflow history 실행이 실제 모델로 바뀐 것은 아닙니다.
+
+## 검증 기록 — 2026-09-23
+
+| 확인 항목 | 실제 결과 |
+| --- | --- |
+| 실제 Gemma 4 정상 실행 | 보고서·DB·API가 같은 실행 ID, `ollama` / `gemma4:e4b`, 103 / 98 tokens, 노드 5개 기록 |
+| 실제 결과 조회 | 기본 API `GET /api/lab/runs/{id}`가 보고서의 `history`와 완전히 일치 |
+| 원문 분리 | 보고서에는 합성 원문 존재, DB/API 이력 JSON에는 원문·생성 결과 없음 |
+| 모델 접근 실패 | `model_unavailable`을 실행·extract 노드에 기록, 종료 코드 1, Mock 대체 없음 |
+| 모델 시간 초과 | `model_timeout`을 실행·extract 노드에 기록, 종료 코드 1, Mock 대체 없음 |
+| DB 시작 쓰기 실패 | 모델 미호출·실패 보고서 생성 자동 테스트 통과 |
+| DB 종료 쓰기 실패 | 기존 이력 계층 테스트에서 정상 성공을 반환하지 않는 정책 유지 |
+| 자동 검사 | Python 테스트 78개, Mock 계약 평가 2개, 타입 검사와 웹 빌드 통과 |
+
+정상 검증 실행 ID는 `34f06986-2274-4541-a828-6d271fb2c254`, 추가 정상 확인은
+`1c99a6ea-c13f-4e02-a0ea-6f6007db7c8c`입니다. 실패 실행은
+`3b4a259b-c781-4803-9d0c-2e27b696565b` (`model_unavailable`)와
+`72ffcb60-7c19-417e-b13e-3c33af6552eb` (`model_timeout`)입니다.
+이 ID는 현재 PC의 로컬 DB에만 있고 다른 checkout이나 팀원 PC에서는 새 ID가 생성됩니다.
+
+## 직접 실행
+
+```bash
+docker compose up -d --build --wait
+docker compose run --rm --build ollama-history-check
+```
+
+출력된 Run ID를 http://localhost:5173 의 **Workflow history**에서 선택하거나 API로 조회합니다.
+세부 인자와 실패 실습은 [명령어 문서](../commands.md#gemma-4-실행을-workflow-history에-연결)에 있습니다.

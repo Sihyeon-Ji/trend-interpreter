@@ -61,12 +61,13 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose run --rm --build failure-check` | Reproduce Mock timeout, invalid JSON, branch failure and retry recovery |
 | `docker compose run --rm --build ollama-check` | Explicitly compare Mock with an installed Mac Ollama model; save local reports |
 | `docker compose run --rm --build model-eval validate-suite` | Validate versioned evaluation cases without calling a model |
+| `docker compose run --rm --build ollama-history-check` | Run one synthetic Gemma 4 case and link its report to PostgreSQL history |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
 | `docker compose stop preview` | Stop the production preview |
 
-`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `model-eval`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
+`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `model-eval`, `ollama-history-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
 `db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
 also installs Chromium and system libraries inside the test image.
 
@@ -131,6 +132,9 @@ and compares reports only when their suite hashes match.
 The default UI/API remains Mock. Real inference is opt-in and never runs in CI. There is no Mock fallback
 on model failure. Schema success is separate from factual quality; the [recorded review](docs/ai-lab-plan.md)
 includes observed omissions and unsupported generalizations.
+The separate `ollama-history-check` command can persist one synthetic Gemma 4 run's metadata under the same
+run ID shown in its ignored report. PostgreSQL still excludes source and generated text; the default API
+remains Mock and can display the saved provider, model, tokens, errors and five node snapshots.
 
 ## Production preview
 

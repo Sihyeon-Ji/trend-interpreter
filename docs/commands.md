@@ -68,6 +68,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 | 실행 이력 저장·조회 검사 | `docker compose run --rm --build history-check` | 성공·실패 실행과 단계별 메타데이터 확인 |
 | 오류·취소·재시도 재현 | `docker compose run --rm --build failure-check` | 예상 실패와 복구를 이력에서 검증 |
 | 모델 평가 suite·검토·보고서 | `docker compose run --rm --build model-eval validate-suite` | 실제 모델 호출 없이 평가 구조 확인 |
+| Gemma 4 보고서·DB 이력 연결 | `docker compose run --rm --build ollama-history-check` | 명시적 합성 사례 하나만 실제 모델 호출 |
 | 브라우저에서 화면과 API 연동 | `docker compose run --rm --build e2e` | 필요한 개발 서버를 자동 시작 |
 | Terraform 설정 | `docker compose run --rm infra-check` | 클라우드 리소스를 생성하지 않음 |
 | Compose 설정 문법 | `docker compose config --quiet` | 설정 내용을 출력하지 않고 검사 |
@@ -298,6 +299,38 @@ docker compose run --rm model-eval compare \
 suite가 바뀌면 명령은 `suite_changed`를 기록하고 직접 비교하지 않습니다.
 토큰이 보고되지 않은 실행의 차이는 `null`이며 0으로 추정하지 않습니다.
 결과 파일은 계속 Git 제외 `artifacts/`에 보관합니다.
+
+### Gemma 4 실행을 Workflow history에 연결
+
+기본 웹·API는 Mock을 유지하면서 합성 사례 하나만 실제 Gemma 4로 실행하고 메타데이터를 PostgreSQL에 저장합니다.
+
+```bash
+export SOURCE_COMMIT="$(git rev-parse HEAD)"
+export SOURCE_DIRTY=false
+docker compose run --rm --build ollama-history-check
+unset SOURCE_COMMIT SOURCE_DIRTY
+```
+
+기본 사례는 `meeting`입니다. 다른 합성 사례 ID를 사용하려면 명령 끝에 붙입니다.
+
+```bash
+docker compose run --rm ollama-history-check schedule_change
+```
+
+출력의 `Run ID`는 생성된 `artifacts/ollama-history-날짜.json`,
+`GET /api/lab/runs/{id}`, http://localhost:5173 의 **Workflow history**에서 동일합니다.
+보고서에는 고정 합성 원문과 생성 결과가 들어가지만 Git에서 제외됩니다.
+PostgreSQL에는 Provider·모델·상태·시간·토큰·오류·노드 정보만 저장하고 원문·생성 결과는 저장하지 않습니다.
+
+실패 이력 연결을 실제 외부 장애 없이 확인할 수 있습니다.
+
+```bash
+docker compose run --rm ollama-history-check meeting --failure model_unavailable
+docker compose run --rm ollama-history-check meeting --failure model_timeout
+```
+
+두 명령은 의도적으로 종료 코드 1을 반환하고 `provider=ollama`, `model=gemma4:e4b`의 실패 이력을 남깁니다.
+Mock으로 대체하지 않으며 보고서에 `simulation` 값을 기록합니다. 기본 API 프로세스의 Provider는 계속 Mock입니다.
 
 ## 패키지 추가·제거·업데이트
 

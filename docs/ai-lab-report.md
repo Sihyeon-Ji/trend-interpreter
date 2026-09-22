@@ -179,6 +179,8 @@ think false, 제한 시간 120초·시도 1회를 사용했습니다. 첫 문서
 
 이후 [Plan 02](plans/02-model-evaluation.md)에서 사례를 근거가 있는 10개로 확장하고,
 수동 검토의 평가자·시각·원문/출력 근거 및 동일 suite 보고서 비교 절차를 추가했습니다.
+[Plan 03](plans/03-local-model-history.md)에서는 명시적 Gemma 4 실행의 보고서와 PostgreSQL 이력을
+같은 실행 ID로 연결하되 DB에는 원문·생성 결과를 저장하지 않는 경로를 추가했습니다.
 
 ## 4. 지금 사용할 수 있는 기능과 결과가 남는 곳
 
@@ -188,12 +190,14 @@ think false, 제한 시간 120초·시도 1회를 사용했습니다. 첫 문서
 | --- | --- | --- | --- |
 | 기본 웹 분석 | 웹 → API → Mock | 응답 화면, 일반 분석을 실행 이력 DB에 저장하지 않음 | Git·Docker |
 | Workflow history | 웹/실습 명령 → API → Mock 그래프 | PostgreSQL에 실행·노드 메타데이터 | 기본 개발 스택 |
-| 실제 모델 비교 | `ollama-check` → 같은 그래프 → Mac Ollama | `artifacts/`의 JSON·Markdown | Mac Ollama와 다운로드한 모델 |
+| 실제 모델 비교 | `ollama-check` → 같은 그래프 → Mac Gemma 4 | `artifacts/`의 JSON·Markdown | Mac Ollama와 Gemma 4 |
+| 실제 모델 이력 연결 | `ollama-history-check` → Gemma 4 → PostgreSQL | 보고서 원문/출력 + DB metadata | 명시적 로컬 실행 |
 | 배포 형태 미리보기 | 빌드한 웹·API 단일 컨테이너 → Mock | 로컬 화면·응답 | Docker, 실제 클라우드 불필요 |
 
 운영 로그에는 원문·생성 결과·인증정보를 남기지 않습니다.
 실제 모델 비교 보고서는 고정된 합성 입력과 출력을 포함하는 **평가 파일**이며 Git에서 제외됩니다.
-기본 웹 화면은 계속 Mock이고, 실제 모델 비교 실행은 PostgreSQL의 Workflow history에 나타나지 않습니다.
+기본 웹 화면은 계속 Mock입니다. `ollama-check` 비교는 파일에만 남고,
+명시적 `ollama-history-check` 실행만 메타데이터를 PostgreSQL Workflow history에 연결합니다.
 
 팀원이 지금 재현할 수 있는 기본 순서는 다음과 같습니다. 모두 저장소 루트에서 실행합니다.
 
