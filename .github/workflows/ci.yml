@@ -17,11 +17,15 @@ jobs:
       - run: docker compose up -d --build --wait
       - run: docker compose run --rm --build doctor
       - run: docker compose run --rm --build db-check
+      - run: docker compose run --rm --build db-migration-check
       - run: docker compose run --rm --build workflow-check
       - run: docker compose run --rm --build history-check
       - run: docker compose run --rm --build failure-check
       - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
       - run: docker compose run --rm infra-check
+      - run: BACKUP_FILE=/backups/ci.dump docker compose run --rm db-backup
+      - run: BACKUP_FILE=/backups/ci.dump RESTORE_DATABASE=builder_cup_restore_ci docker compose run --rm db-restore
+      - run: RESTORE_DATABASE=builder_cup_restore_ci docker compose run --rm --build db-recovery-check
       - run: docker build -t builder-cup:ci .
       - run: bash scripts/container-smoke.sh builder-cup:ci
       - name: Collect browser failure artifacts

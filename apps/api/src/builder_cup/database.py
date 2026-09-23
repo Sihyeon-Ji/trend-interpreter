@@ -1,5 +1,8 @@
+import hashlib
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -16,10 +19,24 @@ CONNECT_TIMEOUT_SECONDS = 3
 STATEMENT_TIMEOUT_MS = 3000
 LAB_ROLE = "builder_lab"
 LAB_RECORD_LABEL = "PostgreSQL persistence exercise"
+MIGRATION_PATTERN = re.compile(r"^(\d{3})_([a-z0-9_]+)\.sql$")
+MIGRATIONS_DIR = Path(__file__).with_name("migrations")
 
 
 class DatabaseUnavailable(Exception):
     pass
+
+
+class DatabaseMigrationError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class Migration:
+    version: str
+    name: str
+    checksum: str
+    sql: str
 
 
 class LabRecord(BaseModel):
@@ -51,16 +68,37 @@ def connection(
         raise DatabaseUnavailable("database_unavailable") from exc
 
 
-def initialize(settings: Settings) -> None:
+def discover_migrations(directory: Path = MIGRATIONS_DIR) -> list[Migration]:
+    migrations = []
+    for path in sorted(directory.glob("*.sql")):
+        match = MIGRATION_PATTERN.fullmatch(path.name)
+        if match is None:
+            raise DatabaseMigrationError(f"Invalid migration filename: {path.name}")
+        raw = path.read_bytes()
+        migrations.append(
+            Migration(
+                version=match.group(1),
+                name=match.group(2),
+                checksum=hashlib.sha256(raw).hexdigest(),
+                sql=raw.decode(),
+            )
+        )
+    versions = [migration.version for migration in migrations]
+    if not migrations or len(versions) != len(set(versions)):
+        raise DatabaseMigrationError("Migration versions must be present and unique")
+    return migrations
+
+
+def _bootstrap(settings: Settings) -> None:
     with connection(settings, admin=True) as conn:
-        # Keep role credential updates out of server error statement logs.
         conn.execute("SET LOCAL log_min_error_statement = 'panic'")
         conn.execute("CREATE SCHEMA IF NOT EXISTS lab")
         conn.execute(
-            """CREATE TABLE IF NOT EXISTS lab.records (
-                id uuid PRIMARY KEY,
-                label text NOT NULL CHECK (length(label) BETWEEN 1 AND 100),
-                created_at timestamptz NOT NULL DEFAULT now()
+            """CREATE TABLE IF NOT EXISTS lab.schema_migrations (
+                version text PRIMARY KEY,
+                name text NOT NULL,
+                checksum text NOT NULL CHECK (length(checksum) = 64),
+                applied_at timestamptz NOT NULL DEFAULT now()
             )"""
         )
         role = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (LAB_ROLE,)).fetchone()
@@ -72,17 +110,49 @@ def initialize(settings: Settings) -> None:
                 sql.Identifier(LAB_ROLE), sql.Literal(password)
             )
         )
+
+
+def apply_migration(settings: Settings, migration: Migration) -> None:
+    try:
+        with connection(settings, admin=True) as conn:
+            applied = conn.execute(
+                "SELECT checksum FROM lab.schema_migrations WHERE version = %s",
+                (migration.version,),
+            ).fetchone()
+            if applied is not None:
+                if applied["checksum"] != migration.checksum:
+                    raise DatabaseMigrationError(
+                        f"Migration checksum mismatch: {migration.version}"
+                    )
+                return
+            conn.execute(migration.sql)
+            conn.execute(
+                """INSERT INTO lab.schema_migrations (version, name, checksum)
+                   VALUES (%s, %s, %s)""",
+                (migration.version, migration.name, migration.checksum),
+            )
+    except DatabaseUnavailable as exc:
+        raise DatabaseMigrationError(f"Migration failed: {migration.version}") from exc
+
+
+def _grant_permissions(settings: Settings) -> None:
+    with connection(settings, admin=True) as conn:
         conn.execute(sql.SQL("GRANT USAGE ON SCHEMA lab TO {}").format(sql.Identifier(LAB_ROLE)))
         conn.execute(
             sql.SQL("GRANT SELECT, INSERT ON lab.records TO {}").format(sql.Identifier(LAB_ROLE))
         )
-        conn.execute(Path(__file__).with_name("002_workflow_history.sql").read_text())
-        conn.execute(Path(__file__).with_name("003_workflow_scenario.sql").read_text())
         conn.execute(
             sql.SQL(
                 "GRANT SELECT, INSERT, UPDATE ON lab.workflow_runs, lab.workflow_nodes TO {}"
             ).format(sql.Identifier(LAB_ROLE))
         )
+
+
+def initialize(settings: Settings) -> None:
+    _bootstrap(settings)
+    for migration in discover_migrations():
+        apply_migration(settings, migration)
+    _grant_permissions(settings)
 
 
 def create_record(settings: Settings) -> LabRecord:

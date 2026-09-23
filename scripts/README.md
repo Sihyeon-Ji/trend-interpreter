@@ -9,6 +9,10 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | `evaluate.py` | Compose `check` | Run contract cases against the configured provider; Compose forces mock |
 | `doctor.py` | Compose `doctor` | Read-only HTTP probes for Mock readiness and optional Ollama inventory; no inference, dependency startup or DB writes |
 | `db_lab.py` | Compose `db-init` / `db-check` | Initialize the local lab schema; create/read a synthetic record through the API |
+| `migration_lab.py` | Compose `db-migration-check` | Verify ordered migration replay, checksum drift rejection and failed transaction rollback |
+| `db_backup.sh` | Compose `db-backup` | Create a restricted custom-format PostgreSQL backup and SHA-256 file |
+| `db_restore.sh` | Compose `db-restore` | Restore a verified backup only into a new explicitly named local database |
+| `db_recovery.py` | Compose `db-recovery-check` | Compare source/restore fingerprints and application-role permissions |
 | `workflow_lab.py` | Compose `workflow-check` | Exercise synthetic documents through graph validation, parallel branches, join and routing |
 | `history_lab.py` | Compose `history-check` | Verify successful/failed run metadata and privacy; read an existing run by UUID |
 | `failure_lab.py` | Compose `failure-check` | Reproduce bounded Mock failures/recovery and verify persisted node states |

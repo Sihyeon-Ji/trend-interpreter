@@ -24,3 +24,5 @@ gha-creds-*.json
 .DS_Store
 .tools/
 artifacts/
+backups/*
+!backups/.gitkeep

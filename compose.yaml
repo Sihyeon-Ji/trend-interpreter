@@ -171,6 +171,80 @@ services:
       api:
         condition: service_healthy
 
+  # Verify ordered migration replay and transaction rollback without retaining probe objects.
+  db-migration-check:
+    <<: *development
+    profiles: [tools]
+    command: python scripts/migration_lab.py
+    environment:
+      DATABASE_PASSWORD_FILE: /run/db-app/password
+      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
+    volumes:
+      - ./apps/api/src:/workspace/apps/api/src:ro
+      - ./scripts:/workspace/scripts:ro
+      - postgres_admin_password:/run/db-admin:ro
+      - postgres_app_password:/run/db-app:ro
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  # Create a custom-format logical backup without roles, ACLs or credentials.
+  db-backup:
+    image: postgres:18.6-bookworm
+    profiles: [tools]
+    entrypoint: [sh, /scripts/db_backup.sh]
+    environment:
+      DATABASE_HOST: db
+      DATABASE_NAME: builder_cup
+      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
+      BACKUP_DIR: /backups
+      BACKUP_FILE: ${BACKUP_FILE:-}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./backups:/backups
+      - postgres_admin_password:/run/db-admin:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Restore only into a new explicitly named database in the selected local cluster.
+  db-restore:
+    image: postgres:18.6-bookworm
+    profiles: [tools]
+    entrypoint: [sh, /scripts/db_restore.sh]
+    environment:
+      DATABASE_HOST: db
+      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
+      BACKUP_FILE: ${BACKUP_FILE:-}
+      RESTORE_DATABASE: ${RESTORE_DATABASE:-}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./backups:/backups:ro
+      - postgres_admin_password:/run/db-admin:ro
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  # Compare source and restored data fingerprints plus application permissions.
+  db-recovery-check:
+    <<: *development
+    profiles: [tools]
+    command: python scripts/db_recovery.py
+    environment:
+      DATABASE_HOST: db
+      DATABASE_NAME: builder_cup
+      DATABASE_PASSWORD_FILE: /run/db-app/password
+      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
+      RESTORE_DATABASE: ${RESTORE_DATABASE:-}
+    volumes:
+      - ./apps/api/src:/workspace/apps/api/src:ro
+      - ./scripts:/workspace/scripts:ro
+      - postgres_admin_password:/run/db-admin:ro
+      - postgres_app_password:/run/db-app:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
   # Run synthetic documents through input validation, fan-out, join and rule-based routing.
   workflow-check:
     <<: *development
