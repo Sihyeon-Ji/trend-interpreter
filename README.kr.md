@@ -47,6 +47,8 @@ Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치�
 | 의존성·이미지 설정 변경 반영 | `docker compose up -d --build` |
 | 코드 검사·테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` |
 | PostgreSQL 실습 기록 생성·조회 | `docker compose run --rm --build db-check` |
+| DB 마이그레이션 재실행·실패 롤백 검사 | `docker compose run --rm --build db-migration-check` |
+| 로컬 DB 백업 생성 | `docker compose run --rm db-backup` |
 | 병렬 작업·Join·Router 실습 | `docker compose run --rm --build workflow-check` |
 | 실행·단계별 이력 저장·조회 검사 | `docker compose run --rm --build history-check` |
 | Mock 오류·취소·재시도 실습 | `docker compose run --rm --build failure-check` |
@@ -92,6 +94,8 @@ DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 
 볼륨 삭제 옵션은 실습 기록과 비밀번호를 지웁니다. DB는 호스트 포트를 공개하지 않으며
 앱에는 합성 기록의 조회·추가 권한과 실행 이력 테이블의 조회·추가·수정 권한을 부여합니다.
 배포 미리보기에서는 실습 API가 비활성화됩니다.
+스키마 변경은 체크섬이 기록되는 순차 SQL 마이그레이션으로 관리합니다.
+백업·새 DB 복원 절차는 [Plan 04 결과](docs/plans/04-database-recovery.md)에 정리했습니다.
 
 ## 작은 그래프 워크플로우 실습
 

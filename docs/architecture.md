@@ -125,9 +125,16 @@ agent 흐름이 필요해지면 이 workflow 경계 안쪽에 ADK를 도입합�
 | 모델이 생성한 본문 | 저장하지 않음 |
 | Credential·접근 코드 | 저장하지 않음 |
 
-초기화 SQL은 반복 실행할 수 있지만 일반 migration engine은 아닙니다. Schema를 변경할 때는 기존
-volume을 삭제하지 말고 명시적인 migration을 추가합니다. API용 DB role은 필요한 table의 제한된
-SELECT·INSERT·UPDATE 권한만 갖습니다.
+스키마 변경은 파일명 순서의 SQL migration으로 적용하고 `lab.schema_migrations`에
+버전·이름·SHA-256·적용 시각을 기록합니다. 각 파일과 버전 기록은 한 transaction에서 처리하며
+적용된 파일의 checksum 변경을 거부합니다. 기존 volume을 삭제하지 않고 새 migration을 추가합니다.
+API용 DB role은 필요한 table의 제한된 SELECT·INSERT·UPDATE 권한만 갖습니다.
+
+`db-backup`은 role·ACL·비밀번호를 제외한 custom-format dump와 SHA-256 파일을 Git 제외
+`backups/`에 생성합니다. `db-restore`는 기존 DB 덮어쓰기를 거부하고 명시적인 새
+`builder_cup_restore_*` DB만 생성합니다. `db-recovery-check`는 원본·복원 table의 row count와
+정렬된 JSON fingerprint, 앱 role 권한을 비교합니다. 이는 로컬 논리 백업 검증이며
+지속적 백업·시점 복구·Cloud SQL 운영 구성이 아닙니다.
 
 실행이 끝날 때 node snapshot을 한 번에 저장하므로 실시간 진행 상황은 제공하지 않습니다. Process가
 강제 종료되면 `Running / unfinished` 상태가 남을 수 있습니다. Durable checkpoint와 자동 복구는 아직

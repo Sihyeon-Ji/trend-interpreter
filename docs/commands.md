@@ -64,6 +64,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 | --- | --- | --- |
 | 코드 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
 | PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
+| DB migration 재실행·실패 rollback | `docker compose run --rm --build db-migration-check` | 데이터·버전 상태 유지 확인 |
 | 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |
 | 실행 이력 저장·조회 검사 | `docker compose run --rm --build history-check` | 성공·실패 실행과 단계별 메타데이터 확인 |
 | 오류·취소·재시도 재현 | `docker compose run --rm --build failure-check` | 예상 실패와 복구를 이력에서 검증 |
@@ -121,6 +122,51 @@ DB가 다시 준비되면 보관한 `Read again` 명령을 실행합니다.
 DB 중단 시 실습 API는 `503 database_unavailable`을 반환합니다.
 일반 `/api/health`는 앱 생존 상태이므로 DB 연결 성공을 뜻하지 않습니다.
 실제 검증 결과는 [실습 계획과 기록](ai-lab-plan.md)에 있습니다.
+
+## DB migration과 백업·새 DB 복원
+
+`apps/api/src/builder_cup/migrations/`의 `NNN_name.sql` 파일을 번호순으로 적용합니다.
+적용한 버전·이름·SHA-256·시각은 `lab.schema_migrations`에 저장됩니다.
+이미 적용된 파일은 건너뛰고 checksum이 달라지면 실패합니다.
+
+```bash
+docker compose run --rm --build db-migration-check
+```
+
+이 검사는 migration을 두 번 적용해 데이터와 버전이 바뀌지 않는지 확인하고,
+변경된 checksum 거부와 의도적 SQL 실패의 transaction rollback을 검사합니다.
+실패 probe table과 가짜 버전은 rollback되므로 남지 않습니다.
+
+현재 로컬 DB를 custom-format 파일로 백업합니다.
+
+```bash
+docker compose run --rm db-backup
+```
+
+출력된 `.dump`와 `.dump.sha256`은 권한 `0600`으로 Git 제외 `backups/`에 저장됩니다.
+role·ACL·접속 비밀번호는 dump에 포함하지 않습니다. 기존 파일을 덮어쓰지 않습니다.
+
+복원은 기존 DB가 아니라 **존재하지 않는 새 DB 이름**으로만 가능합니다.
+
+```bash
+export BACKUP_FILE=/backups/builder-cup-YYYYMMDDTHHMMSSZ.dump
+export RESTORE_DATABASE=builder_cup_restore_YYYYMMDD
+docker compose run --rm db-restore
+docker compose run --rm --build db-recovery-check
+unset BACKUP_FILE RESTORE_DATABASE
+```
+
+복원 명칭은 `builder_cup_restore_` 다음에 소문자·숫자·밑줄을 사용해야 합니다.
+대상 DB가 이미 있거나 checksum 파일이 없거나 다르면 복원을 거부합니다.
+새 DB 생성 뒤 `pg_restore`가 실패하면 자동 삭제하지 않고 부분 대상을 남깁니다.
+오류를 확인한 뒤 다른 새 대상 이름으로 다시 시도하며, 기존 대상의 수동 삭제는 이 명령의 범위가 아닙니다.
+`db-recovery-check`는 원본·복원의 record, workflow run/node, migration table을
+row count와 정렬된 JSON fingerprint로 비교하고 앱 role의 제한된 권한도 확인합니다.
+비교 출력에는 원문 row나 비밀번호가 포함되지 않습니다.
+
+이 절차는 로컬 논리 백업·복원 실습입니다. 자동 백업 스케줄, 암호화 보관,
+Cloud SQL, 시점 복구나 PostgreSQL major version upgrade를 검증한 것은 아닙니다.
+검증 결과와 안전 범위는 [Plan 04](plans/04-database-recovery.md)에 있습니다.
 
 ## 그래프 워크플로우 실습
 

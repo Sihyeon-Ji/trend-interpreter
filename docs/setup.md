@@ -147,7 +147,7 @@ API 자동 재시작 중에는 잠깐 요청이 실패할 수 있습니다. 로�
 docker compose run --rm --build check
 ```
 
-현재 Python 테스트 78개와 Mock 평가 2개가 있으며 이후 개발에 따라 개수는 바뀔 수 있습니다.
+현재 Python 테스트 84개와 Mock 평가 2개가 있으며 이후 개발에 따라 개수는 바뀔 수 있습니다.
 실행 이력 실습은 http://localhost:5173 의 `Workflow history`에서 시작합니다.
 단계별 상태·시간과 DB 저장 확인 방법은 [명령어 모음](commands.md#실행-이력-조회)에 있습니다.
 실제 모델 실습을 원할 때만 [Ollama 준비와 비교](commands.md#실제-로컬-모델-비교)를 진행하세요.

@@ -192,12 +192,15 @@ think false, 제한 시간 120초·시도 1회를 사용했습니다. 첫 문서
 | Workflow history | 웹/실습 명령 → API → Mock 그래프 | PostgreSQL에 실행·노드 메타데이터 | 기본 개발 스택 |
 | 실제 모델 비교 | `ollama-check` → 같은 그래프 → Mac Gemma 4 | `artifacts/`의 JSON·Markdown | Mac Ollama와 Gemma 4 |
 | 실제 모델 이력 연결 | `ollama-history-check` → Gemma 4 → PostgreSQL | 보고서 원문/출력 + DB metadata | 명시적 로컬 실행 |
+| DB 변경·백업·복원 | migration → custom dump → 새 DB restore | `schema_migrations` + Git 제외 `backups/` | 로컬 PostgreSQL 18.6 |
 | 배포 형태 미리보기 | 빌드한 웹·API 단일 컨테이너 → Mock | 로컬 화면·응답 | Docker, 실제 클라우드 불필요 |
 
 운영 로그에는 원문·생성 결과·인증정보를 남기지 않습니다.
 실제 모델 비교 보고서는 고정된 합성 입력과 출력을 포함하는 **평가 파일**이며 Git에서 제외됩니다.
 기본 웹 화면은 계속 Mock입니다. `ollama-check` 비교는 파일에만 남고,
 명시적 `ollama-history-check` 실행만 메타데이터를 PostgreSQL Workflow history에 연결합니다.
+[Plan 04](plans/04-database-recovery.md)에서 checksum 기반 순차 migration과 기존 DB를 덮어쓰지 않는
+로컬 백업·새 DB 복원 절차를 추가했습니다.
 
 팀원이 지금 재현할 수 있는 기본 순서는 다음과 같습니다. 모두 저장소 루트에서 실행합니다.
 

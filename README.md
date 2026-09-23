@@ -56,6 +56,8 @@ See the [Korean command reference](docs/commands.md) for commands by task, expec
 | `docker compose up -d --build` | Rebuild after dependency/configuration changes |
 | `docker compose run --rm --build check` | Python lint/format/types/tests, mock evaluation, frontend types and build |
 | `docker compose run --rm --build db-check` | Create and read a synthetic PostgreSQL lab record through the API |
+| `docker compose run --rm --build db-migration-check` | Verify migration order, checksums, replay and transaction rollback |
+| `docker compose run --rm db-backup` | Create a local custom-format database backup and checksum |
 | `docker compose run --rm --build workflow-check` | Exercise fan-out, join and deterministic routing with synthetic documents |
 | `docker compose run --rm --build history-check` | Verify successful/failed workflow history and metadata privacy |
 | `docker compose run --rm --build failure-check` | Reproduce Mock timeout, invalid JSON, branch failure and retry recovery |
@@ -103,6 +105,9 @@ The database has no published host port. The application role has schema usage, 
 and SELECT/INSERT/UPDATE on workflow history tables;
 the administrator credential is mounted only into the DB and initializer. The lab API is disabled by default
 and cannot be enabled in Cloud Run or with a non-mock provider. The production preview does not require a DB.
+Schema changes are ordered SQL migrations recorded with SHA-256 checksums in `lab.schema_migrations`.
+Local backup/restore commands exclude roles and ACLs, refuse existing restore targets and require a new
+`builder_cup_restore_*` database. Backup files are private local artifacts under ignored `backups/`.
 
 ## Workflow lab
 
