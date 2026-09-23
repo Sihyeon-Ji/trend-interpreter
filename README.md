@@ -191,6 +191,7 @@ Never commit credentials, `.env`, model weights, Terraform state or generated ev
 
 ## Team and documentation
 
+- [Documentation index in Korean](docs/README.md)
 - [AI lab completion report, capabilities and next steps in Korean](docs/ai-lab-report.md)
 - [Theme-independent development preparation plans in Korean](docs/plans/README.md)
 - [Local LLM, graph workflow and database guide in Korean](docs/ai-development-guide.md)

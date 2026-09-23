@@ -168,6 +168,7 @@ Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 
 ## 문서와 팀 링크
 
+- [전체 문서 색인](docs/README.md)
 - [1~5단계 종합 보고서 — 준비된 역량·한계·다음 과제](docs/ai-lab-report.md)
 - [주제 선정 전에 진행할 공통 개발 기반 계획](docs/plans/README.md)
 - [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
