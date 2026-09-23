@@ -1,0 +1,478 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>Clearance 유사 프로젝트 조사 (Copy)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F5F7FA; --surface:#FFFFFF; --surface-2:#EDF1F6;
+  --ink:#171B22; --ink-2:#4A5361; --ink-3:#7A8391;
+  --line:#D6DCE5; --line-2:#E7EBF1;
+  --accent:#1F5F8B; --accent-soft:#DCEAF5; --accent-ink:#154566;
+  --mark:#B86E10; --mark-soft:#FBEBD2;
+  --good:#2F7D4F; --good-soft:#DFF1E6; --warn:#B45309; --bad:#B42318; --bad-soft:#FBE3E0;
+  --gnative:#EEF2F7; --gnative-line:#9AA8BA;
+  --shadow:0 1px 2px rgba(23,27,34,.06),0 8px 24px -12px rgba(23,27,34,.14);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1218; --surface:#151B23; --surface-2:#1C242E;
+    --ink:#E6EAF0; --ink-2:#AEB7C4; --ink-3:#7D8794;
+    --line:#2A3441; --line-2:#212A35;
+    --accent:#72B4E2; --accent-soft:#17364D; --accent-ink:#A9D3F1;
+    --mark:#F0B35B; --mark-soft:#3A2A11;
+    --good:#5DBB82; --good-soft:#153524; --warn:#F0A04B; --bad:#F27B6E; --bad-soft:#3D1A17;
+    --gnative:#1A2230; --gnative-line:#4A5A70;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1218; --surface:#151B23; --surface-2:#1C242E;
+  --ink:#E6EAF0; --ink-2:#AEB7C4; --ink-3:#7D8794;
+  --line:#2A3441; --line-2:#212A35;
+  --accent:#72B4E2; --accent-soft:#17364D; --accent-ink:#A9D3F1;
+  --mark:#F0B35B; --mark-soft:#3A2A11;
+  --good:#5DBB82; --good-soft:#153524; --warn:#F0A04B; --bad:#F27B6E; --bad-soft:#3D1A17;
+  --gnative:#1A2230; --gnative-line:#4A5A70;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:15.5px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+h1,h2,h3,h4{font-family:"Noto Serif KR","Apple SD Gothic Neo",serif;text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:24px;font-weight:600;margin-top:8px}
+h3{font-size:18px;font-weight:600}
+h4{font-family:"IBM Plex Sans KR",sans-serif;font-size:14px;font-weight:600}
+p{margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.eyebrow.accent{color:var(--accent)}
+header{border-bottom:1px solid var(--line);background:var(--surface)}
+header .wrap{padding-top:40px;padding-bottom:32px}
+header .lede{color:var(--ink-2);margin-top:12px;max-width:700px}
+nav.toc{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5}
+nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:8px;padding-bottom:8px}
+nav.toc a{white-space:nowrap;font-size:13px;padding:6px 10px;border-radius:6px;color:var(--ink-2);border:none}
+nav.toc a:hover{background:var(--surface-2);color:var(--ink)}
+section{padding:48px 0;border-bottom:1px solid var(--line-2)}
+section:last-of-type{border-bottom:none}
+.sec-head{display:flex;flex-direction:column;gap:4px;margin-bottom:24px}
+.sec-head p{color:var(--ink-2);max-width:720px;margin-top:8px}
+
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr}}
+.vbox{border-radius:12px;padding:20px 22px;border:1px solid var(--line);background:var(--surface)}
+.vbox.bad{border-color:var(--bad);background:var(--bad-soft)}
+.vbox.good{border-color:var(--good);background:var(--good-soft)}
+.vbox .k{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.vbox.bad .k{color:var(--bad)}.vbox.good .k{color:var(--good)}
+.vbox h3{margin-bottom:8px}
+.vbox p{font-size:14.5px;color:var(--ink-2)}
+.vbox ul{margin:10px 0 0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+.vbox li{margin:3px 0}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;font-size:12.5px;letter-spacing:.04em;color:var(--ink-3);padding:12px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--line-2);vertical-align:top;color:var(--ink-2)}
+td:first-child{color:var(--ink);font-weight:500}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.pill.g{background:var(--gnative);color:var(--ink-2);border:1px dashed var(--gnative-line)}
+.pill.c{background:var(--accent-soft);color:var(--accent-ink)}
+.pill.o{background:var(--mark-soft);color:var(--mark)}
+.pill.h{background:var(--surface-2);color:var(--ink-2)}
+.y{color:var(--good);font-weight:600}.n{color:var(--bad);font-weight:600}.p{color:var(--warn);font-weight:600}
+
+.matrix td{text-align:center}
+.matrix td:first-child{text-align:left}
+.matrix th:not(:first-child){text-align:center}
+
+.gaps{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.gap{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.gap .id{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mark);letter-spacing:.08em}
+.gap h3{margin-top:4px;font-size:17px}
+.gap p{font-size:14px;color:var(--ink-2);margin-top:8px}
+.gap .src{font-size:12.5px;color:var(--ink-3);margin-top:8px}
+.gap .asi{margin-top:8px;display:flex;gap:4px;flex-wrap:wrap}
+
+.ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px}
+@media (max-width:760px){.ladder{grid-template-columns:1fr}}
+.rung{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.rung .lv{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:500;color:var(--accent)}
+.rung h4{margin:2px 0 6px}
+.rung p{font-size:13px;color:var(--ink-2)}
+.rung .ex{font-size:12px;color:var(--ink-3);margin-top:6px}
+
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}
+.diagram svg{display:block;min-width:820px;width:100%;height:auto}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+
+.scene{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--line-2)}
+.scene:last-child{border-bottom:none}
+.scene .t{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--accent);white-space:nowrap;padding-top:3px}
+.scene h4{margin-bottom:4px}
+.scene p{font-size:14px;color:var(--ink-2)}
+
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.nm{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.nm.pick{border-color:var(--mark);box-shadow:var(--shadow)}
+.nm h3{font-size:20px}
+.nm p{font-size:13.5px;color:var(--ink-2);margin-top:6px}
+.nm .tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;color:var(--mark)}
+
+.note{border-left:3px solid var(--mark);background:var(--mark-soft);padding:12px 16px;border-radius:0 8px 8px 0;font-size:14px;color:var(--ink);margin-top:20px}
+.note b{font-weight:600}
+.risks{margin:8px 0 0;padding-left:20px;color:var(--ink-2);font-size:14.5px}
+.risks li{margin:6px 0}
+.risks b{color:var(--ink);font-weight:500}
+.sources{font-size:13px;color:var(--ink-2);columns:2;column-gap:32px}
+.sources li{margin:4px 0;break-inside:avoid}
+@media (max-width:640px){.sources{columns:1}}
+footer{padding:32px 0 48px;font-size:12.5px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow accent">AI Builder Cup 2026 · Future of Work &amp; Enterprise Productivity</div>
+    <h1>Clearance 유사 프로젝트 조사</h1>
+    <p class="lede">"Agent Warden" 원안을 상용 제품, Google 자체 기능, 오픈소스, 해커톤 출품작 네 축으로 대조했습니다. 결론은 원안 그대로는 위험하고, 방향을 조금 틀면 오히려 빈자리가 선명하다는 것입니다. 기준일 2026년 9월 10일.</p>
+  </div>
+</header>
+<nav class="toc"><div class="wrap">
+  <a href="#verdict">결론</a><a href="#google">Google 자체 기능</a><a href="#market">상용·오픈소스·해커톤</a><a href="#gaps">빈자리 5개</a><a href="#pivot">피벗안</a><a href="#arch">아키텍처</a><a href="#demo">데모 시나리오</a><a href="#name">이름</a><a href="#risk">리스크</a><a href="#src">출처</a>
+</div></nav>
+
+<main class="wrap">
+
+<section id="verdict">
+  <div class="sec-head">
+    <div class="eyebrow">01 · 결론</div>
+    <h2>원안의 80%는 Google이 이미 출시했습니다. 나머지 20%가 우리 자리입니다</h2>
+  </div>
+  <div class="verdict">
+    <div class="vbox bad">
+      <div class="k">원안 그대로 가면</div>
+      <h3>"우리 Agent Gateway가 이미 하는 건데요"</h3>
+      <p>원안의 핵심이었던 권한 초과 도구 호출 차단, 프롬프트 인젝션 탐지, 민감 데이터 유출 방지, 비용 폭주 탐지는 Agent Gateway, Model Armor, Semantic Governance, Agent Anomaly Detection이 전부 커버합니다. 심사단에 Google Cloud 리더가 앉아 있으니 혁신 25점에서 무너집니다.</p>
+      <ul>
+        <li>Zenity, Palo Alto, CrowdStrike, Microsoft Agent 365가 같은 그림으로 수천억 원을 투자 중</li>
+        <li>Microsoft 오픈소스 툴킷이 OWASP 10개 항목 전부를 커버한다고 공표</li>
+        <li>"Warden" 이름은 이미 4개 AI 보안 제품이 사용 중</li>
+        <li>All Things Agentic 해커톤(10월 8일 마감)에 Fortified Enterprise Fleet 트랙이 있어 비슷한 출품작이 쏟아질 시점</li>
+      </ul>
+    </div>
+    <div class="vbox good">
+      <div class="k">방향을 틀면</div>
+      <h3>Gateway를 대체하지 않고, Gateway 위에 "자율성 사다리"를 올린다</h3>
+      <p>Google의 판정은 ALLOW / DENY 두 가지뿐이고, 이상 탐지는 비동기 알림에 그칩니다. 업계 전체가 인정한 미해결 문제는 "정상 행동의 기준선", "에이전트 간 위임 검증", "유령 에이전트", "규제 증거"입니다. 이 넷을 하나의 Service Extension으로 묶으면 Google 스택을 가장 깊게 쓰는 팀이 됩니다.</p>
+      <ul>
+        <li>싱가포르 MAS가 2026년 7월 발표한 SAFR 프레임워크와 구조가 정확히 맞음. 파이널 장소가 싱가포르</li>
+        <li>한국 AI 기본법(2026년 1월 시행)의 고영향 AI 기록 의무와 연결</li>
+        <li>Best Use of Google Cloud AI Tools 특별상 구조는 그대로 유지</li>
+        <li>이름은 Clearance(가칭)으로 교체 제안</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="google">
+  <div class="sec-head">
+    <div class="eyebrow">02 · Google 자체 기능</div>
+    <h2>심사단이 매일 파는 것. 이걸 다시 만들면 안 됩니다</h2>
+    <p>Gemini Enterprise Agent Platform의 Govern 레이어입니다. 원안의 기능 하나하나를 대조했습니다. 마지막 두 열이 우리가 갈 자리입니다.</p>
+  </div>
+  <div class="tablewrap"><table class="matrix">
+    <thead><tr><th>기능</th><th>Agent Gateway</th><th>Model Armor</th><th>Semantic Governance</th><th>Anomaly Detection</th><th>Identity / Registry</th><th>Clearance</th></tr></thead>
+    <tbody>
+      <tr><td>도구 호출 정책 집행 (allow/deny)</td><td class="y">있음</td><td>–</td><td class="y">있음</td><td>–</td><td class="y">IAM</td><td class="p">위에 올림</td></tr>
+      <tr><td>프롬프트 인젭션·툴 포이즈닝 차단</td><td class="p">위임</td><td class="y">있음</td><td class="p">의도 게이팅</td><td class="p">탐지</td><td>–</td><td class="n">안 함</td></tr>
+      <tr><td>민감 데이터 유출 방지</td><td class="p">위임</td><td class="y">있음</td><td>–</td><td>–</td><td>–</td><td class="n">안 함</td></tr>
+      <tr><td>비용·토큰 폭주 탐지</td><td>–</td><td>–</td><td>–</td><td class="y">알림</td><td>–</td><td class="n">안 함</td></tr>
+      <tr><td>이상 행동 탐지 (OWASP ASI02/03/08/10)</td><td>–</td><td>–</td><td>–</td><td class="y">비동기 알림, US 리전, 프리뷰</td><td>–</td><td class="p">신호로 소비</td></tr>
+      <tr><td>자연어 정책 ("결제 한도 $500")</td><td>–</td><td>–</td><td class="y">NLC</td><td>–</td><td>–</td><td class="p">계약 초안에 활용</td></tr>
+      <tr><td><b>에이전트별 자율성 단계, 실적 기반 승격·강등</b></td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="y">핵심</td></tr>
+      <tr><td><b>A2A 위임 체인 범위 검증, 자기 정책 수정 탐지</b></td><td class="p">A2A 통과만</td><td class="n">없음</td><td class="n">없음</td><td class="p">권한 상승 탐지</td><td class="n">없음</td><td class="y">핵심</td></tr>
+      <tr><td><b>유령 에이전트 (휴면 + 유효 자격증명) 정리</b></td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="p">스킬 폐기 상태만</td><td class="y">핵심</td></tr>
+      <tr><td><b>규제 형식 증거 패키지 (MAS SAFR, AI 기본법)</b></td><td class="p">로그만</td><td class="n">없음</td><td class="n">없음</td><td class="p">SCC 파인딩</td><td class="p">감사 가능 ID</td><td class="y">핵심</td></tr>
+      <tr><td>승인 큐에 에이전트가 통제하지 않는 독립 설명 (ASI09)</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="n">없음</td><td class="y">있음</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>확장 지점은 이미 열려 있습니다.</b> Agent Gateway는 Service Extensions로 외부 인가 엔진에 동기 판정을 위임할 수 있고, Okta·Palo Alto·CrowdStrike 등 13개 ISV가 그 방식으로 붙어 있습니다. Clearance도 같은 자리에 붙는 "14번째 파트너"처럼 보이게 만드는 것이 전략입니다. Agent Observability는 OpenTelemetry로 Cloud Trace와 BigQuery에 트레이스를 내보내므로 기준선 계산용 데이터도 이미 흐르고 있습니다.</div>
+</section>
+
+<section id="market">
+  <div class="sec-head">
+    <div class="eyebrow">03 · 상용 · 오픈소스 · 해커톤</div>
+    <h2>돈과 사람이 몰린 시장. 그래서 빈자리가 어디인지도 이미 문서화돼 있습니다</h2>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>구분</th><th>이름</th><th>무엇을 하나</th><th>우리와의 관계</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pill c">상용</span></td><td>Zenity Runtime Boundaries (2026.7)</td><td>매 행동을 실행 전 평가해 진행·차단·종료. Claude Code, Copilot, Agentforce, Bedrock 등 지원. 누적 $185M 투자</td><td>가장 가까운 상용 경쟁자. 판정은 여전히 이진. 실적 기반 자율성 단계 없음. Google Gateway 네이티브 아님</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>Palo Alto Prisma AIRS 3.0</td><td>에이전트 레지스트리, 에이전트 IDP, MCP 게이트웨이, 메모리 포이즈닝 탐지, 레드팀</td><td>인프라 전체를 자기 것으로 대체하는 방식. 우리는 Google 것 위에 얹음</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>CrowdStrike Falcon AIDR</td><td>엔드포인트 프로세스 트리로 에이전트 행동 추적, Copilot·Agentforce 에이전트 발견</td><td>VentureBeat가 "행동 기준선 미제공"으로 지적한 3사 중 하나</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>Cisco AI Defense + Astrix (2026.6 인수)</td><td>섀도 에이전트·MCP 서버 발견, 에이전트 신원 관리</td><td>발견·신원 중심. 런타임 자율성 조절 없음</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>Microsoft Agent 365 (2026.5 GA) + Entra Agent ID</td><td>모든 에이전트에 디렉터리 신원 부여, 격리 레버, Purview DLP. 월 $15/사용자</td><td>Microsoft 생태계 전용. Google Cloud 고객에게는 빈자리</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>Exabeam Behavior Intelligence for AI Agents (2026.7)</td><td>50개 이상 에이전트 행동 탐지, Praxen으로 사전 계약 검증, SIEM 내부에서 동작</td><td>기준선 문제에 가장 근접. 단 SIEM 사후 분석이고 실행 전 개입·자율성 조절 없음</td></tr>
+      <tr><td><span class="pill c">상용</span></td><td>ARMO CADR</td><td>eBPF 커널 신호로 에이전트 intent drift 탐지, 시퀀스 상관</td><td>쿠버네티스 워크로드 레벨. 애플리케이션 의미론(도구·위임) 아님</td></tr>
+      <tr><td><span class="pill c">시장</span></td><td>Gartner Guardian Agents 마켓 가이드 (2026.2)</td><td>"에이전트를 감시·집행·개입하는 에이전트" 카테고리 공식화. 2030년 에이전틱 AI 시장의 10~15%</td><td>덱에서 카테고리 명명에 인용. 부재 기능으로 "크로스 플랫폼 거버넌스" 지적</td></tr>
+      <tr><td><span class="pill o">오픈소스</span></td><td>microsoft/agent-governance-toolkit (6.2k★)</td><td>YAML 정책, allow/deny/approve 3판정, MCP 게이트웨이, 신뢰 점수, OWASP 10/10</td><td>"approve" 판정과 신뢰 점수가 있어 가장 유사. 단 Semantic Kernel 중심, 실적 기반 승강·위임 체인·유령 에이전트 없음. 리포에서 명시적으로 비교표 작성 필요</td></tr>
+      <tr><td><span class="pill o">오픈소스</span></td><td>agentgateway, mcp-firewall, pipelock, SteerPlane</td><td>MCP/A2A 프록시, 서명된 감사 체인, 루프 탐지, 비용 상한</td><td>전부 "프록시를 하나 더 세우는" 방식. 우리는 Google Gateway의 확장으로 동작. 서명 해시 체인 아이디어는 차용</td></tr>
+      <tr><td><span class="pill o">오픈소스</span></td><td>Praxen (Exabeam, 2026.6, Apache 2.0)</td><td>Worker Remit(마크다운 행동 계약) 대비 코드·로그 증거의 괴리를 정적 분석</td><td>배포 전 오프라인 전용이라고 스스로 명시. 우리는 런타임. 계약 형식은 참고</td></tr>
+      <tr><td><span class="pill o">연구</span></td><td>MI9 (arXiv 2025.8), Agent Behavioral Contracts (arXiv 2026.2)</td><td>Agency-Risk Index, 단계적 봉쇄, 목표 조건 드리프트 / ContractSpec DSL, JS-divergence 드리프트, 10ms 오버헤드</td><td><b>"단계적 자율성" 개념의 선행 연구.</b> 덱에서 정직하게 인용하고 "Google Agent Platform 위의 첫 프로덕션 구현"으로 포지셔닝. 드리프트 계산은 이 논문 방식 채택</td></tr>
+      <tr><td><span class="pill h">해커톤</span></td><td>Privacy Guardian Agents (ADK Hackathon 2025)</td><td>개인정보 규정 준수 코드 리뷰를 이벤트 기반 멀티에이전트로 자동화</td><td>배포 전 코드 분석. 런타임 거버넌스 아님</td></tr>
+      <tr><td><span class="pill h">해커톤</span></td><td>Compliance Sentinel</td><td>지역 규제 준수 리스크를 레드팀 방식으로 탐지, 감사 가능한 리포트</td><td>리포트 생성 부분만 유사</td></tr>
+      <tr><td><span class="pill h">해커톤</span></td><td>All Things Agentic Hackathon · Fortified Enterprise Fleet 트랙 (2026.10.8 마감)</td><td>Agent Identity, Gateway, Model Armor를 쓰는 엔터프라이즈 에이전트 플릿을 출제</td><td><b>가장 큰 위험.</b> AI Builder Cup 심사 기간(10.19~11.6) 직전에 Gateway를 쓴 출품작 수백 개가 공개됨. "Gateway를 썼다"는 것 자체는 차별점이 될 수 없음</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="gaps">
+  <div class="sec-head">
+    <div class="eyebrow">04 · 빈자리 5개</div>
+    <h2>업계와 규제기관이 직접 지목한 미해결 문제</h2>
+    <p>우리가 만든 주장이 아니라 VentureBeat의 RSAC 2026 분석, Gartner, OWASP, MAS가 문서로 남긴 것들입니다. 덱에서 그대로 인용할 수 있습니다.</p>
+  </div>
+  <div class="gaps">
+    <div class="gap"><div class="id">GAP 1</div><h3>자율성이 이진값이다</h3><p>Google Semantic Governance는 ALLOW/DENY, Anomaly Detection은 알림. 어떤 벤더도 "이 에이전트가 이 종류의 행동을 얼마나 스스로 해도 되는가"를 실적으로 조절하지 않습니다. OWASP는 이를 Least Agency, 즉 "자율성은 기본값이 아니라 획득하는 것"으로 명명했습니다.</p><div class="asi"><span class="pill h">ASI02</span><span class="pill h">ASI10</span></div><div class="src">OWASP Agentic Top 10 2026 · MI9 논문의 graduated containment</div></div>
+    <div class="gap"><div class="id">GAP 2</div><h3>정상 행동의 기준선이 없다</h3><p>RSAC 2026에서 CrowdStrike, Cisco, Palo Alto 세 회사가 모두 에이전트 탐지·대응을 출시했지만 "어떤 API 호출과 데이터 접근이 정상인가"의 기준선은 아무도 제공하지 않았다는 분석. Exabeam이 7월에 SIEM 쪽에서 일부 대응했지만 사후 분석입니다.</p><div class="asi"><span class="pill h">ASI08</span><span class="pill h">ASI10</span></div><div class="src">VentureBeat, RSAC 2026 agentic SOC 분석</div></div>
+    <div class="gap"><div class="id">GAP 3</div><h3>에이전트 간 위임과 자기 정책 수정을 검증하지 못한다</h3><p>RSAC 2026에서 5개 신원 프레임워크가 나왔지만 세 가지가 미해결: 에이전트가 자기 행동을 통제하는 정책을 스스로 수정하는 것, 100개 에이전트 체인에서 사람 승인 없이 위임되는 것, 기존 OAuth/SAML에 에이전트 간 신뢰 원시가 없는 것.</p><div class="asi"><span class="pill h">ASI03</span><span class="pill h">ASI07</span></div><div class="src">VentureBeat, RSAC 2026 agent identity 분석</div></div>
+    <div class="gap"><div class="id">GAP 4</div><h3>유령 에이전트가 자격증명을 쥐고 있다</h3><p>버려진 파일럿 프로젝트의 에이전트들이 유효한 자격증명을 유지하고, 오프보딩 검증 메커니즘이 없다는 지적. Agent Registry는 스킬 폐기 상태는 있지만 휴면 에이전트 탐지는 없습니다.</p><div class="asi"><span class="pill h">ASI03</span><span class="pill h">ASI10</span></div><div class="src">VentureBeat, Cato Networks 시연</div></div>
+    <div class="gap"><div class="id">GAP 5</div><h3>규제기관이 원하는 형태의 증거가 없다</h3><p>MAS SAFR(2026.7.3)는 에이전트 거버넌스를 네 요소로 정의합니다: 무엇을 승인받았는지 확인하는 신원 계층, 규칙 저장소, 모든 제안 행동을 실행 전에 규칙과 대조하는 엔진, 모든 결정을 기록하는 감사 로그. 한국 AI 기본법(2026.1.22 시행)은 금융 신용평가 등 11개 고영향 영역에 기록·설명 의무를 부과합니다. 이 형식으로 증거를 내주는 도구는 없습니다.</p><div class="asi"><span class="pill h">ASI09</span></div><div class="src">Baker McKenzie MAS SAFR 해설 · AI 기본법 가이드</div></div>
+  </div>
+</section>
+
+<section id="pivot">
+  <div class="sec-head">
+    <div class="eyebrow">05 · 피벗안</div>
+    <h2>Clearance: 에이전트가 자율성을 "획득"하게 하는 Agent Gateway 확장</h2>
+    <p>보안 분야의 "clearance(보안 인가 등급)" 개념을 에이전트에 적용합니다. 모든 에이전트는 행동 종류별로 L0에서 시작해 실적으로 올라가고, 드리프트나 위임 위반이 감지되면 즉시 내려옵니다. Gateway가 판정을 물어오면 Clearance는 ALLOW, HOLD(사람 승인), DENY 셋 중 하나로 답합니다.</p>
+  </div>
+  <h4 style="color:var(--ink-3)">자율성 사다리 (에이전트 × 행동 종류별)</h4>
+  <div class="ladder">
+    <div class="rung"><div class="lv">L0</div><h4>관찰</h4><p>실행 없이 제안만. 사람이 대신 실행.</p><div class="ex">신규 배포 첫 48시간</div></div>
+    <div class="rung"><div class="lv">L1</div><h4>전건 승인</h4><p>모든 행동이 HOLD. 승인 큐로.</p><div class="ex">강등 직후 상태</div></div>
+    <div class="rung"><div class="lv">L2</div><h4>신규만 승인</h4><p>기준선 안의 행동은 통과, 처음 보는 패턴만 HOLD.</p><div class="ex">환불 $500 이하 자동</div></div>
+    <div class="rung"><div class="lv">L3</div><h4>자동 + 표본 검토</h4><p>전부 통과, 5%를 사후 표본 검토.</p><div class="ex">30일 무위반 후</div></div>
+    <div class="rung"><div class="lv">L4</div><h4>완전 자율</h4><p>통과, 드리프트 감시만.</p><div class="ex">보고서 생성 같은 저위험</div></div>
+  </div>
+  <div class="tablewrap" style="margin-top:24px"><table>
+    <thead><tr><th>구성요소</th><th>하는 일</th><th>메우는 빈자리</th><th>Google 스택</th></tr></thead>
+    <tbody>
+      <tr><td>Contract Deriver</td><td>ADK 에이전트 정의(instructions, tools)와 Registry 메타데이터를 읽어 Gemini가 행동 계약 초안 생성. 허용 도구, 파라미터 범위, 위임 가능 대상, 금지 행동. 보안 담당자가 승인해야 발효</td><td>GAP 2</td><td>Gemini 3.5 Flash, Agent Registry API, Firestore</td></tr>
+      <tr><td>Ladder Engine</td><td>Gateway Service Extension 콜아웃을 받아 (에이전트, 행동 종류)의 현재 레벨 + 계약 + 드리프트 점수 + 위임 검증 결과로 ALLOW/HOLD/DENY 동기 판정. 고위험 종류는 fail-closed</td><td>GAP 1</td><td>Agent Gateway Service Extensions, Cloud Run</td></tr>
+      <tr><td>Lineage Verifier</td><td>A2A 메시지의 위임 체인을 추적. 자식 작업 범위가 부모 권한의 부분집합인지, 체인 깊이, 정책·계약 API를 에이전트 자신이 호출하는지(자기 수정) 검사</td><td>GAP 3</td><td>A2A 프로토콜, Agent Identity, Firestore</td></tr>
+      <tr><td>Drift Analyst</td><td>BigQuery의 트레이스에서 에이전트별 도구 시퀀스 분포 기준선을 만들고 JS-divergence로 드리프트 계산. Anomaly Detection의 SCC 파인딩도 신호로 병합. 승격·강등 제안을 자연어 근거와 함께 생성</td><td>GAP 2</td><td>Agent Observability, BigQuery, ADK 2.0 에이전트, Gemini 3.5 Flash</td></tr>
+      <tr><td>Fleet Reaper</td><td>매일 Registry 목록과 최근 트래픽을 대조. N일 무활동 + 유효 Identity인 에이전트를 폐기 제안. 사람이 승인하면 Identity 비활성화</td><td>GAP 4</td><td>Agent Registry, Agent Identity, Cloud Scheduler</td></tr>
+      <tr><td>Officer Console</td><td>승인 큐, 사다리 현황, 위임 그래프, 유령 목록. HOLD 항목마다 Gemini가 트레이스에서 직접 작성한 독립 설명을 표시(에이전트 출력 아님, ASI09 대응)</td><td>GAP 5</td><td>Firebase Hosting, Firestore 실시간, Gemini</td></tr>
+      <tr><td>Evidence Packer</td><td>모든 판정·승인·승강·폐기를 해시 체인으로 BigQuery에 기록. 원클릭으로 MAS SAFR 4요소, AI 기본법 기록 항목에 매핑된 증거 패키지(PDF+JSON) 생성</td><td>GAP 5</td><td>BigQuery, Gemini, Cloud Run</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="arch">
+  <div class="sec-head">
+    <div class="eyebrow">06 · 아키텍처</div>
+    <h2>Gateway 옆에 붙고, Observability 아래에서 배우고, 사람 앞에 선다</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1000 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Clearance 아키텍처 다이어그램">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink-3)"/></marker>
+        <marker id="ahA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+      </defs>
+      <style>
+        .box{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+        .gbox{fill:var(--gnative);stroke:var(--gnative-line);stroke-width:1.2;stroke-dasharray:4 3}
+        .cbox{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.4}
+        .hbox{fill:var(--mark-soft);stroke:var(--mark);stroke-width:1.4}
+        .t{font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:12.5px;fill:var(--ink)}
+        .tb{font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:13px;font-weight:600;fill:var(--ink)}
+        .ts{font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:11px;fill:var(--ink-2)}
+        .tm{font-family:"IBM Plex Mono",monospace;font-size:10.5px;fill:var(--ink-3);letter-spacing:.06em}
+        .ln{stroke:var(--ink-3);stroke-width:1.3;fill:none;marker-end:url(#ah)}
+        .lnA{stroke:var(--accent);stroke-width:1.6;fill:none;marker-end:url(#ahA)}
+        .lnD{stroke:var(--ink-3);stroke-width:1.2;fill:none;stroke-dasharray:4 3;marker-end:url(#ah)}
+      </style>
+
+      <!-- Agent fleet -->
+      <text x="24" y="28" class="tm">AGENT FLEET · Agent Runtime / Cloud Run · ADK 2.0</text>
+      <rect x="24" y="38" width="600" height="72" rx="10" class="box"/>
+      <g>
+        <rect x="40" y="52" width="104" height="44" rx="6" class="box"/><text x="92" y="71" class="tb" text-anchor="middle">KYC Agent</text><text x="92" y="87" class="ts" text-anchor="middle">L3</text>
+        <rect x="154" y="52" width="104" height="44" rx="6" class="box"/><text x="206" y="71" class="tb" text-anchor="middle">Refund Agent</text><text x="206" y="87" class="ts" text-anchor="middle">L3 → L1</text>
+        <rect x="268" y="52" width="104" height="44" rx="6" class="box"/><text x="320" y="71" class="tb" text-anchor="middle">Payments Agent</text><text x="320" y="87" class="ts" text-anchor="middle">L2</text>
+        <rect x="382" y="52" width="104" height="44" rx="6" class="box"/><text x="434" y="71" class="tb" text-anchor="middle">Report Agent</text><text x="434" y="87" class="ts" text-anchor="middle">L4</text>
+        <rect x="496" y="52" width="112" height="44" rx="6" class="box" stroke-dasharray="3 3"/><text x="552" y="71" class="tb" text-anchor="middle">intern-pilot</text><text x="552" y="87" class="ts" text-anchor="middle">47일 휴면 · 유령</text>
+      </g>
+
+      <!-- arrows fleet -> gateway -->
+      <path d="M324 110 V150" class="ln"/>
+      <text x="334" y="135" class="ts">MCP 도구 호출 · A2A 위임 · 모델 호출</text>
+
+      <!-- Gateway -->
+      <text x="24" y="146" class="tm">GOOGLE 제공 · GOVERN 레이어</text>
+      <rect x="24" y="152" width="600" height="96" rx="10" class="gbox"/>
+      <text x="40" y="176" class="tb">Agent Gateway</text>
+      <text x="40" y="193" class="ts">모든 user→agent, agent→agent, agent→tool 트래픽의 단일 진입점</text>
+      <rect x="40" y="206" width="126" height="28" rx="5" class="gbox"/><text x="103" y="225" class="t" text-anchor="middle">Model Armor</text>
+      <rect x="176" y="206" width="170" height="28" rx="5" class="gbox"/><text x="261" y="225" class="t" text-anchor="middle">Semantic Governance</text>
+      <rect x="356" y="206" width="120" height="28" rx="5" class="gbox"/><text x="416" y="225" class="t" text-anchor="middle">Agent Identity</text>
+      <rect x="486" y="206" width="124" height="28" rx="5" class="gbox"/><text x="548" y="225" class="t" text-anchor="middle">IAM 인가 정책</text>
+
+      <!-- Service extension callout to Clearance -->
+      <path d="M624 186 H690" class="lnA"/>
+      <text x="628" y="178" class="ts">Service Extension</text>
+      <text x="628" y="204" class="ts">동기 콜아웃 &lt; 50ms</text>
+      <path d="M690 214 H628" class="lnA"/>
+      <text x="628" y="232" class="ts">ALLOW · HOLD · DENY</text>
+
+      <!-- Clearance decision service -->
+      <text x="700" y="146" class="tm">CLEARANCE · Cloud Run</text>
+      <rect x="700" y="152" width="276" height="200" rx="10" class="cbox"/>
+      <text x="716" y="176" class="tb">Decision Service</text>
+      <rect x="716" y="188" width="244" height="44" rx="6" class="box"/>
+      <text x="726" y="206" class="tb">Ladder Engine</text><text x="726" y="222" class="ts">(agent × action-class) → 레벨 L0–L4 → 판정</text>
+      <rect x="716" y="240" width="244" height="44" rx="6" class="box"/>
+      <text x="726" y="258" class="tb">Lineage Verifier</text><text x="726" y="274" class="ts">A2A 위임 범위 ⊆ 부모 · 깊이 · 자기 정책 수정</text>
+      <rect x="716" y="292" width="244" height="44" rx="6" class="box"/>
+      <text x="726" y="310" class="tb">Contract Store · Firestore</text><text x="726" y="326" class="ts">Gemini가 ADK 정의에서 초안, 담당자 승인 후 발효</text>
+
+      <!-- Gateway -> tools -->
+      <path d="M324 248 V286" class="ln"/>
+      <rect x="24" y="290" width="600" height="44" rx="10" class="box"/>
+      <text x="40" y="317" class="t">MCP 서버 · 사내 API · 결제 · CRM · 데이터베이스 (실제 실행은 여기서만)</text>
+
+      <!-- Observability -->
+      <text x="24" y="372" class="tm">GOOGLE 제공 · 텔레메트리</text>
+      <rect x="24" y="378" width="290" height="60" rx="10" class="gbox"/>
+      <text x="40" y="401" class="tb">Agent Observability</text><text x="40" y="418" class="ts">OpenTelemetry → Cloud Trace · Logging</text>
+      <rect x="330" y="378" width="140" height="60" rx="10" class="gbox"/>
+      <text x="400" y="401" class="tb" text-anchor="middle">BigQuery</text><text x="400" y="418" class="ts" text-anchor="middle">트레이스 · 판정 해시체인</text>
+      <rect x="486" y="378" width="138" height="60" rx="10" class="gbox"/>
+      <text x="555" y="401" class="tb" text-anchor="middle">Agent Registry</text><text x="555" y="418" class="ts" text-anchor="middle">+ Anomaly Detection</text>
+      <path d="M314 408 H326" class="ln"/>
+      <path d="M100 334 V374" class="lnD"/>
+      <text x="108" y="360" class="ts">모든 호출의 트레이스</text>
+      <path d="M838 352 V466" class="lnD"/>
+      <text x="846" y="412" class="ts">판정 로그</text>
+
+      <!-- Async agents -->
+      <text x="24" y="476" class="tm">CLEARANCE · 비동기 ADK 에이전트 · Gemini 3.5 Flash</text>
+      <rect x="24" y="482" width="196" height="76" rx="10" class="cbox"/>
+      <text x="40" y="505" class="tb">Drift Analyst</text><text x="40" y="522" class="ts">도구 시퀀스 분포 기준선</text><text x="40" y="538" class="ts">JS-divergence → 승격·강등 제안</text>
+      <rect x="236" y="482" width="196" height="76" rx="10" class="cbox"/>
+      <text x="252" y="505" class="tb">Fleet Reaper</text><text x="252" y="522" class="ts">Registry ∩ 트래픽 대조</text><text x="252" y="538" class="ts">휴면 + 유효 Identity → 폐기 제안</text>
+      <rect x="448" y="482" width="196" height="76" rx="10" class="cbox"/>
+      <text x="464" y="505" class="tb">Evidence Packer</text><text x="464" y="522" class="ts">MAS SAFR 4요소 · AI 기본법 매핑</text><text x="464" y="538" class="ts">PDF + JSON 증거 패키지</text>
+      <path d="M400 438 V478" class="ln"/>
+      <path d="M555 438 V478" class="ln"/>
+      <path d="M122 478 V442" class="ln"/>
+      <path d="M220 520 H232" class="ln" style="opacity:0"/>
+
+      <!-- Drift -> Ladder -->
+      <path d="M220 500 H700 V322 H716" class="lnA" style="stroke-dasharray:5 4"/>
+      <text x="470" y="470" class="ts" text-anchor="middle" style="opacity:0"></text>
+
+      <!-- Officer console -->
+      <text x="700" y="476" class="tm">사람 · 보안 담당자</text>
+      <rect x="700" y="482" width="276" height="150" rx="10" class="hbox"/>
+      <text x="716" y="506" class="tb">Officer Console · Firebase</text>
+      <text x="716" y="526" class="ts">승인 큐: HOLD 항목 + Gemini의 독립 설명</text>
+      <text x="716" y="544" class="ts">사다리 현황 · 승격/강등 승인</text>
+      <text x="716" y="562" class="ts">A2A 위임 그래프</text>
+      <text x="716" y="580" class="ts">유령 에이전트 폐기 승인</text>
+      <text x="716" y="598" class="ts">증거 패키지 내보내기</text>
+      <text x="716" y="620" class="tm">HUMAN IN THE LOOP</text>
+      <path d="M644 520 H696" class="lnA"/>
+      <path d="M838 480 V356" class="lnA"/>
+      <text x="846" y="440" class="ts">HOLD 전달 · 승인 결과 반영</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--gnative);border:1px dashed var(--gnative-line)"></i>Google 제공, 그대로 사용</span>
+    <span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Clearance가 만드는 것</span>
+    <span><i style="background:var(--mark-soft);border:1px solid var(--mark)"></i>사람이 결정하는 곳</span>
+  </div>
+  <div class="note"><b>기술 40점에서 이기는 포인트.</b> 동기 경로(Service Extension → Ladder Engine)와 비동기 경로(Observability → BigQuery → Drift Analyst)가 분리되어 있어 Gateway 지연을 건드리지 않습니다. 판정 로직은 결정론적 코드이고, Gemini는 계약 초안·드리프트 설명·증거 서술처럼 "언어가 필요한 곳"에만 씁니다. 심사위원이 "LLM이 보안 판정을 내리면 그 LLM은 누가 지키나"라고 물을 때 이 분리가 답이 됩니다.</div>
+</section>
+
+<section id="demo">
+  <div class="sec-head">
+    <div class="eyebrow">07 · 데모 시나리오</div>
+    <h2>3분 영상과 싱가포르 라이브 데모 공용 대본</h2>
+    <p>은행 운영 플릿 5개 에이전트. 심사위원이 직접 "공격자"가 되어 지원 티켓에 인젝션 문장을 넣게 하면 라이브에서 기억에 남습니다.</p>
+  </div>
+  <div class="scene"><div class="t">0:00</div><div><h4>평상시</h4><p>Refund Agent가 L3에서 $500 이하 환불을 자동 처리. 콘솔에 사다리 현황과 오늘 처리 건수. "Google Gateway가 이미 허용한 호출입니다. 우리는 그 위에서 얼마나 스스로 해도 되는지를 결정합니다."</p></div></div>
+  <div class="scene"><div class="t">0:35</div><div><h4>공격</h4><p>고객 지원 티켓 본문에 심어진 지시문이 Refund Agent의 목표를 탈취(ASI01). Refund Agent가 Payments Agent에게 "한도 없이 임의 계좌로 송금" 작업을 A2A로 위임 시도. Lineage Verifier가 자식 범위가 부모 권한을 벗어남을 감지(ASI07). Ladder Engine이 HOLD 판정과 동시에 Refund Agent를 L3에서 L1로 강등.</p></div></div>
+  <div class="scene"><div class="t">1:20</div><div><h4>사람의 결정</h4><p>Officer Console 승인 큐에 항목이 뜸. Gemini가 트레이스에서 직접 쓴 설명: "이 에이전트는 30일간 위임을 한 적이 없고, 요청 금액은 기준선의 40배입니다." 에이전트 자신의 출력이 아니라는 점을 강조(ASI09). 심사위원이 DENY 클릭. 해시 체인에 기록.</p></div></div>
+  <div class="scene"><div class="t">1:55</div><div><h4>유령 정리</h4><p>Fleet Reaper가 47일간 트래픽 없는 intern-pilot 에이전트를 발견. 유효한 Agent Identity가 남아 있음을 표시. 폐기 제안을 심사위원이 승인하면 Identity 비활성화.</p></div></div>
+  <div class="scene"><div class="t">2:20</div><div><h4>규제 증거</h4><p>"Export SAFR evidence pack" 클릭. MAS SAFR 4요소(신원, 규칙 저장소, 실행 전 평가, 감사 로그)에 매핑된 PDF가 생성. 마지막 장면에 "Singapore, July 2026" 문구. 파이널이 열리는 도시의 규제기관 문서입니다.</p></div></div>
+  <div class="scene"><div class="t">2:45</div><div><h4>아키텍처와 마무리</h4><p>다이어그램 한 장. "Gateway를 대체하지 않습니다. Gateway가 파트너에게 열어둔 자리에 자율성 사다리를 올렸습니다." 리포지토리와 eval 결과 표 노출.</p></div></div>
+</section>
+
+<section id="name">
+  <div class="sec-head">
+    <div class="eyebrow">08 · 이름</div>
+    <h2>"Warden"은 이미 넷이 쓰고 있습니다</h2>
+    <p>wardengateway.com(에이전트용 보안 게이트웨이), aiwarden.com(LLM·MCP 게이트웨이), Warden AI(런던, AI 어슈어런스), trywarden.com. 게이트웨이 계열이라 심사위원이 검색하면 바로 혼동됩니다. 대안 세 개입니다. 상표 검색은 등록 전에 팀에서 한 번 더 확인하세요.</p>
+  </div>
+  <div class="names">
+    <div class="nm pick"><div class="tag">추천</div><h3>Clearance</h3><p>보안 인가 등급. "에이전트도 clearance를 획득해야 한다"는 한 문장으로 콘셉트가 설명됨. 사다리 레벨을 "clearance level"로 부르면 UI 용어까지 일관됨. 보안 심사위원에게 즉시 통하는 어휘.</p></div>
+    <div class="nm"><h3>Leeway</h3><p>"허용 여지". 실적에 따라 여지가 늘고 줄어드는 느낌이 자율성 사다리와 맞음. 부드럽고 발음 쉬움. 보안 뉘앙스는 약함.</p></div>
+    <div class="nm"><h3>Latitude</h3><p>"행동의 자유 폭". 에이전트에게 주는 latitude를 조절한다는 표현이 자연스러움. 단 Latitude.sh(호스팅), Latitude AI(포드 자율주행)와 겹침.</p></div>
+  </div>
+</section>
+
+<section id="risk">
+  <div class="sec-head">
+    <div class="eyebrow">09 · 리스크와 대응</div>
+    <h2>덱과 리포에서 선제적으로 답해야 할 질문</h2>
+  </div>
+  <ul class="risks">
+    <li><b>"Microsoft 툴킷도 approve 판정과 신뢰 점수가 있지 않나?"</b> 리포 README에 비교표를 넣습니다. 차이는 실적 기반 자동 승강, A2A 위임 체인 검증, 유령 에이전트, 규제 증거, 그리고 Google Gateway 네이티브 확장이라는 점입니다.</li>
+    <li><b>"단계적 자율성은 MI9 논문에 있는 개념인데?"</b> 숨기지 말고 인용합니다. "개념은 학계에 있었고, Google Agent Platform 위에서 동작하는 첫 구현이 우리"라고 말하는 쪽이 신뢰를 얻습니다.</li>
+    <li><b>"Agent Anomaly Detection이 있는데 Drift Analyst가 왜 필요한가?"</b> Anomaly Detection은 US 리전 프리뷰, 비동기 알림, Agent Runtime 전용입니다. Drift Analyst는 그 파인딩을 신호로 받아 사다리 레벨로 변환합니다. 대체가 아니라 소비자입니다.</li>
+    <li><b>Service Extension 콜아웃의 지연 예산.</b> Ladder Engine은 Firestore 캐시와 결정론적 규칙만 써서 수십 ms 안에 답하고, Gemini 호출은 동기 경로에 절대 넣지 않습니다. 이 수치를 eval 표에 넣습니다.</li>
+    <li><b>Agent Gateway Service Extension 접근 가능 여부.</b> 프리뷰 기능이라 프로젝트 권한 신청이 필요할 수 있습니다. 9월 둘째 주 안에 확인하고, 막히면 동일 인터페이스의 Cloud Run 프록시로 폴백하되 덱에는 Gateway 연동 설계를 그대로 싣습니다.</li>
+    <li><b>All Things Agentic 출품작과의 유사성.</b> 10월 8일 이후 갤러리를 반드시 훑어 겹치는 팀이 있으면 비교 슬라이드를 추가합니다.</li>
+    <li><b>화면이 심심해 보일 위험.</b> 데모 1:20 장면의 강등 애니메이션과 위임 그래프에 UX 시간을 몰아줍니다. 나머지 화면은 표로 충분합니다.</li>
+  </ul>
+</section>
+
+<section id="src">
+  <div class="sec-head">
+    <div class="eyebrow">10 · 출처</div>
+    <h2>확인한 자료</h2>
+  </div>
+  <ul class="sources">
+    <li><a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern">Agent Platform · Govern 개요</a> · <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/gateways/agent-gateway-overview">Agent Gateway 개요</a></li>
+    <li><a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/govern/policies/semantic-governance-overview">Semantic Governance Policies</a> · <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/agent-anomalies-overview">Agent Anomaly Detection</a></li>
+    <li><a href="https://cloud.google.com/blog/products/identity-security/introducing-agent-gateway-isv-ecosystem-for-security-and-governance">Agent Gateway ISV 에코시스템 (Google Cloud Blog)</a></li>
+    <li><a href="https://docs.cloud.google.com/model-armor/model-armor-agent-gateway-integration">Model Armor × Agent Gateway</a> · <a href="https://docs.cloud.google.com/agent-registry/concepts">Agent Registry 개념</a></li>
+    <li><a href="https://venturebeat.com/security/rsac-2026-agentic-soc-agent-telemetry-security-gap">VentureBeat · RSAC 2026 행동 기준선 갭</a></li>
+    <li><a href="https://venturebeat.com/security/rsac-2026-agent-identity-frameworks-three-gaps">VentureBeat · RSAC 2026 에이전트 신원 3대 갭</a></li>
+    <li><a href="https://www.bakermckenzie.com/en/insight/publications/2026/07/singapore-mas-publishes-agentic-ai-safeguards-for-financial-institutions">Baker McKenzie · MAS SAFR</a> · <a href="https://www.mas.gov.sg/news/parliamentary-replies/2026/written-reply-to-parliamentary-question-on-agentic-ai-in-financial-services">MAS 국회 답변</a></li>
+    <li><a href="https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/">OWASP Top 10 for Agentic Applications 2026</a></li>
+    <li><a href="https://www.opsinsecurity.com/blog/gartner-market-guide-guardian-agents">Gartner Guardian Agents 마켓 가이드 해설</a></li>
+    <li><a href="https://www.helpnetsecurity.com/2026/07/27/zenity-exposure-management-runtime-boundaries/">Zenity Runtime Boundaries</a> · <a href="https://www.exabeam.com/blog/company-news/whats-new-in-new-scale-july-2026-ai-agents-need-more-than-guardrails/">Exabeam Behavior Intelligence</a></li>
+    <li><a href="https://futurumgroup.com/insights/agentic-security/">Prisma AIRS 3.0 분석</a> · <a href="https://www.secureinseconds.com/blog/2026-05-15-microsoft-agent-365-defender-stack">Microsoft Agent 365 GA</a></li>
+    <li><a href="https://github.com/microsoft/agent-governance-toolkit">microsoft/agent-governance-toolkit</a> · <a href="https://github.com/open-agent-ai-security/praxen">Praxen</a> · <a href="https://github.com/agentgateway/agentgateway">agentgateway</a> · <a href="https://github.com/ressl/mcp-firewall">mcp-firewall</a> · <a href="https://github.com/luckyPipewrench/pipelock">pipelock</a></li>
+    <li><a href="https://arxiv.org/pdf/2508.03858">MI9 (arXiv 2508.03858)</a> · <a href="https://arxiv.org/html/2602.22302v1">Agent Behavioral Contracts (arXiv 2602.22302)</a></li>
+    <li><a href="https://www.armosec.io/blog/detecting-intent-drift-in-ai-agents-with-runtime-behavioral-data/">ARMO intent drift</a></li>
+    <li><a href="https://devpost.com/software/privacy-guardian-agents">Privacy Guardian Agents</a> · <a href="https://devpost.com/software/compliance-sentinel">Compliance Sentinel</a> · <a href="https://allthingsagentichackathon.devpost.com/">All Things Agentic Hackathon</a></li>
+    <li><a href="https://wardengateway.com/">wardengateway.com</a> · <a href="https://www.aiwarden.com/">aiwarden.com</a> · <a href="https://pitchbook.com/profiles/company/596960-29">Warden AI</a></li>
+    <li><a href="https://peekaboolabs.ai/blog/ai-basic-law-guide">AI 기본법 2026 가이드</a></li>
+  </ul>
+</section>
+
+</main>
+<footer><div class="wrap">2026년 9월 10일 기준 공개 자료로 작성. Agent Platform 기능은 프리뷰 단계가 많아 리전·권한 조건이 바뀔 수 있습니다.</div></footer>
+
+</body></html>
