@@ -30,12 +30,9 @@
 - [제출 템플릿 설명](submission-requirements/submission-template.md)
 - [제출 준비 체크리스트](submission-requirements/submission-readiness-checklist.md)
 
-## 주제 조사와 결정
+## 주제 관련 원문 자료
 
 - [기존 아이디어 원문](topic-discovery/topic-ideas.md)
-- [후보 등록부](topic-discovery/candidate-register.md)
-- [후보 점수표](topic-discovery/candidate-scorecard-template.md)
-- [주제 선정 절차](topic-discovery/topic-selection-process.md)
 - [AI Builder Cup 사전 조사](preliminary-research/ai-builder-cup-2026-brief.html)
 - [Clearance 경쟁 조사](preliminary-research/clearance-research.html)
 

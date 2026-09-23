@@ -45,4 +45,4 @@ Themes 페이지 상단은 공식 여섯 테마를 제시하지만 제출 설명
 | Innovation & Creativity | 25 |
 | User Experience & Solution Design | 10 |
 
-세부 해석과 후보 평가 방법은 [주제 선정 절차](../topic-discovery/topic-selection-process.md)에 있습니다.
+공식 심사 문항의 한국어 정리는 [심사 기준](../judging-criteria/judging-criteria.md)에 있습니다.
