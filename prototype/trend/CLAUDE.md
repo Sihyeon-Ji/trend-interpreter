@@ -1,0 +1,61 @@
+# CLAUDE.md — trend-agents
+
+AI Builder Cup 2026 출전 프로젝트. 대회 요건·배점·마감은 `Google Cloud Hackathon.txt`, 방향은 `docs/DIRECTION.md`, 설계 근거는 `docs/research/` 를 먼저 읽는다.
+
+## 규칙
+
+- Python 3.12, `uv` 로만 실행 (`uv run ...`, `uv add ...`). 전역 pip 사용 금지.
+- `src/trend_agents/schemas.py` 가 파이프라인 계약이다. 수집·해석 모델(ShortsVideo, ShortsInterpretation…)과 사전 모델(Term, Meaning, Evidence, Segment)이 여기 있다. 필드를 바꾸면 Gemini `response_schema`, Ollama `format`, SQLite, Spanner DDL(`storage/spanner_graph.ddl.sql`) 에 동시에 영향 → 바꾸기 전에 전부 확인.
+- **판정은 데이터, LLM 은 서술.** 생애주기(`lifecycle.py`), 검증 상태(`verification.py`), 재검증 주기는 규칙 코드가 정한다. LLM 출력에 "검증됨" 같은 상태를 직접 쓰게 하지 않는다.
+- 사전에는 검증 게이트를 통과한 Meaning 만 verified 로 들어간다. 뜻이 바뀌면 새 version 을 만들고 이전 version 의 `valid_to` 를 닫는다. 삭제하지 않는다.
+- API 키는 `.env` 만. 코드·문서·커밋에 절대 넣지 않는다. `config.require()` 로 읽는다.
+- `data/`, `*.db`, `*.zip` 은 커밋하지 않는다.
+- 새 데이터 소스는 `collectors/`, 모델 호출은 `interpreters/`, 저장은 `storage/`, ADK 에이전트는 `agents/`. 단계별 실행 스크립트는 `scripts/test_*.py` 로, 키가 없으면 `SystemExit` 메시지로 안내하고 죽는다.
+- 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, `gemma4:12b`(Ollama, `think=False`).
+- 영상은 URL 만 저장, 파일로 받지 않는다 (저작권).
+- 문서는 한국어. 제출물(README 최종본·덱·영상)만 영어.
+- 이 저장소 밖으로 나가는 작업(GCP 리소스 생성, 배포, 결제)은 사용자 확인 후.
+
+## 프론트 (`web/`)
+
+- 디자인은 `design/Notion/DESIGN.md` 의 '앱' 쪽만: 흰 바탕·검정 글자·hairline·검정 primary 버튼. 파스텔 틴트, 색 띠, 글리프, 카드 그림자, 큰 마케팅 제목은 쓰지 않는다 (사용자 결정, `docs/FRONTEND.md`).
+- **이용자 화면과 관리자 화면(`/admin`)을 분리한다.** 이용자 화면에 에이전트·게이트·확신도·판 수 같은 내부 용어를 내지 않는다. 관리자 화면도 쉬운 한국어로.
+- **익명은 설정을 갖지 않는다.** 지도·사전·해석은 로그인 없이 열리고 설명은 중립으로 나간다(재작성 캐시도 하나로 모인다). 세대·나라 설정은 로그인한 사람의 계정에 저장된다(`/me`, `reader_prefs`).
+  `middleware.ts`: `/me` 는 로그인, `/admin` 은 그중 검수자(`session.reviewer`). 아니면 `/login` 또는 `/me?denied=review`.
+  브라우저는 백엔드에 직접 쓰지 않는다 — 같은 사이트의 `app/api/prefs`·`app/api/review/[termId]` 가 세션과 권한을 확인하고 서버만 아는 `FRONTEND_API_TOKEN` 을 붙여 넘긴다. 저장 값은 `lib/reader.ts` 의 화이트리스트로 한 번 거른다. 결정한 사람 이름도 세션에서 가져오므로 검수 기록이 실제 계정이 된다.
+  계정은 `.env` 의 `ACCOUNTS`(JSON, PBKDF2 해시) — `scripts/set_account.py` 로 만든다. 나중에 Firebase Auth 로 갈 때는 `auth.check_account` 와 `app/api/auth/login/route.ts` 두 곳만 바꾸면 세션·미들웨어·저장 구조는 그대로다.
+- 화면 문구는 `web/lib/i18n.ts` 에 한국어·영어를 함께 넣는다 (키 누락은 타입 에러). 데이터 라벨은 `web/lib/labels.ts` 의 `L(locale)`. **유행어 원문은 번역하지 않는다**; 뜻·유래·뉘앙스만 `MeaningText` 로 언어별 보관하고, 번역은 백엔드 로컬 Gemma(`interpreters/gemma_translate.py`)가 만든다.
+- `web/lib/contract/types.ts` 는 생성 파일이다. `schemas.py` 를 바꾸면 `uv run scripts/export_schema.py && pnpm -C web contract` 로 다시 만든다. 손으로 고치지 않는다.
+- 화면은 `web/lib/data.ts` 의 함수만 부른다. 예시 데이터는 `web/lib/sample/`, 실데이터는 `NEXT_PUBLIC_DATA_MODE=api`.
+- 해석 조립(`web/lib/explain.ts`)은 규칙 기반 매칭만. '쉽게 풀어 쓰면' 재작성은 단어 치환 금지 — 서버에서 로컬 Gemma(`interpreters/gemma_rewrite.py`)가 사전 뜻을 참고해 문장을 다시 쓴다. LLM 호출을 프론트에 넣지 않는다.
+- **지도가 첫 화면(`/`)이고 제품의 큰 틀**(09-16 결정, 예전 `/map` 링크는 `/` 로 넘긴다. 메시지 해석은 `/explain`)이고 사전·메시지 해석은 그 안의 부품이다 (사용자 비전 09-14). 지구는 `globe.gl`(3D, 화면에서만 `import()`)로 `components/globe/trend-globe.tsx` 한 곳에 가두고, 상태·패널·비교표는 `components/trend-explorer.tsx` — Google Maps/Earth 는 결제 계정이 필요해 보류. 핵심 정보 구조는 **주제(Topic) + 나라별 변형(TopicVariant: 현지 이름·무엇이 달라졋나·현지 밈·엮인 현지 트렌드)**, 뷰 모델 `lib/trends/types.ts`(계약 미반영), 예시 `lib/sample/trend-board.ts`. 말풍선 오프셋은 `.globe-anchor` 안에서만(렌더러가 바깥 transform 을 덮어씀). `prefers-reduced-motion` 존중. 일반 페이지는 `components/page-shell.tsx` 로 960 컨테이너를 감싼다(루트 레이아웃은 전폭).
+- 패키지 매니저는 `pnpm`. 새 shadcn 컴포넌트는 `pnpm dlx shadcn@latest add <name>`.
+
+## 파이프라인 (`src/trend_agents/pipeline/`)
+
+- 단계는 `run(con) -> {이름: Result}` 하나씩, 입력·출력은 SQLite 테이블. 순서 collect → classify → spikes → interpret → candidates → spot → hunt → research → track → naver → translate → topics → board (`scripts/run_pipeline.py`, `--loop` 로 상시). 자세한 것은 `docs/PIPELINE.md`.
+- **모든 Gemini 호출은 `pipeline/gemini.py` 를 거친다** (하루 예산 `GEMINI_DAILY_BUDGET`, 503/429 재시도, `GEMINI_FALLBACK_MODEL` 폴백). 단계 안에서 `genai.Client` 를 직접 만들지 않는다.
+- 단계는 예외를 삼키고 `pipeline_runs` 에 `error`/`zero` 로 남긴다 — 한 단계의 실패가 다음 단계를 막지 않는다. 결과 dict 는 `with stage()` 블록 **밖에서** 돌려준다.
+- **못 답한 질문이 다음 조사 거리다(`pipeline/hunt.py`).** 지금 파이프라인은 '밀어내기'라 지금 뜨는 것만 들어온다 — 사람이 물었는데 없던 말은 `lookups` 에 쌓이고, hunt 가 거기서 표현 이름을 뽑아(한글 표기는 원어 표기까지) 표제어로 세우면 research 가 그 이름으로 인터넷을 직접 뒤진다. 판정은 코드가 한다: 질문 원문에 실제로 있는 말만 받고(앵커), 목록 요청·번역 부탁·갈래 낱말·자판 난타는 버린다.
+- 후보 → 용어 승격은 규칙(2회 이상 등장 또는 쇼츠 '유행어·노래', 위키 문서가 있거나 사람이 직접 물어본 것은 1회)이고, verified 는 `verification.gate` 만 정한다. 근거 발췌는 용어가 실제로 들어 있는 원문 문장만. 용어가 들어 있는지는 `pipeline/match.py` 의 `mentions()` 로만 판단한다(숫자꼴 용어는 밈 단서가 같이 있어야 함).
+- **사전에 묻기(`pipeline/ask.py`)는 도구 호출 루프다** — MCTI `lib/orchestration/query-loop.ts` 패턴. 모델은 `pipeline/tools.py` 의 읽기 전용 도구(lookup_term·search_terms·why_trending·country_trends·term_usage)로만 사전·그래프를 보고, 그 밖의 이야기는 하지 않는다. 마지막 턴에는 도구를 주지 않아 답을 강제하고, 연속 실패는 차단기로 끊고, 잘못된 인자는 실행하지 않고 오류를 모델에 되돌린다. 답하지 못한 질문은 `lookups` 에 쌓여 발굴(spot) 단계의 재료가 된다.
+  화면(`/explain`)은 입력을 셋으로 나눈다: '해석해줘' 같은 부탁이면 부탁하는 말을 떼고 본문을 풀어 쓰고, 묻는 말이면 루프로, 그냥 붙여 넣은 메시지면 규칙 매칭 + 근거 카드로.
+  **찾기는 느슨하게, 판정은 엄격하게.** `match.loose_key`(반복·된소리 무시)·`strip_particle`(조사 제거)·`keywords`(뜻으로 찾기)는 도구가 항목을 *찾을 때만* 쓴다 — 게이트의 `mentions()` 는 그대로 엄격하다.
+  도구를 한 번도 안 부른 답은 사전에 근거하지 않은 말이므로, 코드가 직접 찾아 그 결과로 다시 답하게 한다. 도구가 찾은 것이 있으면 모델이 '없다' 고 말할 수 없다.
+- API 는 `api/app.py`(FastAPI). 응답 뷰 모델은 `pipeline/views.py` — 프론트 `web/lib/types.ts` 와 1:1 로 유지한다. `/explain` 은 용어 id 와 재작성 문장만 돌려주고 문장 조립은 프론트가 한다.
+- 테스트: `uv run pytest -q` (`tests/`). 규칙·저장소·보드는 네트워크 없이 인메모리 SQLite 로 테스트한다.
+
+## 로컬 인프라
+
+```bash
+ollama serve                       # 로컬 Gemma (brew ollama ≥ 0.34)
+colima start                       # Docker 데몬 (Docker Desktop 없음, colima 사용)
+docker start spanner-emu || docker run -d --name spanner-emu -p 9010:9010 -p 9020:9020 gcr.io/cloud-spanner-emulator/emulator
+```
+로컬 모델 호출은 `interpreters/local_chat.py` 한 곳. `LOCAL_LLM_BASE_URL` 이 비면 Ollama, OpenAI 호환 서버(vLLM) 주소면 그쪽 — 스키마는 프롬프트에 넣고 응답 JSON 을 꺼내 검증한다(서버 스키마 강제에 기대지 않음, Ollama 0.20 실측·vLLM guided decoding 크래시 전례). ADK 에이전트 자신의 모델은 기본 Gemini, `ADK_MODEL=local` 이면 같은 로컬 모델(LiteLLM, `agents/team.py`).
+
+Spanner 에뮬레이터는 인메모리다. 재시작하면 사전이 비워진다. 지속 데이터는 SQLite(`data/trend.db`) 와 GCP 인스턴스에만.
+
+## 심사 기준 상시 체크
+
+기술 40 / 임팩트 25 / 혁신 25 / UX 10. "조회·요약에서 끝나는 챗봇"이 되지 않게: 실행 단계, 사람 승인 지점(검수 큐), 근거 인용, 버전 이력, eval 표를 유지한다. UI 에 과투자하지 않는다.

@@ -1,0 +1,51 @@
+# 05 · 줄임말 밖의 트렌드(패션·뷔티·음식·제품)를 나라별로 잡는 소스 (2026-09-14 확인)
+
+질문: "구글에서 나라별 검색어 순위·통계를 볼 수 있다던데, 그걸로 패션 같은 다른 카테고리 트렌드도 다룰 수 있나?"
+답: 있다. Google Trends 가 세 갈래로 열려 있고, 그중 둘은 지금 바로 쓸 수 있다. 단, **카테고리 라벨은 어디에도 없다** → 분류는 우리 로컬 모델이 한다.
+
+## 1. Google Trends — 세 갈래
+
+| 경로 | 키 | 내용 | 확인 |
+|---|---|---|---|
+| **Trending now RSS** `https://trends.google.com/trending/rss?geo=KR` | 없음 | 나라별 '지금 뜨는 검색어' 10개. 필드: title, approx_traffic(100+/500+/5000+), pubDate, news_item(제목·URL·출처), picture. 카테고리 없음 | 2026-09-14 KR·JP·US·ID 전부 200, 10건. JP 피드에 인도네시아어 쿼리("cuaca besok")가 섞여 있었음 → 언어·지역 정합성 검사가 필요 |
+| **BigQuery 공개 데이터셋** `bigquery-public-data.google_trends.international_top_terms` / `international_top_rising_terms` | GCP 프로젝트(무료 1TB/월) | 약 50개국, 나라·하위지역별 **매일 상위 25 + 급상승 25**, `rank`·`score`(0~100, 5년 상대지수)·`percent_gain`(급상승만), 각 세트 30일 보존 + 5년 백필. 파티션 키 `refresh_date` | 문서로 확인. 국가 목록은 고정 문서가 없어 쿼리로 확인해야 함(KR 포함 여부 → 프로젝트 생기면 첫 쿼리) |
+| **Google Trends API (alpha)** developers.google.com/search/apis/trends | 신청·승인 | 1800일(5년) 검색 관심도, 일·주·월·년 집계, 지역·하위지역, **요청 간 일관된 스케일**(웹 UI 는 매 요청 0~100 재정규화라 비교 불가) | 2025-07 발표 후 2026-09 현재도 알파·신청제. 무응답 사례 많음. 신청은 하되 의존하지 않는다 |
+
+비공식 스크레이퍼(pytrends 는 2025-04 아카이브됨, SerpAPI 류 유료)는 쓰지 않는다 — 심사 기준상 Google Cloud 정식 경로(BigQuery)가 곧 점수다.
+
+## 2. 카테고리 축을 주는 다른 소스
+
+| 소스 | 키 | 카테고리·세대 | 나라 |
+|---|---|---|---|
+| **네이버 데이터랩 쇼핑인사이트** `openapi.naver.com/v1/datalab/shopping/*` | 네이버 (검색어트렌드와 같은 앱, API 항목 별도 체크) | 분야 코드(패션의류 50000000, 화장품/미용 50000002, 디지털/가전 50000003, 식품 50000008 …) × **연령(10~60대)·성별·기기**, 주·월 단위, 2017-08~ | 한국만. 세대별 패션·뷰티 신호로는 유일 |
+| **YouTube mostPopular + videoCategoryId** (이미 수집 중) | YouTube | 26 Howto & Style(패션·뷔티), 10 Music, 20 Gaming, 17 Sports, 24 Entertainment | 27개국 |
+| **Wikipedia pageviews top** `wikimedia.org/api/rest_v1/metrics/pageviews/top/{lang}.wikipedia/all-access/YYYY/MM/DD` | 없음 | 언어판별 일간 조회 상위 1000. 인물·작품·사건 | 언어권 단위 (ko·ja·id·en…). 2026-09-13 ko 상위: 문화방송, 한국방송공사, 용혜인 … 확인 |
+| Google News RSS 섹션 (이미 수집 중) | 없음 | 섹션(연예·스포츠·비즈니스)은 있으나 '패션' 섹션은 없음 | 27개 로케일 |
+
+제외: Pinterest Trends API(지역 US/CA/UK 등, 한국 없음), TikTok Creative Center(비공식), X 트렌드(유료), Spotify Charts(공식 API 없음).
+
+## 3. 제품에 어떻게 넣나 (제안, 미구현)
+
+- **사전 항목의 `category` 확장**: 지금 slang/meme/song/other → `fashion`, `beauty`, `food`, `challenge`, `product`, `person_content` 추가. 두쫀쿠(음식)·백룸코어(미감)·테토남(성격 유형)은 이미 줄임말이 아닌 항목이라 모델은 그대로 맞는다. 뜻 대신 "무엇인지·어디서 뜨는지·누가 쓰는지"가 설명의 중심이 된다.
+- **새 화면 '지금 뜨는 것'**: 나라 × 카테고리 표. 원천은 BigQuery rising 25 + RSS + YouTube 카테고리. 항목을 누르면 사전으로. 사전에 없는 검색어는 리서치 후보로 자동 큐잉(기존 파이프라인 그대로).
+- **분류는 로컬 Gemma**(뜻 정의 금지 원칙 유지): 검색어 + 뉴스 제목 → 카테고리 라벨. Google 데이터에 카테고리가 없으니 이 단계가 필수.
+- **세대 신호의 한계**는 그대로: Google Trends·Wikipedia 에는 연령이 없다. 한국은 네이버(검색·쇼핑) 연령, 그 외 나라는 YouTube 댓글·플랫폼 성격에서 추정 → 화면에서는 "주로 쓰는 세대"를 확실할 때만 표시.
+
+## 4. 해야 할 일 (사용자 확인 필요한 것 ★)
+
+- ★ GCP 프로젝트 생성 후 BigQuery 첫 쿼리로 국가 목록 확인 (KR·JP·ID·AU·IN·SG 포함 여부).
+- ★ Google Trends API alpha 신청 (구체 용도: 나라별 유행어 관심도 5년 비교, 검증 게이트의 추세 근거). 승인 안 돼도 진행에 지장 없음.
+- ★ 네이버 앱에 '데이터랩(쇼핑인사이트)' API 추가 체크.
+- `collectors/google_trends.py`(RSS + BigQuery), `collectors/wikipedia_top.py`, `collectors/naver_shopping.py` — 키 오면 `scripts/test_*.py` 로 검증.
+
+
+## 5. 실측 결과 (2026-09-14 21:40, 결제 없이)
+
+- 프로젝트 `trend-agents-2026`(ktw251908@gmail.com), ADC 로그인, BigQuery 샌드박스. `collectors/google_trends.py` + `scripts/test_google_trends.py` 구현·실행 성공.
+- **BigQuery 국가 42개**: AR AT AU BE BR CA CH CL CO CZ DE DK EG ES FI FR GB HU ID IL IN IT JP KR MX MY NG NL NO NZ PH PL PT RO SA SE TH TR TW UA VN ZA. **SG·HK 없음**(RSS 로 대체), US 는 별도 테이블.
+- 어제(09-13) 한국 급상승: 홍삼 스파 참 숯가마 사우나(+9300%), 지상렬, 배용준, 토트넘 대 에버턴, 전원주… → 연예·스포츠·생활이 대부분. 일본: 森本レオ, マーリンズ 対 ドジャース, 十勝岳, 花火大会. 인도네시아: 축구 경기 일색.
+- **`score` 는 용어별 5년 상대값**이라 용어끼리 비교하면 안 된다(None·1·100 이 섞여 나옴). 순위는 `rank`, 상승은 `percent_gain` 만 쓴다.
+- 카테고리 라벨이 없다는 점이 데이터로 확인됨 → 유행어 사전 후보 추출은 (a) 사전에 이미 있는 용어 매칭, (b) 로컬 Gemma 분류(인물/경기/사건/유행어·밈/제품/기타)로 유행어·밈·제품만 리서치 큐에 넘긴다.
+- 함께 확인된 데이터 품질 문제: YouTube `search(#shorts, regionCode=KR)` 결과가 인도 쇼츠로 채워짐(regionCode 는 엄격하지 않음) → 언어(제목 문자 체계·defaultAudioLanguage)로 후처리 필요. Trends RSS JP 피드에도 인도네시아어 쿼리가 섞임.
+- Gemini: 텍스트 요청은 무료 등급에서 정상(자만추 정의 51 토큰). **영상(YouTube URL) 해석은 503 UNAVAILABLE(수요 급증) 반복** — 서버 측 사정, 재시도 예정. 임시 `genai.Client` 가 요청 도중 GC 되어 연결이 닫히던 버그는 모듈 단일 클라이언트로 고침.
+- 진단(21:50): 같은 영상을 `GEMINI_MODEL=gemini-3.5-flash` 로 보내면 9.3초·입력 2,482 토큰으로 정상 → 503 은 **3.8 Flash 영상 입력의 무료 등급 용량 문제**. 계속되면 `.env` 의 `GEMINI_MODEL` 만 잠시 3.5 로 내려 개발한다(코드 변경 없음). 이때 모델이 `url` 을 "https://www.youtube.com/shorts/example" 로 지어낸 것을 확인 → 입력 순서로 URL 을 덮어쓰도록 고침(`gemini_video.py`).

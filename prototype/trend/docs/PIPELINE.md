@@ -1,0 +1,192 @@
+# 파이프라인 (2026-09-14 구현)
+
+에이전트 프레임워크(ADK)는 나중에 이 단계들을 도구로 감싼다. 단계는 `src/trend_agents/pipeline/*.py`, 각각 `run(con) -> {이름: Result}`. 입력·출력은 전부 SQLite(`data/trend.db`) 테이블이라 단계를 따로 돌려도 된다.
+
+```
+collect ─→ classify ─→ spikes ─→ interpret ─→ candidates ─→ research(+gate) ─→ track ─→ translate ─→ board
+ (수집)    (검색어 분류)  (급증 원인)  (쇼츠 해석)   (후보 추출)     (조사·검증·버전)     (추세)    (언어판)    (나라×카테고리)
+```
+
+| 단계 | 하는 일 | 모델 호출 | 테이블 |
+|---|---|---|---|
+| collect | YouTube 27개국 인기 + 집중 4개국 검색(하루 쿼터 안에서 순환), Google News RSS 27개 로케일, Google Trends RSS 27개국 + BigQuery 42개국 급상승·상위, 위키백과 11개 언어판 조회 상위, 사전 용어 뉴스 언급 검색 | 없음 | videos, news, trend_queries, wiki_top |
+| classify | 검색어에 카테고리·'뜻을 찾아볼 가치' 라벨. 40개씩 인덱스 매핑 배치, 매핑 80% 미만이면 배치 폐기 | 배치당 1 | trend_class |
+| **spikes** | **급증 원인 조사.** 감지: 급상승 상승률 ≥1000% · 지금 뜨는 검색량 ≥2000 · 위키 조회 전일 대비 2배(경기는 제외, 집중 국가 우선). 조사: 뉴스 검색(RSS) + 위키백과 검색·요약·14일 조회 곡선 + YouTube 최근 4일 영상 검색(실행당 3건) + 이미 모은 1차 근거. 서술: Gemini 가 근거만으로 why_now(ko/en)·계기(influencer/release/event/…)·관련 인물·첫 신호 날짜. **인물 이름은 근거 원문에 실재해야 남긴다.** 저장: `trend_explanations` + 그래프 엣지(검색어→EVIDENCED_BY→근거, →TRIGGERED_BY→인물, →ABOUT→위키 문서, →IS_TERM→사전 용어). 급증이 이어지면 2일마다 재조사. 모델이 막혀도 근거는 먼저 저장 | 급증당 1 | trend_explanations, edges, news, videos |
+| interpret | 집중 국가 인기 쇼츠를 조회수순으로 8개씩 Gemini 가 직접 보고 해석. 3.8 이 503/429 면 3.5 | 배치당 1 | interpretations |
+| candidates | 분류에서 후보로 본 검색어 + 쇼츠에서 읽은 밈·유행어·노래 이름. 사전에 있으면 제외. 같은 표현은 count 누적 | 없음 | candidates |
+| research | 후보 승격(2회 이상 등장 또는 쇼츠 '유행어·노래') → Search grounding 조사 → 근거 원문 수집(웹 페이지 제목·용어 포함 문장, 뉴스, 쇼츠, 트렌드) → **검증 게이트** → 통과: verified_auto 뜻(버전) / 실패: unverified 뜻 + 검수 큐. 재검증 주기가 지난 용어도 다시 조사 | 용어당 2 | terms, meanings, evidences, usage, review_queue, research_log |
+| track | 뉴스 제목·쇼츠·트렌드에서 주간 언급 수 12주 → 생애주기 규칙 → 재검증 주기 | 없음 | mentions_weekly, terms.lifecycle |
+| translate | 검증된 현행 뜻의 ko·en MeaningText(정의·풀이·유래·뉘앙스·쉬운 표현). USE_LOCAL_GEMMA=1 이면 로컬 Gemma | 언어당 1 | translations |
+| board | 분류된 검색어를 나라 × 카테고리로(셀당 6개), 새로 등장/상승/유지, 12주 등장 곡선, 사전 연결. 주제는 사용 지역 2개 이상인 검증 용어 | 없음 | board_cache |
+
+## 보호 장치
+
+- **Gemini 하루 예산** `GEMINI_DAILY_BUDGET`(기본 120) — 모든 호출이 `pipeline/gemini.py` 를 거치며 소진 시 단계가 중단하고 다음 실행으로 넘긴다. 503/429 는 3회 재시도 후 `GEMINI_FALLBACK_MODEL`.
+- **조용한 0 카나리**: 단계가 0건이면 `zero`, 예외는 `error` 로 `pipeline_runs` 에 남고 관리자 화면 `/admin/status` 가 24시간 집계를 보인다.
+- **판정은 데이터**: `verification.gate` 가 verified 를 정하고, 모델 출력에 상태를 쓰게 하지 않는다. 근거는 용어가 실제로 들어 있는 원문 문장만 센다.
+- **인덱스 매핑 배치**: 분류 결과는 `i` 로 되돌려 받아 순서 어긋남을 막고, 쇼츠 해석의 URL 은 입력 순서로 덮어쓴다.
+
+## 실행
+
+```bash
+uv run scripts/run_pipeline.py                 # 전체 1회 (약 5~10분, 모델 예산 안에서)
+uv run scripts/run_pipeline.py --stages collect,board
+uv run scripts/run_pipeline.py --loop          # PIPELINE_INTERVAL_HOURS(기본 6) 마다 반복
+uv run scripts/serve_api.py                    # API http://localhost:8080/docs
+uv run pytest -q                               # 규칙·저장소·보드 테스트
+```
+
+맥에서 꾸준히 돌리기(launchd 없이): `nohup uv run scripts/run_pipeline.py --loop > data/pipeline.log 2>&1 &`.
+클라우드: 같은 이미지(`Dockerfile.api`)로 Cloud Run 서비스(API) + Cloud Run Job(`python scripts/run_pipeline.py`) + Cloud Scheduler 6시간. 결제 연결 후.
+
+## API (프론트 `NEXT_PUBLIC_DATA_MODE=api`)
+
+`GET /terms` `GET /terms/{id}` `GET /pipeline/stages` `GET /review/queue` `POST /review/{id} {decision: approve|reject}` `POST /explain {text, lang} → {term_ids, plain}` `GET /trends/board` `GET /trends/why?region=KR` `GET /candidates` `GET /health`
+
+`/explain` 은 매칭된 용어 id 와 재작성 문장만 돌려주고, 설명 문장 조립은 프론트 `lib/explain.ts` 가 화면 언어 규칙으로 한다(로직 중복 방지).
+
+## 첫 실행 실측 (09-14 22:40~23:00, 결제 없음)
+
+- collect 150초: 영상 1,541 · 뉴스 806 · 트렌드 RSS 270 · BigQuery 1,190(42개국) · 위키 440.
+- classify 240건: 스포츠·이벤트 194, 인물·콘텐츠 101, 제품 20, 유행어 1 — **구글 트렌드 일별 검색어는 사전 후보가 거의 없다.** 사전 성장은 쇼츠 해석·뉴스·커뮤니티가 맡고, 트렌드는 '지금 뜨는 것' 보드와 언급 추적에 쓴다.
+- interpret 16편(3.5 폴백): 밈 이름 12개 추출, 대부분 영상 하나짜리 제목 → 승격은 2회 등장 또는 '유행어·노래' 종류만.
+- research: 3.8 Flash 무료 할당량 429 → 3.5 폴백 추가.
+
+## 계약 갭
+
+`TrendBoard/Topic/TrendItem` 은 `schemas.py` 에 추가됐고 프론트 `lib/trends/types.ts` 와 1:1 이지만 `export_schema.py` 의 Contract 에는 아직 없다(프론트가 자체 타입 사용). `EvidenceKind` 의 `datalab` 을 Google Trends 등장 근거에도 쓰고 있다 — 계약에 `trends` 를 추가하고 프론트 라벨을 바꾸는 것이 정확하다.
+
+
+## 급증 → 원인 → 그래프 (09-14 23:20 추가)
+
+사용자 요구: "만두가 갑자기 트렌드에 뜨면 유튜브·위키·구글을 다양하게 검색해서 어느 인플루언서가 만두로 무엇을 했는지 찾아 사전·지식그래프를 계속 갱신." → `pipeline/spikes.py`.
+보드의 항목 설명은 설명이 있고 확신 ≥0.5 이면 뉴스 제목 대신 "왜 뜨는가"를 보인다. 첫 실측(23:19): 감지·수집(뉴스·위키·YouTube)까지 정상, 서술은 Gemini 무료 할당량 429 로 다음 실행으로 넘김 — 근거는 그래프에 저장됨.
+아직 없는 것: 위키 조회 급증 감지는 이틀치 자료가 쌓여야 동작(내일부터), Google Search grounding 은 결제 후, 커뮤니티(레딧·더쿠) 검색은 미구현.
+
+
+## 커뮤니티 소스 (09-15 08:10 추가) — `collectors/community.py`
+
+| 소스 | 방식 | 상태 |
+|---|---|---|
+| 더쿠·디시인사이드·에펨코리아·인스티즈·루리웹·클리앙·뽐뿌 (KR), togetter·girlschannel (JP), kaskus (ID), pantip (TH), ptt·dcard (TW), reddit | **Google 뉴스 RSS `site:` 검색** — 구글에 색인된 글만, 크롤링 없음 | ✅ 키 없음. 09-15 실측: '전현무계획' 에 더쿠·루리웹 글 10건 |
+| YouTube 상위 댓글 | 공식 `commentThreads`(1 unit), 급증 조사에서 찾은 영상 2개 | ✅ |
+| Hacker News | Algolia 공개 API | ✅ 영어권만 |
+| Reddit | 공식 OAuth(client_credentials) — `REDDIT_CLIENT_ID/SECRET` 있을 때만 | 선택 (공개 JSON 은 403) |
+| Bluesky | 앱 비밀번호 세션 — `BLUESKY_HANDLE/APP_PASSWORD` 있을 때만 | 선택 (공개 검색은 403) |
+| 나무위키 | 클라이언트 렌더링 검색, 약관 | ✖ 미사용 |
+| X·TikTok·Threads | 유료·비공개 | ✖ |
+
+커뮤니티 근거는 `kind="community"` 로 저장되고 게이트의 '1차 근거'에는 들지 않는다(뜻 확정은 쇼츠·뉴스·검색 데이터가 한다). 급증 조사(spikes)와 용어 조사(research) 둘 다 곁들인다. 앵커: 용어가 제목·발췌에 실제로 있는 글만 남긴다(site: 검색은 느슨하게 맞는 글도 준다).
+
+위키 조회 급증 감지: 위키미디어 집계가 UTC 하루 뒤 몇 시간 늦게 올라와 아침 실행은 이틀 전으로 물러난다. 이틀치가 쌓인 뒤(09-15 저녁 실행부터) 전일 대비 2배 규칙이 동작한다.
+루프는 `caffeinate -i` 아래에서 돌려 맥이 유휴 잠들지 않게 한다(09-15 새벽 실행을 잠들어 건너뛴 것 확인).
+
+
+## 네이버 (09-15 09:15 추가) — NAVER API HUB
+
+개발자센터 신규 등록이 2026-07-30 에 막혀 **NAVER API HUB**(네이버 클라우드)로 등록했다. 호스트 `naverapihub.apigw.ntruss.com`, 헤더 `X-NCP-APIGW-API-KEY-ID / X-NCP-APIGW-API-KEY`. `NAVER_API_HUB=0` 이면 구 개발자센터 키(2027-06-30 까지).
+
+| API | 쓰는 곳 | 규칙 |
+|---|---|---|
+| 데이터랩 검색어 트렌드 | `pipeline/naver.py` — 한국어 용어를 세대별(10대~50대+) 5회 호출 → 세대별 피크 날짜·최근 14일 비중을 `usage` 와 `datalab` 근거로 | 요청 내 상대지수라 세대 간 크기 비교는 안 함, '누가 먼저 튀었나' 만 |
+| 데이터랩 쇼핑인사이트 | `collectors/naver_datalab.shopping_categories` — 패션·뷰티·식품 분야 × 연령 | 보드의 패션·뷔티 축에 붙일 예정 |
+| 검색 뉴스·카페·지식iN·블로그 | `collectors/naver_search.py` — 급증 조사·용어 조사의 한국 근거 | **표시 전용**: 약관(09-07 개정)상 검색 결과는 앱에서 보여 주는 용도만 → 모델 프롬프트·검증 게이트에서 제외(`source_domain` 이 `naver:` 로 시작) |
+
+첫 실측: '삐에로' 검색 정점 08-10 주, 세대별 피크 10대 08-13 → 20~50대 08-14 (커뮤니티 글 08-13 과 일치). 한도 데이터랩 각 월 5만 회, 검색 통합 77.5만 회.
+
+
+## 배포 메모 (deploy/cloud-run.sh, 결제 후)
+
+- API·웹을 Cloud Run 서비스 두 개로, 파이프라인은 같은 이미지의 Cloud Run Job + Cloud Scheduler(6시간). 비밀은 Secret Manager.
+- 근거(`evidences`)는 `(evidence_id, term_id)` 가 키다 — 같은 기사 하나가 급증 카드(`q|검색어|국가`)와 사전 용어에 함께 붙는다. 단계 안의 모델 호출 실패는 항목/배치 단위로 격리하고 `note` 에 남긴다(spot 패턴). 근거가 지워진 엣지는 `collect.retention` 이 정리한다.
+- **지식그래프 읽기 (09-15).** `edges` 는 spikes 가 근거에 앵커된 것만 쓴다 — 노드 `query(norm(term)|region)`·`actor(이름)`·`wiki(lang:제목)`·`evidence`·`term`, 엣지 `EVIDENCED_BY`·`TRIGGERED_BY`·`ABOUT`·`IS_TERM`. 읽기는 판정 없이 있는 그대로: `GET /graph/query/{key}`(검색어 하나의 이웃), `GET /graph/shared?min=2`(여러 검색어에 함께 걸린 인물·위키, 나라 수 많은 것부터 — 지도의 "같은 사건이 여러 나라에서" 재료), `GET /terms/{id}/graph`(이 용어로 판정된 검색어). 저장소 함수 `ds.graph_query/graph_shared_nodes/graph_term_queries`, 뷰 `views.QueryGraph/SharedNode/TermGraphQuery`. 화면 연결(why 카드의 '관련' 목록)은 다음 단계.
+  Spanner 이전 시 `storage/spanner_graph.ddl.sql` 에 Query·Actor·Wiki 노드 테이블과 위 네 엣지를 추가하면 같은 질의가 GQL 로 옮겨진다 (현재 DDL 은 Term·Meaning·Evidence·Segment 만).
+- **상류 HTTP 는 전부 타임아웃을 건다.** `news_rss.fetch_news` 는 httpx 15초(구: feedparser 에 URL 을 그대로 줘서 소켓 기본 타임아웃 None → 09-16 에 `collect.news` 가 news.google.com 소켓에 붙어 파이프라인 전체가 정지). 같은 상류가 연속 5회 실패하면 `Unavailable` 로 그 실행의 남은 요청을 건너뛴다(`reset_breaker()` 는 실행마다). 단계는 예외를 note 에 남기고 다음으로 간다.
+- **SQLite 는 Cloud Run 인스턴스 로컬이라 재시작 시 사라진다.** 배포판은 저장을 Spanner(사전·그래프)와 BigQuery(시계열·수집 원본) 또는 Cloud SQL 로 옮겨야 한다 — `storage/spanner_graph.py` 가 그 어댑터의 시작점. 데모 기간 임시 방편은 Cloud Storage 에 `trend.db` 를 잡 종료 시 올리고 시작 시 내려받는 것.
+- ADK 팀(`scripts/run_agents.py`)은 파이프라인 잡의 대안 진입점: 모델이 도구 순서를 정하고 운영 보고서를 쓴다. 예산 가드가 하루 호출 상한을 같은 장부(`gemini_calls`)에 기록한다.
+
+
+## 로컬 Gemma 라우팅 (09-15 10:20 실측) — `USE_LOCAL_GEMMA=1`
+
+`pipeline/gemini.py` 의 `structured()`·`generate()` 가 텍스트 전용 호출을 `pipeline/local_llm.py`(Ollama, gemma4:12b, think=False) 로 보낸다. 영상(YouTube URL)과 Google 검색 grounding 은 Gemini 에 남는다 — 무료 등급 하루 20회는 이 둘에만 쓴다.
+
+| 작업 | 로컬 Gemma 실측 | 비고 |
+|---|---|---|
+| 검색어 분류 15건 배치 | 40초 (건당 ~3초) | 240건 ≈ 11분. 오탐('very' 후보)은 승격 규칙이 걸러냄 |
+| 급증 설명 1건 | 22초 (근거 48건 입력) | 이봉원·박미선 인물 앵커 정확 |
+| 조사 초안 구조화(오프라인) | 7초 | 근거 1건이면 게이트가 needs_review 로 보냄 |
+| '쉽게 풀어 쓰면' 재작성 | 9초 | 문장 자연스러움 |
+| 번역(ko/en) | ~8~13초 (09-14 실측) | |
+
+구조화 출력은 Ollama `format=JSON schema`, `list[...]` 는 `{"items": [...]}` 로 감싼다. 끄는 법: `.env` `USE_LOCAL_GEMMA=0` 후 루프·API 재시작, `ollama stop gemma4:12b`. 켜 두면 Ollama 가 7.6GB 를 메모리에 올려 맥이 느려진다 — 밤에 돌리기 적합.
+결제가 붙으면 배포판은 Gemini 만 쓰고(Cloud Run 은 로컬 Ollama 에 닿을 수 없음), 로컬 Gemma 는 개발·야간 배치와 "민감한 메시지는 로컬에서" 라는 선택지로 남긴다.
+
+
+## 시드 사전 (09-15 10:20)
+
+조사해서 만든 예시 사전 52개를 실DB 에 심었다: `pnpm -C web dlx tsx scripts/export-sample.ts` → `data/seed/dictionary.json` → `uv run scripts/seed_dictionary.py`.
+라벨은 **verified_human · created_by=team**(팀이 조사해 확인한 항목)이며 게이트가 자동으로 확인한 것으로 위장하지 않는다. 가정치였던 주간 수치·세대 비중은 심지 않고 track(언급 실측)·naver(세대별 검색 실측)가 채운다.
+효과: 실데이터 모드의 `/explain` 이 "엄마 오늘 저메추 좀ㅋㅋ 나는 자만추 할래" 에서 저메추·자만추·럭키비키를 찾고 로컬 Gemma 가 3초에 재작성("엄마 오늘 저녁 메뉴 추천 좀ㅋㅋ 나는 자연스러운 만남 할래. 오히려 잘된 거잖아").
+
+로컬 Gemma 가 켜져 있으면 spikes·research 는 Gemini 예산과 무관하게 진행하고(10:35 수정), 예산이 0 이면 grounding 시도 없이 바로 오프라인 조사로 간다. 실측: 급증 설명 4건 116초(모델 21초/건), 인물 앵커 유지. 네이버 세대 신호는 실행당 12개 용어.
+루프 한 바퀴(10:16~10:23, Gemma): 분류 90건 224초, 추적 65, 네이버 8, 보드 104항목·주제 19(시드 사전의 다국가 용어).
+
+
+## 화면용 산출물 (09-15 11:00)
+
+- `topics` 단계: 사용 지역 2개 이상인 검증 용어의 나라별 차이 서술(what_changed ko/en, 현지 밈 앵커). 실행당 6개 변형, Gemma ~20초/건. 첫 실행: AI slop(GB·KR·US)·6-7(US) 채워짐, 대기 49.
+- `/meta`(갱신 시각) · `/updates`(최근 변화) · `/countries/{code}`(나라 페이지) · `/terms/{id}/generations`(세대 곡선) · `TrendBoard.why`(급증 카드).
+- naver 단계가 세대별 곡선(`gen_curves`)을 저장, 실행당 12개 용어.
+
+## 용어 매칭 규칙 (`pipeline/match.py`, 2026-09-15)
+
+- 뉴스 제목·쇼츠 밈 이름·발췌 문장이 용어를 "실제로 말하는지"는 `match.mentions(text, canonical, aliases)` 한 곳이 정한다. research(첫 근거 수집·발췌 앵커), track(주간 언급 수), spikes(급증 검색어 → 사전 용어로 근거 옮기기)가 모두 이 함수를 쓴다.
+- 경계는 ASCII 글자·숫자만 본다(`(?<![A-Za-z0-9_-])…(?![A-Za-z0-9_-])`). 프론트 `lib/explain.ts` 의 termPattern 과 같은 규칙이고, 'iPhone Duoは', 'BRICS峰会' 같은 한자·가나 붙여쓰기를 놓치지 않는다. 한국어 표기는 띄어쓰기 변형만 허용.
+- **숫자꼴 용어**('6-7', '6 7')는 점수·날짜·시간과 글자로 구별되지 않는다. 숫자 표기만 맞으면 밈 단서(meme·slang·viral·brainrot·gen alpha·tiktok·밈·유행어·챌린지…)가 같은 텍스트에 있어야 근거로 인정한다. 'six seven' 같은 글자 별칭이 맞으면 단서 없이도 인정.
+- 09-15 정리: 이 규칙으로 기존 근거 86건(6-7 의 고교 풋볼 점수·'6~7%'·이재명 위키 등 23건 포함)을 지우고, 뉴스 테이블에서 규칙에 맞는 근거를 다시 붙였다. 카테고리 오분류(brics·very·方言 같은 일반 단어가 용어로 승격된 것)는 매칭이 아니라 '뉴스·사회' 분류 과제로 남아 있다.
+
+## 사전 등재 기준 (2026-09-15 점검 후)
+
+사용자 지적: "검증된 것만 넣어야 하지 않나" — 점검 결과 자동 승격된 19개 중 12개가 표현이 아니었다(brics, very, aqi, iPhone Duo, 方言, 'one in, one out policy', 스트리머 이름 faymas, 영상 장르 이름 …). 원인은 두 가지였다: (1) 후보 승격이 '2회 이상 등장'만 보고 분류(kind)를 안 봤다, (2) 검증 게이트는 근거의 존재만 보고 '표현인가'를 묻지 않았다.
+
+- **후보**: 검색어는 분류가 `slang_meme`·`song`·`challenge` 로 본 것만 후보가 된다(`candidates.py`, note 에 `kind=`). 인물·상품·사건·일반 단어는 지도(트렌드 보드)에만 남는다.
+- **승격**: `research.promote_candidates` 는 kind 가 사전 분류표(`DICT_KINDS`)에 있어야 승격하고, 없는 후보는 `rejected` 로 닫는다. 유행어·노래·챌린지는 한 번만 보여도, '밈' 이름은 두 번째 등장부터.
+- **게이트**: `MeaningDraft.is_expression`(기본 true) 이 false 면 막는다 — 모델이 "상품·기관·인물·일반 단어" 라고 판단한 경우. 상태를 모델이 정하는 게 아니라 분류 한 가지를 더 받는 것이다. 앵커 판정은 `match.mentions`, 별칭도 앵커가 된다('Wow, okay' → 'Wow okay').
+- **공개 사전은 `verified` 만** (`GET /terms`, 기본). 확인 중인 항목은 `?status=all`(관리자·내보내기)과 검수 큐에서만 보인다.
+- **사람이 확인한 항목(seed)도 근거 규칙은 그대로**: 독립 출처 2개 + 1차 근거 1개. '풀이가 근거 원문에 없음' 은 사람이 앵커이므로 막지 않는다. 점검·보강·강등은 `scripts/audit_dictionary.py` (`--strengthen` 뉴스·커뮤니티·위키에서 근거 추가, `--apply` 강등, `--reject/--downgrade` 표제어 지정).
+- 자동 앵커가 어려운 유형: 일반 단어와 뜻이 겹치는 것(무공해 — '무공해차' 같은 다른 낱말이 걸림), 빈칸 템플릿('또 가고 싶은 OO입니다'). 이런 건 별칭(대표 예문)을 달거나 사람이 출처를 골라야 한다.
+
+## 발굴(spot) 단계와 사전 갱신 (2026-09-15)
+
+사용자 지적: "점메추 같은 옛날 유행어를 쓰면 해석이 안 나온다. 사전을 계속 업데이트해야 한다." 확인 결과 점메추는 사전에 있고 API 도 답했다. 안 나온 이유는 로컬 Gemma 가 파이프라인 배치(분류 4분)에 밀려 재작성이 몇 분씩 걸리면 화면이 그동안 아무것도 못 보여 준 것이다.
+
+- **재작성 제한 시간**: `explain.rewrite` 는 12초(`REWRITE_TIMEOUT_S`) 안에 못 끝나면 재작성 없이 매칭 결과만 돌려준다. 시간 초과 답은 캐시하지 않아 다음에 다시 시도한다. (Ollama 는 기본으로 요청을 한 줄로 세운다 — `OLLAMA_NUM_PARALLEL=2` 로 띄우면 배치와 화면 요청이 겹칠 수 있다.)
+- **해석 실패 → 발굴 재료**: 매칭이 0건인 메시지는 `lookups` 에 200자 이하로만 기록하고, 발굴 단계가 읽으면 즉시 지운다. 사람이 쓴 문장을 오래 두지 않는다.
+- **spot 단계** (`pipeline/spot.py`, candidates 다음·research 앞): 최근 2일 쇼츠 제목(조회수순 100)·커뮤니티 글 60·해석 실패 메시지 60 → 로컬 Gemma 가 줄마다 '뜻을 찾아볼 표현'을 제안 → 규칙 필터: 원문 줄에 실재(`match.mentions`, 환각 차단)·이름/태그/숫자 아님·사전에 없음 → 후보(`source=spot`, `kind=meme`). 발굴 후보는 **두 번 이상 목격돼야 승격**된다(연구 단계의 `MIN_CANDIDATE_COUNT`). 노래 후렴만 `kind=song`. Gemini 예산은 쓰지 않는다(로컬 모델 없으면 건너뜀).
+- **Wiktionary 앵커** (`collectors/wiktionary.py`): 연구 단계가 영어 Wiktionary 뜻풀이를 근거(kind web)로 붙인다. 한국어·일본어·인도네시아어 속어도 꽤 있다(밤티, aura farming). 발굴이 아니라 검증용이다 — '최근 추가' 순은 옛 표현이 섞여 신선도 신호가 아니다.
+
+## 상시 실행 (cron, 2026-09-17 등록)
+
+```
+15 9,14,19,23 * * * /home/cytur/trend/scripts/cron_pipeline.sh   # 파이프라인 한 바퀴
+45 10 * * *         /home/cytur/trend/scripts/cron_health.sh     # 사전 건강 점검
+```
+
+**왜 이 시각인가.** 같은 기계에서 MCTI cron 이 새벽 2~8시에 몰려 돌고 GPU·Ollama 를 함께 쓴다.
+그 시간을 피하고, MCTI 가 쓰는 분(:00 :05 :10 :20 :23 :30 :35 :40 :50)도 피해 :15 에 둔다.
+
+`cron_pipeline.sh` 는 `flock` 으로 겹침을 막는다 — 한 바퀴가 한 시간 넘게 걸릴 때가 있어
+다음 시각이 와도 새로 시작하지 않고 건너뛴다. 로그는 `logs/pipeline.log` 뒤 4000줄만 남긴다.
+
+**점검은 `scripts/health_check.py`.** 규칙으로 판정 가능한 것만 본다. 선을 넘으면 로그에 경고가 찍힌다.
+
+| 지표 | 한계 | 왜 |
+|---|---|---|
+| 마지막 실행 이후 시간 | 8시간 | 2026-09-16 에 23시간 멈춰 있었는데 아무도 몰랐다 |
+| 화면에 나가는 뜻 중 쓸 수 없는 비율 | 2% | 게이트가 막아야 할 것이 새어 나온 것이다 |
+| 한국어 화면에 외국어 뜻이 그대로 | 0개 | 번역 단계가 밀린 것 |
+| 검증된 표제어 | 60개 이상 | 사전이 비면 제품이 없다 |
+| 하루 조사 통과율 | 10건 이상인데 0 | 게이트나 조사가 망가진 것 |
+
+**검수 대기(needs_review)는 같은 잣대로 재지 않는다.** 거기에 쓸 수 없는 뜻이 있는 건 큐가 제 일을
+하는 것이다. 처음에 둘을 합쳐 셌더니 19% 가 나와 경고가 떴는데, 화면에 나가는 것만 보면 0% 였다.

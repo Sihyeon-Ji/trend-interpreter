@@ -1,0 +1,800 @@
+{
+  "$defs": {
+    "Evidence": {
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "short",
+            "news",
+            "datalab",
+            "web",
+            "community",
+            "human"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "source_domain": {
+          "title": "Source Domain",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "excerpt": {
+          "default": "",
+          "description": "근거가 되는 원문 문장",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "derived": {
+          "default": false,
+          "description": "발췌가 우리 모델이 쓴 문장인가 (쇼츠 해석 등). 화면에는 보이되 검증 앵커로는 제목만 본다",
+          "title": "Derived",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "kind",
+        "url",
+        "source_domain",
+        "observed_at"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "GenerationRead": {
+      "description": "로컬 Gemma 가 텍스트 한 조각을 읽고 내놓는 세대 판정.",
+      "properties": {
+        "detected_generation": {
+          "enum": [
+            "10s",
+            "20s",
+            "30s",
+            "40s",
+            "50s+",
+            "all"
+          ],
+          "title": "Detected Generation",
+          "type": "string"
+        },
+        "slang_terms": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Slang Terms",
+          "type": "array"
+        },
+        "plain_explanation": {
+          "title": "Plain Explanation",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "detected_generation",
+        "slang_terms",
+        "plain_explanation",
+        "confidence"
+      ],
+      "title": "GenerationRead",
+      "type": "object"
+    },
+    "Meaning": {
+      "description": "검증 게이트를 거쳐 저장된 버전. 뜻이 바뀌면 새 version 을 만들고 이전 것은 valid_to 를 닫는다(위키식 이력).",
+      "properties": {
+        "definition": {
+          "description": "뜻, 1~2문장",
+          "title": "Definition",
+          "type": "string"
+        },
+        "expansion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "줄임말 풀이. 예: 자만추 → 자연스러운 만남 추구. 아니면 null",
+          "title": "Expansion"
+        },
+        "origin": {
+          "description": "유래. 어디서 언제. 모르면 'unknown'",
+          "title": "Origin",
+          "type": "string"
+        },
+        "nuance": {
+          "description": "뉘앙스·사용 맥락·주의점",
+          "title": "Nuance",
+          "type": "string"
+        },
+        "generations": {
+          "items": {
+            "enum": [
+              "10s",
+              "20s",
+              "30s",
+              "40s",
+              "50s+",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Generations",
+          "type": "array"
+        },
+        "regions": {
+          "description": "ISO 국가코드",
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "self_confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Self Confidence",
+          "type": "number"
+        },
+        "is_expression": {
+          "default": true,
+          "description": "유행어·밈·줄임말·챌린지·노래 후렴 같은 '표현'인가. 상품·기관·인물·정책·일반 단어면 false",
+          "title": "Is Expression",
+          "type": "boolean"
+        },
+        "meaning_id": {
+          "title": "Meaning Id",
+          "type": "string"
+        },
+        "term_id": {
+          "title": "Term Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "verification": {
+          "default": "unverified",
+          "enum": [
+            "unverified",
+            "verified_auto",
+            "verified_human",
+            "rejected"
+          ],
+          "title": "Verification",
+          "type": "string"
+        },
+        "valid_from": {
+          "format": "date-time",
+          "title": "Valid From",
+          "type": "string"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid To"
+        },
+        "created_by": {
+          "default": "research_agent",
+          "title": "Created By",
+          "type": "string"
+        },
+        "citations": {
+          "description": "grounding 이 돌려준 출처 URL",
+          "items": {
+            "type": "string"
+          },
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "definition",
+        "origin",
+        "nuance",
+        "generations",
+        "regions",
+        "self_confidence",
+        "meaning_id",
+        "term_id",
+        "version",
+        "confidence",
+        "valid_from"
+      ],
+      "title": "Meaning",
+      "type": "object"
+    },
+    "MeaningDraft": {
+      "description": "리서치 에이전트 출력. 검증 게이트를 통과하기 전까지는 Meaning 이 아니다.",
+      "properties": {
+        "definition": {
+          "description": "뜻, 1~2문장",
+          "title": "Definition",
+          "type": "string"
+        },
+        "expansion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "줄임말 풀이. 예: 자만추 → 자연스러운 만남 추구. 아니면 null",
+          "title": "Expansion"
+        },
+        "origin": {
+          "description": "유래. 어디서 언제. 모르면 'unknown'",
+          "title": "Origin",
+          "type": "string"
+        },
+        "nuance": {
+          "description": "뉘앙스·사용 맥락·주의점",
+          "title": "Nuance",
+          "type": "string"
+        },
+        "generations": {
+          "items": {
+            "enum": [
+              "10s",
+              "20s",
+              "30s",
+              "40s",
+              "50s+",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Generations",
+          "type": "array"
+        },
+        "regions": {
+          "description": "ISO 국가코드",
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "self_confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Self Confidence",
+          "type": "number"
+        },
+        "is_expression": {
+          "default": true,
+          "description": "유행어·밈·줄임말·챌린지·노래 후렴 같은 '표현'인가. 상품·기관·인물·정책·일반 단어면 false",
+          "title": "Is Expression",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "definition",
+        "origin",
+        "nuance",
+        "generations",
+        "regions",
+        "self_confidence"
+      ],
+      "title": "MeaningDraft",
+      "type": "object"
+    },
+    "MeaningText": {
+      "description": "한 언어로 된 뜻 묶음. 로컬 Gemma 가 언어별로 만들어 저장한다. 용어 원문(canonical)은 번역 대상이 아니다.",
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "expansion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "줄임말 풀이. 원문 표기를 남기고 뜻만 옮긴다",
+          "title": "Expansion"
+        },
+        "origin": {
+          "title": "Origin",
+          "type": "string"
+        },
+        "nuance": {
+          "title": "Nuance",
+          "type": "string"
+        },
+        "plain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "쉽게 풀어 쓴 표현. 뜻이 따로 없는 감탄사면 null",
+          "title": "Plain"
+        }
+      },
+      "required": [
+        "definition",
+        "origin",
+        "nuance"
+      ],
+      "title": "MeaningText",
+      "type": "object"
+    },
+    "MemeRef": {
+      "properties": {
+        "name": {
+          "description": "유행어/밈/노래/드라마 이름. 원어 그대로",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "slang",
+            "meme",
+            "song",
+            "drama",
+            "dance",
+            "news",
+            "geopolitics",
+            "product",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "origin_hypothesis": {
+          "description": "유래 가설. 어디서 언제 시작됐는지. 모르면 'unknown'",
+          "title": "Origin Hypothesis",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "origin_hypothesis",
+        "confidence"
+      ],
+      "title": "MemeRef",
+      "type": "object"
+    },
+    "NewsItem": {
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "link": {
+          "title": "Link",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published At"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "required": [
+        "title",
+        "link",
+        "published_at",
+        "source",
+        "region"
+      ],
+      "title": "NewsItem",
+      "type": "object"
+    },
+    "Segment": {
+      "description": "세대 × 국가. 확산 경로의 노드.",
+      "properties": {
+        "segment_id": {
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "generation": {
+          "enum": [
+            "10s",
+            "20s",
+            "30s",
+            "40s",
+            "50s+",
+            "all"
+          ],
+          "title": "Generation",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_id",
+        "generation",
+        "region"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "ShortsInterpretation": {
+      "description": "Gemini 가 쇼츠 하나를 직접 보고 내놓는 해석.",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "summary": {
+          "description": "영상에서 실제로 일어나는 일, 2문장",
+          "title": "Summary",
+          "type": "string"
+        },
+        "memes": {
+          "items": {
+            "$ref": "#/$defs/MemeRef"
+          },
+          "title": "Memes",
+          "type": "array"
+        },
+        "target_generation": {
+          "items": {
+            "enum": [
+              "10s",
+              "20s",
+              "30s",
+              "40s",
+              "50s+",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Target Generation",
+          "type": "array"
+        },
+        "why_viral": {
+          "title": "Why Viral",
+          "type": "string"
+        },
+        "explain_for_outsider": {
+          "description": "이 문화권/세대 밖의 사람에게 맥락 설명 (한국어)",
+          "title": "Explain For Outsider",
+          "type": "string"
+        },
+        "risk_flags": {
+          "description": "브랜드/기관이 쓰면 위험한 이유 (조롱, 정치, 비하 유래, 유행 소멸 등)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "url",
+        "language",
+        "summary",
+        "memes",
+        "target_generation",
+        "why_viral",
+        "explain_for_outsider"
+      ],
+      "title": "ShortsInterpretation",
+      "type": "object"
+    },
+    "ShortsVideo": {
+      "properties": {
+        "video_id": {
+          "title": "Video Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "published_at": {
+          "format": "date-time",
+          "title": "Published At",
+          "type": "string"
+        },
+        "duration_sec": {
+          "title": "Duration Sec",
+          "type": "integer"
+        },
+        "view_count": {
+          "default": 0,
+          "title": "View Count",
+          "type": "integer"
+        },
+        "like_count": {
+          "default": 0,
+          "title": "Like Count",
+          "type": "integer"
+        },
+        "comment_count": {
+          "default": 0,
+          "title": "Comment Count",
+          "type": "integer"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "category_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Id"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "video_id",
+        "url",
+        "title",
+        "channel",
+        "published_at",
+        "duration_sec",
+        "region",
+        "source"
+      ],
+      "title": "ShortsVideo",
+      "type": "object"
+    },
+    "Term": {
+      "properties": {
+        "term_id": {
+          "title": "Term Id",
+          "type": "string"
+        },
+        "canonical": {
+          "title": "Canonical",
+          "type": "string"
+        },
+        "lang": {
+          "default": "ko",
+          "title": "Lang",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "category": {
+          "default": "slang",
+          "enum": [
+            "slang",
+            "meme",
+            "song",
+            "drama",
+            "dance",
+            "news",
+            "geopolitics",
+            "product",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "status": {
+          "default": "candidate",
+          "enum": [
+            "candidate",
+            "researching",
+            "needs_review",
+            "verified",
+            "retired"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "lifecycle": {
+          "default": "unknown",
+          "enum": [
+            "emerging",
+            "rising",
+            "peak",
+            "steady",
+            "declining",
+            "dormant",
+            "unknown"
+          ],
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "first_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Seen"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        }
+      },
+      "required": [
+        "term_id",
+        "canonical"
+      ],
+      "title": "Term",
+      "type": "object"
+    }
+  },
+  "description": "프론트가 소비하는 모델 묶음. $defs 에 전부 나온다.",
+  "properties": {
+    "term": {
+      "$ref": "#/$defs/Term"
+    },
+    "meaning": {
+      "$ref": "#/$defs/Meaning"
+    },
+    "meaning_draft": {
+      "$ref": "#/$defs/MeaningDraft"
+    },
+    "meaning_text": {
+      "$ref": "#/$defs/MeaningText"
+    },
+    "evidence": {
+      "$ref": "#/$defs/Evidence"
+    },
+    "segment": {
+      "$ref": "#/$defs/Segment"
+    },
+    "shorts_video": {
+      "$ref": "#/$defs/ShortsVideo"
+    },
+    "shorts_interpretation": {
+      "$ref": "#/$defs/ShortsInterpretation"
+    },
+    "generation_read": {
+      "$ref": "#/$defs/GenerationRead"
+    },
+    "news_item": {
+      "$ref": "#/$defs/NewsItem"
+    }
+  },
+  "required": [
+    "term",
+    "meaning",
+    "meaning_draft",
+    "meaning_text",
+    "evidence",
+    "segment",
+    "shorts_video",
+    "shorts_interpretation",
+    "generation_read",
+    "news_item"
+  ],
+  "title": "Contract",
+  "type": "object"
+}

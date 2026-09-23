@@ -1,0 +1,135 @@
+# HANDOFF — 다른 환경으로 옮길 때 (2026-09-15 13:40 KST)
+
+이 압축본은 `trend-agents` 작업 폴더 전체다. **빌드 산출물만 뺐다**: `web/node_modules`, `web/.next`, `.venv`, `__pycache__`, 각종 캐시. 그 외 `.env`(실제 API 키 포함), `data/trend.db`(수집 데이터·사전), `design/`(비공개 디자인 문서), `Google Cloud Hackathon.txt`(대회 브리프), `.git`(로컬 커밋 5개, 커밋 안 된 변경 55개) 이 모두 들어 있다.
+
+## 먼저 읽을 것
+1. `CLAUDE.md` — 규칙·구조·심사 기준. 2. `docs/PIPELINE.md` — 파이프라인 단계와 사전 등재 기준. 3. `docs/FRONTEND.md` — 화면 결정 기록. 4. `docs/HACKATHON-CHECK.md`, `docs/KEYS.md`.
+
+## 다시 띄우기
+```bash
+# 백엔드 (Python 3.12, uv)
+uv sync
+uv run pytest -q                       # 14개 통과해야 정상
+uv run scripts/serve_api.py            # FastAPI :8080
+caffeinate -i uv run scripts/run_pipeline.py --loop   # 6시간마다 수집~보드 (macOS; 다른 OS 는 caffeinate 빼기)
+
+# 프론트 (pnpm, Next 16)
+cd web && pnpm install
+NEXT_PUBLIC_DATA_MODE=api NEXT_PUBLIC_API_BASE=http://localhost:8080 pnpm build && pnpm start -p 3100
+
+# 로컬 모델 (선택, 없으면 Gemini 만 쓰고 발굴(spot) 단계는 건너뜀)
+ollama pull gemma4:12b && ollama serve
+```
+`.env` 의 `USE_LOCAL_GEMMA=1` 이면 텍스트 작업은 Ollama 로 간다. Gemini 무료 등급은 모델당 하루 20회라 `GEMINI_DAILY_BUDGET=36` 예산 가드가 있다. 결제 미연결: 영상 해석·검색 grounding·Cloud Run 배포·ADK 실행은 결제 후에만 된다.
+
+## 현재 상태
+- 사전: 확인됨 50 · 확인 중 7 · 제외 12 (`scripts/audit_dictionary.py` 로 재점검). 공개 API `/terms` 는 확인된 것만.
+- 오늘 추가된 규칙: 용어 매칭 `pipeline/match.py`(숫자꼴 용어는 밈 단서 필요), 후보는 분류 kind 가 유행어·밈·노래·챌린지일 때만, 게이트에 `is_expression`, 발굴 단계 `pipeline/spot.py`(해석 실패 메시지 → 후보), 재작성 12초 제한.
+- 대기 중인 결정: GitHub 저장소 위치·라이선스(Apache-2.0 권장), 결제, 브리프 공개 여부, 키 교체(Bluesky 앱 비밀번호·Naver 시크릿은 대화에 붙여진 적 있음).
+- Reddit Data API 신청 대기. Naver 는 NAVER API HUB 키 사용.
+
+## 옮긴 뒤 (2026-09-15, Linux · RTX 6000 Ada 48GB · Ollama 0.20.7)
+
+- `uv sync` 후 `uv run pytest -q` 통과. `.env` 는 그대로 쓰고 두 줄만 바꿈: `GEMMA_LOCAL_MODEL=gemma4:e4b`(12b 없음), `API_PORT=8180`(8080 은 Open WebUI).
+- GPU 는 MCTI vLLM(`vllm-mcti-chat`, Qwen3.6-35B-A3B-FP8, `--gpu-memory-utilization 0.90`)이 44GB 를 상시 점유 → 남는 VRAM 약 4GB. Gemma 12B 를 따로 띄울 자리는 없다.
+  Ollama gemma4:e4b 는 GPU 34%/CPU 66% 로 쪼개져 올라가 약 20 tok/s(호출당 5~10초). MCTI 컨테이너는 건드리지 않는다(상시 서비스).
+- Ollama 0.20.7 + gemma4:e4b 는 `format` 스키마를 무시(펜스·키 이름 변경) → `interpreters/local_chat.py` 가 스키마를 프롬프트에 넣고 응답 JSON 을 꺼내 검증·재시도.
+  **이 머신의 `.env` 는 vLLM(`LOCAL_LLM_BASE_URL=http://127.0.0.1:11437/v1`, `GEMMA_LOCAL_MODEL=gpt-oss`)로 두었다(09-15 오후).** Ollama Gemma 는 GPU 34%/CPU 66% 로 호출이 13초~3분 사이로 흔들려 classify·research 가 실패했고, 같은 배치가 vLLM 에서는 8초로 안정적이었다. 제출·시연은 `.env` 주석대로 Gemma 로 되돌린다(대회 필수 기술).
+  gemma4:e4b 는 JSON 스키마 원문을 프롬프트에 넣으면 배열 끝을 `}}]` 로 잘못 닫거나 안 닫는다 → `local_chat.describe_schema()`(압축형 모양)와 `extract_json()`(괄호 복구)로 흡수.
+- ADK 에이전트는 `ADK_MODEL=local` 로 파이프라인과 같은 로컬 모델을 쓴다(`google-adk[extensions]` = LiteLLM 추가). publisher 단독 실측: vLLM Qwen 4.8초, Ollama gemma4:e4b 23초, 둘 다 도구 순서 정확. Gemini 로 돌리면 한 바퀴 약 17회라 무료 등급(모델당 20회/일)이 바로 소진된다(Mac 에서 429 로 중단된 기록 `data/agents-run.log`).
+- 참고한 MCTI 코드: `~/MCTI/threat-overview-standalone/lib/llm-client.ts`(no-think·guided decoding 금지·큐 분리), `ai-quality.ts`(결정론 체크 + canary), `translation-guard.ts`·`label-honesty.ts`(판정은 데이터, LLM 은 서술), `orchestration/query-loop.ts`(도구 호출 루프).
+- 프론트: `pnpm` 미설치, 시스템 node 18. nvm 에 22/24 있음 → `source ~/.nvm/nvm.sh && nvm use 24 && corepack enable`.
+
+## 09-15 백엔드 감사 후 고친 것 (코드 리뷰 확정 8건 + 실측)
+
+- `evidences` PK 를 `(evidence_id, term_id)` 로 (기존 DB 는 `ds.ensure()` 가 자동 마이그레이션). 단일 PK 에서는 spikes 가 `q|…` 로 먼저 넣은 근거가 용어 쪽에 남지 않았다.
+- classify·spikes·topics·translate·research: 한 배치/항목의 모델 형식 실패를 `except Exception` 으로 격리(spot 과 같은 패턴). 전에는 ValueError 하나로 단계 전체가 `error`.
+- `local_llm.available()` 5분 TTL(장기 프로세스에서 로컬 서버 생사 반영). `explain.rewrite()` 는 어느 경로든 12초 안에서만, 로컬 실패를 Gemini 로 넘기지 않음.
+- `match.same_term()`: 쇼츠 해석의 밈 이름은 표기 동일성으로(숫자꼴 '6-7' 이 쇼츠 근거·주간 카운트를 잃지 않게). `CUES` 에 mean/what does/뜻/의미 추가 → eval 게이트 픽스처 8/8.
+- collect.youtube 지역 검색에 `relevanceLanguage`(KR 검색 쇼츠의 86% 가 힌디였다). retention 에 근거 없는 엣지 정리(`ds.prune_dangling_edges`, 잔재 325건 삭제).
+- web: `/explain` 결과는 `/terms?status=all` 로 풀어 '확인 중' 안내가 살고, 국가 페이지는 백엔드가 꺼져도 500 대신 빈 페이지, 용어 상세의 '판 수' 행 제거(내부 용어). `schema.json`·`types.ts` 재생성(is_expression·category).
+- 남은 것(사용자 결정): BigQuery·Spanner 는 이 머신에 gcloud/ADC 가 없어 `collect.trends_bq` 가 error — Google Cloud CLI 설치 후 `gcloud auth application-default login`. `edges` 는 아직 읽는 곳이 없다(쓰기 전용). 루트 URL 근거 168건은 대부분 시드(123건).
+
+## 09-15 저녁 후속
+
+- **gcloud** 를 `~/google-cloud-sdk` 에 설치하고 `.bashrc` 에 PATH 를 넣었다. 계정 로그인·ADC 는 사용자가 16:40 에 완료(ktw251908@gmail.com, 프로젝트 trend-agents-2026, BigQuery API 는 이미 활성). `collect.trends_bq` ok(42개국, refresh_date 2026-09-14) 확인. 다른 머신에서는 아래 명령을 다시.
+  ```bash
+  gcloud auth login --no-launch-browser            # 계정 로그인 (URL 을 다른 기기 브라우저에서 열고 코드 붙이기)
+  gcloud config set project trend-agents-2026
+  gcloud auth application-default login --no-launch-browser   # ADC — BigQuery·Spanner 클라이언트가 읽는 자격증명
+  gcloud services enable bigquery.googleapis.com spanner.googleapis.com
+  uv run scripts/test_google_trends.py             # BigQuery 경로 확인
+  ```
+- **Ollama 0.20.7 → 0.34.0** (공용 서버, `OLLAMA_HOST=0.0.0.0` 유지, 모델 31개 그대로). gemma4:e4b 는 여전히 GPU 34% 라 15건 분류 배치가 22~52초. 배치 중 일부 항목의 enum 위반은 `local_chat` 이 항목별로 걸러 살린다(09-15 저녁).
+- **MCTI vLLM FP8 → AWQ 전환 완료 (09-16).** 자세한 실측은 `MCTI/.../scripts/_llm-ab/ROLLBACK.md`. 요지: VRAM 44.5→28.9GB, 단일 100→137 tok/s, 12동시 476→894 tok/s, 품질 회귀 없음(compat 6/6 + 한국어 픽스처 9문항). 롤백은 `~/mcti-awq-swap.sh rollback`.
+- **지식그래프 읽기 경로** 추가: `GET /graph/shared`, `GET /graph/query/{key}`, `GET /terms/{id}/graph` (`docs/PIPELINE.md`). 실데이터: गणेश चतुर्थी|US → 인물 3·위키 2·근거 12. 나라를 건너 공유되는 노드는 아직 없음(데이터가 쌓이면 나온다).
+- Bluesky·Naver 키는 교체하지 않기로 함(사용자 결정).
+
+## 09-16 · Gemma 가 GPU 로 돌아왔다
+
+MCTI vLLM 을 AWQ 로 바꿔 VRAM 13.6GB 를 회수했고, Ollama Gemma 가 **100% GPU** 로 올라간다. `.env` 기본값을 Gemma 로 되돌렸다 (대회 필수 기술).
+
+| | 전 (CPU 66%) | 후 (100% GPU) |
+|---|---|---|
+| classify 15건 배치 | 22~52초 (최악 3분 37초) | **6.1초** (MCTI 크론과 겹치면 24초 — GPU 연산을 나눠 쓴다) |
+| 생성 속도 | 약 20 tok/s | **126 tok/s** |
+| `/explain` 재작성 | 1~12초 | **0.4초** |
+| VRAM | — | 3.4GB (gemma4:e4b) |
+
+- `gemma4-26b-a3b`(MoE 25B·활성 3B)도 100% GPU 로 올라가고 **136 tok/s** 인데 17GB 를 써서 공용 머신 여유가 1GB 만 남는다. 한국어 품질은 e4b 보다 낫다(자만추를 '인위적인 만남보다는' 대비까지 살려 씀). 박스가 한가할 때만 `GEMMA_LOCAL_MODEL=gemma4-26b-a3b`.
+- 개발 중 빠른 반복이 필요하면 `.env` 주석대로 vLLM(`gpt-oss`, 137 tok/s)로 한 줄 전환. 다만 한국어 유행어 판정은 Gemma 가 낫다(09-15 실측: Qwen 은 럭키비키·원영적 사고 오답).
+- gcloud·ADC 완료 → `collect.trends_bq` 정상. Ollama 0.34.0.
+- **파이프라인 정지 버그를 잡았다.** `news_rss.fetch_news` 가 `feedparser.parse(url)` 로 상류를 직접 열어 소켓 기본 타임아웃(None)을 썼다 → 09-16 실행이 news.google.com 소켓에서 3분 넘게 멈췄다(당시 상류는 전 로케일 503). httpx 15초 + 연속 5회 실패 시 차단기로 고쳤다. 호출처 5곳(collect·mentions·spikes·topics·community)이 전부 이 함수를 쓴다.
+
+## 09-16 오후 · 로그인과 접근 제어
+
+- **`/admin` 은 이제 로그인해야 열린다.** 그 전에는 공개였고 푸터에 링크까지 있었으며 검수 승인·제외 API 도 무인증이었다.
+- 구조: 자격 확인은 백엔드(`src/trend_agents/auth.py`, PBKDF2-SHA256), 브라우저 세션은 프론트(`web/lib/session.ts`, HMAC-SHA256 쿠키, httpOnly, 12시간).
+  `web/middleware.ts` 가 `/admin/*` 을 막고, 검수 쓰기는 `web/app/api/review/[termId]` 를 거쳐 서버만 아는 `ADMIN_API_TOKEN` 으로 백엔드에 간다. 결정자 이름은 세션에서 온다(전에는 `by: "reviewer"` 하드코딩).
+- 계정 만들기: `uv run scripts/set_admin.py` — `.env` 에는 해시만, 평문은 `data/admin-credentials.txt`(커밋 안 됨), `web/.env.local` 에 토큰·세션 비밀값. 프론트를 다시 시작해야 반영된다.
+- **첫 화면을 지도로 바꿨다.** `/` = 지도, `/explain` = 메시지 해석, `/map` 은 `/` 로 넘긴다.
+- 실측: 세션 없이 `/admin` → 307 `/login?next=…`, 틀린 비번 → 401, 맞으면 200 + httpOnly 쿠키, 로그아웃 뒤 다시 307. 백엔드 쓰기는 토큰 없거나 틀리면 401.
+- Firebase Auth 로 갈 때 바꿀 곳은 `auth.check_admin` 과 `app/api/auth/login/route.ts` 두 곳뿐이다.
+
+## 09-16 저녁 · 익명은 설정 없이, 로그인하면 내 설명
+
+- 설정(세대·나라·닉네임)이 **익명 쿠키에서 계정 저장으로** 옮겨졌다. 익명 방문자에게는 설정 화면 자체가 없고 설명이 중립으로 나간다 — 재작성 캐시도 조합마다 갈라지지 않고 하나로 모인다.
+- 로그인은 이제 검수자 전용이 아니다. **로그인한 사람은 누구나 설정**을 갖고, 그중 `reviewer` 계정만 `/admin` 에 들어간다. 계정은 `.env` 의 `ACCOUNTS`(JSON), `uv run scripts/set_account.py --user 이름 [--reviewer]`.
+- 지금 계정 둘: `admin`(검수자), `demo`(이용자 — 데모에서 개인화를 보여줄 용도). 비밀번호는 `data/accounts.txt`(커밋 안 됨).
+- 실측:
+
+  | | 익명 | demo(이용자) | admin(검수자) |
+  |---|---|---|---|
+  | 지도·사전·해석 | 200 | 200 | 200 |
+  | `/me` | 307 → 로그인 | 200 | 200 |
+  | `/admin` | 307 → 로그인 | 307 → `/me?denied=review` | 200 |
+  | 검수 쓰기 | 401 | 403 | 백엔드까지 도달 |
+  | 설정 저장 | 401 | 200 | 200 |
+
+- 같은 문장을 해석했을 때: 익명은 "자연스럽게 만나는 거 할래", 50대·한국으로 설정한 demo 는 "자연스러운 만남으로 할래" + 닉네임 인사. 설정이 실제로 서술을 바꾼다.
+- 저장 값은 화이트리스트로 거른다 — `gen:"99s"`, `region:"XX"`, `role:"admin"` 은 버려지고 닉네임은 20자로 잘린다(실측).
+- 테스트로 잡은 버그: `hmac.compare_digest` 는 비ASCII 문자열에 TypeError 를 던진다. 한글 아이디를 넣으면 401 이 아니라 500 이 났다 → 바이트 비교로 수정(`auth._same`).
+
+## 09-16 밤 · 사전에 묻기 (도구 호출 루프)
+
+MCTI 챗봇(`lib/orchestration/query-loop.ts` + `tool-registry.ts`)을 옮겨 왔다. MCTI 것도 껍데기가 아니라 자기 데이터(Neo4j·PG·SQLite·임베딩 검색)를 7개 도구로 읽는 에이전트라, 구조가 그대로 맞는다.
+
+- `pipeline/tools.py` — 읽기 전용 도구 5개: `lookup_term`(뜻·유래·근거 수·생애주기), `search_terms`, `why_trending`(계기·인물·근거), `country_trends`, `term_usage`(세대·나라·6주 추세). 전부 저장된 데이터만 읽는다.
+- `pipeline/ask.py` — 턴 루프. MCTI 에서 가져온 것: 마지막 턴에는 도구를 주지 않아 답을 강제, 연속 3회 실패 차단기, 전체 90초 예산의 80% 지점에서 중단, 잘못된 도구 인자는 실행하지 않고 모델에 되돌림.
+- 사전에 없으면 "없습니다" 라고 답하고 그 질문을 `lookups` 에 남긴다 → 발굴(spot) 단계가 다음 사전 항목 후보로 쓴다. 답하지 못한 질문이 사전을 키우는 고리다.
+- `POST /ask` (API) · `web/app/api/chat` (화면 라우팅) · `components/dictionary-chat.tsx`.
+- **화면 라우팅**: 물음표·의문사가 있으면 루프로, 아니면 규칙 매칭 + 근거 카드로. "AI slop 누가 써?" 를 그냥 용어 매칭에 보내면 "…저질 콘텐츠 누가 써?" 라는 엉뚱한 재작성이 나왔다(실측) → 묻는 말을 먼저 가려낸다.
+- 모델 잡음 두 가지를 흡수했다: gemma4:e4b 가 한글 한 글자를 `<0xEB><0x9D><0x95>` 로 흘리는 것(`local_chat.sanitize`), 근거로 도구 이름을 적는 것(`ask._tidy`).
+- 실측: 붙여넣은 메시지 → 근거 카드 2건, "저메추가 무슨 뜻이야" → lookup_term 1회·1.1초·표제어 인용, "요즘 일본에서 뭐가 떠?" → country_trends, "zxcvbn이 뭐야" → 사전에 없다고 답하고 lookups 에 기록.
+
+### 09-16 밤 (이어서) · 찾기를 사람에 맞춤
+
+사용자가 '퉁퉁퉁퉁퉁퉁싸후르' 라고 쳤는데 없다고 나왔다. 사전에는 있었다 — 별칭이 '퉁퉁퉁퉁 사후르'(퉁 4개, 예사소리)라 정확 일치에 걸리지 않았다.
+
+- `match.loose_key` — 반복 글자·낱말 축약(퉁퉁퉁퉁퉁퉁→퉁, tung tung tung→tung), 된소리→예사소리(싸→사). **찾기 전용이다.** 근거 판정(`mentions`)은 그대로 엄격하다.
+- `match.strip_particle` — '저메추는', '싸후르가' 처럼 모델이 조사를 붙여 도구를 부를 때.
+- `match.keywords` + `tools._by_meaning` — 이름이 기억 안 날 때 뜻으로 찾는다. "라마단 새벽밥 알리는 나무 통 캐릭터" → Tung Tung Tung Sahur.
+- 작은 모델 대응 셋: 도구 호출을 본문으로 흘리면 복구해서 실행(`_leaked_call`), 부르겠다고 말만 하면 다시 시키고, 한 번도 안 불렀으면 코드가 찾아 그 결과로 다시 답하게 한다.
+- 도구가 찾은 것이 있으면 모델이 "사전에 없습니다" 라고 말할 수 없다 — 판정은 데이터가 한다.
+- 답은 질문 유형에 맞춘다: 뜻/유래/누가 쓰나/왜 뜨나/나라 트렌드별로 부를 도구와 답할 내용을 프롬프트에 적었다. 세대·나라는 '20대', '한국' 처럼 사람 말로 돌려준다.
+- 실측 6문항 전부 통과: 오타 표기·설명으로 찾기·유래·사용 세대·나라 트렌드·없는 말.

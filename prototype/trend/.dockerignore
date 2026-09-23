@@ -1,0 +1,7 @@
+.venv
+data
+web
+docs
+design
+*.zip
+.git

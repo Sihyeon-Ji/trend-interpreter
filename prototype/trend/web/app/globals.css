@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------
+   Notion DESIGN.md (design/Notion/DESIGN.md) → Tailwind v4 토큰.
+   앱 화면은 문서의 '조용한' 쪽만 쓴다: 흰 바탕, 검정 글자, hairline, button-dark(검정) 를 primary 로.
+   파스텔 틴트·navy 밴드·보라 CTA 는 마케팅 표면용이라 앱에서는 쓰지 않는다 (docs/FRONTEND.md).
+   서체만 교체: Notion Sans → Pretendard Variable (한·일·태·아랍 본문 필수).
+   ------------------------------------------------------------------ */
+@theme inline {
+  --font-sans: var(--font-pretendard);
+  --font-heading: var(--font-pretendard);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* shadcn 매핑 */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* DESIGN.md 팔레트 → 유틸리티 (bg-navy, text-steel, bg-tint-mint …) */
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-mid: var(--navy-mid);
+  --color-link-blue: var(--link-blue);
+  --color-link-blue-pressed: var(--link-blue-pressed);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-deep: var(--brand-orange-deep);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-pink-deep: var(--brand-pink-deep);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-purple-300: var(--brand-purple-300);
+  --color-brand-purple-800: var(--brand-purple-800);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-green: var(--brand-green);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-brown: var(--brand-brown);
+  --color-tint-peach: var(--tint-peach);
+  --color-tint-rose: var(--tint-rose);
+  --color-tint-mint: var(--tint-mint);
+  --color-tint-lavender: var(--tint-lavender);
+  --color-tint-sky: var(--tint-sky);
+  --color-tint-yellow: var(--tint-yellow);
+  --color-tint-yellow-bold: var(--tint-yellow-bold);
+  --color-tint-cream: var(--tint-cream);
+  --color-tint-gray: var(--tint-gray);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-hairline: var(--hairline);
+  --color-hairline-soft: var(--hairline-soft);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-ink-deep: var(--ink-deep);
+  --color-ink: var(--ink);
+  --color-charcoal: var(--charcoal);
+  --color-slate: var(--slate);
+  --color-steel: var(--steel);
+  --color-stone: var(--stone);
+  --color-faint: var(--faint);
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-muted: var(--on-dark-muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
+  /* 모서리: shadcn 컴포넌트 관례(버튼 rounded-lg, 카드 rounded-xl)에 Notion 값을 맞춤 */
+  --radius-sm: 0.25rem;   /* 4px  태그 칩 */
+  --radius-md: 0.375rem;  /* 6px  타입 배지 */
+  --radius-lg: 0.5rem;    /* 8px  버튼·인풋 */
+  --radius-xl: 0.75rem;   /* 12px 카드 */
+  --radius-2xl: 1rem;     /* 16px 큰 패널 */
+  --radius-3xl: 1.25rem;
+  --radius-4xl: 1.5rem;
+
+  /* 그림자 (Elevation 표) */
+  --shadow-subtle: rgba(15, 15, 15, 0.04) 0px 1px 2px 0px;
+  --shadow-card: rgba(15, 15, 15, 0.08) 0px 4px 12px 0px;
+  --shadow-mockup: rgba(15, 15, 15, 0.2) 0px 24px 48px -8px;
+  --shadow-modal: rgba(15, 15, 15, 0.16) 0px 16px 48px -8px;
+}
+
+:root {
+  --font-pretendard: "Pretendard Variable", Pretendard, Inter, "Noto Sans KR", "Noto Sans JP",
+    "Noto Sans Thai", "Noto Sans Arabic", -apple-system, system-ui, "Segoe UI", sans-serif;
+  --radius: 0.5rem;
+
+  /* shadcn 시맨틱 ← Notion */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: #1a1a1a;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f5f4;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f6f5f4;
+  --muted-foreground: #787671;
+  --accent: #f6f5f4;
+  --accent-foreground: #1a1a1a;
+  --destructive: #e03131;
+  --border: #e5e3df;
+  --input: #c8c4be;
+  --ring: #1a1a1a;
+  --chart-1: #5645d4;
+  --chart-2: #0075de;
+  --chart-3: #1aae39;
+  --chart-4: #dd5b00;
+  --chart-5: #a4a097;
+  --sidebar: #f6f5f4;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #1a1a1a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0eeec;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #e5e3df;
+  --sidebar-ring: #1a1a1a;
+
+  /* Notion 팔레트 원본 */
+  --navy: #0a1530;
+  --navy-deep: #070f24;
+  --navy-mid: #1a2a52;
+  --link-blue: #0075de;
+  --link-blue-pressed: #005bab;
+  --brand-orange: #dd5b00;
+  --brand-orange-deep: #793400;
+  --brand-pink: #ff64c8;
+  --brand-pink-deep: #a02e6d;
+  --brand-purple: #7b3ff2;
+  --brand-purple-300: #d6b6f6;
+  --brand-purple-800: #391c57;
+  --brand-teal: #2a9d99;
+  --brand-green: #1aae39;
+  --brand-yellow: #f5d75e;
+  --brand-brown: #523410;
+  --tint-peach: #ffe8d4;
+  --tint-rose: #fde0ec;
+  --tint-mint: #d9f3e1;
+  --tint-lavender: #e6e0f5;
+  --tint-sky: #dcecfa;
+  --tint-yellow: #fef7d6;
+  --tint-yellow-bold: #f9e79f;
+  --tint-cream: #f8f5e8;
+  --tint-gray: #f0eeec;
+  --surface: #f6f5f4;
+  --surface-soft: #fafaf9;
+  --hairline: #e5e3df;
+  --hairline-soft: #ede9e4;
+  --hairline-strong: #c8c4be;
+  --ink-deep: #000000;
+  --ink: #1a1a1a;
+  --charcoal: #37352f;
+  --slate: #5d5b54;
+  --steel: #787671;
+  --stone: #a4a097;
+  --faint: #bbb8b1;
+  --on-dark: #ffffff;
+  --on-dark-muted: #a4a097;
+  --success: #1aae39;
+  --warning: #dd5b00;
+  --error: #e03131;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-feature-settings: "ss01", "cv11";
+  }
+  body {
+    @apply bg-background text-foreground;
+    line-height: 1.55;
+    word-break: keep-all;      /* 한국어는 단어 중간에서 끊지 않는다 */
+    overflow-wrap: anywhere;   /* URL·긴 영문은 넘치지 않게 강제 줄바꿈 */
+  }
+  h1, h2, h3, h4 {
+    @apply font-semibold text-ink;
+    letter-spacing: -0.01em;
+  }
+}
+
+
+/* 지구 말풍선 (globe.gl HTML 레이어). 기준점(.globe-anchor)은 라이브러리가 놓고, 말풍선은 그 안에서 비켜 놓는다 */
+.globe-anchor { position: relative; width: 0; height: 0; transition: opacity 0.2s ease; }
+.globe-bubble {
+  position: absolute; left: 0; top: 0;
+  display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  background: #fff; color: var(--ink); border: 1px solid #cdd2d8; border-radius: 4px;
+  padding: 4px 8px 5px; font: inherit; font-size: 12px; line-height: 1.25; white-space: nowrap; cursor: pointer; text-align: left;
+}
+.globe-bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px;
+  background: inherit; border-right: 1px solid #cdd2d8; border-bottom: 1px solid #cdd2d8; transform: translateX(-50%) rotate(45deg);
+}
+.globe-bubble.is-offset::after { display: none; }
+.globe-bubble__leader { position: absolute; left: 0; top: 0; height: 1px; background: #9aa1aa; transform-origin: 0 50%; pointer-events: none; }
+.globe-anchor::before { content: ""; position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+.globe-bubble__region { font-size: 10.5px; color: var(--steel); letter-spacing: 0.01em; }
+.globe-bubble__term { font-weight: 500; }
+.globe-bubble:hover { border-color: var(--ink); }
+.globe-bubble:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.globe-bubble.is-strong { background: var(--ink); color: #fff; border-color: var(--ink); }
+.globe-bubble.is-strong::after { border-color: var(--ink); }
+.globe-bubble.is-strong .globe-bubble__region { color: #cfd4da; }

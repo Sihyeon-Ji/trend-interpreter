@@ -1,0 +1,363 @@
+"""파이프라인 전 단계가 공유하는 데이터 모델.
+
+Gemini 구조화 출력(response_schema), Ollama format, SQLite 저장에 그대로 쓴다.
+이 파일이 곧 '트렌드 DB 스키마'라서, 제품 방향이 바뀌면 여기부터 바뀐다.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+Category = Literal["slang", "meme", "song", "drama", "dance", "news", "geopolitics", "product", "other"]
+Generation = Literal["10s", "20s", "30s", "40s", "50s+", "all"]
+
+
+class ShortsVideo(BaseModel):
+    video_id: str
+    url: str
+    title: str
+    channel: str
+    published_at: datetime
+    duration_sec: int
+    view_count: int = 0
+    like_count: int = 0
+    comment_count: int = 0
+    region: str
+    category_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    source: str  # "most_popular" | "search:<query>"
+
+
+class MemeRef(BaseModel):
+    name: str = Field(description="유행어/밈/노래/드라마 이름. 원어 그대로")
+    kind: Category
+    origin_hypothesis: str = Field(description="유래 가설. 어디서 언제 시작됐는지. 모르면 'unknown'")
+    confidence: float = Field(ge=0, le=1)
+
+
+class ShortsInterpretation(BaseModel):
+    """Gemini 가 쇼츠 하나를 직접 보고 내놓는 해석."""
+
+    url: str
+    language: str
+    summary: str = Field(description="영상에서 실제로 일어나는 일, 2문장")
+    memes: list[MemeRef]
+    target_generation: list[Generation]
+    why_viral: str
+    explain_for_outsider: str = Field(description="이 문화권/세대 밖의 사람에게 맥락 설명 (한국어)")
+    risk_flags: list[str] = Field(
+        default_factory=list, description="브랜드/기관이 쓰면 위험한 이유 (조롱, 정치, 비하 유래, 유행 소멸 등)"
+    )
+
+
+class GenerationRead(BaseModel):
+    """로컬 Gemma 가 텍스트 한 조각을 읽고 내놓는 세대 판정."""
+
+    detected_generation: Generation
+    slang_terms: list[str]
+    plain_explanation: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class NewsItem(BaseModel):
+    title: str
+    link: str
+    published_at: datetime | None
+    source: str
+    region: str
+    query: str | None = None
+
+
+# ---------- 사전(지식 그래프) 계층 ----------
+# 저장소(Spanner Graph / 로컬 SQLite)와 무관한 논리 모델. 저장 어댑터가 이걸 테이블/노드로 옮긴다.
+
+class TrendQuery(BaseModel):
+    """Google Trends 나라별 검색어 한 줄 (BigQuery 공개 데이터셋 또는 'Trending now' RSS).
+    원천에 카테고리·연령이 없다 → 분류는 뒤에서 로컬 모델이 붙인다."""
+
+    term: str
+    region: str  # ISO 3166-1 alpha-2
+    rank: int
+    source: Literal["bq_top", "bq_rising", "rss_now"]
+    date: date
+    score: int | None = None  # bq_top: 0~100 (해당 용어의 5년 시계열 안에서 상대값)
+    percent_gain: int | None = None  # bq_rising 만
+    approx_traffic: str | None = None  # rss_now 만 ("500+")
+    news_title: str | None = None
+    news_url: str | None = None
+
+
+TermStatus = Literal["candidate", "researching", "needs_review", "verified", "retired"]
+Verification = Literal["unverified", "verified_auto", "verified_human", "rejected"]
+Lifecycle = Literal["emerging", "rising", "peak", "steady", "declining", "dormant", "unknown"]
+EvidenceKind = Literal["short", "news", "datalab", "web", "community", "human", "wiki"]
+
+
+class Term(BaseModel):
+    term_id: str
+    canonical: str
+    lang: str = "ko"
+    aliases: list[str] = Field(default_factory=list)
+    category: Category = "slang"
+    status: TermStatus = "candidate"
+    lifecycle: Lifecycle = "unknown"
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+
+
+class Evidence(BaseModel):
+    evidence_id: str
+    kind: EvidenceKind
+    url: str
+    title: str = ""
+    source_domain: str
+    observed_at: datetime
+    excerpt: str = Field(default="", description="근거가 되는 원문 문장")
+    derived: bool = Field(default=False, description="발췌가 우리 모델이 쓴 문장인가 (쇼츠 해석 등). 화면에는 보이되 검증 앵커로는 제목만 본다")
+
+
+class MeaningDraft(BaseModel):
+    """리서치 에이전트 출력. 검증 게이트를 통과하기 전까지는 Meaning 이 아니다."""
+
+    definition: str = Field(description="뜻, 1~2문장")
+    expansion: str | None = Field(default=None, description="줄임말 풀이. 예: 자만추 → 자연스러운 만남 추구. 아니면 null")
+    origin: str = Field(description="유래. 어디서 언제. 모르면 'unknown'")
+    nuance: str = Field(description="뉘앙스·사용 맥락·주의점")
+    generations: list[Generation]
+    regions: list[str] = Field(description="ISO 국가코드")
+    self_confidence: float = Field(ge=0, le=1)
+    is_expression: bool = Field(default=True, description="유행어·밈·줄임말·챌린지·노래 후렴 같은 '표현'인가. 상품·기관·인물·정책·일반 단어면 false")
+
+
+class Meaning(MeaningDraft):
+    """검증 게이트를 거쳐 저장된 버전. 뜻이 바뀌면 새 version 을 만들고 이전 것은 valid_to 를 닫는다(위키식 이력)."""
+
+    meaning_id: str
+    term_id: str
+    version: int
+    confidence: float = Field(ge=0, le=1)
+    verification: Verification = "unverified"
+    valid_from: datetime
+    valid_to: datetime | None = None
+    created_by: str = "research_agent"
+    citations: list[str] = Field(default_factory=list, description="grounding 이 돌려준 출처 URL")
+
+
+class Segment(BaseModel):
+    """세대 × 국가. 확산 경로의 노드."""
+
+    segment_id: str  # 예: KR-20s
+    generation: Generation
+    region: str
+
+
+class MeaningText(BaseModel):
+    """한 언어로 된 뜻 묶음. 로컬 Gemma 가 언어별로 만들어 저장한다. 용어 원문(canonical)은 번역 대상이 아니다."""
+
+    definition: str
+    expansion: str | None = Field(default=None, description="줄임말 풀이. 원문 표기를 남기고 뜻만 옮긴다")
+    origin: str
+    nuance: str
+    plain: str | None = Field(default=None, description="쉽게 풀어 쓴 표현. 뜻이 따로 없는 감탄사면 null")
+
+
+class WikiTop(BaseModel):
+    """위키백과 언어판별 일간 조회 상위 문서. 키 없음. 인물·작품·사건 관심 신호."""
+
+    lang: str
+    date: date
+    rank: int
+    article: str
+    views: int
+
+
+CandidateSource = Literal["trend", "shorts", "news", "manual", "spot", "wiki", "hunt"]
+
+
+class Candidate(BaseModel):
+    """사전 후보. 여러 소스에서 같은 표현이 나오면 count 가 오른다. 리서치는 count·신뢰도 순."""
+
+    candidate_id: str
+    text: str
+    lang: str = "ko"
+    regions: list[str] = Field(default_factory=list)
+    sources: list[CandidateSource] = Field(default_factory=list)
+    count: int = 1
+    first_seen: datetime
+    last_seen: datetime
+    status: Literal["new", "researching", "promoted", "rejected"] = "new"
+    note: str = ""
+
+
+# ---------- '지금 뜨는 것' 보드 (프론트 lib/trends/types.ts 와 1:1) ----------
+
+TrendCategory = Literal["slang_meme", "song_challenge", "fashion_beauty", "food", "product", "people_content", "sports_event"]
+Change = Literal["new", "up", "flat", "down"]
+
+
+class Text2(BaseModel):
+    ko: str
+    en: str
+
+
+class TrendItem(BaseModel):
+    id: str
+    region: str
+    category: TrendCategory
+    term: str
+    rank: int
+    change: Change
+    gain_pct: int | None = None
+    weekly: list[int]
+    term_id: str | None = None
+    topic_id: str | None = None
+    note: Text2
+
+
+class TopicVariantLink(BaseModel):
+    label: str
+    note: Text2
+    term_id: str | None = None
+
+
+class TopicVariant(BaseModel):
+    region: str
+    local_name: str
+    since: str
+    heat: int
+    what_changed: Text2
+    local_memes: list[TopicVariantLink] = Field(default_factory=list)
+    linked: list[TopicVariantLink] = Field(default_factory=list)
+    term_id: str | None = None
+
+
+class Topic(BaseModel):
+    id: str
+    category: TrendCategory
+    name: Text2
+    summary: Text2
+    variants: list[TopicVariant]
+
+
+class TrendBoard(BaseModel):
+    generated_at: datetime
+    items: list[TrendItem]
+    topics: list[Topic]
+    why: list["TrendWhy"] = Field(default_factory=list)
+
+
+class TrendClassification(BaseModel):
+    """검색어 한 건의 분류 결과. 인덱스 매핑 배치 JSON 으로 받는다 (순서 어긋남 방지)."""
+
+    i: int
+    term: str = Field(default="", description="그 줄의 표현을 그대로 옮겨 적는다 (줄이 어긋났는지 확인용)")
+    category: TrendCategory
+    kind: Literal["slang_meme", "song", "challenge", "person", "event", "sports", "product", "food", "fashion", "place", "other"]
+    is_term_candidate: bool = Field(description="유행어·밈·줄임말처럼 '뜻을 설명할 가치'가 있는가")
+    lang: str = Field(description="ISO 639-1")
+
+
+class DemandedTerm(BaseModel):
+    """수요 기반 조사(hunt) 출력: 사전이 못 답한 질문 한 줄에서 뽑은 '이용자가 물어본 표현'.
+    original 은 한글로 적은 외래어의 원어 표기 — 인터넷 자료는 원어로 적혀 있어서 그걸로 찾아야 한다."""
+
+    # i·term 만 필수다. 작은 모델이 lang·kind 를 빼먹어도 그 줄을 버리지 않도록 기본값을 둔다
+    # (2026-09-16 실측: 전부 기본값 없이 두었더니 11줄이 한꺼번에 검증에 걸려 단계가 죽었다).
+    i: int
+    term: str
+    original: str | None = Field(default=None, description="원어 표기. 한국어 고유 표현이면 null")
+    lang: str = Field(default="en", description="ISO 639-1")
+    kind: Literal["slang", "meme", "song", "challenge", "none"] = "slang"
+
+    @field_validator("kind", "lang", mode="before")
+    @classmethod
+    def _blank_to_default(cls, v, info):
+        """작은 모델은 모르는 칸을 비워서 보낸다(kind=""). 기본값은 키가 아예 없을 때만 쓰이므로
+        빈 값은 여기서 기본값으로 바꿔 준다 — 안 그러면 줄 전체가 버려진다(2026-09-16 실측)."""
+        if isinstance(v, str) and not v.strip():
+            return "slang" if info.field_name == "kind" else "en"
+        return v
+
+
+class SpottedTerm(BaseModel):
+    """발굴(spot) 단계 출력: 짧은 글 한 줄에서 뽑은 '뜻을 찾아볼 표현'. 후보가 될지는 규칙(원문에 실재·두 번 이상 목격)이 정한다."""
+
+    i: int
+    term: str
+    lang: str = Field(description="ISO 639-1")
+    kind: Literal["slang", "meme", "song", "challenge", "none"]
+    confidence: float = Field(ge=0, le=1)
+
+
+# ---------- 급증 원인 조사 ----------
+
+Trigger = Literal["influencer", "release", "event", "controversy", "meme", "promotion", "holiday", "sports", "unknown"]
+
+
+class Actor(BaseModel):
+    name: str = Field(description="근거 원문에 그대로 나오는 이름")
+    role: str = Field(description="인플루언서·유튜버·연예인·브랜드·정치인·방송 등")
+
+
+class ExplanationDraft(BaseModel):
+    """'왜 지금 뜨는가'. 근거에 없는 사실은 쓰지 않는다. 판정(저장·갱신)은 규칙이 한다."""
+
+    why_now: str = Field(description="한국어 1~2문장. 누가 무엇을 해서 지금 뜨는지")
+    why_now_en: str
+    trigger: Trigger
+    actors: list[Actor] = Field(default_factory=list)
+    first_signal: str | None = Field(default=None, description="근거에서 확인되는 가장 이른 날짜 YYYY-MM-DD, 없으면 null")
+    self_confidence: float = Field(ge=0, le=1)
+
+
+class TrendExplanation(ExplanationDraft):
+    term: str
+    region: str
+    date: date
+    evidence_ids: list[str] = Field(default_factory=list)
+    model: str = ""
+
+
+# ---------- 화면용: 왜 지금 뜨나 · 최근 변화 · 세대 곡선 ----------
+
+class EvidenceBrief(BaseModel):
+    kind: EvidenceKind
+    source_domain: str
+    title: str
+    url: str
+    observed_at: datetime
+
+
+class TrendWhy(BaseModel):
+    """급증 원인 설명 + 근거 요약 (이용자 화면용)."""
+
+    term: str
+    region: str
+    date: date
+    why_now: Text2
+    trigger: Trigger
+    actors: list[Actor] = Field(default_factory=list)
+    first_signal: str | None = None
+    confidence: float
+    evidence_counts: dict[str, int] = Field(default_factory=dict)  # kind → n
+    evidence: list[EvidenceBrief] = Field(default_factory=list)
+    updated_at: datetime
+
+
+class UpdateItem(BaseModel):
+    """'오늘의 변화' 한 줄. kind: new_term | verified | meaning_changed | spike | recheck | reviewed"""
+
+    kind: str
+    at: datetime
+    label: str
+    region: str | None = None
+    term_id: str | None = None
+    detail: Text2 | None = None
+
+
+class GenerationCurve(BaseModel):
+    generation: Generation
+    points: list[tuple[str, float]]  # (date, ratio 0~100 요청 내 상대값)
+    peak_date: str | None = None

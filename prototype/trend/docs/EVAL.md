@@ -1,0 +1,87 @@
+# 평가표 (자동 생성 2026-09-15 06:06 UTC)
+
+`uv run scripts/eval.py` 가 만든다. 숫자는 실행 시점의 로컬 DB(`data/trend.db`) 기준.
+
+## 1. 결정론 규칙·저장소 (pytest)
+
+- 통과 24건 — 생애주기, 검증 게이트, 매칭 경계, 뜻 버전 관리, 후보 추출, 보드, 추적, 급증 감지, 쇼핑 항목
+
+## 2. 메시지 해석 매칭 배터리 (web/scripts/explain-check.mjs)
+
+- 서버(3100) 미기동으로 건너뜀
+
+## 3. 검증 게이트 — 환각·근거 부족 차단 픽스처
+
+- 8/8 기대대로
+
+| 사례 | 기대 | 결과 | |
+|---|---|---|---|
+| 정상: 뉴스+웹 2출처, 풀이 원문 실재 | verified_auto | verified_auto | ✓ |
+| 환각: 풀이가 어떤 원문에도 없음 | unverified | unverified | ✓ |
+| 출처 1개뿐 | unverified | unverified | ✓ |
+| 웹만 있고 1차 근거 없음 | unverified | unverified | ✓ |
+| 용어가 원문에 없는 근거만 | unverified | unverified | ✓ |
+| 모델 자기확신 낮음 | unverified | unverified | ✓ |
+| 정상: 쇼츠+뉴스 | verified_auto | verified_auto | ✓ |
+| 뜻 충돌: 현행 풀이와 다름 | unverified | unverified | ✓ |
+
+## 4. 급증 원인 설명 (spikes)
+
+- 설명 17건 · 평균 확신 0.89 · 근거에 실재하는 인물이 남은 비율 100% · 계기 분포 {"sports": 4, "event": 8, "promotion": 2, "holiday": 2, "controversy": 1}
+- 근거 평균 27.4건/설명
+
+## 5. 사전·검수
+
+- 용어 73개 상태 {"needs_review": 9, "verified": 48, "retired": 12, "researching": 4} · 현행 뜻 검증 {"verified_auto": 2, "verified_human": 46, "unverified": 9, "rejected": 12} · 검수 대기 9건
+- 자동 확인 비율이 곧 '사람 손 없이 얼마나 가는가'. 근거 부족은 자동으로 검수 큐로 간다(정직한 실패).
+
+## 6. 파이프라인 건강 (최근 24시간)
+
+| 단계 | 건수 | 상태 |
+|---|---|---|
+| board | 1813 | ok |
+| candidates | 38 | ok |
+| classify | 615 | error — ValueError: 로컬 LLM 구조화 출력 실패 (gemma4:e4b): 1 validation erro |
+| collect.mentions | 3971 | ok |
+| collect.news | 12090 | ok |
+| collect.retention | 0 | zero |
+| collect.trends_bq | 2372 | error — DefaultCredentialsError: Your default credentials were not f |
+| collect.trends_rss | 1501 | ok |
+| collect.wikipedia | 880 | ok |
+| collect.youtube | 23144 | ok |
+| interpret | 16 | error — ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, |
+| naver | 68 | ok |
+| research | 21 | error — ValueError: 로컬 LLM 구조화 출력 실패 (gemma4:e4b): 6 validation erro |
+| spikes | 16 | error — ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, |
+| spot | 44 | ok |
+| topics | 24 | ok |
+| track | 568 | ok |
+| translate | 6 | ok |
+
+## 7. 아직 사람이 매겨야 하는 것
+
+- 검색어 분류 정확도: `data/eval/classify_sample.csv` 에 표본 40건을 뽑아 둔다(팀이 라벨 → 정확도 계산).
+- 뜻 정확도: 검증된 뜻 20개를 나무위키·언론 정의와 대조(팀 라벨).
+
+## 챗봇 답변 평가 (2026-09-16 추가)
+
+`uv run scripts/eval_chat.py` — 질문 모양별로 던지고 **규칙으로 판정 가능한 것만** 채점한다.
+'좋아 보인다' 는 기준이 못 되므로 보는 것은 이것들이다: 지어내지 않았는가, 질문 모양에 맞는 답인가,
+되묻지 않았는가, 마크다운·도구 이름·내부 지시문이 새지 않았는가, 진행 표시가 오는가.
+
+두 묶음으로 나눈다. 프롬프트를 고칠 때는 앞 묶음만 보고, **뒤 묶음(`--held`)은 고친 뒤에만** 돌려
+특정 질문에만 맞춘 것이 아닌지 확인한다.
+
+| 묶음 | 질문 수 | 점수 |
+|---|---|---|
+| 기본 | 13 | 13/13 |
+| 따로 둔 것 (`--held`) | 19 | 19/19 |
+
+기본 묶음에 맞춰 고쳤더니 따로 둔 묶음이 80% 로 떨어진 적이 있다(2026-09-16). 그때 드러난 것들:
+
+- 되묻는 말투가 매번 달라 정규식으로 쫓는 것이 무의미했다 → **문구 대신 구조로 판정**한다.
+  뜻으로 물었는데 표제어 카드가 없으면 답변 문구와 무관하게 코드가 다시 찾는다.
+- 한 낱말을 물었는데 모델이 엉뚱한 도구를 부르면 '못 찾았다' 기록이 남지 않았다 →
+  질문에서 낱말을 직접 뽑아 코드가 확인한다(`_asked_word`, `_check_asked_word`).
+- `_tidy` 안의 `import re` 가 모듈 `re` 를 가려 예외가 났고, 그 결과 답이 빈 채로 나갔다.
+  같은 질문이 어떤 때는 되고 어떤 때는 안 되면 **먼저 예외를 의심한다**.

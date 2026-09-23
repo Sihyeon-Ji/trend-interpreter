@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.db
+.pytest_cache/
+.DS_Store
+*.zip
+design/
+logs/
