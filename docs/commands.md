@@ -166,7 +166,7 @@ row count와 정렬된 JSON fingerprint로 비교하고 앱 role의 제한된 �
 
 이 절차는 로컬 논리 백업·복원 실습입니다. 자동 백업 스케줄, 암호화 보관,
 Cloud SQL, 시점 복구나 PostgreSQL major version upgrade를 검증한 것은 아닙니다.
-검증 결과와 안전 범위는 [Plan 04](plans/04-database-recovery.md)에 있습니다.
+검증 결과와 안전 범위는 [Plan 04](plans/archive/04-database-recovery.md)에 있습니다.
 
 ## 그래프 워크플로우 실습
 

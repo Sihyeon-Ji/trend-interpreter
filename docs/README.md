@@ -17,7 +17,7 @@
 - [AI 개발 개념](ai-development-guide.md)
 - [1~5단계 실습 기록](ai-lab-plan.md)
 - [AI 개발 기반 종합 보고서](ai-lab-report.md)
-- [Plan 01~05](plans/README.md)
+- [현재 운영 준비 계획과 완료 계획 archive](plans/README.md)
 
 ## 대회 기준과 일정
 

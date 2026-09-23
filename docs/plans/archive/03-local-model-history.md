@@ -1,6 +1,6 @@
 # 03. 실제 모델 비교와 실행 이력 연결
 
-상태 **구현·현재 Mac 실제 Gemma 4 검증 완료** · 우선순위 **완료** · [전체 계획](README.md)
+상태 **구현·현재 Mac 실제 Gemma 4 검증 완료** · [현재 계획](../README.md)
 
 ## 해결할 문제와 목표
 
@@ -97,4 +97,4 @@ docker compose run --rm --build ollama-history-check
 ```
 
 출력된 Run ID를 http://localhost:5173 의 **Workflow history**에서 선택하거나 API로 조회합니다.
-세부 인자와 실패 실습은 [명령어 문서](../commands.md#gemma-4-실행을-workflow-history에-연결)에 있습니다.
+세부 인자와 실패 실습은 [명령어 문서](../../commands.md#gemma-4-실행을-workflow-history에-연결)에 있습니다.

@@ -95,7 +95,7 @@ DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 
 앱에는 합성 기록의 조회·추가 권한과 실행 이력 테이블의 조회·추가·수정 권한을 부여합니다.
 배포 미리보기에서는 실습 API가 비활성화됩니다.
 스키마 변경은 체크섬이 기록되는 순차 SQL 마이그레이션으로 관리합니다.
-백업·새 DB 복원 절차는 [Plan 04 결과](docs/plans/04-database-recovery.md)에 정리했습니다.
+백업·새 DB 복원 절차는 [Plan 04 결과](docs/plans/archive/04-database-recovery.md)에 정리했습니다.
 
 ## 작은 그래프 워크플로우 실습
 
@@ -118,8 +118,8 @@ Mac 호스트에 Ollama와 Google `gemma4:e4b` 모델을 준비한 뒤 `docker c
 기본 웹 화면과 실행 이력 실습은 계속 Mock이며, 실제 모델 비교는 이 명령으로 따로 실행합니다.
 연결 실패를 Mock 성공으로 바꾸지 않습니다. 설치·실행 순서는 [명령어 안내](docs/commands.md#실제-로컬-모델-비교),
 관찰한 품질 문제와 성능 수치는 [5단계 실습 기록](docs/ai-lab-plan.md)에 있습니다.
-평가 체계와 최신 10개 사례 결과는 [Plan 02 결과](docs/plans/02-model-evaluation.md)에 있습니다.
-실제 모델 실행을 PostgreSQL 메타데이터 이력과 연결하려면 [Plan 03 결과](docs/plans/03-local-model-history.md)를 참고하세요.
+평가 체계와 최신 10개 사례 결과는 [Plan 02 결과](docs/plans/archive/02-model-evaluation.md)에 있습니다.
+실제 모델 실행을 PostgreSQL 메타데이터 이력과 연결하려면 [Plan 03 결과](docs/plans/archive/03-local-model-history.md)를 참고하세요.
 
 ## 개발 화면과 배포 미리보기의 차이
 
@@ -170,7 +170,7 @@ Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 
 - [전체 문서 색인](docs/README.md)
 - [1~5단계 종합 보고서 — 준비된 역량·한계·다음 과제](docs/ai-lab-report.md)
-- [주제 선정 전에 진행할 공통 개발 기반 계획](docs/plans/README.md)
+- [현재 운영 준비 계획과 완료 계획 archive](docs/plans/README.md)
 - [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
 - [5단계 AI 실습 계획과 준비물](docs/ai-lab-plan.md)
 - [팀원용 처음 설치 가이드](docs/setup.md)

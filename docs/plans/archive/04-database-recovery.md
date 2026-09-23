@@ -1,6 +1,6 @@
 # 04. DB 스키마 변경과 백업·복구
 
-상태 **구현·현재 Mac 격리 복원 검증 완료** · 우선순위 **완료** · [전체 계획](README.md)
+상태 **구현·현재 Mac 격리 복원 검증 완료** · [현재 계획](../README.md)
 
 ## 해결할 문제와 목표
 
@@ -94,7 +94,7 @@ unset BACKUP_FILE RESTORE_DATABASE
 ```
 
 기존 DB 이름이나 기존 restore DB를 대상으로 지정하면 실패합니다. 자세한 출력과 옵션은
-[명령어 문서](../commands.md#db-migration과-백업새-db-복원)에 있습니다.
+[명령어 문서](../../commands.md#db-migration과-백업새-db-복원)에 있습니다.
 
 ## 검증 기록 — 2026-09-23
 

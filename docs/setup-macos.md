@@ -128,4 +128,4 @@ unset COMPOSE_PROJECT_NAME DEV_API_PORT DEV_WEB_PORT
 ```
 
 일반 `down`은 해당 검증 볼륨을 보존합니다. 이 안내는 기존 개발 DB나 모든 Docker 볼륨을 삭제하는 절차가 아닙니다.
-다른 팀원 Mac의 확인 결과는 [계획 01 검증 기록](plans/01-environment-reproducibility.md)에 환경 정보와 함께 추가합니다.
+다른 팀원 Mac의 확인 결과는 [계획 01 검증 기록](plans/archive/01-environment-reproducibility.md)에 환경 정보와 함께 추가합니다.
