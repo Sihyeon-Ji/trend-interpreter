@@ -47,7 +47,7 @@ flowchart LR
 | Cloud Run service | `builder-cup-alert-relay` | Monitoring payload를 Discord 메시지로 변환 |
 | Runtime service account | `builder-cup-alert-relay` | Discord webhook secret만 읽는 실행 계정 |
 | Push service account | `builder-cup-alert-push` | relay에 `roles/run.invoker`로 호출하는 계정 |
-| Secret Manager secret | `builder-cup-discord-webhook-url` | Discord webhook URL 보관 |
+| Secret Manager secret | `discord-webhook` | Discord webhook URL 보관 |
 
 ## 보안 경계
 
@@ -135,7 +135,7 @@ relay는 기존 앱 이미지와 분리해 `builder-cup/alert-relay:<commit>` �
 
 ```bash
 printf '%s' "$DISCORD_WEBHOOK_URL" |
-  gcloud secrets versions add builder-cup-discord-webhook-url \
+  gcloud secrets versions add discord-webhook \
     --data-file=- \
     --project=stunning-crane-508614-c1
 ```
