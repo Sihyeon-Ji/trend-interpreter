@@ -9,7 +9,7 @@
 | ID | 상태 | 작업 | 완료 기준 |
 | --- | --- | --- | --- |
 | [01](01-production-alerting.md) | 실행 준비 | 운영 상태 감시와 알림 | 실제 장애 조건으로 지정 수신처에 알림이 도착하고 복구 상태를 확인 |
-| [02](02-public-repository-release-protection.md) | 실행 준비 | 공개 저장소와 배포 브랜치 보호 | 외부 사용자는 PR만 만들 수 있고 승인된 collaborator만 검증을 거쳐 배포 가능 |
+| [02](02-public-repository-release-protection.md) | 실행 준비 | 공개 저장소와 GCP 배포 승인 | 외부 사용자는 push할 수 없고 collaborator의 배포는 Environment 승인 후 진행 |
 
 두 계획은 서로 독립적으로 진행할 수 있습니다. Plan 01은 알림 수신처를 정한 뒤 적용하고, Plan 02는 저장소를 공개하기 전에 준비한 다음 공개 직후 보호 규칙을 활성화합니다.
 

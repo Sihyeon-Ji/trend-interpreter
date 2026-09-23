@@ -25,7 +25,20 @@
 
 ### 1. 알림 수신처 확정
 
-팀이 실제로 확인할 이메일 또는 Slack 채널 하나를 정하고 담당자를 기록합니다. 테스트 알림 수신까지 확인하기 전에는 완료로 처리하지 않습니다.
+현재 팀의 소통 수단을 기준으로 다음 후보를 사용합니다.
+
+| 후보 | 연결 방식 | 장점 | 제약 | 판단 |
+| --- | --- | --- | --- | --- |
+| 이메일 | Cloud Monitoring 기본 채널 | 추가 서비스와 코드가 필요 없고 설정이 가장 단순함 | 팀 대화방처럼 함께 처리하기 어려움 | 기본 채널로 사용 |
+| Discord | Pub/Sub → Cloud Run 중계기 → Discord webhook | 현재 팀 채널에서 모두 확인 가능 | payload 변환, webhook secret, 작은 운영 리소스가 필요함 | 필요할 때 보조 채널로 추가 |
+| Google Cloud 앱 | Cloud Monitoring 기본 채널 | 별도 메신저 연동 없이 모바일 알림 가능 | 프로젝트 접근 권한이 있는 개인 중심 채널 | 개인 보조 채널 후보 |
+| SMS | Cloud Monitoring 기본 채널 | 인터넷 메신저를 열지 않아도 확인 가능 | 지역별 지원 차이와 전달 신뢰성 제약이 있음 | 긴급 백업 외에는 사용하지 않음 |
+| 카카오톡 | Kakao Business 알림 또는 별도 연동 | 팀이 이미 사용하는 메신저 | 일반 Kakao Talk Message API는 자동 운영 알림 용도가 아니며 구성 부담이 큼 | 이번 프로젝트에서는 제외 |
+| Microsoft Teams | 중계 서비스 → Teams | 조직용 채널 관리 가능 | 중계기가 필요하고 회사 계정 사용이 불편함 | 이번 프로젝트에서는 제외 |
+
+우선 팀원 이메일을 기본 채널로 등록합니다. 한 곳에서 공동 대응할 필요가 생기면 Discord를 보조 채널로 추가합니다. Google Cloud도 webhook 계열 채널만 단독으로 쓰지 말고 이메일 또는 Pub/Sub를 함께 사용하도록 권장하므로 Discord를 추가해도 이메일은 유지합니다.
+
+테스트 알림 수신까지 확인하기 전에는 완료로 처리하지 않습니다.
 
 ### 2. 공개 상태 검사 추가
 
@@ -75,4 +88,10 @@ Cloud Monitoring uptime check가 5분마다 `/api/health`를 호출하도록 설
 
 ## 실행에 필요한 결정
 
-구현 전에 팀 알림을 받을 이메일 또는 Slack 채널만 정하면 됩니다. 이 정보가 정해지면 나머지는 현재 GCP 리소스를 재사용해 적용할 수 있습니다.
+첫 적용에는 알림을 받을 팀원 이메일 주소만 정하면 됩니다. Discord도 함께 사용하려면 알림 전용 채널과 webhook을 만들고, webhook URL은 Secret Manager에 저장합니다.
+
+## 참고 자료
+
+- [Cloud Monitoring notification channel](https://docs.cloud.google.com/monitoring/support/notification-options)
+- [Discord webhook 안내](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks)
+- [Kakao Talk Message API 용도와 제한](https://developers.kakao.com/docs/en/kakaotalk-message/common)
