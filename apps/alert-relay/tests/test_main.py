@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 
 import httpx
 from fastapi.testclient import TestClient
@@ -37,7 +38,7 @@ def notification(state: str = "open") -> dict:
     }
 
 
-def test_open_notification_is_sent_without_raw_summary():
+def test_open_notification_is_sent_without_raw_summary(caplog):
     captured = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -46,14 +47,17 @@ def test_open_notification_is_sent_without_raw_summary():
 
     discord = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     app = create_app(Settings(discord_webhook_url=WEBHOOK_URL), discord)
-    with TestClient(app) as client:
-        response = client.post("/", json=envelope(notification()))
+    with caplog.at_level(logging.INFO, logger="uvicorn.error.alert_relay"):
+        with TestClient(app) as client:
+            response = client.post("/", json=envelope(notification()))
 
     assert response.status_code == 204
     serialized = json.dumps(captured)
     assert "must never be forwarded" not in serialized
     assert "장애 발생" in captured["embeds"][0]["title"]
     assert captured["embeds"][0]["color"] == 0xE5484D
+    assert "discord_delivery_succeeded" in caplog.text
+    assert "must never be forwarded" not in caplog.text
 
 
 def test_closed_notification_uses_recovery_style():

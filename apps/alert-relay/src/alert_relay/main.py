@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-logger = logging.getLogger("alert_relay")
+logger = logging.getLogger("uvicorn.error").getChild("alert_relay")
 DISCORD_RED = 0xE5484D
 DISCORD_GREEN = 0x30A46C
 MAX_FIELD_LENGTH = 1024
