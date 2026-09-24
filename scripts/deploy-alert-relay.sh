@@ -61,11 +61,12 @@ gcloud run services update-traffic "$SERVICE" \
   --project="$PROJECT_ID" --region="$REGION" \
   --to-revisions="$revision=100" --remove-tags=candidate --quiet
 
-smoke_message=$(python3 - "$revision" <<'PY'
+smoke_id="deployment-smoke-$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
+smoke_message=$(python3 - "$revision" "$smoke_id" <<'PY'
 import json, sys, time
 print(json.dumps({
     "incident": {
-        "incident_id": f"deployment-smoke-{int(time.time())}",
+        "incident_id": sys.argv[2],
         "state": "closed",
         "policy_name": "Discord relay deployment smoke test",
         "condition_name": "Authenticated Pub/Sub delivery",
@@ -83,4 +84,5 @@ PY
 )
 gcloud pubsub topics publish "$ALERT_TOPIC" \
   --project="$PROJECT_ID" --message="$smoke_message" --quiet >/dev/null
+python3 scripts/verify_alert_delivery.py "$smoke_id" "$revision" "$PROJECT_ID"
 printf '%s\n' "$relay_audience"

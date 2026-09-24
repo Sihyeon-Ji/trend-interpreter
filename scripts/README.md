@@ -20,6 +20,9 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | `model_eval.py` | Compose `model-eval` | Validate the versioned suite and manual reviews; compare two reports without calling a model |
 | `ollama_history_lab.py` | Compose `ollama-history-check`, explicit local use only | Run one synthetic Gemma 4 workflow and link its report ID to metadata-only PostgreSQL history |
 | `container-smoke.sh` | CI | Verify a production image's UI, health and mock analysis |
+| `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |
+| `release_scope.py` | `Release GCP` workflow | Classify release changes into shared checks, infrastructure, application and relay |
+| `verify_alert_delivery.py` | relay deploy script | Confirm a uniquely identified synthetic alert reached Discord from the new revision |
 | `bootstrap-gcp.sh` | Deployment operator, only after deployment resumes | Provision GCP infrastructure and configure GitHub deployment variables |
 | `deploy-gcp.sh` | `release/gcp` workflow | Deploy a candidate, verify it and promote traffic |
 | `deploy-alert-relay.sh` | alert relay release workflow | Deploy the private Discord relay, verify it and publish a synthetic Pub/Sub smoke notification |

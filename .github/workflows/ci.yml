@@ -28,6 +28,8 @@ jobs:
       - run: RESTORE_DATABASE=builder_cup_restore_ci docker compose run --rm --build db-recovery-check
       - run: docker build -t builder-cup:ci .
       - run: bash scripts/container-smoke.sh builder-cup:ci
+      - run: docker build -f apps/alert-relay/Dockerfile -t builder-cup-alert-relay:ci .
+      - run: bash scripts/alert-relay-smoke.sh builder-cup-alert-relay:ci
       - name: Collect browser failure artifacts
         if: failure()
         run: docker cp builder-cup-e2e:/tmp/test-results ./browser-test-results || true

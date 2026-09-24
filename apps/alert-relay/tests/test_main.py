@@ -3,6 +3,7 @@ import json
 import logging
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from alert_relay.main import Settings, create_app
@@ -105,6 +106,43 @@ def test_discord_failure_requests_pubsub_retry():
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Discord rejected notification"}
+
+
+@pytest.mark.parametrize("discord_status", [500, 502, 503])
+def test_discord_server_error_requests_pubsub_retry(discord_status):
+    discord = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(discord_status))
+    )
+    app = create_app(Settings(discord_webhook_url=WEBHOOK_URL), discord)
+    with TestClient(app) as client:
+        response = client.post("/", json=envelope(notification()))
+    assert response.status_code == 503
+
+
+def test_discord_timeout_requests_pubsub_retry_without_leaking_secret(caplog):
+    def timeout(_request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("synthetic timeout")
+
+    discord = httpx.AsyncClient(transport=httpx.MockTransport(timeout))
+    app = create_app(Settings(discord_webhook_url=WEBHOOK_URL), discord)
+    with caplog.at_level(logging.ERROR, logger="uvicorn.error.alert_relay"):
+        with TestClient(app) as client:
+            response = client.post("/", json=envelope(notification()))
+    assert response.status_code == 503
+    assert "discord_delivery_failed" in caplog.text
+    assert WEBHOOK_URL not in caplog.text
+    assert "must never be forwarded" not in caplog.text
+
+
+def test_invalid_json_is_rejected_without_discord_call():
+    discord = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: pytest.fail("Discord must not be called"))
+    )
+    app = create_app(Settings(discord_webhook_url=WEBHOOK_URL), discord)
+    data = base64.b64encode(b"{invalid json").decode()
+    with TestClient(app) as client:
+        response = client.post("/", json={"message": {"data": data, "messageId": "bad-json"}})
+    assert response.status_code == 400
 
 
 def test_health():

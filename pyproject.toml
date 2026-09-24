@@ -24,6 +24,7 @@ packages = ["apps/api/src/builder_cup"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 
 [tool.ruff]

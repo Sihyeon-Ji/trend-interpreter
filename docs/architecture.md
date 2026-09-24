@@ -163,9 +163,10 @@ host runtime 설정도 Git에 넣지 않습니다. Cloud에서 별도 GPU host�
 
 ```mermaid
 flowchart LR
-  Push[release/gcp push] --> Check[검사·test·build]
-  Check --> AppImage[Application image]
-  Check --> RelayImage[Alert relay image]
+  Push[release/gcp push] --> Scope[변경 범위 확인]
+  Scope --> Check[공통 검사 최대 1회]
+  Check -->|Application 변경| AppImage[Application image]
+  Check -->|Relay 변경| RelayImage[Alert relay image]
   AppImage --> Registry[Artifact Registry]
   RelayImage --> Registry
   Registry --> AppCandidate[Application 후보 revision]

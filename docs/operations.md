@@ -16,7 +16,7 @@ Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry�
    Script는 준비된 인프라를 적용하기 전에 Terraform plan을 보여주며, 현재 gcloud project나 계정을
    임의로 바꾸지 않습니다.
 5. GitHub의 기본 branch를 `develop`으로 설정합니다.
-6. `release/gcp`에 push하면 CI와 배포가 실행됩니다.
+6. `release/gcp`에 push하면 변경 범위를 확인해 필요한 검사와 서비스 배포만 실행됩니다.
 
 Bootstrap은 다시 실행할 수 있습니다. 기존 demo secret version을 보존하며 remote state를 사용합니다.
 API 활성화나 resource 생성 전에 project에 결제가 연결되어 있는지도 확인합니다. 공개 정보인 repository
@@ -41,8 +41,9 @@ Cloud Run 서비스에는 변경할 수 없는 image digest가 필요하므로 b
 성공할 때까지 현재 revision의 traffic을 유지합니다. Domain mapping은 별도이며 팀 소유 domain이 생길
 때까지 만들지 않습니다.
 
-자동 검사와 배포는 `release/gcp`에서 각 서비스의 image·배포 파일이 바뀐 push에만 실행됩니다.
-Application과 alert relay workflow는 서로의 전용 변경으로 중복 실행되지 않습니다. `develop` push는 CI를 시작하지 않습니다.
+`release/gcp`의 `Release GCP` workflow는 변경 범위를 계산하고 공통 검사를 최대 한 번 실행합니다.
+Application과 alert relay는 변경된 서비스만 별도 job으로 배포합니다. Terraform만 바뀌면 인프라 검증만
+실행하며 자동 apply하지 않습니다. `develop` push는 자동 CI를 시작하지 않습니다.
 원격 검사가 미리 필요하면 CI workflow를 수동 실행합니다. 2026-09-21 첫 release는 약 4분 38초가
 걸렸습니다. 전체 검사가 약 3분 15초, 인증·cache된 image 게시·Cloud Run 배포가 약 1분 16초였습니다.
 중복 `develop` CI trigger를 없앤 다음 release는 약 4분 4초가 걸렸습니다. Warm build cache가 이후
@@ -88,10 +89,10 @@ unset DISCORD_WEBHOOK_URL
 Webhook URL을 명령 인수, 문서, issue, chat에 직접 쓰지 않습니다. Relay 배포는 최신 활성 secret version의
 숫자를 확인해 해당 version에 고정합니다.
 
-`release/gcp`에서 relay 관련 파일이 바뀌면 `Deploy Alert Relay` workflow가 별도 image를 만들고 private
+`release/gcp`에서 relay 관련 파일이 바뀌면 `Release GCP`의 alert relay job이 별도 image를 만들고 private
 Cloud Run 서비스 `builder-cup-alert-relay`를 배포합니다. 인증된 `/health` 확인 후 traffic을 전환하고,
-합성 복구 알림을 Pub/Sub에 발행합니다. Discord 채널에 `Discord relay deployment smoke test`가 도착하면
-end-to-end 전달이 성공한 것입니다.
+합성 복구 알림을 Pub/Sub에 발행합니다. 배포 job은 해당 revision의 전달 성공 로그까지 기다립니다.
+제한 시간 안에 확인되지 않으면 성공으로 표시하지 않으며, 전파 지연만으로 자동 rollback하지 않습니다.
 
 현재 구성을 확인할 때는 secret 값을 읽지 않는 다음 명령을 사용합니다.
 
@@ -116,9 +117,10 @@ resource.labels.service_name="builder-cup-alert-relay"
 textPayload:"discord_delivery_"
 ```
 
-Relay는 최소 instance 0, 최대 1입니다. Pub/Sub은 최소 10초, 최대 600초의 backoff로 재시도하고 5회
-실패하면 `builder-cup-monitoring-alerts-dlq`로 이동합니다. 확인용 subscription은 실패 메시지를 7일간
-보존합니다.
+Relay는 최소 instance 0, 최대 1입니다. Pub/Sub은 최소 10초, 최대 600초의 backoff로 재시도하며
+5회 전달 시도를 설정했습니다. 실제 횟수는 Pub/Sub의 근사 처리 결과라 다를 수 있습니다. 반복 실패는
+`builder-cup-monitoring-alerts-dlq`로 격리하고 확인용 subscription은 메시지를 7일간 보존합니다.
+두 subscription은 비활성 만료를 해제했습니다.
 
 구현과 실제 장애·복구·dead-letter 검증 결과는
 [Discord 운영 알림 중계기 완료 기록](plans/archive/01-production-alerting.md)에 있습니다.
@@ -397,25 +399,14 @@ gh variable list --repo Sihyeon-Ji/2026-google-ai-builder-cup
 Secret을 삭제했다면 bootstrap이 새 team access code를 만듭니다. 예전 code는 더 이상 동작하지 않으므로
 새 값을 private channel로 전달합니다.
 
-평소처럼 새 application commit을 승격합니다. `release/gcp`가 원하는 commit을 이미 가리키면 일반
-`git push`로는 push event가 생기지 않아 배포가 시작되지 않습니다. 이 경우 먼저 재배포용 빈 commit을
-명시적으로 만듭니다.
-
-```bash
-git switch develop
-git commit --allow-empty -m "ops: redeploy GCP"
-git push origin develop
-git switch release/gcp
-git merge --ff-only develop
-git push origin release/gcp
-git switch develop
-```
+평소처럼 새 application commit을 승격합니다. 빈 commit에는 변경 파일이 없어 배포 job이 실행되지
+않습니다. 같은 image의 명시적 재배포 경로는 [Plan 06](plans/06-release-recovery.md)에서 다룹니다.
 
 Release 완료를 기다리고 배포된 서비스를 확인합니다.
 
 ```bash
 RUN_ID=$(gh run list --repo Sihyeon-Ji/2026-google-ai-builder-cup \
-  --workflow="Deploy GCP" --branch=release/gcp --limit=1 \
+  --workflow="Release GCP" --branch=release/gcp --limit=1 \
   --json=databaseId --jq='.[0].databaseId')
 gh run watch "$RUN_ID" --repo Sihyeon-Ji/2026-google-ai-builder-cup --exit-status
 

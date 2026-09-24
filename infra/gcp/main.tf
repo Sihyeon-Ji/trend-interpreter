@@ -7,6 +7,35 @@ locals {
     [google_monitoring_notification_channel.discord_pubsub.name],
     google_monitoring_notification_channel.email[*].name,
   )
+  dashboard_definition = {
+    displayName = "Builder Cup operations"
+    gridLayout = { columns = 2, widgets = [
+      { title = "Cloud Run requests", xyChart = { dataSets = [{ timeSeriesQuery = {
+        timeSeriesFilter = {
+          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.labels.service_name=\"builder-cup\""
+          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
+        }
+      } }] } },
+      { title = "Application errors", xyChart = { dataSets = [{ timeSeriesQuery = {
+        timeSeriesFilter = {
+          filter      = "metric.type=\"logging.googleapis.com/user/builder_cup_api_errors\" resource.type=\"cloud_run_revision\""
+          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
+        }
+      } }] } },
+      { title = "Discord relay errors", xyChart = { dataSets = [{ timeSeriesQuery = {
+        timeSeriesFilter = {
+          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.label.service_name=\"${local.alert_relay_service}\" metric.label.response_code_class=\"5xx\""
+          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
+        }
+      } }] } },
+      { title = "Alert dead-letter backlog", xyChart = { dataSets = [{ timeSeriesQuery = {
+        timeSeriesFilter = {
+          filter      = "metric.type=\"pubsub.googleapis.com/subscription/num_undelivered_messages\" resource.type=\"pubsub_subscription\" resource.label.subscription_id=\"builder-cup-monitoring-alerts-dlq-inspect\""
+          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MAX" }
+        }
+      } }] } }
+    ] }
+  }
 }
 
 resource "google_project_service" "apis" {
@@ -83,6 +112,12 @@ resource "google_project_iam_member" "vertex" {
 resource "google_project_iam_member" "deploy_run" {
   project = var.project_id
   role    = "roles/run.admin"
+  member  = "serviceAccount:${google_service_account.deploy.email}"
+}
+
+resource "google_project_iam_member" "deploy_read_alert_logs" {
+  project = var.project_id
+  role    = "roles/logging.viewer"
   member  = "serviceAccount:${google_service_account.deploy.email}"
 }
 
@@ -180,39 +215,19 @@ resource "google_logging_metric" "api_errors" {
   depends_on = [google_project_service.apis]
 }
 
+resource "terraform_data" "dashboard_definition" {
+  input = sha256(jsonencode(local.dashboard_definition))
+}
+
 resource "google_monitoring_dashboard" "app" {
-  dashboard_json = jsonencode({
-    displayName = "Builder Cup operations"
-    gridLayout = { columns = 2, widgets = [
-      { title = "Cloud Run requests", xyChart = { dataSets = [{ timeSeriesQuery = {
-        timeSeriesFilter = {
-          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.labels.service_name=\"builder-cup\""
-          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
-        }
-      } }] } },
-      { title = "Application errors", xyChart = { dataSets = [{ timeSeriesQuery = {
-        timeSeriesFilter = {
-          filter      = "metric.type=\"logging.googleapis.com/user/builder_cup_api_errors\" resource.type=\"cloud_run_revision\""
-          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
-        }
-      } }] } },
-      { title = "Discord relay errors", xyChart = { dataSets = [{ timeSeriesQuery = {
-        timeSeriesFilter = {
-          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.label.service_name=\"${local.alert_relay_service}\" metric.label.response_code_class=\"5xx\""
-          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
-        }
-      } }] } },
-      { title = "Alert dead-letter backlog", xyChart = { dataSets = [{ timeSeriesQuery = {
-        timeSeriesFilter = {
-          filter      = "metric.type=\"pubsub.googleapis.com/subscription/num_undelivered_messages\" resource.type=\"pubsub_subscription\" resource.label.subscription_id=\"builder-cup-monitoring-alerts-dlq-inspect\""
-          aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MAX" }
-        }
-      } }] } }
-    ] }
-  })
-  depends_on = [google_logging_metric.api_errors]
+  dashboard_json = jsonencode(local.dashboard_definition)
+  depends_on     = [google_logging_metric.api_errors]
   # Cloud Monitoring injects output-only fields and chart defaults into the stored JSON.
-  lifecycle { ignore_changes = [dashboard_json] }
+  # Replace only when the desired chart definition changes, not on API normalization.
+  lifecycle {
+    ignore_changes       = [dashboard_json]
+    replace_triggered_by = [terraform_data.dashboard_definition]
+  }
 }
 
 resource "google_pubsub_topic" "monitoring_alerts" {
@@ -249,6 +264,7 @@ resource "google_pubsub_subscription" "discord_relay" {
   topic                      = google_pubsub_topic.monitoring_alerts.id
   ack_deadline_seconds       = 30
   message_retention_duration = "604800s"
+  expiration_policy { ttl = "" }
 
   push_config {
     push_endpoint = "${local.alert_relay_url}/"
@@ -285,6 +301,7 @@ resource "google_pubsub_subscription" "dead_letter_inspect" {
   topic                      = google_pubsub_topic.monitoring_alerts_dead_letter.id
   ack_deadline_seconds       = 30
   message_retention_duration = "604800s"
+  expiration_policy { ttl = "" }
 }
 
 resource "google_monitoring_notification_channel" "discord_pubsub" {
