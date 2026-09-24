@@ -40,6 +40,13 @@ Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어
 - prevent self-review 활성화
 - deployment branch를 `release/gcp`로 제한
 - environment secret과 variable 접근은 승인 이후에만 허용
+- 관리자에 의한 보호 규칙 우회 비활성화
+
+공개 전에는 GCP WIF 신뢰 조건도 함께 점검합니다. 현재 Terraform 조건은 repository ID, owner ID,
+`release/gcp`, push event만 확인합니다. GitHub Environment 승인에 배포를 묶으려면 `gcp` environment를
+나타내는 OIDC subject 조건도 요구하고, environment가 없는 job이 같은 배포 계정을 사용할 수 없는지
+검증합니다. 단순히 workflow YAML에 `environment: gcp`가 있다는 사실만으로 이 클라우드 경계를
+검증했다고 표시하지 않습니다. [GitHub OIDC subject 규칙](https://docs.github.com/en/actions/reference/security/oidc)
 
 `release/gcp` push가 발생하면 기존 `checks` job은 먼저 실행되지만, 실제 배포 job은 Environment 승인 전까지 시작되지 않습니다. 따라서 collaborator가 실수로 배포 브랜치를 갱신해도 승인 전에는 GCP OIDC credential을 발급받거나 Cloud Run을 변경할 수 없습니다.
 
@@ -67,6 +74,7 @@ Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어
 4. `release/gcp` push 후 검사는 실행되지만 배포 job은 Environment 승인 전 대기하는지 확인합니다.
 5. 승인 전에는 GCP OIDC credential이 발급되지 않고 Cloud Run 리비전이 바뀌지 않는지 확인합니다.
 6. 지정된 reviewer의 승인 후 배포가 성공하고 Cloud Run 상태 검사를 통과하는지 확인합니다.
+7. `gcp` environment를 사용하지 않는 job은 GCP WIF 교환에서 거부되는지 확인합니다.
 
 ## 완료 기준
 

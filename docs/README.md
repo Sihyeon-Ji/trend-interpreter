@@ -11,6 +11,7 @@
 - [아키텍처](architecture.md)
 - [운영·배포](operations.md)
 - [팀 작업 방식](team-workflow.md)
+- [주제 선정 전 개발·운영 준비 점검](development-readiness-review.md)
 
 ## AI 개발 기반
 
