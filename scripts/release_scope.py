@@ -12,6 +12,7 @@ APP_FILES = {
 }
 RELAY_FILES = {
     "scripts/deploy-alert-relay.sh",
+    "scripts/verify_alert_delivery.py",
 }
 SHARED_FILES = {".dockerignore"}
 VALIDATION_FILES = {

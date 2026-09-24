@@ -1,8 +1,8 @@
 # Plan 04 변경 범위에 따른 CI와 배포 실행
 
-작성일 **2026-09-24** · 상태 **제안·미착수** · 우선순위 **높음**
+작성일 **2026-09-24** · 상태 **구현·배포 검증 완료** · 구현 커밋 **21bc5db**
 
-[조사 근거](../development-readiness-review.md) · [현재 계획](README.md)
+[조사 근거](../../development-readiness-review.md) · [현재 계획](../README.md)
 
 ## 목표
 
@@ -10,7 +10,7 @@ release push에서 필요한 검사를 빠뜨리지 않고 한 번 수행한 뒤
 
 ## 현재 근거
 
-- 두 [배포 workflow](../../.github/workflows/)는 각각 `ci.yml` 전체를 호출합니다.
+- 변경 전 두 [배포 workflow](../../../.github/workflows/)는 각각 `ci.yml` 전체를 호출했습니다.
 - 앱·relay가 함께 바뀌면 같은 CI가 두 번 실행됩니다.
 - 테스트·Compose·Terraform·CI 설정만 바뀌는 release는 두 배포의 paths에 해당하지 않습니다.
 - CI는 main production image를 검사하지만 relay image의 build·health는 현재 relay 배포 시점에 확인됩니다.
@@ -26,7 +26,7 @@ release push에서 필요한 검사를 빠뜨리지 않고 한 번 수행한 뒤
 | 양쪽 서비스 또는 `.dockerignore` | 전체 CI 1회·양쪽 image 검사 | 실행 | 실행 |
 | `tests/`, `evaluation-cases/`, `compose.yaml`, `Dockerfile.dev`, CI 검증 script | 전체 CI 1회 | 생략 | 생략 |
 | `infra/gcp/`만 | Terraform fmt·validate | 생략 | 생략 |
-| 배포 workflow 자체 | YAML·routing 검사·필요 CI | 배포 정의 변경에 따라 실행 | 배포 정의 변경에 따라 실행 |
+| Release workflow 자체 | 전체 CI 1회 | 생략 | 생략 |
 | `docs/`, README만 | 생략 | 생략 | 생략 |
 | `prototype/`만 | 공통 CI 생략, 후보 자체 검사 안내 | 생략 | 생략 |
 
@@ -48,6 +48,24 @@ main 배포 script의 수정은 application 배포, relay 배포 script의 수�
 - 문서만 변경하거나 develop에 push할 때 유료 배포 작업이 시작되지 않습니다.
 - 각 배포 job은 `environment: gcp`와 기존 OIDC 제한을 유지합니다.
 - 수동 전체 CI 실행은 계속 가능합니다. 수동 배포 trigger를 추가해 WIF 제약을 넓히지 않습니다.
+
+## 검증 결과
+
+기존 두 배포 workflow를 [Release GCP](../../../.github/workflows/release-gcp.yml) 하나로 합쳤습니다.
+[release_scope.py](../../../scripts/release_scope.py)가 push 전후 SHA의 Git 변경 파일을 읽고 검사·인프라·
+앱·relay 범위를 판정합니다. 기준 commit을 읽을 수 없으면 검사와 두 배포를 요구하는 방향으로 처리합니다.
+문서와 prototype만 변경되면 검사·배포 job은 실행되지 않습니다.
+
+로컬 합성 Git 이력과 파일 조합 테스트 3개가 통과했습니다. CI 컨테이너에는 Git CLI가 없어 합성 Git
+이력 테스트 1개는 skip하고 분류 단위 테스트 2개를 실행했습니다. GitHub runner에는 Git이 있어
+실제 release의 변경 범위 판정을 수행했습니다.
+
+2026-09-24 [실제 release](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/actions/runs/36003893219)
+`21bc5db`에서 workflow 1개가 실행됐습니다. `scope`와 **공통 CI 1회**가 성공했고,
+이번 commit은 메인 앱과 relay 관련 파일을 모두 포함해 배포 job 두 개가 각각 성공했습니다.
+인프라 전용 job은 공통 CI에 Terraform 검사가 포함되어 skip됐습니다. CI에서는 기존 검사에 relay
+production image build·health를 추가했습니다. Terraform만 변경될 때의 GitHub 실제 실행은
+이번 release에서 발생하지 않아 합성 분류 검사와 workflow 조건으로 확인했습니다.
 
 ## 참고
 

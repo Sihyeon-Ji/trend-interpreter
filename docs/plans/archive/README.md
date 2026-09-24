@@ -9,3 +9,5 @@
 | [03](03-local-model-history.md) | 실제 모델 실행 이력 연결 |
 | [04](04-database-recovery.md) | DB 변경과 백업·복구 |
 | [운영 01](01-production-alerting.md) | Discord 운영 알림 중계기 |
+| [운영 03](03-alert-delivery-hardening.md) | 알림 유지와 전달 검증 보완 |
+| [운영 04](04-ci-change-routing.md) | 변경 범위에 따른 CI와 배포 |

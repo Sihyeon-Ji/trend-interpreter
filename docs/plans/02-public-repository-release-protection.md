@@ -20,7 +20,7 @@
 
 - 저장소는 private이며 GitHub Free를 사용합니다.
 - private 저장소에서는 현재 요금제의 branch protection API를 사용할 수 없습니다.
-- `release/gcp` push가 `Deploy GCP` workflow를 실행합니다.
+- `release/gcp` push가 변경 범위에 따라 `Release GCP`의 검사·배포 job을 실행합니다.
 - 배포 job은 `gcp` environment와 OIDC를 사용합니다.
 - `gcp` environment에는 required reviewer와 deployment branch 제한이 아직 없습니다.
 

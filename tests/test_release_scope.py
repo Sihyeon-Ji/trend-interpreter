@@ -18,6 +18,7 @@ def test_release_scope_routes_services_and_checks():
         "app": False,
         "relay": True,
     }
+    assert classify({"scripts/verify_alert_delivery.py"})["relay"] is True
     assert classify({"apps/web/index.html", "apps/alert-relay/pyproject.toml"}) == {
         "full": True,
         "infra": False,
