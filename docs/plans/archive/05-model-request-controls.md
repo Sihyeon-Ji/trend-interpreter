@@ -1,8 +1,8 @@
 # Plan 05 AI 요청량 제어와 결과 형식 검증
 
-작성일 **2026-09-24** · 상태 **제안·미착수** · 우선순위 **중간·사용량 확대 전**
+작성일 **2026-09-24** · 상태 **구현·운영 배포 완료** · 구현 커밋 **58db540**
 
-[조사 근거](../development-readiness-review.md) · [현재 계획](README.md)
+[조사 근거](../../development-readiness-review.md) · [현재 계획](../README.md)
 
 ## 목표
 
@@ -10,9 +10,9 @@
 
 ## 현재 근거
 
-- [Settings](../../apps/api/src/builder_cup/config.py)에 timeout·재시도 설정은 있지만 호출 빈도·모델 호출 중지 설정은 없습니다.
-- [GeminiProvider](../../apps/api/src/builder_cup/providers.py)에 출력 1,024 token 제한이 이미 있습니다. 중복 구현하지 않습니다.
-- [AnalyzeRequest](../../apps/api/src/builder_cup/schemas.py)에 8,000자 한도가 있습니다.
+- 변경 전 [Settings](../../../apps/api/src/builder_cup/config.py)에 timeout·재시도 설정은 있지만 호출 빈도·모델 호출 중지 설정은 없었습니다.
+- [GeminiProvider](../../../apps/api/src/builder_cup/providers.py)에 출력 1,024 token 제한이 이미 있습니다. 중복 구현하지 않았습니다.
+- [AnalyzeRequest](../../../apps/api/src/builder_cup/schemas.py)에 8,000자 한도가 있습니다.
 - 같은 파일의 `Analysis.key_points`는 배열 수만 제한합니다. 로컬에서 빈 문자열·공백·10만 자 항목의 통과를 재현했습니다.
 - UI의 busy 상태는 한 화면의 중복 submit만 막으며 서버 호출량 제한을 대신하지 않습니다.
 
@@ -37,3 +37,16 @@
 ## 제외 범위
 
 사용자 계정·OAuth·결제 ledger·정확한 월 지출 강제 상한·새 Redis는 만들지 않습니다. 예산 알림과 Cloud Run instance 설정을 애플리케이션 요청량 제한의 대체로 설명하지 않습니다. 정확한 가격 표시와 도메인 품질 합격선은 별도로 결정합니다.
+
+## 구현·검증 결과
+
+- 모델 호출 전에 인증·일시 중지·분당 한도·동시 요청 수를 순서대로 확인합니다. 기본값은 프로세스당 분당 12건, 동시 실행 2건입니다.
+- 중지 상태는 HTTP 503 `model_disabled`, 한도 초과는 HTTP 429 `model_rate_limited`와 `Retry-After`를 반환합니다. 오류 응답에는 `request_id`가 있습니다.
+- 허용된 요청이 timeout·취소·성공으로 끝나면 동시 실행 슬롯을 반환합니다. 한도 초과 요청은 provider를 호출하지 않습니다.
+- summary와 각 key point에 공백 제외 최소 길이·최대 길이를 적용했습니다. 핵심 문장은 최대 500자이며 1~5개여야 합니다.
+- [운영 설정](../../../deployment/model-controls.json)을 commit하고 `release/gcp`로 승격하면 변경 범위 판정이 메인 서비스를 배포합니다. 중지·재개 방법은 [운영 문서](../../operations.md)에 있습니다.
+- `docker compose run --rm --build check`에서 API 테스트 **97개 통과·1개 Git 미설치 환경 skip**, relay 테스트 10개, Mock 계약 2개, 타입 검사·웹 빌드가 통과했습니다. `docker compose run --rm --build e2e`는 **8개 통과**했습니다.
+- [GitHub Actions release](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/actions/runs/36007239153)는 공통 CI와 메인 앱 배포가 성공했고 relay 배포는 skip됐습니다.
+- Cloud Run `builder-cup-00013-gej`가 트래픽 100%를 받고 `MODEL_REQUESTS_ENABLED=true`, 분당 12건, 동시 2건을 사용합니다. 공개 health는 200, 인증 없는 분석 요청은 401, 배포 직후 ERROR 이상 로그는 없었습니다.
+
+이번 검증은 Mock과 상태·인증 smoke를 사용했습니다. 이 변경을 위해 유료 Gemini 요청은 보내지 않았으며 실제 모델 품질이나 정확한 비용 상한을 입증한 결과가 아닙니다. 각 Cloud Run 인스턴스가 별도 한도를 가지며, 재시도 횟수는 승인된 요청 한 건 안에서 별도로 발생할 수 있습니다.
