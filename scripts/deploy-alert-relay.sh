@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PROJECT_ID:?}" "${PROJECT_NUMBER:?}" "${REGION:?}" "${SERVICE:?}" "${ALERT_TOPIC:?}"
+: "${PROJECT_ID:?}" "${PROJECT_NUMBER:?}" "${REGION:?}" "${SERVICE:?}" "${ALERT_TOPIC:?}" "${HEALTH_ID_TOKEN:?}"
 image=${1:?Usage: deploy-alert-relay.sh IMAGE_DIGEST}
 relay_audience="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
 runtime_service_account="builder-cup-alert-relay@$PROJECT_ID.iam.gserviceaccount.com"
@@ -53,9 +53,8 @@ import json, sys
 print(json.load(open(sys.argv[1]))["status"]["latestReadyRevisionName"])
 PY
 )
-identity_token=$(gcloud auth print-identity-token --audiences="$relay_audience")
 curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 20 \
-  -H "Authorization: Bearer $identity_token" "$candidate_url/health" |
+  -H "Authorization: Bearer $HEALTH_ID_TOKEN" "$candidate_url/health" |
   python3 -c 'import json,sys; assert json.load(sys.stdin) == {"status": "ok"}'
 
 gcloud run services update-traffic "$SERVICE" \
