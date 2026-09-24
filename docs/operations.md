@@ -41,7 +41,8 @@ Cloud Run 서비스에는 변경할 수 없는 image digest가 필요하므로 b
 성공할 때까지 현재 revision의 traffic을 유지합니다. Domain mapping은 별도이며 팀 소유 domain이 생길
 때까지 만들지 않습니다.
 
-자동 검사와 배포는 `release/gcp` push에서만 실행됩니다. `develop` push는 CI를 시작하지 않습니다.
+자동 검사와 배포는 `release/gcp`에서 각 서비스의 image·배포 파일이 바뀐 push에만 실행됩니다.
+Application과 alert relay workflow는 서로의 전용 변경으로 중복 실행되지 않습니다. `develop` push는 CI를 시작하지 않습니다.
 원격 검사가 미리 필요하면 CI workflow를 수동 실행합니다. 2026-09-21 첫 release는 약 4분 38초가
 걸렸습니다. 전체 검사가 약 3분 15초, 인증·cache된 image 게시·Cloud Run 배포가 약 1분 16초였습니다.
 중복 `develop` CI trigger를 없앤 다음 release는 약 4분 4초가 걸렸습니다. Warm build cache가 이후
@@ -118,6 +119,9 @@ textPayload:"discord_delivery_"
 Relay는 최소 instance 0, 최대 1입니다. Pub/Sub은 최소 10초, 최대 600초의 backoff로 재시도하고 5회
 실패하면 `builder-cup-monitoring-alerts-dlq`로 이동합니다. 확인용 subscription은 실패 메시지를 7일간
 보존합니다.
+
+구현과 실제 장애·복구·dead-letter 검증 결과는
+[Discord 운영 알림 중계기 완료 기록](plans/archive/01-production-alerting.md)에 있습니다.
 
 ## 웹 화면과 팀 접근 코드 사용법
 

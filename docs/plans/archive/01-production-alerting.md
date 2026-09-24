@@ -1,22 +1,41 @@
 # Plan 01 Discord 운영 알림 중계기
 
-작성일 **2026-09-23** · 상태 **실행 준비**
+작성일 **2026-09-23** · 완료일 **2026-09-24** · 상태 **구현·운영 검증 완료**
 
-[현재 계획](README.md) · [운영 명령](../commands.md) · [GCP 인프라](../../infra/gcp/)
+[현재 계획](../README.md) · [운영 명령](../../commands.md) · [GCP 인프라](../../../infra/gcp/)
 
 ## 목적
 
 Cloud Monitoring에서 발생한 장애를 Pub/Sub에 안전하게 전달하고, 전용 Cloud Run 중계기가 Discord 알림 형식으로 변환해 팀 채널에 게시합니다. 기존 웹·API 서비스와 알림 책임을 분리하고, Discord 장애나 일시적인 네트워크 오류가 있어도 Pub/Sub 재시도로 알림을 보존합니다.
 
-## 현재 상태
+## 구현 결과
 
-2026-09-23 기준 상태입니다.
+2026-09-24 기준 다음 구성을 실제 GCP에 적용하고 검증했습니다.
 
-- Cloud Run `builder-cup` 서비스와 `/api/health`가 정상 동작합니다.
-- Cloud Monitoring 대시보드 `Builder Cup operations`가 있습니다.
-- 로그 기반 지표 `builder_cup_api_errors`가 있습니다.
-- 월 ₩100,000 예산 알림이 설정되어 있습니다.
-- uptime check, alert policy, Pub/Sub notification channel, Discord 중계기는 아직 없습니다.
+- 전용 Cloud Run `builder-cup-alert-relay` revision `builder-cup-alert-relay-00004-loc`
+- Relay traffic 100%, 최소 instance 0, 서비스 최대 instance 1
+- 익명 `/health` 요청 HTTP 403, 배포 service account 인증 요청 HTTP 200
+- `discord-webhook` secret version 고정과 relay runtime service account 전용 접근
+- Pub/Sub OIDC push, 10~600초 backoff, 최대 5회 전달, dead-letter 보관
+- API uptime, API 오류, relay 오류, dead-letter backlog alert policy
+- Discord Pub/Sub notification channel과 운영 이메일 보조 channel
+- `OPENED`, `CLOSED` 복구 알림 prompt
+
+자동 검사 결과는 API Python 테스트 84개, relay 테스트 5개, 브라우저 E2E 7개 통과입니다.
+Terraform 재계획 결과는 `No changes`입니다.
+
+배포 smoke 메시지는 Pub/Sub에서 relay를 거쳐 Discord HTTP 204로 전달됐습니다. 이어 실제
+`Builder Cup API server errors` 정책에 합성 log metric 1건을 기록해 incident
+`0.oczzc9ijb6e8`이 열리고 닫히는 과정을 확인했습니다.
+
+| 상태 | 시각 UTC | Relay 결과 |
+| --- | --- | --- |
+| `OPENED` | 2026-09-24 06:57:27 | Discord HTTP 204 |
+| `CLOSED` | 2026-09-24 07:02:01 | Discord HTTP 204 |
+
+실패 검증에서는 잘못된 합성 payload가 같은 message ID로 5회 거부된 뒤 dead-letter topic으로 이동했습니다.
+Dead-letter message의 source subscription과 전달 횟수 `5`를 확인한 뒤 acknowledgment해 backlog를
+정리했습니다. 단위 테스트에서는 Discord 429가 Pub/Sub 재시도용 HTTP 503으로 변환되는 것도 확인했습니다.
 
 예산 알림은 비용 증가를 알려줄 뿐 요청이나 배포를 자동으로 중단하지 않습니다.
 
@@ -37,7 +56,7 @@ flowchart LR
 
 ## 구성 요소
 
-| 구성 요소 | 제안 이름 | 역할 |
+| 구성 요소 | 이름 | 역할 |
 | --- | --- | --- |
 | Monitoring notification channel | `builder-cup-discord` | alert policy 출력을 Pub/Sub topic으로 전달 |
 | Pub/Sub topic | `builder-cup-monitoring-alerts` | 알림 이벤트 보관과 전달 분리 |

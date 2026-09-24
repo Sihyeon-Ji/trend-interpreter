@@ -363,7 +363,10 @@ resource "google_monitoring_alert_policy" "api_unavailable" {
     }
   }
 
-  alert_strategy { auto_close = "1800s" }
+  alert_strategy {
+    auto_close           = "1800s"
+    notification_prompts = ["OPENED", "CLOSED"]
+  }
   depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
 }
 
@@ -389,7 +392,10 @@ resource "google_monitoring_alert_policy" "api_errors" {
     }
   }
 
-  alert_strategy { auto_close = "1800s" }
+  alert_strategy {
+    auto_close           = "1800s"
+    notification_prompts = ["OPENED", "CLOSED"]
+  }
   depends_on = [
     google_logging_metric.api_errors,
     google_pubsub_topic_iam_member.monitoring_publisher,
@@ -419,7 +425,10 @@ resource "google_monitoring_alert_policy" "relay_errors" {
     }
   }
 
-  alert_strategy { auto_close = "1800s" }
+  alert_strategy {
+    auto_close           = "1800s"
+    notification_prompts = ["OPENED", "CLOSED"]
+  }
 }
 
 resource "google_monitoring_alert_policy" "dead_letter_backlog" {
@@ -445,7 +454,10 @@ resource "google_monitoring_alert_policy" "dead_letter_backlog" {
     }
   }
 
-  alert_strategy { auto_close = "1800s" }
+  alert_strategy {
+    auto_close           = "1800s"
+    notification_prompts = ["OPENED", "CLOSED"]
+  }
 }
 
 resource "google_billing_budget" "project" {

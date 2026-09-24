@@ -4,12 +4,8 @@ on:
     branches: [release/gcp]
     paths:
       - .dockerignore
-      - .github/workflows/ci.yml
       - .github/workflows/deploy-alert-relay.yml
       - apps/alert-relay/**
-      - compose.yaml
-      - Dockerfile.dev
-      - infra/gcp/**
       - scripts/deploy-alert-relay.sh
 permissions:
   contents: read

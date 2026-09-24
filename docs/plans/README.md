@@ -1,6 +1,6 @@
 # 운영 준비 계획
 
-작성일 **2026-09-23** · 상태 **Plan 01~02 실행 전**
+작성일 **2026-09-23** · 최종 갱신 **2026-09-24** · 상태 **Plan 02 실행 전**
 
 [종합 보고서](../ai-lab-report.md) · [운영 명령](../commands.md) · [완료 계획](archive/)
 
@@ -8,10 +8,9 @@
 
 | ID | 상태 | 작업 | 완료 기준 |
 | --- | --- | --- | --- |
-| [01](01-production-alerting.md) | 실행 준비 | Discord 운영 알림 중계기 | Monitoring → Pub/Sub → Cloud Run → Discord 전달과 실패 복구 확인 |
 | [02](02-public-repository-release-protection.md) | 실행 준비 | 공개 저장소와 GCP 배포 승인 | 외부 사용자는 push할 수 없고 collaborator의 배포는 Environment 승인 후 진행 |
 
-두 계획은 서로 독립적으로 진행할 수 있습니다. Plan 01은 알림 수신처를 정한 뒤 적용하고, Plan 02는 저장소를 공개하기 전에 준비한 다음 공개 직후 보호 규칙을 활성화합니다.
+Plan 02는 저장소를 공개하기 전에 준비한 다음 공개 직후 보호 규칙을 활성화합니다.
 
 ## 완료 계획
 
@@ -23,6 +22,7 @@
 | [Archive 02](archive/02-model-evaluation.md) | 모델 평가와 비교 보고서 |
 | [Archive 03](archive/03-local-model-history.md) | 실제 모델 실행 이력 연결 |
 | [Archive 04](archive/04-database-recovery.md) | DB 변경과 백업·복구 |
+| [운영 Archive 01](archive/01-production-alerting.md) | Discord 운영 알림 중계기 |
 
 ## 공통 원칙
 

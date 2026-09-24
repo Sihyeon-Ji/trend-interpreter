@@ -2,6 +2,15 @@ name: Deploy GCP
 on:
   push:
     branches: [release/gcp]
+    paths:
+      - .dockerignore
+      - .github/workflows/deploy-gcp.yml
+      - apps/api/**
+      - apps/web/**
+      - Dockerfile
+      - pyproject.toml
+      - scripts/deploy-gcp.sh
+      - uv.lock
 permissions:
   contents: read
 concurrency:

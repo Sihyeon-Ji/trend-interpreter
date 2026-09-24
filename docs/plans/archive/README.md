@@ -8,3 +8,4 @@
 | [02](02-model-evaluation.md) | 모델 평가와 비교 보고서 |
 | [03](03-local-model-history.md) | 실제 모델 실행 이력 연결 |
 | [04](04-database-recovery.md) | DB 변경과 백업·복구 |
+| [운영 01](01-production-alerting.md) | Discord 운영 알림 중계기 |
