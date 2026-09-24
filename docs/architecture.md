@@ -62,6 +62,7 @@ sequenceDiagram
 ```
 
 - 접근 코드가 없거나 틀리면 Gemini를 호출하기 전에 `401`을 반환합니다.
+- AI 호출 중지는 `503`, 인스턴스별 요청 한도 초과는 `429`로 반환하고 Gemini를 호출하지 않습니다.
 - Gemini가 반환한 JSON이 schema와 맞지 않으면 성공 결과로 취급하지 않습니다.
 - 일시적인 provider 오류만 제한된 횟수로 재시도합니다.
 - 원문, 생성 결과, authorization header는 운영 log에 기록하지 않습니다.

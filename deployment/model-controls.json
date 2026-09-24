@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "requests_per_minute": 12,
+  "max_concurrent_requests": 2
+}

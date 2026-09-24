@@ -20,6 +20,8 @@ const errors: Record<string, string> = {
   invalid_input: 'Enter between 1 and 8,000 characters of text.',
   model_timeout: 'The model took too long. Try again with a shorter text.',
   model_unavailable: 'The model is temporarily unavailable. Please try again later.',
+  model_disabled: 'AI analysis is paused for now. Please try again later.',
+  model_rate_limited: 'Too many requests right now. Please wait and try again.',
   invalid_model_response: 'The model returned an unexpected format. Please try again.',
   internal_error: 'Something went wrong. Share the request ID with the developer.',
 }

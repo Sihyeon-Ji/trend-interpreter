@@ -23,6 +23,7 @@ from builder_cup.lab_scenarios import (
     ScenarioProvider,
 )
 from builder_cup.providers import Provider, ProviderFailure, create_provider
+from builder_cup.request_gate import ModelRequestGate, RequestLimitReached
 from builder_cup.schemas import AnalyzeRequest, AnalyzeResponse
 from builder_cup.workflow import analyze
 
@@ -62,6 +63,9 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         await app.state.provider.close()
 
     app = FastAPI(title="AI Builder Cup", lifespan=lifespan)
+    app.state.model_request_gate = ModelRequestGate(
+        config.model_requests_per_minute, config.model_max_concurrent_requests
+    )
 
     @app.middleware("http")
     async def request_logging(request: Request, call_next):
@@ -142,9 +146,29 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         received = request.headers.get("Authorization", "")
         if config.demo_api_key and not hmac.compare_digest(received.encode(), expected.encode()):
             raise HTTPException(status_code=401, detail="Invalid demo access code")
-        result = await analyze(
-            body.text, request.state.request_id, request.app.state.provider, config
-        )
+        if not config.model_requests_enabled:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": {"code": "model_disabled", "request_id": request.state.request_id}
+                },
+            )
+        try:
+            await request.app.state.model_request_gate.acquire()
+        except RequestLimitReached as exc:
+            return JSONResponse(
+                status_code=429,
+                headers={"Retry-After": str(exc.retry_after)},
+                content={
+                    "error": {"code": "model_rate_limited", "request_id": request.state.request_id}
+                },
+            )
+        try:
+            result = await analyze(
+                body.text, request.state.request_id, request.app.state.provider, config
+            )
+        finally:
+            await request.app.state.model_request_gate.release()
         logger.info("analysis_completed", extra={"fields": result.model_dump(exclude={"result"})})
         return result
 

@@ -26,6 +26,7 @@ def test_release_scope_routes_services_and_checks():
         "relay": True,
     }
     assert classify({".dockerignore"})["app"] is True
+    assert classify({"deployment/model-controls.json"})["app"] is True
     assert classify({".dockerignore"})["relay"] is True
     assert classify({"tests/test_api.py", "compose.yaml"}) == {
         "full": True,

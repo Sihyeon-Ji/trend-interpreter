@@ -67,15 +67,127 @@ async def test_invalid_output_is_not_passed_to_user():
 
 def test_timeout_is_bounded_and_reported():
     class SlowProvider(MockProvider):
+        calls = 0
+
         async def generate(self, text):
-            await asyncio.sleep(1)
+            self.calls += 1
+            if self.calls == 1:
+                await asyncio.sleep(1)
             return await super().generate(text)
 
     config = settings(model_timeout_seconds=0.01, model_max_attempts=1)
-    with TestClient(create_app(config, SlowProvider())) as client:
+    provider = SlowProvider()
+    with TestClient(create_app(config, provider)) as client:
         response = client.post("/api/analyze", json={"text": "Hello"})
         assert response.status_code == 504
         assert response.json()["error"]["code"] == "model_timeout"
+        assert client.post("/api/analyze", json={"text": "Recovered"}).status_code == 200
+
+
+def test_disabled_and_unauthorized_requests_never_call_model():
+    class CountingProvider(MockProvider):
+        calls = 0
+
+        async def generate(self, text):
+            self.calls += 1
+            return await super().generate(text)
+
+    provider = CountingProvider()
+    app = create_app(settings(demo_api_key="test-secret", model_requests_enabled=False), provider)
+    with TestClient(app) as client:
+        assert client.get("/api/health").status_code == 200
+        assert client.post("/api/analyze", json={"text": "Hello"}).status_code == 401
+        response = client.post(
+            "/api/analyze",
+            json={"text": "Hello"},
+            headers={"Authorization": "Bearer test-secret"},
+        )
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "model_disabled"
+        assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
+    assert provider.calls == 0
+
+
+def test_rate_limit_returns_retry_after_and_recovers():
+    class CountingProvider(MockProvider):
+        calls = 0
+
+        async def generate(self, text):
+            self.calls += 1
+            return await super().generate(text)
+
+    provider = CountingProvider()
+    app = create_app(settings(model_requests_per_minute=2), provider)
+    now = 1000.0
+    app.state.model_request_gate.clock = lambda: now
+    with TestClient(app) as client:
+        for _ in range(2):
+            assert client.post("/api/analyze", json={"text": "Hello"}).status_code == 200
+        limited = client.post("/api/analyze", json={"text": "Hello"})
+        assert limited.status_code == 429
+        assert limited.headers["Retry-After"] == "60"
+        assert limited.json()["error"]["code"] == "model_rate_limited"
+        assert provider.calls == 2
+        now += 60
+        assert client.post("/api/analyze", json={"text": "Hello"}).status_code == 200
+    assert provider.calls == 3
+
+
+async def test_concurrency_limit_and_cancel_release_slot():
+    class WaitingProvider(MockProvider):
+        def __init__(self):
+            self.calls = 0
+            self.entered = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def generate(self, text):
+            self.calls += 1
+            if self.calls == 1:
+                self.entered.set()
+                await self.release.wait()
+            return await super().generate(text)
+
+    provider = WaitingProvider()
+    app = create_app(settings(model_max_concurrent_requests=1), provider)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            pending = asyncio.create_task(client.post("/api/analyze", json={"text": "First"}))
+            await asyncio.wait_for(provider.entered.wait(), 1)
+            limited = await client.post("/api/analyze", json={"text": "Second"})
+            assert limited.status_code == 429
+            assert limited.headers["Retry-After"] == "1"
+            assert provider.calls == 1
+            pending.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await pending
+            assert app.state.model_request_gate.active == 0
+            recovered = await client.post("/api/analyze", json={"text": "Second"})
+            assert recovered.status_code == 200
+            assert provider.calls == 2
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        '{"summary":" ","key_points":["Valid"]}',
+        '{"summary":"Valid","key_points":[""]}',
+        '{"summary":"Valid","key_points":["  "]}',
+        '{"summary":"Valid","key_points":[]}',
+        '{"summary":"Valid","key_points":["a","b","c","d","e","f"]}',
+        '{"summary":"Valid","key_points":["' + "x" * 501 + '"]}',
+        '{"summary":"Valid","key_points":["Valid"],"extra":"x"}',
+        '{"summary":"Valid","key_points":["incomplete"}',
+    ],
+)
+async def test_invalid_model_output_is_rejected(output):
+    class InvalidProvider(MockProvider):
+        async def generate(self, text):
+            return Generation(output, Usage())
+
+    with pytest.raises(ProviderFailure, match="invalid_model_response"):
+        await analyze("Hello", "test", InvalidProvider(), settings())
 
 
 @pytest.mark.parametrize("usage", [{"prompt_tokens": 10, "completion_tokens": 5}, {}, None])

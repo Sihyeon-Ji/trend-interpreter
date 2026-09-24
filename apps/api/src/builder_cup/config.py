@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     model_timeout_seconds: float = Field(default=30, gt=0, le=120)
     model_max_attempts: int = Field(default=2, ge=1, le=3)
+    model_requests_enabled: bool = True
+    model_requests_per_minute: int = Field(default=12, ge=1)
+    model_max_concurrent_requests: int = Field(default=2, ge=1)
     input_price_per_million: float = Field(default=0, ge=0)
     output_price_per_million: float = Field(default=0, ge=0)
     demo_api_key: str = ""

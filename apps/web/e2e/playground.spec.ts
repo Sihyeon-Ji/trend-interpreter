@@ -20,3 +20,19 @@ test('upstream failure is visible and a user can retry', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('timeout-test')
   await expect(page.getByRole('button', { name: 'Analyze text' })).toBeEnabled()
 })
+
+test('paused and limited AI requests show a clear recovery message', async ({ page }) => {
+  let code = 'model_disabled'
+  await page.route('**/api/analyze', route => route.fulfill({
+    status: code === 'model_disabled' ? 503 : 429,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: { code, request_id: 'control-test' } }),
+  }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Analyze text' }).click()
+  await expect(page.getByRole('alert')).toContainText('AI analysis is paused')
+  code = 'model_rate_limited'
+  await page.getByRole('button', { name: 'Analyze text' }).click()
+  await expect(page.getByRole('alert')).toContainText('Too many requests')
+  await expect(page.getByRole('button', { name: 'Analyze text' })).toBeEnabled()
+})

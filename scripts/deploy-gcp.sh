@@ -2,11 +2,24 @@
 set -euo pipefail
 : "${PROJECT_ID:?}" "${REGION:?}" "${SERVICE:?}" "${GEMINI_MODEL:?}"
 image=${1:?Usage: deploy-gcp.sh IMAGE_DIGEST}
+read -r model_requests_enabled model_requests_per_minute model_max_concurrent_requests < <(
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+controls = json.loads(Path("deployment/model-controls.json").read_text())
+assert set(controls) == {"enabled", "requests_per_minute", "max_concurrent_requests"}
+assert type(controls["enabled"]) is bool
+for key in ("requests_per_minute", "max_concurrent_requests"):
+    assert type(controls[key]) is int and 1 <= controls[key] <= 100
+print(str(controls["enabled"]).lower(), controls["requests_per_minute"], controls["max_concurrent_requests"])
+PY
+)
 deploy_args=(
   "$SERVICE" --project="$PROJECT_ID" --region="$REGION"
   --image="$image" --service-account="builder-cup-runtime@$PROJECT_ID.iam.gserviceaccount.com"
   --port=8080 --cpu=1 --memory=512Mi --concurrency=10 --min=0 --max=2 --timeout=120
-  --set-env-vars="MODEL_PROVIDER=gemini,GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=$GEMINI_MODEL"
+  --set-env-vars="MODEL_PROVIDER=gemini,GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=$GEMINI_MODEL,MODEL_REQUESTS_ENABLED=$model_requests_enabled,MODEL_REQUESTS_PER_MINUTE=$model_requests_per_minute,MODEL_MAX_CONCURRENT_REQUESTS=$model_max_concurrent_requests"
   --set-secrets=DEMO_API_KEY=builder-cup-demo-key:latest
   --tag=candidate --quiet
 )

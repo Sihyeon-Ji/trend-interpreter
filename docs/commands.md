@@ -49,6 +49,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 | --- | --- |
 | `apps/web/src/`의 React·CSS | 저장만 하면 브라우저에 자동 반영 |
 | `apps/api/src/`의 Python | 저장만 하면 API 자동 재시작 |
+| `deployment/model-controls.json`의 운영 AI 호출 정책 | `develop`에서 commit·검사 후 `release/gcp`로 승격하면 메인 Cloud Run에 반영 |
 | `apps/alert-relay/` | 로컬 기본 stack에는 포함되지 않으며 `check`와 전용 image build로 검증 |
 | 패키지 목록·lockfile·Dockerfile·Python 도구 설정 | `docker compose up -d --build` |
 | Compose 서비스 설정 | `docker compose up -d --build` |

@@ -6,6 +6,7 @@ import sys
 ZERO_SHA = "0" * 40
 APP_FILES = {
     "Dockerfile",
+    "deployment/model-controls.json",
     "pyproject.toml",
     "uv.lock",
     "scripts/deploy-gcp.sh",
