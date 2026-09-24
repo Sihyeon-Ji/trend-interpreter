@@ -67,6 +67,11 @@ main 배포 script의 수정은 application 배포, relay 배포 script의 수�
 production image build·health를 추가했습니다. Terraform만 변경될 때의 GitHub 실제 실행은
 이번 release에서 발생하지 않아 합성 분류 검사와 workflow 조건으로 확인했습니다.
 
+이후 [검사 전용 release](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/actions/runs/36004803676)
+`c438c86`도 성공했습니다. 변경 범위 판정 script·테스트·문서만 바뀌어 공통 CI 1회가 실행됐고,
+application과 relay 배포 job은 모두 skip됐습니다. Relay 실코드만 바뀌는 release의 GitHub 실제
+실행은 아직 없으며 합성 분류 테스트로 확인했습니다.
+
 ## 참고
 
 [GitHub workflow paths와 Git diff 동작](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
