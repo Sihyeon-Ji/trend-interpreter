@@ -26,16 +26,11 @@
 
 ## 공개 전 준비
 
-### 1. 접근 권한 정리
-
-1. repository collaborator 목록을 확인합니다.
-2. 현재 팀원이 아닌 계정을 제거합니다.
-3. 남은 collaborator가 모두 write 권한을 가져도 되는지 확인합니다.
-4. GitHub Actions secret, variable, GCP IAM 주체를 함께 점검합니다.
-
-### 2. 공개 이력 검사
+### 공개 이력 검사
 
 Git 전체 이력에 `.env`, API key, 서비스 계정 키, 사용자 원문, 모델 출력이 포함되지 않았는지 검사합니다. 현재 파일만 지우는 것으로는 과거 커밋의 비밀정보가 제거되지 않으므로 이력 검사 결과를 공개 전 확인해야 합니다.
+
+Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어 있으므로 이 계획의 실행 항목에서 제외합니다.
 
 ## 공개 직후 보호 설정
 
@@ -75,7 +70,6 @@ Git 전체 이력에 `.env`, API key, 서비스 계정 키, 사용자 원문, �
 
 ## 완료 기준
 
-- collaborator 목록에 현재 팀원만 남아 있습니다.
 - 외부 사용자는 fork와 PR만 가능하며 직접 push할 수 없습니다.
 - collaborator는 기존처럼 직접 push할 수 있습니다.
 - `release/gcp` 배포에는 별도 Environment 승인이 필요합니다.
@@ -83,5 +77,23 @@ Git 전체 이력에 `.env`, API key, 서비스 계정 키, 사용자 원문, �
 - 실제 외부 계정과 collaborator 계정으로 거부·승인 경로를 각각 검증했습니다.
 
 ## 적용 시점
+
+이 계획은 GitHub 저장소 URL을 제출하기 **1~3일 전**에 실행하는 것이 적절합니다. 제출 당일에 처음 적용하면 공개 이력 문제나 Environment 승인 설정 오류를 고칠 시간이 부족합니다.
+
+### 제출 1~3일 전
+
+1. 제출 후보 commit을 정하고 Compose 전체 검사와 실제 배포 상태를 확인합니다.
+2. Git 전체 이력에서 credential과 공개하면 안 되는 데이터를 검사합니다.
+3. 저장소를 public으로 전환합니다.
+4. `gcp` Environment reviewer, prevent self-review, `release/gcp` branch 제한을 즉시 설정합니다.
+5. 외부 사용자 권한과 collaborator 직접 push를 확인합니다.
+6. 승인 전 배포 대기와 승인 후 배포 성공을 실제로 한 번 검증합니다.
+
+### 제출 당일
+
+1. 저장소가 public 상태인지 확인합니다.
+2. 제출 URL을 로그아웃 상태나 시크릿 창에서 열어 README와 source가 보이는지 확인합니다.
+3. 운영 URL과 `/api/health`를 확인합니다.
+4. 검증된 GitHub 저장소 URL과 배포 URL을 제출합니다.
 
 공개 이력 검사는 public 전환 전에 수행합니다. 현재 요금제에서 활성화할 수 없는 Environment 보호 규칙은 저장소를 public으로 바꾼 직후 적용하고, 승인 대기 동작을 검증할 때까지 새 운영 배포를 완료하지 않습니다.
