@@ -24,3 +24,8 @@ variable "budget_currency" {
   type    = string
   default = "USD"
 }
+variable "alert_email_address" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

@@ -49,6 +49,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 | --- | --- |
 | `apps/web/src/`의 React·CSS | 저장만 하면 브라우저에 자동 반영 |
 | `apps/api/src/`의 Python | 저장만 하면 API 자동 재시작 |
+| `apps/alert-relay/` | 로컬 기본 stack에는 포함되지 않으며 `check`와 전용 image build로 검증 |
 | 패키지 목록·lockfile·Dockerfile·Python 도구 설정 | `docker compose up -d --build` |
 | Compose 서비스 설정 | `docker compose up -d --build` |
 | 코드는 그대로이고 API 프로세스만 재시작 | `docker compose restart api` |
@@ -62,7 +63,7 @@ HTTP 요청 자체는 서비스 접근 로그에 남을 수 있으며 처음 실
 
 | 확인할 것 | 실행할 명령 | 실행 조건 |
 | --- | --- | --- |
-| 코드 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
+| API·alert relay 스타일·타입·Python 테스트·Mock 평가·웹 빌드 | `docker compose run --rm --build check` | 개발 서버가 꺼져 있어도 가능 |
 | PostgreSQL 기록 저장·조회 | `docker compose run --rm --build db-check` | DB 초기화와 API 준비 후 실행 |
 | DB migration 재실행·실패 rollback | `docker compose run --rm --build db-migration-check` | 데이터·버전 상태 유지 확인 |
 | 그래프 워크플로우 실습 | `docker compose run --rm --build workflow-check` | 합성 문서로 병렬 실행·통합·규칙 분기 확인 |

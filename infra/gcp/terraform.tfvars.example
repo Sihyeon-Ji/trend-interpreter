@@ -8,3 +8,6 @@ github_owner_id      = "REPLACE"
 # billing_account = "XXXXXX-XXXXXX-XXXXXX"
 # monthly_budget = 20
 # budget_currency = "USD"
+# Optional but recommended as a fallback when the Discord delivery path fails.
+# Keep the actual address in an ignored local *.tfvars file.
+# alert_email_address = "team@example.com"

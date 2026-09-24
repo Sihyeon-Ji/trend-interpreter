@@ -31,12 +31,15 @@ GitHub environment 이름은 `gcp`입니다. 승인 gate를 설정하지 않았�
 - 배포·runtime service account와 IAM
 - Workload Identity Federation
 - Secret Manager metadata와 demo access code
-- Log 기반 metric과 운영 dashboard
+- Discord webhook Secret Manager metadata
+- Pub/Sub 알림 전달·dead-letter 리소스
+- Uptime check, alert policy, log 기반 metric과 운영 dashboard
 - GitHub 배포 variable과 `gcp` environment
 
-Cloud Run 서비스에는 변경할 수 없는 application image digest가 필요하므로 bootstrap은 서비스를 만들지
-않습니다. 첫 CD가 서비스를 만들고 이후 CD는 후보 revision을 만든 뒤 smoke check에 성공할 때까지 현재
-revision의 traffic을 유지합니다. Domain mapping은 별도이며 팀 소유 domain이 생길 때까지 만들지 않습니다.
+Cloud Run 서비스에는 변경할 수 없는 image digest가 필요하므로 bootstrap은 application과 alert relay
+서비스를 만들지 않습니다. 각 첫 CD가 서비스를 만들고 이후 CD는 후보 revision을 만든 뒤 smoke check에
+성공할 때까지 현재 revision의 traffic을 유지합니다. Domain mapping은 별도이며 팀 소유 domain이 생길
+때까지 만들지 않습니다.
 
 자동 검사와 배포는 `release/gcp` push에서만 실행됩니다. `develop` push는 CI를 시작하지 않습니다.
 원격 검사가 미리 필요하면 CI workflow를 수동 실행합니다. 2026-09-21 첫 release는 약 4분 38초가
@@ -51,6 +54,70 @@ Bootstrap이 설정하는 repository variable은 다음과 같습니다.
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Terraform `workload_identity_provider` output |
 | `GCP_DEPLOY_SERVICE_ACCOUNT` | Terraform `deploy_service_account` output |
 | `GEMINI_MODEL` | 선택 사항이며 기본값은 `gemini-3.5-flash` |
+
+## Discord 운영 알림
+
+운영 장애 알림은 다음 경로로 전달합니다.
+
+```text
+Cloud Monitoring → Pub/Sub → private Cloud Run relay → Discord
+```
+
+Discord 경로가 실패하면 운영 이메일 채널이 relay 5xx와 dead-letter backlog를 알립니다. 실제 이메일
+주소는 Git 제외 `infra/gcp/operations.auto.tfvars.json`에만 두고 저장소에는 기록하지 않습니다.
+
+```json
+{
+  "alert_email_address": "team@example.com"
+}
+```
+
+Terraform이 `discord-webhook` secret metadata를 관리하지만 값은 state에 넣지 않습니다. Discord에서
+webhook을 새로 만들거나 교체했을 때 다음과 같이 새 version을 추가합니다.
+
+```bash
+read -r -s DISCORD_WEBHOOK_URL
+printf '%s' "$DISCORD_WEBHOOK_URL" |
+  gcloud secrets versions add discord-webhook \
+    --data-file=- \
+    --project=stunning-crane-508614-c1
+unset DISCORD_WEBHOOK_URL
+```
+
+Webhook URL을 명령 인수, 문서, issue, chat에 직접 쓰지 않습니다. Relay 배포는 최신 활성 secret version의
+숫자를 확인해 해당 version에 고정합니다.
+
+`release/gcp`에서 relay 관련 파일이 바뀌면 `Deploy Alert Relay` workflow가 별도 image를 만들고 private
+Cloud Run 서비스 `builder-cup-alert-relay`를 배포합니다. 인증된 `/health` 확인 후 traffic을 전환하고,
+합성 복구 알림을 Pub/Sub에 발행합니다. Discord 채널에 `Discord relay deployment smoke test`가 도착하면
+end-to-end 전달이 성공한 것입니다.
+
+현재 구성을 확인할 때는 secret 값을 읽지 않는 다음 명령을 사용합니다.
+
+```bash
+gcloud run services describe builder-cup-alert-relay \
+  --project=stunning-crane-508614-c1 \
+  --region=asia-northeast1
+
+gcloud pubsub subscriptions describe builder-cup-discord-relay \
+  --project=stunning-crane-508614-c1
+
+gcloud monitoring uptime list-configs \
+  --project=stunning-crane-508614-c1
+```
+
+Relay 로그는 허용 목록 metadata만 남깁니다. 전달 성공·실패를 확인할 때 전체 payload 대신 다음 event를
+조회합니다.
+
+```text
+resource.type="cloud_run_revision"
+resource.labels.service_name="builder-cup-alert-relay"
+textPayload:"discord_delivery_"
+```
+
+Relay는 최소 instance 0, 최대 1입니다. Pub/Sub은 최소 10초, 최대 600초의 backoff로 재시도하고 5회
+실패하면 `builder-cup-monitoring-alerts-dlq`로 이동합니다. 확인용 subscription은 실패 메시지를 7일간
+보존합니다.
 
 ## 웹 화면과 팀 접근 코드 사용법
 

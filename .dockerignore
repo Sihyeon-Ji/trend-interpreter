@@ -7,6 +7,14 @@
 !apps/api/
 !apps/api/src/
 !apps/api/src/**
+!apps/alert-relay/
+!apps/alert-relay/Dockerfile
+!apps/alert-relay/pyproject.toml
+!apps/alert-relay/uv.lock
+!apps/alert-relay/src/
+!apps/alert-relay/src/**
+!apps/alert-relay/tests/
+!apps/alert-relay/tests/**
 !apps/web/
 !apps/web/package.json
 !apps/web/package-lock.json
@@ -32,3 +40,4 @@
 **/*.tsbuildinfo
 **/.env
 **/.env.*
+**/.venv

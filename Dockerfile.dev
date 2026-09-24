@@ -17,6 +17,8 @@ FROM tooling AS development
 COPY pyproject.toml uv.lock ./
 COPY apps/api/ apps/api/
 RUN uv sync --locked
+COPY apps/alert-relay/ apps/alert-relay/
+RUN UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv sync --project apps/alert-relay --locked
 COPY apps/web/package*.json apps/web/
 RUN npm --prefix apps/web ci
 COPY apps/web/ apps/web/

@@ -22,6 +22,7 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 | `container-smoke.sh` | CI | Verify a production image's UI, health and mock analysis |
 | `bootstrap-gcp.sh` | Deployment operator, only after deployment resumes | Provision GCP infrastructure and configure GitHub deployment variables |
 | `deploy-gcp.sh` | `release/gcp` workflow | Deploy a candidate, verify it and promote traffic |
+| `deploy-alert-relay.sh` | alert relay release workflow | Deploy the private Discord relay, verify it and publish a synthetic Pub/Sub smoke notification |
 | `rollback-gcp.sh` | Deployment operator | Restore traffic to a known revision |
 
 Use `docker compose run --rm --build check` for evaluation as part of application validation.

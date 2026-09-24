@@ -137,6 +137,10 @@ services:
         ruff check apps/api tests scripts &&
         ruff format --check apps/api tests scripts &&
         mypy && pytest -q &&
+        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay ruff check apps/alert-relay/src apps/alert-relay/tests &&
+        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay ruff format --check apps/alert-relay/src apps/alert-relay/tests &&
+        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay mypy apps/alert-relay/src &&
+        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay pytest -q apps/alert-relay/tests &&
         python scripts/evaluate.py &&
         npm --prefix apps/web run typecheck &&
         npm --prefix apps/web run build

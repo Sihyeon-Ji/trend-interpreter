@@ -5,15 +5,16 @@
 | 항목 | 현재 결정 |
 | --- | --- |
 | 저장소 | Web, API, model runtime, infrastructure를 한 저장소에서 관리 |
-| 운영 배포 | React 정적 파일과 FastAPI를 하나의 Cloud Run container로 배포 |
+| 운영 배포 | React·FastAPI 주 애플리케이션과 private 알림 relay를 별도 Cloud Run 서비스로 배포 |
 | 운영 AI | Vertex AI의 Gemini 사용 |
 | 로컬 AI | Mock이 기본이며 Ollama 또는 별도 vLLM GPU host를 선택적으로 연결 |
 | 로컬 데이터 | PostgreSQL에 실습 record와 workflow 실행 metadata만 저장 |
 | 배포 시작 조건 | `release/gcp` push에서만 CI와 CD 실행 |
-| 비용 제한 | Cloud Run 최소 instance 0, 최대 2, Artifact Registry image 자동 정리 |
+| 비용 제한 | 주 애플리케이션 최대 instance 2, 알림 relay 최대 1, 두 서비스 모두 최소 0 |
 
-운영 환경은 작은 container 하나로 유지합니다. 로컬에서는 수정과 실습이 쉽도록 web, API, DB를
-분리합니다. 주제가 정해지기 전에는 queue, Kubernetes, cloud database 같은 구성 요소를 만들지 않습니다.
+운영 환경은 사용자 요청을 처리하는 application container와 운영 알림만 처리하는 작은 relay container로
+구분합니다. 로컬에서는 수정과 실습이 쉽도록 web, API, DB를 분리합니다. Pub/Sub은 운영 알림 재시도에만
+사용하며 application 작업 queue로 사용하지 않습니다. Kubernetes와 cloud database는 추가하지 않습니다.
 
 ## 전체 구성
 
@@ -31,6 +32,10 @@ flowchart LR
   Flow -->|운영| Gemini[Vertex AI Gemini]
   Flow -.->|로컬 선택 사항| Local[Ollama 또는 vLLM]
   API --> Logs[Cloud Logging]
+  Logs --> Monitoring[Cloud Monitoring]
+  Monitoring --> PubSub[Pub/Sub]
+  PubSub --> Relay[Private Cloud Run alert relay]
+  Relay --> Discord[Discord 운영 알림 채널]
 ```
 
 사용자가 보는 Cloud Run URL에는 React 화면과 API가 함께 있습니다. 같은 origin을 사용하므로 운영
@@ -103,6 +108,7 @@ flowchart LR
 | --- | --- |
 | `apps/web/` | 입력 화면, 결과 표시, 로컬 workflow 이력 UI |
 | `apps/api/src/builder_cup/main.py` | HTTP route, 팀 접근 코드, request ID, 정제된 log, static UI 제공 |
+| `apps/alert-relay/` | 인증된 Pub/Sub 알림을 허용 목록 Discord 메시지로 변환 |
 | `schemas.py` | API 입출력 schema |
 | `providers.py` | Gemini, vLLM, Ollama, Mock adapter |
 | `workflow.py` | Timeout, retry, 생성 결과 검증, 사용량·비용 추정 |
@@ -158,18 +164,28 @@ host runtime 설정도 Git에 넣지 않습니다. Cloud에서 별도 GPU host�
 ```mermaid
 flowchart LR
   Push[release/gcp push] --> Check[검사·test·build]
-  Check --> Image[Image build]
-  Image --> Registry[Artifact Registry]
-  Registry --> Candidate[Cloud Run 후보 revision]
-  Candidate --> Smoke[Smoke check]
-  Smoke --> Promote[Traffic 100% 전환]
+  Check --> AppImage[Application image]
+  Check --> RelayImage[Alert relay image]
+  AppImage --> Registry[Artifact Registry]
+  RelayImage --> Registry
+  Registry --> AppCandidate[Application 후보 revision]
+  Registry --> RelayCandidate[Relay 후보 revision]
+  AppCandidate --> AppSmoke[UI·health·인증 smoke check]
+  RelayCandidate --> RelaySmoke[인증 health·Pub/Sub smoke check]
+  AppSmoke --> AppPromote[Application traffic 100%]
+  RelaySmoke --> RelayPromote[Relay traffic 100%]
 ```
 
 | 관리 주체 | 관리 대상 |
 | --- | --- |
 | Bootstrap script | GCS Terraform state bucket, demo secret 값, GitHub variable/environment |
 | Terraform | API, Artifact Registry와 정리 정책, service account/IAM, Workload Identity, Secret metadata, monitoring, 선택적 budget |
-| Release workflow | Container image, Cloud Run service/revision, runtime 설정, traffic, public invoker IAM |
+| Release workflow | Application·relay image, Cloud Run revision, runtime 설정과 traffic |
+
+주 애플리케이션은 public invoker를 사용하지만 relay는 public invoker를 허용하지 않습니다. Pub/Sub 전용
+service account가 OIDC token으로 relay를 호출합니다. Discord webhook URL은 Secret Manager에만 있으며
+relay runtime service account만 읽을 수 있습니다. Pub/Sub 전달이 5회 실패하면 dead-letter topic으로
+분리되고 이메일 보조 알림이 발생합니다.
 
 Cloud Run 서비스를 Terraform과 release workflow가 동시에 관리하지 않습니다. Secret 값은 Terraform
 state에 넣지 않고 service-account JSON key도 만들지 않습니다. GitHub federation은 현재 저장소의 숫자
@@ -177,7 +193,8 @@ ID, `release/gcp` branch, push event로 제한합니다.
 
 ## 운영 한계와 보류 항목
 
-- Cloud Run은 최소 instance 0, 최대 2, instance별 concurrency 10입니다.
+- 주 애플리케이션은 최소 instance 0, 최대 2, instance별 concurrency 10입니다.
+- 알림 relay는 최소 instance 0, 최대 1이며 인증된 Pub/Sub push만 받습니다.
 - 팀 접근 코드는 demo 비용을 보호하는 공용 비밀번호이며 사용자별 인증 체계는 아닙니다.
 - Token 기반 비용 추정은 근삿값입니다. 실제 비용은 Cloud Billing report에서 확인합니다.
 - 현재 API contract는 **text 입력, 구조화된 text 출력**입니다.
