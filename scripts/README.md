@@ -23,10 +23,12 @@ For copyable everyday commands, see the [Korean command reference](../docs/ê°œë°
 | `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |
 | `release_scope.py` | `Release GCP` workflow | Classify release changes into shared checks, infrastructure, application and relay |
 | `verify_alert_delivery.py` | relay deploy script | Confirm a uniquely identified synthetic alert reached Discord from the new revision |
+| `release_summary.py` | release deploy scripts | Record verified image, revision and numbered secret metadata in the Actions summary |
+| `release_recovery.py` | `rollback-gcp.sh` | Check a known revision and verify health before and after an explicit traffic switch |
 | `bootstrap-gcp.sh` | Deployment operator, only after deployment resumes | Provision GCP infrastructure and configure GitHub deployment variables |
 | `deploy-gcp.sh` | `release/gcp` workflow | Deploy a candidate, verify it and promote traffic |
 | `deploy-alert-relay.sh` | alert relay release workflow | Deploy the private Discord relay, verify it and publish a synthetic Pub/Sub smoke notification |
-| `rollback-gcp.sh` | Deployment operator | Restore traffic to a known revision |
+| `rollback-gcp.sh` | Deployment operator | Check or restore main/relay traffic to a known revision |
 
 Use `docker compose run --rm --build check` for evaluation as part of application validation.
 Do not add parallel Make/just/task wrappers for these commands. Keep service/task definitions

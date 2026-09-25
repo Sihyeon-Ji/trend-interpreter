@@ -155,6 +155,12 @@ resource "google_secret_manager_secret_iam_member" "runtime_key" {
   member    = "serviceAccount:${google_service_account.runtime.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "deploy_demo_key_viewer" {
+  secret_id = google_secret_manager_secret.demo_key.id
+  role      = "roles/secretmanager.viewer"
+  member    = "serviceAccount:${google_service_account.deploy.email}"
+}
+
 resource "google_secret_manager_secret" "discord_webhook" {
   secret_id = "discord-webhook"
   replication {

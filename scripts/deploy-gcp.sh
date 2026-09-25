@@ -2,6 +2,17 @@
 set -euo pipefail
 : "${PROJECT_ID:?}" "${REGION:?}" "${SERVICE:?}" "${GEMINI_MODEL:?}"
 image=${1:?Usage: deploy-gcp.sh IMAGE_DIGEST}
+previous_revision=$(
+  gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
+    --format=json 2>/dev/null |
+    python3 -c 'import json,sys; data=json.load(sys.stdin); print(next((x.get("revisionName", "") for x in data["status"].get("traffic", []) if x.get("percent")==100), ""))' 2>/dev/null || true
+)
+secret_version=$(
+  gcloud secrets versions list builder-cup-demo-key \
+    --project="$PROJECT_ID" --filter='state=ENABLED' \
+    --sort-by='~createTime' --limit=1 --format='value(name)'
+)
+[[ "$secret_version" =~ ^[0-9]+$ ]]
 read -r model_requests_enabled model_requests_per_minute model_max_concurrent_requests < <(
   python3 - <<'PY'
 import json
@@ -20,7 +31,7 @@ deploy_args=(
   --image="$image" --service-account="builder-cup-runtime@$PROJECT_ID.iam.gserviceaccount.com"
   --port=8080 --cpu=1 --memory=512Mi --concurrency=10 --min=0 --max=2 --timeout=120
   --set-env-vars="MODEL_PROVIDER=gemini,GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=$GEMINI_MODEL,MODEL_REQUESTS_ENABLED=$model_requests_enabled,MODEL_REQUESTS_PER_MINUTE=$model_requests_per_minute,MODEL_MAX_CONCURRENT_REQUESTS=$model_max_concurrent_requests"
-  --set-secrets=DEMO_API_KEY=builder-cup-demo-key:latest
+  --set-secrets="DEMO_API_KEY=builder-cup-demo-key:$secret_version"
   --tag=candidate --quiet
 )
 # Cloud Run rejects --no-traffic when the service does not exist yet. Later releases keep the
@@ -55,4 +66,9 @@ PY
 )
 gcloud run services update-traffic "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
   --to-revisions="$revision=100" --remove-tags=candidate --quiet
-gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)'
+gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
+  --format=json | python3 -c 'import json,sys; data=json.load(sys.stdin); rev=sys.argv[1]; assert any(x.get("revisionName")==rev and x.get("percent")==100 for x in data["status"]["traffic"]); print(data["status"]["url"])' "$revision"
+python3 scripts/release_summary.py \
+  --service "$SERVICE" --previous "$previous_revision" --revision "$revision" \
+  --image "$image" --secret "builder-cup-demo-key:$secret_version" \
+  --model "$GEMINI_MODEL" --checks 'candidate health 200, anonymous analysis 401, traffic 100%'

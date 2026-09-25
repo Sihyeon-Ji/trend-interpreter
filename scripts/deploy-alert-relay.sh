@@ -3,6 +3,11 @@ set -euo pipefail
 
 : "${PROJECT_ID:?}" "${PROJECT_NUMBER:?}" "${REGION:?}" "${SERVICE:?}" "${ALERT_TOPIC:?}" "${HEALTH_ID_TOKEN:?}"
 image=${1:?Usage: deploy-alert-relay.sh IMAGE_DIGEST}
+previous_revision=$(
+  gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \
+    --format=json 2>/dev/null |
+    python3 -c 'import json,sys; data=json.load(sys.stdin); print(next((x.get("revisionName", "") for x in data["status"].get("traffic", []) if x.get("percent")==100), ""))' 2>/dev/null || true
+)
 relay_audience="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
 runtime_service_account="builder-cup-alert-relay@$PROJECT_ID.iam.gserviceaccount.com"
 push_service_account="builder-cup-alert-push@$PROJECT_ID.iam.gserviceaccount.com"
@@ -85,4 +90,8 @@ PY
 gcloud pubsub topics publish "$ALERT_TOPIC" \
   --project="$PROJECT_ID" --message="$smoke_message" --quiet >/dev/null
 python3 scripts/verify_alert_delivery.py "$smoke_id" "$revision" "$PROJECT_ID"
+python3 scripts/release_summary.py \
+  --service "$SERVICE" --previous "$previous_revision" --revision "$revision" \
+  --image "$image" --secret "discord-webhook:$secret_version" \
+  --model '' --checks 'authenticated health 200, Pub/Sub delivery 204, traffic 100%'
 printf '%s\n' "$relay_audience"

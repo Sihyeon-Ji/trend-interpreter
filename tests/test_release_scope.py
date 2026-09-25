@@ -47,6 +47,18 @@ def test_release_scope_routes_services_and_checks():
         "relay": False,
     }
     assert classify({"unknown.config"})["full"] is True
+    assert classify(set(), "ops: 메인 서비스 재배포") == {
+        "full": True,
+        "infra": False,
+        "app": True,
+        "relay": False,
+    }
+    assert classify(set(), "ops: 알림 중계기 재배포")["relay"] is True
+    assert classify(set(), "ops: 전체 서비스 재배포")["app"] is True
+    assert classify(set(), "ops: 전체 서비스 재배포")["relay"] is True
+    assert classify({"docs/README.md"}, "ops: 메인 서비스 재배포")["app"] is True
+    assert classify({"scripts/release_recovery.py"})["app"] is True
+    assert classify({"scripts/release_recovery.py"})["relay"] is True
     assert classify(None) == {"full": True, "infra": True, "app": True, "relay": True}
 
 

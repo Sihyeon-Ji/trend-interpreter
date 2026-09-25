@@ -5,7 +5,7 @@ Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry�
 보장한다는 뜻이 아닙니다.
 
 자주 찾는 운영 절차는 [AI 호출 중지·요청 한도 조정](AI-호출-제어.md),
-[개발 명령어](../개발환경/개발-명령어.md), [배포 복구 계획](../plans/06-release-recovery.md)에서 바로 확인할 수 있습니다.
+[개발 명령어](../개발환경/개발-명령어.md), [배포 기록과 복구](배포-복구.md)에서 바로 확인할 수 있습니다.
 
 ## 최초 1회 기반 인프라 구성
 
@@ -142,12 +142,20 @@ Domain을 사거나 이전한 뒤에만 추가하며 현재 배포와 공개 web
 
 화면의 `Team access code`는 Google 계정 비밀번호나 Gemini API key가 아닙니다. 공개된 Cloud Run
 주소에서 팀원만 모델을 호출하도록 bootstrap이 무작위로 생성한 팀 공용 비밀번호입니다. 실제 값은
-Secret Manager의 `builder-cup-demo-key` 최신 version에 있습니다.
+Secret Manager의 `builder-cup-demo-key`에 있습니다. 배포 이후 새 version을 추가했더라도 배포 전까지는
+현재 traffic을 받는 revision이 참조하는 숫자 version의 코드가 유효합니다.
 
 ```bash
-gcloud secrets versions access latest \
+SERVING_REVISION=$(gcloud run services describe builder-cup \
+  --project=stunning-crane-508614-c1 --region=asia-northeast1 \
+  --format=json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["revisionName"] for x in d["status"]["traffic"] if x.get("percent")==100))')
+SECRET_VERSION=$(gcloud run revisions describe "$SERVING_REVISION" \
+  --project=stunning-crane-508614-c1 --region=asia-northeast1 \
+  --format=json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["valueFrom"]["secretKeyRef"]["key"] for x in d["spec"]["containers"][0]["env"] if x["name"]=="DEMO_API_KEY"))')
+gcloud secrets versions access "$SECRET_VERSION" \
   --secret=builder-cup-demo-key \
   --project=stunning-crane-508614-c1
+unset SERVING_REVISION SECRET_VERSION
 ```
 
 출력된 값은 private channel로만 팀원에게 전달합니다. 문서, Git, issue, chat, screenshot에 남기지 않습니다.
@@ -273,9 +281,10 @@ Artifact Registry 저장 용량은 billing account 전체 합산 기준 월 0.5G
 Run request가 처리되지 않고 Gemini도 호출되지 않습니다. Artifact Registry, Terraform state bucket,
 Secret Manager 같은 작은 기반 resource는 남으므로 비용이 절대 0이라고 보장할 수는 없지만, image 자동
 정리 정책까지 적용되어 있어 남는 비용은 매우 작게 유지됩니다. 이후 기반 resource가 그대로 있는 상태에서
-새 commit을 `release/gcp`에 push하면 CD가 Cloud Run 서비스를 다시 만듭니다.
+서비스에 영향을 주는 새 commit이나 [명시적 재배포 commit](배포-복구.md#변경-파일-없이-서비스-재배포)을
+`release/gcp`에 push하면 CD가 Cloud Run 서비스를 다시 만듭니다.
 
-| 단계 | 삭제 대상 | 남는 대상 | 다음 `release/gcp` push만으로 배포 가능? |
+| 단계 | 삭제 대상 | 남는 대상 | 관련 변경 또는 명시적 재배포 push로 복구 가능? |
 | --- | --- | --- | --- |
 | 그대로 유지 | 없음 | 서비스와 전체 기반 인프라 | 가능 |
 | 서비스 중단 | Cloud Run 서비스 | Image, registry, identity, secret, monitoring, Terraform state | 서비스 삭제가 끝난 뒤 가능 |
@@ -408,8 +417,8 @@ gh variable list --repo Sihyeon-Ji/2026-google-ai-builder-cup
 Secret을 삭제했다면 bootstrap이 새 team access code를 만듭니다. 예전 code는 더 이상 동작하지 않으므로
 새 값을 private channel로 전달합니다.
 
-평소처럼 새 application commit을 승격합니다. 빈 commit에는 변경 파일이 없어 배포 job이 실행되지
-않습니다. 같은 image의 명시적 재배포 경로는 [Plan 06](../plans/06-release-recovery.md)에서 다룹니다.
+평소처럼 새 application commit을 승격합니다. 변경 파일 없이 서비스를 다시 만들 때는
+[명시적 재배포 commit](배포-복구.md#변경-파일-없이-서비스-재배포)을 사용합니다.
 
 Release 완료를 기다리고 배포된 서비스를 확인합니다.
 
@@ -439,7 +448,7 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 
 | 삭제되거나 손상된 항목 | CD를 바로 실행한 결과 | 복구 방법 |
 | --- | --- | --- |
-| Cloud Run 서비스만 삭제 | 자동으로 재생성 | 삭제 완료 후 새 `release/gcp` commit push |
+| Cloud Run 서비스만 삭제 | 자동으로 재생성 | 삭제 완료 후 서비스 관련 변경 또는 명시적 재배포 commit push |
 | `app` image 묶음만 삭제 | 자동으로 재build·게시 | Bootstrap 불필요 |
 | Artifact Registry repository | Image push 실패 | Bootstrap 후 release |
 | Workload Identity provider 또는 배포 service account | GitHub 인증 실패 | Bootstrap 후 release |
@@ -458,27 +467,21 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
 `jsonPayload.request_id`로 검색하면 request, retry, completion record를 연결할 수 있습니다.
 `Builder Cup operations` dashboard는 request rate와 application error를 보여줍니다. 기존 Cloud Run
 metric에는 latency와 instance 수가 있으며 token 사용량과 추정 비용은 구조화된 completion log에
-기록됩니다. 비용 추정치를 활성화할 때는 가격 값을 의도적으로 설정합니다. 팀 수신자가 정해질 때까지
-paging/notification channel은 만들지 않습니다.
+기록됩니다. 비용 추정치를 활성화할 때는 가격 값을 의도적으로 설정합니다. Discord와 운영 이메일
+알림 채널, uptime·오류 alert policy는 이미 활성화되어 있습니다.
 
 ## 되돌리기
 
-```bash
-gcloud run revisions list --service=builder-cup --region=asia-northeast1 \
-  --project=stunning-crane-508614-c1
-bash scripts/rollback-gcp.sh KNOWN_GOOD_REVISION
-```
-
-Rollback은 traffic만 옮깁니다. 문제가 있는 image와 log는 조사할 수 있도록 남습니다. 다음 release 전에
-`develop`에서 문제 commit을 revert하고 수정 commit을 `release/gcp`로 승격합니다. Rollback에
-`--to-latest`를 사용하지 않습니다.
+메인과 relay의 안전한 사전 점검, 명시적 traffic 전환, 사후 health 확인은
+[배포 복구 절차](배포-복구.md#이전-revision으로-되돌리기)를 사용합니다. `--to-latest`로 대상 revision을
+추측하지 않습니다.
 
 ## 비밀값 교체
 
-Secret Manager에 새 version을 추가한 뒤 새 release를 실행해 instance가 값을 다시 읽게 합니다.
-현재 배포는 `latest`를 참조하므로 예전 revision으로 rollback해도 secret이 함께 돌아가지는 않습니다.
-예전 instance가 모두 종료될 때까지 이전 version을 유지합니다. Secret 값을 issue나 CI log에 붙이지
-않습니다.
+Secret Manager에 새 version을 추가한 뒤 새 release를 실행합니다. 메인 접근 코드와 relay webhook은
+배포 시점에 활성 숫자 version으로 고정해 revision과 함께 기록합니다. 과거 `latest` 참조 메인 revision은
+복구 명령에서 거부합니다. 예전 instance가 모두 종료될 때까지 이전 version을 유지합니다. Secret 값을
+issue나 CI log에 붙이지 않습니다.
 
 ## 로컬 Docker 설정
 
