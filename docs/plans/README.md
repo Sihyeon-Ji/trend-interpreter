@@ -8,7 +8,7 @@
 
 | ID | 상태 | 작업 | 완료 기준 |
 | --- | --- | --- | --- |
-| [06](06-release-recovery.md) | 제안 | 배포 복구와 운영 문서 정합성 | 배포 설정 추적, 복구 검증, 최신 운영 안내 일치 |
+| [06](06-release-recovery.md) | 실행 준비 | 배포 복구와 운영 문서 정합성 | 배포 설정 추적, 복구 검증, 최신 운영 안내 일치 |
 | [02](02-public-repository-release-protection.md) | 제출 전 대기 | 공개 저장소와 GCP 배포 승인 | 외부 사용자는 push할 수 없고 collaborator의 배포는 Environment 승인 후 진행 |
 
 Plan 03~05는 구현과 운영 검증을 마쳤습니다. 이후 Plan 06을 검토합니다.

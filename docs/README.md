@@ -8,6 +8,7 @@
 - [Mac 설치·진단](setup-macos.md)
 - [Windows 설치](setup-windows.md)
 - [개발 명령어](commands.md)
+- [운영 AI 호출 중지·요청 한도 조정](model-request-controls.md)
 - [아키텍처](architecture.md)
 - [운영·배포](operations.md)
 - [팀 작업 방식](team-workflow.md)

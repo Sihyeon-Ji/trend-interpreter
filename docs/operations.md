@@ -4,6 +4,9 @@ Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry�
 `asia-northeast1`을 사용합니다. Gemini location은 `global`이며 이는 한국 내 데이터 보관을
 보장한다는 뜻이 아닙니다.
 
+자주 찾는 운영 절차는 [AI 호출 중지·요청 한도 조정](model-request-controls.md),
+[개발 명령어](commands.md), [배포 복구 계획](plans/06-release-recovery.md)에서 바로 확인할 수 있습니다.
+
 ## 최초 1회 기반 인프라 구성
 
 1. `gh auth login`, `gcloud auth login`, `gcloud auth application-default login`으로 인증합니다.
@@ -59,22 +62,9 @@ Bootstrap이 설정하는 repository variable은 다음과 같습니다.
 
 ## AI 호출 일시 중지와 요청 한도
 
-운영 메인 API의 AI 호출 설정은 [model-controls.json](../deployment/model-controls.json)에 있습니다.
-기본값은 Cloud Run 인스턴스당 **분당 12건, 동시 실행 2건**입니다. 한도를 초과하면 모델을 호출하지 않고
-HTTP 429 `model_rate_limited`와 `Retry-After`를 반환합니다. 팀 접근 코드가 틀리면 한도 계산 전에
-HTTP 401로 거부합니다.
-
-호출을 중지할 때는 `enabled`를 `false`로 수정해 `develop`에 commit·push하고 검사 후
-`release/gcp`로 승격합니다. `Release GCP`가 메인 서비스 변경으로 인식해 후보 revision을 검사한 다음
-트래픽을 전환합니다. 이 설정은 기존 웹과 `/api/health`를 유지하고 인증된 분석 요청에
-HTTP 503 `model_disabled`를 반환합니다. 다시 열 때는 `enabled`를 `true`로 바꿔 같은 순서로
-승격합니다. 분당·동시 실행 값도 같은 파일에서 수정합니다.
-
-이 절차는 release CI와 배포 시간이 걸리므로 즉시 차단 수단은 아닙니다. 이미 진행 중인 모델 요청을
-취소하거나 이미 발생한 비용을 되돌리지 않습니다. 한도는 **각 프로세스 메모리**에 있어 Cloud Run
-인스턴스 두 개가 실행되면 합계가 기본 한도의 최대 두 배까지 올라갈 수 있고, revision 교체나 재시작 시
-분당 기록이 초기화됩니다. 이를 팀 전체의 정확한 월간 비용 상한으로 취급하지 않습니다. 이 설정은
-Git에 기록되는 비밀정보가 아니며 팀 접근 코드는 별도 Secret Manager에서 유지합니다.
+호출 중지·재개, 분당·동시 요청 수 조정, 배포와 비용 없는 확인 방법은
+[운영 AI 호출 제어 안내](model-request-controls.md)에 모았습니다. 현재 기본값은 인스턴스당 분당 12건,
+동시 실행 2건입니다.
 
 ## Discord 운영 알림
 

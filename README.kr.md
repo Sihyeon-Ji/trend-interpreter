@@ -174,6 +174,7 @@ Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 - [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
 - [5단계 AI 실습 계획과 준비물](docs/ai-lab-plan.md)
 - [팀원용 처음 설치 가이드](docs/setup.md)
+- [운영 AI 호출 중지·요청 한도 조정](docs/model-request-controls.md)
 - [아키텍처](docs/architecture.md)
 - [GCP 설정·비용 절감·삭제·복구와 웹 화면 사용법](docs/operations.md)
 - [팀 협업 방식](docs/team-workflow.md)
