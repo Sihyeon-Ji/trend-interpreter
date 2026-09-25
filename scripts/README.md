@@ -2,7 +2,7 @@
 
 Team members use Docker Compose from the repository root. These files implement specific
 operations; they are not a second task-runner interface.
-For copyable everyday commands, see the [Korean command reference](../docs/commands.md).
+For copyable everyday commands, see the [Korean command reference](../docs/개발환경/개발-명령어.md).
 
 | File | Caller | Responsibility |
 | --- | --- | --- |
@@ -31,4 +31,4 @@ For copyable everyday commands, see the [Korean command reference](../docs/comma
 Use `docker compose run --rm --build check` for evaluation as part of application validation.
 Do not add parallel Make/just/task wrappers for these commands. Keep service/task definitions
 in `compose.yaml`, frontend tool commands in `apps/web/package.json`, and multi-step operational
-implementation here. See [operations](../docs/operations.md) before running cloud scripts.
+implementation here. See [operations](../docs/운영/GCP-운영.md) before running cloud scripts.

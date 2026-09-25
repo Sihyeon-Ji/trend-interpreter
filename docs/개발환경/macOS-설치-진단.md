@@ -1,6 +1,6 @@
 # Mac 개발 도구 설치
 
-[공통 설치·실행 가이드](setup.md) | [Windows 설치 가이드](setup-windows.md)
+[공통 설치·실행 가이드](처음-설치.md) | [Windows 설치 가이드](Windows-설치.md)
 
 팀의 기본 개발 환경입니다. **Git과 Docker Desktop만 설치**하면 됩니다.
 Node 24.21.0, Python 3.12, npm, uv와 테스트 도구는 컨테이너에서 실행합니다.
@@ -48,7 +48,7 @@ docker info
 모두 오류 없이 실행되면 도구 준비가 끝났습니다. `docker info`가 연결 실패를 표시하면
 Docker Desktop을 먼저 켜고, 초기 설정을 완료했는지 확인합니다.
 
-이제 [공통 가이드의 저장소 받기](setup.md#2-저장소-받기)로 이어가세요.
+이제 [공통 가이드의 저장소 받기](처음-설치.md#2-저장소-받기)로 이어가세요.
 클론 위치는 본인이 정하면 되며 다른 팀원과 사용자명이나 홈 경로를 맞추지 않아도 됩니다.
 
 로컬 검증은 Apple Silicon Mac에서 완료했습니다. Intel Mac은 같은 명령과 x64 이미지를 사용하지만
@@ -101,7 +101,7 @@ command -v ollama
 `command -v ollama`는 호스트 CLI 경로를 확인할 뿐, 서버 실행이나 모델 설치를 보장하지 않습니다.
 CLI가 PATH에 없더라도 GUI 앱이 설치됐을 수 있습니다. 기본 개발에는 Ollama가 필요하지 않습니다.
 서버가 켜져 있을 때 `ollama list`로 다운로드 목록을 확인하고,
-실제 추론을 원하면 [Ollama 실습 안내](commands.md#실제-로컬-모델-비교)를 따릅니다.
+실제 추론을 원하면 [Ollama 실습 안내](개발-명령어.md#실제-로컬-모델-비교)를 따릅니다.
 
 ## 5. 별도 checkout을 독립적으로 검증하기
 
@@ -128,4 +128,4 @@ unset COMPOSE_PROJECT_NAME DEV_API_PORT DEV_WEB_PORT
 ```
 
 일반 `down`은 해당 검증 볼륨을 보존합니다. 이 안내는 기존 개발 DB나 모든 Docker 볼륨을 삭제하는 절차가 아닙니다.
-다른 팀원 Mac의 확인 결과는 [계획 01 검증 기록](plans/archive/01-environment-reproducibility.md)에 환경 정보와 함께 추가합니다.
+다른 팀원 Mac의 확인 결과는 [계획 01 검증 기록](../plans/archive/01-environment-reproducibility.md)에 환경 정보와 함께 추가합니다.

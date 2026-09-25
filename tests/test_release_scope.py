@@ -40,7 +40,7 @@ def test_release_scope_routes_services_and_checks():
         "app": False,
         "relay": False,
     }
-    assert classify({"docs/operations.md", "README.md", "prototype/trend/main.py"}) == {
+    assert classify({"docs/운영/GCP-운영.md", "README.md", "prototype/trend/main.py"}) == {
         "full": False,
         "infra": False,
         "app": False,

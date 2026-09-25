@@ -2,7 +2,7 @@
 
 작성일 **2026-09-24** · 상태 **구현·운영 배포 완료** · 구현 커밋 **58db540**
 
-[조사 근거](../../development-readiness-review.md) · [현재 계획](../README.md)
+[조사 근거](../../AI-개발/개발-준비-점검.md) · [현재 계획](../README.md)
 
 ## 목표
 
@@ -44,7 +44,7 @@
 - 중지 상태는 HTTP 503 `model_disabled`, 한도 초과는 HTTP 429 `model_rate_limited`와 `Retry-After`를 반환합니다. 오류 응답에는 `request_id`가 있습니다.
 - 허용된 요청이 timeout·취소·성공으로 끝나면 동시 실행 슬롯을 반환합니다. 한도 초과 요청은 provider를 호출하지 않습니다.
 - summary와 각 key point에 공백 제외 최소 길이·최대 길이를 적용했습니다. 핵심 문장은 최대 500자이며 1~5개여야 합니다.
-- [운영 설정](../../../deployment/model-controls.json)을 commit하고 `release/gcp`로 승격하면 변경 범위 판정이 메인 서비스를 배포합니다. 중지·재개 방법은 [운영 문서](../../operations.md)에 있습니다.
+- [운영 설정](../../../deployment/model-controls.json)을 commit하고 `release/gcp`로 승격하면 변경 범위 판정이 메인 서비스를 배포합니다. 중지·재개 방법은 [운영 문서](../../운영/GCP-운영.md)에 있습니다.
 - `docker compose run --rm --build check`에서 API 테스트 **97개 통과·1개 Git 미설치 환경 skip**, relay 테스트 10개, Mock 계약 2개, 타입 검사·웹 빌드가 통과했습니다. `docker compose run --rm --build e2e`는 **8개 통과**했습니다.
 - [GitHub Actions release](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/actions/runs/36007239153)는 공통 CI와 메인 앱 배포가 성공했고 relay 배포는 skip됐습니다.
 - Cloud Run `builder-cup-00013-gej`가 트래픽 100%를 받고 `MODEL_REQUESTS_ENABLED=true`, 분당 12건, 동시 2건을 사용합니다. 공개 health는 200, 인증 없는 분석 요청은 401, 배포 직후 ERROR 이상 로그는 없었습니다.

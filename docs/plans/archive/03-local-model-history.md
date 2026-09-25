@@ -97,4 +97,4 @@ docker compose run --rm --build ollama-history-check
 ```
 
 출력된 Run ID를 http://localhost:5173 의 **Workflow history**에서 선택하거나 API로 조회합니다.
-세부 인자와 실패 실습은 [명령어 문서](../../commands.md#gemma-4-실행을-workflow-history에-연결)에 있습니다.
+세부 인자와 실패 실습은 [명령어 문서](../../개발환경/개발-명령어.md#gemma-4-실행을-workflow-history에-연결)에 있습니다.

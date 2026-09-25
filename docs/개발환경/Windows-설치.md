@@ -1,6 +1,6 @@
 # Windows·WSL2 개발 도구 설치
 
-[공통 설치·실행 가이드](setup.md) | [Mac 설치 가이드](setup-macos.md)
+[공통 설치·실행 가이드](처음-설치.md) | [Mac 설치 가이드](macOS-설치-진단.md)
 
 Windows 사용자를 위한 보조 안내입니다. **WSL2의 Ubuntu에 저장소를 두고 Docker Desktop으로 실행**합니다.
 Windows용 Node·Python·Make는 설치하지 않습니다. 이 설치 과정은 실제 Windows PC에서 아직 검증하지 않았습니다.
@@ -46,7 +46,7 @@ docker info
 ```
 
 Docker 명령이 없거나 엔진에 연결되지 않으면 Docker Desktop 실행 상태와 Ubuntu의 WSL Integration을 확인합니다.
-모두 정상이라면 [공통 가이드의 저장소 받기](setup.md#2-저장소-받기)로 이어갑니다.
+모두 정상이라면 [공통 가이드의 저장소 받기](처음-설치.md#2-저장소-받기)로 이어갑니다.
 
 ## 4. 저장소와 편집기 위치
 
@@ -58,4 +58,4 @@ Windows에 별도로 클론한 다른 폴더를 수정하면 실행 중인 컨�
 앱을 켠 뒤 Windows 브라우저에서 http://localhost:5173 에 접속합니다.
 접속이 안 되면 [Microsoft WSL 네트워크 안내](https://learn.microsoft.com/en-us/windows/wsl/networking)를 참고하세요.
 
-이후 실행·검사·패키지 관리 명령은 Mac과 같습니다. [개발 명령어 모음](commands.md)을 사용하세요.
+이후 실행·검사·패키지 관리 명령은 Mac과 같습니다. [개발 명령어 모음](개발-명령어.md)을 사용하세요.

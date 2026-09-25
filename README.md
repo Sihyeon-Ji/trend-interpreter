@@ -1,6 +1,6 @@
 # AI Builder Cup 2026
 
-English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/setup.md)
+English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/개발환경/처음-설치.md)
 
 A theme-independent foundation for a four-person team: React + TypeScript, FastAPI,
 Gemini on Google Cloud, and an optional separate Gemma/vLLM runtime.
@@ -44,7 +44,7 @@ This development server is exposed only on host loopback; it is not a production
 
 Run these from the repository root. Compose is the single entry point; there is no Makefile
 or extra task runner to install.
-See the [Korean command reference](docs/commands.md) for commands by task, expected effects and option meanings.
+See the [Korean command reference](docs/개발환경/개발-명령어.md) for commands by task, expected effects and option meanings.
 
 | Command | Purpose |
 | --- | --- |
@@ -90,14 +90,14 @@ docker compose run --rm --build uv add httpx
 Package names above are examples; add only what the feature needs. These tools do not install host
 `node_modules` or `.venv`. Rebuild with `docker compose up -d --build`, run `check` and `e2e`, then
 commit both `package.json` / `package-lock.json` or `pyproject.toml` / `uv.lock` in the same commit.
-See the [Korean command reference](docs/commands.md) for removal and targeted upgrade commands.
+See the [Korean command reference](docs/개발환경/개발-명령어.md) for removal and targeted upgrade commands.
 Production and development builds reject out-of-date lockfiles.
 
 ## PostgreSQL lab
 
 Run `docker compose run --rm db-check` to insert a synthetic record and read it back by ID.
 The output includes a read-only replay command and a browser URL. Use that same ID after restarting
-the database to verify persistence. See the [lab plan and recorded results](docs/ai-lab-plan.md).
+the database to verify persistence. See the [lab plan and recorded results](docs/AI-개발/AI-실습-기록.md).
 
 PostgreSQL 18.6 data and generated administrator/application passwords live in separate named volumes.
 Normal `docker compose down` preserves them; deleting volumes removes the corresponding data or credentials.
@@ -128,14 +128,14 @@ Expected HTTP errors are successful failure exercises, not AI quality results. S
 ## Local model comparison
 
 The optional `ollama-check` service calls native Ollama on the Mac host via `host.docker.internal:11434`.
-Install Ollama and pull the required Google model `gemma4:e4b` first; see the [Korean lab instructions](docs/commands.md#실제-로컬-모델-비교).
+Install Ollama and pull the required Google model `gemma4:e4b` first; see the [Korean lab instructions](docs/개발환경/개발-명령어.md#실제-로컬-모델-비교).
 It runs the same graph and ten versioned synthetic inputs with Mock and Ollama, then saves timestamped JSON,
 readable Markdown and evidence-review templates under ignored `artifacts/`. Reports include synthetic
 source/output, suite hash, source commit, model digest, usage and load/generation timing; they are evaluation
 artifacts, not operational logs or PostgreSQL history. `model-eval` validates the suite and completed reviews,
 and compares reports only when their suite hashes match.
 The default UI/API remains Mock. Real inference is opt-in and never runs in CI. There is no Mock fallback
-on model failure. Schema success is separate from factual quality; the [recorded review](docs/ai-lab-plan.md)
+on model failure. Schema success is separate from factual quality; the [recorded review](docs/AI-개발/AI-실습-기록.md)
 includes observed omissions and unsupported generalizations.
 The separate `ollama-history-check` command can persist one synthetic Gemma 4 run's metadata under the same
 run ID shown in its ignored report. PostgreSQL still excludes source and generated text; the default API
@@ -183,7 +183,7 @@ docs/                        Setup, architecture, operations and team workflow
 The development stack uses mock by default. GCP billing is linked, and the release is live on Cloud Run
 with Vertex AI Gemini. Real-model operation still depends on project permissions, quota and billing;
 successful mock tests do not establish these.
-See [operations](docs/operations.md) and [Gemma/vLLM](models/vllm/README.md).
+See [operations](docs/운영/GCP-운영.md) and [Gemma/vLLM](models/vllm/README.md).
 
 Develop on `develop`; pushes do not start GitHub Actions. Fast-forwarding and pushing `release/gcp`
 runs the full checks once, publishes the image and deploys it. CI can also be started manually.
@@ -192,14 +192,14 @@ Never commit credentials, `.env`, model weights, Terraform state or generated ev
 ## Team and documentation
 
 - [Documentation index in Korean](docs/README.md)
-- [AI lab completion report, capabilities and next steps in Korean](docs/ai-lab-report.md)
+- [AI lab completion report, capabilities and next steps in Korean](docs/AI-개발/AI-개발-종합-보고서.md)
 - [Theme-independent development preparation plans in Korean](docs/plans/README.md)
-- [Local LLM, graph workflow and database guide in Korean](docs/ai-development-guide.md)
-- [AI development lab plan and prerequisites in Korean](docs/ai-lab-plan.md)
-- [First-time setup in Korean](docs/setup.md)
-- [Architecture](docs/architecture.md)
-- [Operations](docs/operations.md)
-- [Team workflow](docs/team-workflow.md)
+- [Local LLM, graph workflow and database guide in Korean](docs/AI-개발/AI-개발-가이드.md)
+- [AI development lab plan and prerequisites in Korean](docs/AI-개발/AI-실습-기록.md)
+- [First-time setup in Korean](docs/개발환경/처음-설치.md)
+- [Architecture](docs/운영/시스템-아키텍처.md)
+- [Operations](docs/운영/GCP-운영.md)
+- [Team workflow](docs/개발환경/팀-작업-방식.md)
 
 - [Repository](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup)
 - [Project board](https://github.com/users/Sihyeon-Ji/projects/1)

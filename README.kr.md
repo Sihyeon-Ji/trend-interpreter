@@ -1,6 +1,6 @@
 # AI Builder Cup 2026
 
-[English](README.md) | 한국어 | [처음 설치하는 팀원을 위한 가이드](docs/setup.md)
+[English](README.md) | 한국어 | [처음 설치하는 팀원을 위한 가이드](docs/개발환경/처음-설치.md)
 
 Google AI Builder Cup 팀의 공통 개발 저장소입니다. React·TypeScript 화면과 Python·FastAPI 서버,
 Gemini 및 별도 Gemma/vLLM 연결 구조가 준비되어 있습니다. `prototype/`은 독립적인 주제 후보이며
@@ -9,7 +9,7 @@ Gemini 및 별도 Gemma/vLLM 연결 구조가 준비되어 있습니다. `protot
 ## 처음 시작하기
 
 **Git과 Docker만 설치하면 됩니다.** 로컬 Node·Python·uv·Make 설치는 필요하지 않습니다.
-Docker Desktop을 켠 뒤 실행하세요. 처음이라면 [상세 설치 가이드](docs/setup.md)를 참고하세요.
+Docker Desktop을 켠 뒤 실행하세요. 처음이라면 [상세 설치 가이드](docs/개발환경/처음-설치.md)를 참고하세요.
 
 ```bash
 git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup.git
@@ -35,7 +35,7 @@ docker compose up -d
 
 Makefile은 제거했습니다. 다른 명령 관리 도구를 추가로 설치할 필요도 없습니다.
 아래 명령은 모두 `compose.yaml`이 있는 저장소 루트에서 실행합니다.
-**상황별 명령, 실행 결과, 옵션 뜻은 [개발 명령어 모음](docs/commands.md)에 정리했습니다.**
+**상황별 명령, 실행 결과, 옵션 뜻은 [개발 명령어 모음](docs/개발환경/개발-명령어.md)에 정리했습니다.**
 
 | 할 일 | 명령어 |
 | --- | --- |
@@ -81,13 +81,13 @@ docker compose up -d --build
 `docker compose run --rm --build npm install 패키지명` 또는
 `docker compose run --rm --build uv add 패키지명`을 사용하면 목록과 lockfile이 로컬 저장소에 함께 기록됩니다.
 호스트에 Node·Python을 설치하지 않아도 됩니다. 재빌드와 검증 후 두 파일을 같은 커밋에 포함하세요.
-제거·개발용 패키지·업데이트 예시는 [명령어 모음](docs/commands.md)에 정리했습니다.
+제거·개발용 패키지·업데이트 예시는 [명령어 모음](docs/개발환경/개발-명령어.md)에 정리했습니다.
 
 ## PostgreSQL 첫 실습
 
 `docker compose run --rm db-check`를 실행하면 합성 기록을 하나 생성하고 같은 ID로 조회합니다.
 출력된 `Read again` 명령은 기존 기록만 조회하며, `Open` 주소는 브라우저에서 열 수 있습니다.
-DB 재시작 후 같은 ID·이름·생성 시각이 유지되는지 [실습 기록](docs/ai-lab-plan.md)에서 확인하세요.
+DB 재시작 후 같은 ID·이름·생성 시각이 유지되는지 [실습 기록](docs/AI-개발/AI-실습-기록.md)에서 확인하세요.
 합성 기록은 API로 조회하며, 5173 화면에서는 별도로 그래프 실행 이력을 볼 수 있습니다.
 
 DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 남습니다. 일반 `down`은 보존하지만
@@ -104,7 +104,7 @@ DB 데이터와 자동 생성된 접속 비밀번호는 별도 Docker 볼륨에 
 `accepted`는 실습의 형식 규칙 통과를 뜻하며 사실성이나 AI 품질 판정이 아닙니다.
 http://localhost:5173 의 **Workflow history**에서 `Run workflow`를 누르고 실행 항목을 선택하면
 단계별 상태·시간·모델·토큰·오류 코드를 확인할 수 있습니다. 최근 20개를 조회하며 원문과 생성 결과는 저장하지 않습니다.
-이력은 DB에 남지만 중단된 작업을 자동 재개하지는 않습니다. [실습 기록](docs/ai-lab-plan.md)을 참고하세요.
+이력은 DB에 남지만 중단된 작업을 자동 재개하지는 않습니다. [실습 기록](docs/AI-개발/AI-실습-기록.md)을 참고하세요.
 
 같은 화면의 **Practice scenario**에서 모델 시간 초과, 잘못된 JSON, 병렬 분기 실패, 재시도 복구를 선택할 수 있습니다.
 기본 문서로 실행한 뒤 예상 결과와 실제 단계별 상태를 비교하세요. 이 실습에서 의도한 오류는 정상적인 재현 결과입니다.
@@ -116,8 +116,8 @@ Mac 호스트에 Ollama와 Google `gemma4:e4b` 모델을 준비한 뒤 `docker c
 버전이 있는 합성 문서 10개를 같은 그래프로 처리하고, 결과·토큰·시간을 `artifacts/`의 JSON과 Markdown 파일에 남깁니다.
 같이 생성되는 수동 검토 양식은 원문/출력 근거와 평가자·시각을 기록하며, `model-eval`로 누락 없는지 확인합니다.
 기본 웹 화면과 실행 이력 실습은 계속 Mock이며, 실제 모델 비교는 이 명령으로 따로 실행합니다.
-연결 실패를 Mock 성공으로 바꾸지 않습니다. 설치·실행 순서는 [명령어 안내](docs/commands.md#실제-로컬-모델-비교),
-관찰한 품질 문제와 성능 수치는 [5단계 실습 기록](docs/ai-lab-plan.md)에 있습니다.
+연결 실패를 Mock 성공으로 바꾸지 않습니다. 설치·실행 순서는 [명령어 안내](docs/개발환경/개발-명령어.md#실제-로컬-모델-비교),
+관찰한 품질 문제와 성능 수치는 [5단계 실습 기록](docs/AI-개발/AI-실습-기록.md)에 있습니다.
 평가 체계와 최신 10개 사례 결과는 [Plan 02 결과](docs/plans/archive/02-model-evaluation.md)에 있습니다.
 실제 모델 실행을 PostgreSQL 메타데이터 이력과 연결하려면 [Plan 03 결과](docs/plans/archive/03-local-model-history.md)를 참고하세요.
 
@@ -169,15 +169,15 @@ Terraform 상태, 생성된 평가 결과는 Git에 올리지 않습니다.
 ## 문서와 팀 링크
 
 - [전체 문서 색인](docs/README.md)
-- [1~5단계 종합 보고서 — 준비된 역량·한계·다음 과제](docs/ai-lab-report.md)
+- [1~5단계 종합 보고서 — 준비된 역량·한계·다음 과제](docs/AI-개발/AI-개발-종합-보고서.md)
 - [현재 운영 준비 계획과 완료 계획 archive](docs/plans/README.md)
-- [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/ai-development-guide.md)
-- [5단계 AI 실습 계획과 준비물](docs/ai-lab-plan.md)
-- [팀원용 처음 설치 가이드](docs/setup.md)
-- [운영 AI 호출 중지·요청 한도 조정](docs/model-request-controls.md)
-- [아키텍처](docs/architecture.md)
-- [GCP 설정·비용 절감·삭제·복구와 웹 화면 사용법](docs/operations.md)
-- [팀 협업 방식](docs/team-workflow.md)
+- [로컬 LLM·그래프 워크플로우·DB 이해하기](docs/AI-개발/AI-개발-가이드.md)
+- [5단계 AI 실습 계획과 준비물](docs/AI-개발/AI-실습-기록.md)
+- [팀원용 처음 설치 가이드](docs/개발환경/처음-설치.md)
+- [운영 AI 호출 중지·요청 한도 조정](docs/운영/AI-호출-제어.md)
+- [아키텍처](docs/운영/시스템-아키텍처.md)
+- [GCP 설정·비용 절감·삭제·복구와 웹 화면 사용법](docs/운영/GCP-운영.md)
+- [팀 협업 방식](docs/개발환경/팀-작업-방식.md)
 - [Gemma/vLLM 안내](models/vllm/README.md)
 
 - [GitHub 프로젝트 보드](https://github.com/users/Sihyeon-Ji/projects/1)

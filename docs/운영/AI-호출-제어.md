@@ -2,11 +2,11 @@
 
 이 안내는 **배포된 메인 Cloud Run `builder-cup`**의 `/api/analyze`에 적용됩니다. 로컬 `docker compose up -d`의 Mock 실습과 별도 relay 서비스에는 적용되지 않습니다.
 
-[개발 명령어](commands.md) · [전체 운영 문서](operations.md) · [구현·검증 기록](plans/archive/05-model-request-controls.md)
+[개발 명령어](../개발환경/개발-명령어.md) · [전체 운영 문서](GCP-운영.md) · [구현·검증 기록](../plans/archive/05-model-request-controls.md)
 
 ## 먼저 설정 파일 보기
 
-저장소 루트의 [`deployment/model-controls.json`](../deployment/model-controls.json)을 엽니다.
+저장소 루트의 [`deployment/model-controls.json`](../../deployment/model-controls.json)을 엽니다.
 
 ```json
 {
@@ -105,6 +105,6 @@ unset TEAM_ACCESS_CODE
 
 ## 모델 결과가 거부되는 기준
 
-모델 응답은 [schemas.py](../apps/api/src/builder_cup/schemas.py)에서 검사합니다. 요약은 공백만으로 채울 수 없고 최대 1,500자입니다. 핵심 문장은 **1~5개**, 각각 공백만으로 채울 수 없으며 최대 **500자**입니다. 추가 필드·잘린 JSON도 성공 응답으로 처리하지 않고 `invalid_model_response` 오류를 반환합니다.
+모델 응답은 [schemas.py](../../apps/api/src/builder_cup/schemas.py)에서 검사합니다. 요약은 공백만으로 채울 수 없고 최대 1,500자입니다. 핵심 문장은 **1~5개**, 각각 공백만으로 채울 수 없으며 최대 **500자**입니다. 추가 필드·잘린 JSON도 성공 응답으로 처리하지 않고 `invalid_model_response` 오류를 반환합니다.
 
 이 길이와 형식 기준은 `model-controls.json`으로 바꾸는 운영 한도가 아닙니다. 바꾸려면 schema와 관련 테스트를 수정하고 검증 후 새 revision을 배포해야 합니다. 이 검사는 내용의 사실성이나 AI 답변의 품질을 보장하지 않습니다.

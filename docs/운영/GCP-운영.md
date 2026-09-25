@@ -4,8 +4,8 @@ Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry�
 `asia-northeast1`을 사용합니다. Gemini location은 `global`이며 이는 한국 내 데이터 보관을
 보장한다는 뜻이 아닙니다.
 
-자주 찾는 운영 절차는 [AI 호출 중지·요청 한도 조정](model-request-controls.md),
-[개발 명령어](commands.md), [배포 복구 계획](plans/06-release-recovery.md)에서 바로 확인할 수 있습니다.
+자주 찾는 운영 절차는 [AI 호출 중지·요청 한도 조정](AI-호출-제어.md),
+[개발 명령어](../개발환경/개발-명령어.md), [배포 복구 계획](../plans/06-release-recovery.md)에서 바로 확인할 수 있습니다.
 
 ## 최초 1회 기반 인프라 구성
 
@@ -63,7 +63,7 @@ Bootstrap이 설정하는 repository variable은 다음과 같습니다.
 ## AI 호출 일시 중지와 요청 한도
 
 호출 중지·재개, 분당·동시 요청 수 조정, 배포와 비용 없는 확인 방법은
-[운영 AI 호출 제어 안내](model-request-controls.md)에 모았습니다. 현재 기본값은 인스턴스당 분당 12건,
+[운영 AI 호출 제어 안내](AI-호출-제어.md)에 모았습니다. 현재 기본값은 인스턴스당 분당 12건,
 동시 실행 2건입니다.
 
 ## Discord 운영 알림
@@ -132,7 +132,7 @@ Relay는 최소 instance 0, 최대 1입니다. Pub/Sub은 최소 10초, 최대 6
 두 subscription은 비활성 만료를 해제했습니다.
 
 구현과 실제 장애·복구·dead-letter 검증 결과는
-[Discord 운영 알림 중계기 완료 기록](plans/archive/01-production-alerting.md)에 있습니다.
+[Discord 운영 알림 중계기 완료 기록](../plans/archive/01-production-alerting.md)에 있습니다.
 
 ## 웹 화면과 팀 접근 코드 사용법
 
@@ -409,7 +409,7 @@ Secret을 삭제했다면 bootstrap이 새 team access code를 만듭니다. 예
 새 값을 private channel로 전달합니다.
 
 평소처럼 새 application commit을 승격합니다. 빈 commit에는 변경 파일이 없어 배포 job이 실행되지
-않습니다. 같은 image의 명시적 재배포 경로는 [Plan 06](plans/06-release-recovery.md)에서 다룹니다.
+않습니다. 같은 image의 명시적 재배포 경로는 [Plan 06](../plans/06-release-recovery.md)에서 다룹니다.
 
 Release 완료를 기다리고 배포된 서비스를 확인합니다.
 

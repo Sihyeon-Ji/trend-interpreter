@@ -2,7 +2,7 @@
 
 작성일 **2026-09-21** · 구현 기준 **`2af238f`** · 범위 **로컬 개발환경과 1~5단계 학습 실습**
 
-[한국어 README](../README.kr.md) · [단계별 실습 기록](ai-lab-plan.md) · [실행 명령어](commands.md) · [개념 설명](ai-development-guide.md)
+[한국어 README](../../README.kr.md) · [단계별 실습 기록](AI-실습-기록.md) · [실행 명령어](../개발환경/개발-명령어.md) · [개념 설명](AI-개발-가이드.md)
 
 ## 0. 개요
 
@@ -24,7 +24,7 @@
 실제 모델이 시간 정보를 빠뜨린 사례도 있어, 중요한 내용의 정확성을 검사하는 작업은 앞으로 필요합니다.
 
 **주제가 정해지기를 기다리는 동안에도 공통 기반을 개선할 수 있습니다.**
-다른 Mac에서의 재현성, 평가 절차, 실제 모델 이력 연결, DB 복구 준비를 [주제 선정 전 작업 계획](plans/README.md)에 나눠 두었습니다.
+다른 Mac에서의 재현성, 평가 절차, 실제 모델 이력 연결, DB 복구 준비를 [주제 선정 전 작업 계획](../plans/README.md)에 나눠 두었습니다.
 
 ## 1. 현재 프로젝트의 위치
 
@@ -177,9 +177,9 @@ think false, 제한 시간 120초·시도 1회를 사용했습니다. 첫 문서
 실제 모델을 연결해도 사실성은 별도 검증이 필요합니다. Mock은 원문 일부를 복사하므로 정답 모델로 사용할 수 없습니다.
 서버가 꺼졌을 때 비교 명령이 실패하고 실패 보고서를 남기는 것도 확인했습니다. 모델 실패를 Mock 성공으로 바꾸지 않습니다.
 
-이후 [Plan 02](plans/archive/02-model-evaluation.md)에서 사례를 근거가 있는 10개로 확장하고,
+이후 [Plan 02](../plans/archive/02-model-evaluation.md)에서 사례를 근거가 있는 10개로 확장하고,
 수동 검토의 평가자·시각·원문/출력 근거 및 동일 suite 보고서 비교 절차를 추가했습니다.
-[Plan 03](plans/archive/03-local-model-history.md)에서는 명시적 Gemma 4 실행의 보고서와 PostgreSQL 이력을
+[Plan 03](../plans/archive/03-local-model-history.md)에서는 명시적 Gemma 4 실행의 보고서와 PostgreSQL 이력을
 같은 실행 ID로 연결하되 DB에는 원문·생성 결과를 저장하지 않는 경로를 추가했습니다.
 
 ## 4. 지금 사용할 수 있는 기능과 결과가 남는 곳
@@ -199,7 +199,7 @@ think false, 제한 시간 120초·시도 1회를 사용했습니다. 첫 문서
 실제 모델 비교 보고서는 고정된 합성 입력과 출력을 포함하는 **평가 파일**이며 Git에서 제외됩니다.
 기본 웹 화면은 계속 Mock입니다. `ollama-check` 비교는 파일에만 남고,
 명시적 `ollama-history-check` 실행만 메타데이터를 PostgreSQL Workflow history에 연결합니다.
-[Plan 04](plans/archive/04-database-recovery.md)에서 checksum 기반 순차 migration과 기존 DB를 덮어쓰지 않는
+[Plan 04](../plans/archive/04-database-recovery.md)에서 checksum 기반 순차 migration과 기존 DB를 덮어쓰지 않는
 로컬 백업·새 DB 복원 절차를 추가했습니다.
 
 팀원이 지금 재현할 수 있는 기본 순서는 다음과 같습니다. 모두 저장소 루트에서 실행합니다.
@@ -215,7 +215,7 @@ docker compose run --rm --build e2e
 ```
 
 http://localhost:5173 에서 화면을 확인하고 http://localhost:8000/docs 에서 API를 살펴볼 수 있습니다.
-실제 모델은 [Ollama 준비](commands.md#실제-로컬-모델-비교) 후 아래 명령을 별도로 실행합니다.
+실제 모델은 [Ollama 준비](../개발환경/개발-명령어.md#실제-로컬-모델-비교) 후 아래 명령을 별도로 실행합니다.
 
 ```bash
 docker compose run --rm --build ollama-check
@@ -261,13 +261,13 @@ CI에는 앱 검사, DB·그래프·이력·실패 실습, 브라우저 검사, 
 
 | 단계 | 주요 구현 커밋 | 코드 근거 |
 | --- | --- | --- |
-| 1 | [eb2faf6](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/eb2faf6) | [DB 연결·초기화](../apps/api/src/builder_cup/database.py), [Compose](../compose.yaml) |
-| 2 | [69b8b74](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/69b8b74) | [그래프](../apps/api/src/builder_cup/graph_lab.py), [호출 정책](../apps/api/src/builder_cup/workflow.py) |
-| 3 | [5d742c3](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/5d742c3) | [이력 저장](../apps/api/src/builder_cup/history.py), [이력 화면](../apps/web/src/WorkflowHistory.tsx) |
-| 4 | [8ebe8c8](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/8ebe8c8) | [실패 주입](../apps/api/src/builder_cup/lab_scenarios.py), [실습 검증](../scripts/failure_lab.py) |
-| 5 | [2af238f](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/2af238f) | [모델 어댑터](../apps/api/src/builder_cup/providers.py), [비교 실행](../scripts/ollama_lab.py), [평가 입력](../evaluation-cases/ollama-lab.json) |
+| 1 | [eb2faf6](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/eb2faf6) | [DB 연결·초기화](../../apps/api/src/builder_cup/database.py), [Compose](../../compose.yaml) |
+| 2 | [69b8b74](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/69b8b74) | [그래프](../../apps/api/src/builder_cup/graph_lab.py), [호출 정책](../../apps/api/src/builder_cup/workflow.py) |
+| 3 | [5d742c3](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/5d742c3) | [이력 저장](../../apps/api/src/builder_cup/history.py), [이력 화면](../../apps/web/src/WorkflowHistory.tsx) |
+| 4 | [8ebe8c8](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/8ebe8c8) | [실패 주입](../../apps/api/src/builder_cup/lab_scenarios.py), [실습 검증](../../scripts/failure_lab.py) |
+| 5 | [2af238f](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/2af238f) | [모델 어댑터](../../apps/api/src/builder_cup/providers.py), [비교 실행](../../scripts/ollama_lab.py), [평가 입력](../../evaluation-cases/ollama-lab.json) |
 
-개별 실행 ID·모델 digest·원본 보고서 파일명은 [단계별 실습 기록](ai-lab-plan.md)에 있습니다.
+개별 실행 ID·모델 digest·원본 보고서 파일명은 [단계별 실습 기록](AI-실습-기록.md)에 있습니다.
 생성된 보고서와 DB 데이터는 clone으로 전달되지 않습니다. 다른 PC에서는 같은 명령으로 새 증거를 만듭니다.
 
 ## 7. 앞으로 남은 작업과 진행 순서
@@ -279,13 +279,13 @@ CI에는 앱 검사, DB·그래프·이력·실패 실습, 브라우저 검사, 
 
 | 계획 | 목적 | 상세 문서 |
 | --- | --- | --- |
-| 01 | 새 Mac·새 checkout에서 동일하게 실행되는지 확인 | [개발환경 재현성과 진단](plans/archive/01-environment-reproducibility.md) |
-| 02 | 모델 변경 전후의 결과와 품질 문제를 일관되게 비교 | [모델 평가와 비교 보고서](plans/archive/02-model-evaluation.md) |
-| 03 | 실제 모델 비교 파일에서 해당 실행의 노드 이력까지 추적 | [실제 모델 실행 이력 연결](plans/archive/03-local-model-history.md) |
-| 04 | 스키마를 바꾸거나 데이터를 잃을 때 안전하게 대응 | [DB 변경과 백업·복구](plans/archive/04-database-recovery.md) |
+| 01 | 새 Mac·새 checkout에서 동일하게 실행되는지 확인 | [개발환경 재현성과 진단](../plans/archive/01-environment-reproducibility.md) |
+| 02 | 모델 변경 전후의 결과와 품질 문제를 일관되게 비교 | [모델 평가와 비교 보고서](../plans/archive/02-model-evaluation.md) |
+| 03 | 실제 모델 비교 파일에서 해당 실행의 노드 이력까지 추적 | [실제 모델 실행 이력 연결](../plans/archive/03-local-model-history.md) |
+| 04 | 스키마를 바꾸거나 데이터를 잃을 때 안전하게 대응 | [DB 변경과 백업·복구](../plans/archive/04-database-recovery.md) |
 
 Plan 01~04는 구현과 로컬 검증을 완료했습니다. 최종 주제는 팀에서 별도로 결정합니다.
-상태·의존 관계·완료 기준은 [계획 목록](plans/README.md)에 있습니다.
+상태·의존 관계·완료 기준은 [계획 목록](../plans/README.md)에 있습니다.
 
 ### 주제 선정 후 제품 개발
 
@@ -323,11 +323,11 @@ GCP 리소스 생성, 과금 활성화, `release/gcp` push는 계속 보류합�
 | 목적 | 문서 |
 | --- | --- |
 | 현재 무엇이 준비됐는지 파악 | 이 보고서 |
-| 단계별 작업 경위·검증 수치·실행 ID 확인 | [실습 계획과 기록](ai-lab-plan.md) |
-| 로컬 LLM·그래프·DB 개념 이해 | [AI 개발 가이드](ai-development-guide.md) |
-| 신규 clone 후 준비 | [설치 안내](setup.md), [Mac](setup-macos.md), [Windows](setup-windows.md) |
-| 명령어 실행·결과 해석 | [개발 명령어 모음](commands.md) |
-| 코드 책임과 운영 범위 확인 | [아키텍처](architecture.md), [운영 안내](operations.md) |
+| 단계별 작업 경위·검증 수치·실행 ID 확인 | [실습 계획과 기록](AI-실습-기록.md) |
+| 로컬 LLM·그래프·DB 개념 이해 | [AI 개발 가이드](AI-개발-가이드.md) |
+| 신규 clone 후 준비 | [설치 안내](../개발환경/처음-설치.md), [Mac](../개발환경/macOS-설치-진단.md), [Windows](../개발환경/Windows-설치.md) |
+| 명령어 실행·결과 해석 | [개발 명령어 모음](../개발환경/개발-명령어.md) |
+| 코드 책임과 운영 범위 확인 | [아키텍처](../운영/시스템-아키텍처.md), [운영 안내](../운영/GCP-운영.md) |
 
 제품 기능 개발에는 **주제 하나, 대표 사용자 흐름 하나, 성공을 판정할 입력과 기대 결과**에 대한 팀 합의가 필요합니다.
-그 논의와 별개로 [주제 선정 전 공통 기반 계획](plans/README.md)을 진행할 수 있습니다.
+그 논의와 별개로 [주제 선정 전 공통 기반 계획](../plans/README.md)을 진행할 수 있습니다.

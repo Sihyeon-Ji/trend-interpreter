@@ -2,7 +2,7 @@
 
 작성일 **2026-09-24** · 재검토 **2026-09-25** · 상태 **실행 준비** · 우선순위 **본격 개발 전**
 
-[조사 근거](../development-readiness-review.md) · [현재 계획](README.md)
+[조사 근거](../AI-개발/개발-준비-점검.md) · [현재 계획](README.md)
 
 ## 목표
 
@@ -20,8 +20,8 @@
 - [rollback-gcp.sh](../../scripts/rollback-gcp.sh)는 main 서비스 traffic만 변경하며 이후 health·인증 검증이 없습니다.
 - [deploy-gcp.sh](../../scripts/deploy-gcp.sh)는 `DEMO_API_KEY`에 `latest`를 사용합니다. relay는 숫자 version을 선택합니다.
 - relay의 최종 Pub/Sub 검증은 Plan 03에서 보완합니다. 여기서는 복구 절차와 양쪽 서비스의 배포 기록을 다룹니다.
-- [operations.md](../operations.md)에 알림 구축 설명과 ‘수신자 미정으로 channel을 만들지 않는다’는 과거 안내가 공존합니다.
-- [실습 보고서](../ai-lab-report.md)는 오래된 commit 기준이며 현재의 GCP 상태와 구별할 필요가 있습니다.
+- [GCP 운영 문서](../운영/GCP-운영.md)에 알림 구축 설명과 ‘수신자 미정으로 channel을 만들지 않는다’는 과거 안내가 공존합니다.
+- [실습 보고서](../AI-개발/AI-개발-종합-보고서.md)는 오래된 commit 기준이며 현재의 GCP 상태와 구별할 필요가 있습니다.
 
 ## 작업 순서
 

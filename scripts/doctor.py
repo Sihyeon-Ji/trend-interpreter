@@ -54,7 +54,7 @@ def check_ollama(client: httpx.Client) -> None:
             "OPTIONAL Ollama server: unreachable or invalid response; "
             "Mock development is unaffected"
         )
-        print("Next on Mac: command -v ollama; check server startup in docs/commands.md")
+        print("Next on Mac: command -v ollama; see docs/개발환경/개발-명령어.md")
         return
     print("PASS Optional Ollama server: reachable from Docker")
     status, data = get_json(client, f"{OLLAMA_URL}/api/tags")
@@ -79,13 +79,13 @@ def main() -> int:
         project = tomllib.loads((root / "pyproject.toml").read_text())["project"]["name"]
         digest = hashlib.sha256((root / "compose.yaml").read_bytes()).hexdigest()[:12]
     except (OSError, ValueError, KeyError):
-        print("FAIL Checkout files: run from the repository root; see docs/setup-macos.md")
+        print("FAIL Checkout files: run from repo root; see docs/개발환경/macOS-설치-진단.md")
         return 1
     if project != "builder-cup":
         print("FAIL Checkout: unexpected Python project")
         return 1
     print(f"Project: {os.environ.get('COMPOSE_PROJECT_NAME', 'unknown')}; Compose SHA256: {digest}")
-    print("Host path/branch/ports: verify with the host commands in docs/setup-macos.md")
+    print("Host path/branch/ports: see docs/개발환경/macOS-설치-진단.md")
     node = subprocess.run(
         ["node", "--version"], capture_output=True, text=True, check=True
     ).stdout.strip()

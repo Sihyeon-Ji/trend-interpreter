@@ -1,4 +1,4 @@
-# Run from the repository root. Command guide (Korean) is in docs/commands.md.
+# Run from the repository root. Command guide (Korean) is in docs/개발환경/개발-명령어.md.
 # Start development with docker compose up -d, then open http://localhost:5173.
 # Source edits reload automatically; dependency changes need docker compose up -d --build.
 # Run application checks with docker compose run --rm --build check.
