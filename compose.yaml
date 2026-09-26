@@ -145,6 +145,22 @@ services:
         npm --prefix apps/web run typecheck &&
         npm --prefix apps/web run build
 
+  # Audit only the shared application's locked dependencies; prototypes are separate candidates.
+  security-check:
+    image: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
+    profiles: [tools]
+    working_dir: /src
+    read_only: true
+    volumes:
+      - ./:/src:ro
+    command:
+      - scan
+      - source
+      - --lockfile=/src/uv.lock
+      - --lockfile=/src/apps/alert-relay/uv.lock
+      - --lockfile=/src/apps/web/package-lock.json
+      - --verbosity=error
+
   # Browser tests start the development services they depend on.
   e2e:
     <<: *development
