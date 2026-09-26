@@ -26,7 +26,9 @@ export interface TrendItem {
 export interface TopicVariant {
   region: string;
   local_name: string; // 그 나라에서 부르는 이름 (원문)
-  since: string; // 처음 눈에 띈 때
+  since: string; // 처음 눈에 띈 때. dated 가 아니면 참고용이고 순서를 정하는 데 쓰지 않는다
+  dated?: boolean; // since 에 날짜를 대는 출처가 있나 — 있어야 이동 경로의 한 점이 된다
+  since_source?: Text2; // 그 출처 (예: 위키백과 일본어판 · 문서 생성)
   heat: number; // 지금 관심도 0~100 (주제 안에서 상대값)
   what_changed: Text2; // 나라별 차이 한 줄
   local_memes: { label: string; note: Text2 }[]; // 그 나라에서 생긴 밈·대사·놀이
@@ -39,7 +41,7 @@ export interface Topic {
   category: TrendCategory;
   name: Text2;
   summary: Text2; // 주제가 무엇인지 두 문장
-  variants: TopicVariant[]; // variants[0] 이 처음 나온 곳
+  variants: TopicVariant[]; // 처음 나온 곳은 lib/trends/path.ts 의 originOf() 로만 — 날짜 근거가 둘 이상일 때만 정해진다
 }
 
 export type Trigger = "influencer" | "release" | "event" | "controversy" | "meme" | "promotion" | "holiday" | "sports" | "unknown";

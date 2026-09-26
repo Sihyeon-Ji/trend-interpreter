@@ -114,10 +114,15 @@ const ITEMS: TrendItem[] = [
 
 
 const T = (ko: string, en: string): Text2 => ({ ko, en });
+// 예시의 날짜는 공개 보도 기준이다. '(가정)' 이 붙은 나라는 날짜도 추정이라 경로의 점으로 쓰지 않는다.
+const PRESS = T("공개 보도 (팀 조사)", "Press reports (team research)");
 const v = (
   region: string, local_name: string, since: string, heat: number, what_changed: Text2,
   local_memes: { label: string; note: Text2 }[], linked: { label: string; note: Text2; term_id?: string }[] = [], term?: string,
-): TopicVariant => ({ region, local_name, since, heat, what_changed, local_memes, linked, term_id: idOf(term ?? local_name) });
+): TopicVariant => {
+  const dated = !what_changed.ko.includes("(가정)");
+  return { region, local_name, since, dated, since_source: dated ? PRESS : undefined, heat, what_changed, local_memes, linked, term_id: idOf(term ?? local_name) };
+};
 
 /* 나라를 건너간 트렌드 — 같은 주제가 나라마다 무엇으로 바뀌었는지. 날짜는 공개 보도 기준, '(가정)' 은 추정. */
 const TOPICS: Topic[] = [

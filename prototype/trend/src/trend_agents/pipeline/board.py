@@ -101,7 +101,8 @@ def build(con: sqlite3.Connection) -> TrendBoard:
     topics: list[Topic] = []
     for t in ds.list_terms(con, ("verified",)):
         usage = ds.get_usage(con, t.term_id)
-        regions = sorted({u["region"] for u in usage})
+        timeline = {row["region"]: row for row in ds.get_timeline(con, t.term_id)}
+        regions = sorted({u["region"] for u in usage} | set(timeline))
         if len(regions) < 2:
             continue
         m = ds.current_meaning(con, t.term_id)
@@ -111,7 +112,7 @@ def build(con: sqlite3.Connection) -> TrendBoard:
         variants = []
         for r in regions:
             n = notes.get(r)
-            share = max(u["share"] for u in usage if u["region"] == r)
+            share = max((u["share"] for u in usage if u["region"] == r), default=0.0)
             if n and n.get("self_confidence", 0) >= 0.5:
                 wc = Text2(**n["what_changed"])
                 memes = [TopicVariantLink(label=x["label"], note=Text2(ko=x.get("note_ko", ""), en=x.get("note_en", ""))) for x in n.get("local_memes", [])]
@@ -119,9 +120,18 @@ def build(con: sqlite3.Connection) -> TrendBoard:
             else:
                 wc = Text2(ko="나라별 차이는 조사 중입니다.", en="Country differences are still being researched.")
                 memes, local_name = [], t.canonical
-            variants.append(TopicVariant(region=r, local_name=local_name, since=(t.first_seen or datetime.now(timezone.utc)).date().isoformat(),
+            tl = timeline.get(r)
+            if tl:
+                since, dated, src = tl["first_date"], True, Text2(ko=tl["source_ko"], en=tl["source_en"])
+            else:
+                # 날짜를 대는 출처가 없다. 용어가 처음 잡힌 날은 참고로만 두고 순서를 정하는 데는 쓰지 않는다
+                since, dated, src = (t.first_seen or datetime.now(timezone.utc)).date().isoformat(), False, None
+            variants.append(TopicVariant(region=r, local_name=local_name, since=since, dated=dated, since_source=src,
                                          heat=int(100 * share), what_changed=wc, local_memes=memes, term_id=t.term_id))
-        variants.sort(key=lambda v: -v.heat)
+        # 날짜가 확인된 나라가 먼저, 날짜순. 나머지는 관심도순.
+        # 전에는 관심도로만 정렬했는데 조사 단계가 비중을 균등하게 넣어서 순서가 사실상 나라 코드의 알파벳순이었고,
+        # 지도는 맨 앞 나라를 '처음 나온 곳'으로 그렸다 — 인기 순서가 이동 경로처럼 보였다.
+        variants.sort(key=lambda v: (not v.dated, v.since if v.dated else "", -v.heat))
         cat = {"slang": "slang_meme", "meme": "slang_meme", "song": "song_challenge", "dance": "song_challenge", "product": "product"}.get(t.category, "people_content")
         topics.append(Topic(id=f"tp_{t.term_id}", category=cat, name=Text2(ko=t.canonical, en=t.canonical),
                             summary=Text2(ko=(ko.definition if ko else (m.definition if m else "")), en=(en.definition if en else (m.definition if m else ""))), variants=variants))

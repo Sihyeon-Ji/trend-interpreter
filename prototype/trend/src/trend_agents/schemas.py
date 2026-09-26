@@ -226,6 +226,9 @@ class TopicVariant(BaseModel):
     region: str
     local_name: str
     since: str
+    # since 에 날짜를 대는 출처가 있나. 있어야 이동 경로의 한 점이 된다 — 없으면 지도는 이 나라를 '쓰는 곳'으로만 보이고 선을 긋지 않는다.
+    dated: bool = False
+    since_source: Text2 | None = None
     heat: int
     what_changed: Text2
     local_memes: list[TopicVariantLink] = Field(default_factory=list)

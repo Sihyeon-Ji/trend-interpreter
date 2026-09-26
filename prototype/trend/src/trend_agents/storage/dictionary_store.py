@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS meanings (
 CREATE TABLE IF NOT EXISTS evidences (
   evidence_id TEXT, term_id TEXT, kind TEXT, source_domain TEXT, url TEXT, observed_at TEXT, json TEXT, PRIMARY KEY(evidence_id, term_id));
 CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT, region TEXT, first_seen TEXT, share REAL, PRIMARY KEY(term_id, segment_id));
+CREATE TABLE IF NOT EXISTS term_timeline (
+  term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count INT, PRIMARY KEY(term_id, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
 CREATE TABLE IF NOT EXISTS review_queue (
@@ -286,6 +288,27 @@ def set_usage(con: sqlite3.Connection, term_id: str, rows: list[tuple[str, str, 
 def get_usage(con: sqlite3.Connection, term_id: str) -> list[dict]:
     return [dict(zip(("segment_id", "generation", "region", "first_seen", "share"), r))
             for r in con.execute("SELECT segment_id, generation, region, first_seen, share FROM usage WHERE term_id=? ORDER BY share DESC", (term_id,)).fetchall()]
+
+
+def set_timeline(con: sqlite3.Connection, term_id: str, rows: list[dict]) -> None:
+    """나라별로 '언제 처음 나타났나' — 날짜를 대는 출처가 있을 때만 넣는다.
+
+    usage.first_seen 은 이 자리에 쓸 수 없다. 조사 단계가 용어 하나의 날짜를 모든 나라에 똑같이 적고, 관측을 시작한 날(09-14)
+    이전 것은 다 그날로 찍힌다. 그래서 지도의 이동 경로는 이 표에 있는 나라끼리만 긋는다.
+    rows: {region, first_date (YYYY-MM-DD), source_ko, source_en, url}
+    한 번 계산한 결과를 통째로 바꾼다 — 다시 계산해서 빠진 나라가 예전 기록으로 남아 경로에 그려지면 안 된다.
+    """
+    con.execute("DELETE FROM term_timeline WHERE term_id=?", (term_id,))
+    for r in rows:
+        con.execute("INSERT OR REPLACE INTO term_timeline VALUES (?,?,?,?,?,?,?)",
+                    (term_id, r["region"], r["first_date"], r.get("source_ko", ""), r.get("source_en", ""), r.get("url", ""), now_s()))
+    con.commit()
+
+
+def get_timeline(con: sqlite3.Connection, term_id: str) -> list[dict]:
+    return [dict(zip(("region", "first_date", "source_ko", "source_en", "url"), r))
+            for r in con.execute("SELECT region, first_date, source_ko, source_en, url FROM term_timeline WHERE term_id=? ORDER BY first_date",
+                                 (term_id,)).fetchall()]
 
 
 def set_weekly(con: sqlite3.Connection, term_id: str, counts: dict[str, int]) -> None:

@@ -7,6 +7,7 @@ import { TrendGlobe, type GlobeApi, type GlobeArc, type GlobeBubble, type GlobeF
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
 import { CENTROID } from "@/lib/trends/geo";
+import { displayOrder, originOf, pathOf } from "@/lib/trends/path";
 import { TREND_CATEGORIES, type Topic, type TrendBoard, type TrendCategory, type TrendItem } from "@/lib/trends/types";
 import { cn } from "@/lib/utils";
 import { WhyCard } from "@/components/why-card";
@@ -58,7 +59,8 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(0); // 경로가 몇 나라까지 그려졌나 (순서대로 등장)
   const [focus, setFocus] = useState<GlobeFocus | null>(() => {
-    const r = initialRegion ?? (initialTopic ? board.topics.find((x) => x.id === initialTopic)?.variants[0].region : null);
+    const first = initialTopic ? board.topics.find((x) => x.id === initialTopic) : undefined;
+    const r = initialRegion ?? (first ? (originOf(first) ?? displayOrder(first)[0]?.region ?? null) : null);
     return r && CENTROID[r] ? { ...CENTROID[r], altitude: initialTopic ? 2.4 : 1.7, nonce: 1 } : null;
   });
   const look = (pos: { lat: number; lng: number; altitude: number }) => setFocus((f) => ({ ...pos, nonce: (f?.nonce ?? 0) + 1 }));
@@ -85,19 +87,31 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
   const matchRegion = (code: string, list: TrendItem[]) => !q || regionLabel(locale, code).toLowerCase().includes(q) || list.some((i) => i.term.toLowerCase().includes(q));
   const matchTopic = (x: Topic) => !q || x.name.ko.toLowerCase().includes(q) || x.name.en.toLowerCase().includes(q) || x.variants.some((v) => v.local_name.toLowerCase().includes(q) || regionLabel(locale, v.region).toLowerCase().includes(q));
 
-  // 주제를 열면 경로가 한 나라씩 그려지고, 카메라가 출발점과 그 나라가 함께 보이는 자리로 따라간다
+  // 주제를 열면 경로가 날짜순으로 한 나라씩 그려지고, 카메라가 출발점과 그 나라가 함께 보이는 자리로 따라간다.
+  // 날짜가 확인된 나라가 둘 미만이면 경로가 없다 — 나라들을 한꺼번에 보인다. 차례로 나타나기만 해도 퍼진 순서처럼 읽히기 때문이다.
   useEffect(() => {
     if (!topic) return;
-    const origin = topic.variants[0].region;
+    const path = pathOf(topic);
+    const order = displayOrder(topic);
+    if (!path.length) {
+      const id = setTimeout(() => {
+        setShown(order.length);
+        if (order[0]) lookAt(order[0].region, 2.4);
+      }, 0);
+      return () => clearTimeout(id);
+    }
+    const origin = path[0].region;
     const step = 1300;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    topic.variants.forEach((v, i) => {
+    path.forEach((v, i) => {
       timers.push(setTimeout(() => {
         setShown(i + 1);
         if (i === 0) lookAt(origin, 2.4);
         else look(between(origin, v.region));
       }, i === 0 ? 0 : step * i));
     });
+    // 날짜가 확인되지 않은 나라는 경로가 다 그려진 뒤 한꺼번에, 선 없이
+    if (order.length > path.length) timers.push(setTimeout(() => setShown(order.length), step * path.length));
     return () => timers.forEach(clearTimeout);
   }, [topic]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -120,16 +134,24 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
   // 지구에 올릴 것
   const bubbles: GlobeBubble[] = useMemo(() => {
     if (topic) {
-      return topic.variants.slice(0, shown).map((v) => ({ region: v.region, ...CENTROID[v.region], title: v.local_name, sub: regionLabel(locale, v.region), strong: v.region === topic.variants[0].region }));
+      const origin = originOf(topic);
+      return displayOrder(topic).slice(0, shown).filter((v) => CENTROID[v.region])
+        .map((v) => ({ region: v.region, ...CENTROID[v.region], title: v.local_name, sub: regionLabel(locale, v.region), strong: v.region === origin }));
     }
     return countryRows.filter(([c]) => CENTROID[c]).map(([c, list]) => ({ region: c, ...CENTROID[c], title: list.length > 1 ? `${list[0].term}  +${list.length - 1}` : list[0].term, sub: regionLabel(locale, c), strong: c === region }));
   }, [topic, shown, countryRows, region, locale]);
   const arcs: GlobeArc[] = useMemo(() => {
     if (!topic) return [];
-    const o = CENTROID[topic.variants[0].region];
-    return topic.variants.slice(1, shown).map((v) => ({ startLat: o.lat, startLng: o.lng, endLat: CENTROID[v.region].lat, endLng: CENTROID[v.region].lng }));
+    const path = pathOf(topic);
+    const o = path[0] && CENTROID[path[0].region];
+    if (!o) return [];
+    return path.slice(1, shown).filter((v) => CENTROID[v.region])
+      .map((v) => ({ startLat: o.lat, startLng: o.lng, endLat: CENTROID[v.region].lat, endLng: CENTROID[v.region].lng }));
   }, [topic, shown]);
-  const rings = useMemo(() => (topic ? [CENTROID[topic.variants[0].region]] : []), [topic]);
+  const rings = useMemo(() => {
+    const o = topic ? originOf(topic) : null;
+    return o && CENTROID[o] ? [CENTROID[o]] : [];
+  }, [topic]);
   const highlighted = useMemo(() => (topic ? topic.variants.map((v) => v.region) : []), [topic]);
 
   const compare = board.topics.find((x) => x.id === compareId) ?? board.topics[0] ?? null;
@@ -183,7 +205,7 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
                           <button type="button" onClick={() => openTopic(x.id)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-[#f6f7f8]">
                             <span className="min-w-0">
                               <span className="block truncate text-[14px] font-medium text-ink">{x.name[locale]}</span>
-                              <span className="block text-[12px] text-steel">{regionLabel(locale, x.variants[0].region)} → {x.variants.length}{t(locale, "ex_countries_unit")}</span>
+                              <span className="block text-[12px] text-steel">{(() => { const o = originOf(x); return o ? `${regionLabel(locale, o)} → ` : ""; })()}{x.variants.length}{t(locale, "ex_countries_unit")}</span>
                             </span>
                             <span className="shrink-0 text-[12px] text-steel">{labels.trendCategory[x.category]}</span>
                           </button>
@@ -257,15 +279,19 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
                 <div className="px-5 pb-6 pt-3">
                   <button type="button" onClick={back} className="inline-flex items-center gap-1 text-[13px] text-steel hover:text-ink"><ChevronLeft className="size-4" aria-hidden />{t(locale, "ex_back")}</button>
                   <h2 className="mt-2 text-[20px] font-semibold text-ink">{topic.name[locale]}</h2>
-                  <p className="text-[12px] text-steel">{labels.trendCategory[topic.category]} · {t(locale, "map_origin")} {regionLabel(locale, topic.variants[0].region)} · {topic.variants.length}{t(locale, "ex_countries_unit")}</p>
+                  <p className="text-[12px] text-steel">
+                    {labels.trendCategory[topic.category]} · {(() => { const o = originOf(topic); return o ? `${t(locale, "map_origin")} ${regionLabel(locale, o)} · ` : ""; })()}{topic.variants.length}{t(locale, "ex_countries_unit")}
+                  </p>
+                  {!originOf(topic) && <p className="mt-1 text-[12px] text-steel">{t(locale, "map_no_path")}</p>}
                   <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal">{topic.summary[locale]}</p>
                   <ol className="mt-3 divide-y divide-hairline">
-                    {topic.variants.map((v, i) => (
+                    {displayOrder(topic).map((v, i) => (
                       <li key={v.region} className={cn("py-3", i >= shown && "opacity-40")}>
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="text-[14px] font-semibold text-ink">{regionLabel(locale, v.region)} <span className="font-medium">· {v.term_id ? <Link href={`/dictionary/${v.term_id}`} className="hover:underline">{v.local_name}</Link> : v.local_name}</span></span>
-                          <span className="shrink-0 text-[12px] text-steel tabular-nums">{fmtDate(v.since)}</span>
+                          <span className="shrink-0 text-[12px] text-steel tabular-nums">{v.dated ? fmtDate(v.since) : t(locale, "map_undated")}</span>
                         </div>
+                        {v.dated && v.since_source && <p className="text-[11.5px] text-steel">{t(locale, "map_since_source")} {v.since_source[locale]}</p>}
                         <div className="mt-1"><Heat value={v.heat} /></div>
                         <p className="mt-1.5 text-[13px] leading-snug text-charcoal">{v.what_changed[locale]}</p>
                         {v.local_memes.length > 0 && (
@@ -331,11 +357,11 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
               </tr>
             </thead>
             <tbody className="align-top">
-              {compare.variants.map((v, i) => (
+              {displayOrder(compare).map((v) => (
                 <tr key={v.region} className="border-b border-hairline">
-                  <th scope="row" className="py-3 pr-3 text-left font-medium text-ink whitespace-nowrap">{regionLabel(locale, v.region)}{i === 0 && <span className="ml-1.5 text-[11px] font-normal text-steel">{t(locale, "map_origin")}</span>}</th>
+                  <th scope="row" className="py-3 pr-3 text-left font-medium text-ink whitespace-nowrap">{regionLabel(locale, v.region)}{v.region === originOf(compare) && <span className="ml-1.5 text-[11px] font-normal text-steel">{t(locale, "map_origin")}</span>}</th>
                   <td className="py-3 pr-3 font-medium text-ink whitespace-nowrap">{v.term_id ? <Link href={`/dictionary/${v.term_id}`} className="hover:underline">{v.local_name}</Link> : v.local_name}</td>
-                  <td className="py-3 pr-3 text-steel tabular-nums whitespace-nowrap">{fmtDate(v.since)}</td>
+                  <td className="py-3 pr-3 text-steel tabular-nums whitespace-nowrap">{v.dated ? fmtDate(v.since) : t(locale, "map_undated")}</td>
                   <td className="py-3 pr-3 whitespace-nowrap"><Heat value={v.heat} /></td>
                   <td className="py-3 pr-3 min-w-[260px] leading-snug text-charcoal">{v.what_changed[locale]}</td>
                   <td className="py-3 pr-3 min-w-[180px] text-charcoal">
