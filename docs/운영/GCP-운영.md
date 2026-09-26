@@ -191,15 +191,16 @@ region을 정할 때 application dependency도 가능한 한 같은 region에 �
 [Cloud Run location](https://docs.cloud.google.com/run/docs/locations)과
 [가격](https://cloud.google.com/run/pricing)을 확인합니다.
 
-Billing budget을 암묵적으로 설정하지 않습니다. 무시 대상인 `infra/gcp/terraform.tfvars`에 billing
+추가적인 계정 전체 알림 예산이 필요하다면 무시 대상인 `infra/gcp/terraform.tfvars`에 billing
 account 통화와 일치하는 `billing_account`, `monthly_budget`, `budget_currency`를 설정한 뒤 plan/apply합니다.
-그러면 account의 기본 billing 수신자에게 50%, 90%, 100% 알림을 보냅니다. Budget 생성에는 billing
-account 권한이 필요합니다. **Budget 알림은 지출을 중단하지 않습니다.** 실제 account에서 model quota와
+현재는 이 선택적 알림 예산을 사용하지 않습니다. 생성하면 account의 기본 billing 수신자에게 50%, 90%,
+100% 알림을 보냅니다. Budget 생성에는 billing account 권한이 필요합니다. **알림 전용 예산은 지출을
+중단하지 않습니다.** 실제 account에서 model quota와
 접근 권한, budget, 알림 수신자, 실제 model 가격을 확인해야 합니다. Cloud Run이 0으로 축소돼도 image
 storage는 남습니다.
 
-2026-09-26에 기존 계정 전체 월 ₩100,000 **알림 예산**은 유지하고, 이 프로젝트에 월 ₩100,000
-**지출 한도**를 서비스별로 추가했습니다. 현재 메인 API의 `GeminiProvider`는 Vertex AI
+2026-09-26에 계정 전체 월 ₩100,000 **알림 전용 예산은 삭제**하고, 이 프로젝트에 월 ₩100,000
+**지출 한도**를 서비스별로 설정했습니다. 현재 메인 API의 `GeminiProvider`는 Vertex AI
 (`aiplatform.googleapis.com`)를 사용하므로 **Vertex AI** 한도가 배포된 모델 요청에 적용됩니다.
 **Gemini API**(`generativelanguage.googleapis.com`) 한도는 직접 API 키를 쓰는 별도 경로에 적용됩니다.
 **Cloud Run** 한도는 이 프로젝트의 메인 서비스와 알림 중계기를 포함한 Cloud Run 사용에 적용됩니다.
@@ -207,8 +208,9 @@ storage는 남습니다.
 
 지출 한도는 [Billing → 예산 및 알림](https://console.cloud.google.com/billing/011938-DF350E-463C2B/budgets?project=stunning-crane-508614-c1)에서
 `Builder Cup Vertex AI Gemini 월 지출 한도`, `Builder Cup Gemini API 월 지출 한도`,
-`Builder Cup Cloud Run 월 지출 한도`의 상태 `구성됨`으로 확인합니다. 50%·80%·100% 알림이
-기본 설정되며, 100% 도달 시 해당 서비스의 새 사용이 일시중지됩니다. 집행은 즉시가 아니어서 초과 요금이
+`Builder Cup Cloud Run 월 지출 한도`의 상태 `구성됨`으로 확인합니다. 세 한도 각각에 50%·80%·100%
+이메일 알림이 설정돼 있으며 결제 관리자·사용자와 프로젝트 소유자가 수신 대상으로 활성화돼 있습니다.
+100% 도달 시 해당 서비스의 새 사용이 일시중지됩니다. 집행은 즉시가 아니어서 초과 요금이
 발생할 수 있고, Cloud Run이 중지되면 데모 요청은 `5xx`가 됩니다. 사용을 재개하려면 콘솔에서 한도를
 해제하거나 조정해야 합니다. 다른 서비스의 비용은 이 상한에 포함되지 않습니다.
 [GCP 지출 한도 설명](https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps)
