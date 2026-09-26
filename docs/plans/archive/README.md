@@ -12,3 +12,4 @@
 | [운영 03](03-alert-delivery-hardening.md) | 알림 유지와 전달 검증 보완 |
 | [운영 04](04-ci-change-routing.md) | 변경 범위에 따른 CI와 배포 |
 | [운영 05](05-model-request-controls.md) | AI 요청량 제어와 결과 형식 검증 |
+| [운영 06](06-release-recovery.md) | 배포 기록과 안전 복구 경로 |
