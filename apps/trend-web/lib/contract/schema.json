@@ -716,6 +716,24 @@
           "title": "Lifecycle",
           "type": "string"
         },
+        "diffusion": {
+          "anyOf": [
+            {
+              "enum": [
+                "underground",
+                "spreading",
+                "mainstream",
+                "fading"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diffusion"
+        },
         "first_seen": {
           "anyOf": [
             {

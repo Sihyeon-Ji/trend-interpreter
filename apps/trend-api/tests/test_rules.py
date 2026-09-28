@@ -436,3 +436,28 @@ def test_internal_tool_names_never_reach_the_user():
     leaked = "lookup_term 으로 찾고 search_terms 로 목록을 봅니다"
     assert len(set(_TOOL_LIST.findall(leaked))) >= 2
     assert "lookup_term" not in CAN_DO["ko"] and "lookup_term" not in CAN_DO["en"]
+
+
+def test_recency_stage_uses_only_latest_usage_not_shape():
+    """조사 근거로는 모양(오름·정점)을 말하지 않는다 — 마지막으로 쓰인 때만 본다(Plan 02)."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.lifecycle import recency_stage
+
+    now = datetime(2026, 9, 28, tzinfo=timezone.utc)
+    assert recency_stage(None, now) == "unknown"
+    assert recency_stage(now - timedelta(days=3), now) == "steady"
+    assert recency_stage(now - timedelta(days=30), now) == "declining"
+    assert recency_stage(now - timedelta(days=90), now) == "dormant"
+
+
+def test_diffusion_stage_rules():
+    """확산 단계는 출처 종류와 생애주기 규칙으로만 정한다(Plan 02)."""
+    from trend_agents.lifecycle import diffusion
+
+    assert diffusion({"community": 5}, "steady") == "underground"
+    assert diffusion({"community": 5, "short": 1}, "rising") == "spreading"
+    assert diffusion({"news": 3, "community": 2}, "steady") == "mainstream"
+    assert diffusion({"news": 1}, "declining") == "fading"
+    assert diffusion({"news": 1}, "steady") is None          # 뉴스 한 건으로는 주류라 할 수 없다
+    assert diffusion({}, "unknown") is None

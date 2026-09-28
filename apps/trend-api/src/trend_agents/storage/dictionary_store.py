@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   candidate_id TEXT PRIMARY KEY, norm TEXT, text TEXT, lang TEXT, count BIGINT, status TEXT, first_seen TEXT, last_seen TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS terms (
   term_id TEXT PRIMARY KEY, norm TEXT, canonical TEXT, lang TEXT, category TEXT, status TEXT, lifecycle TEXT,
-  first_seen TEXT, last_seen TEXT, json TEXT);
+  first_seen TEXT, last_seen TEXT, json TEXT, diffusion TEXT);
 CREATE TABLE IF NOT EXISTS meanings (
   meaning_id TEXT PRIMARY KEY, term_id TEXT, version BIGINT, verification TEXT, valid_from TEXT, valid_to TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS evidences (
@@ -174,9 +174,10 @@ def set_candidate_status(con: Connection, candidate_id: str, status: str) -> Non
 
 def upsert_term(con: Connection, term: Term) -> Term:
     con.execute(
-        "INSERT OR REPLACE INTO terms VALUES (?,?,?,?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO terms VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (term.term_id, norm(term.canonical), term.canonical, term.lang, term.category, term.status, term.lifecycle,
-         term.first_seen.isoformat() if term.first_seen else None, term.last_seen.isoformat() if term.last_seen else None, term.model_dump_json()),
+         term.first_seen.isoformat() if term.first_seen else None, term.last_seen.isoformat() if term.last_seen else None, term.model_dump_json(),
+         term.diffusion),
     )
     # 별칭 표는 용어 JSON 과 같은 트랜잭션에서 통째로 다시 만든다 (마이그레이션 001).
     con.execute("DELETE FROM term_aliases WHERE term_id=?", (term.term_id,))

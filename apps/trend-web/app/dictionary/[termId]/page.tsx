@@ -261,6 +261,16 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                 <dt className="text-steel">{t(locale, "term_info_lang")}</dt><dd className="text-charcoal">{termLangLabel(locale, record.term.lang ?? "ko")}</dd>
                 <dt className="text-steel">{t(locale, "term_info_status")}</dt><dd className="text-charcoal">{labels.verification[m?.verification ?? "unverified"]}</dd>
                 <dt className="text-steel">{t(locale, "term_info_lifecycle")}</dt><dd className="text-charcoal">{labels.lifecycle[record.term.lifecycle ?? "unknown"]}</dd>
+                {/* 어디까지 퍼졌나 — 규칙은 백엔드 lifecycle.diffusion, 여기서는 이름과 한 줄 이유만 보인다 */}
+                {record.term.diffusion && (
+                  <>
+                    <dt className="text-steel">{t(locale, "term_info_diffusion")}</dt>
+                    <dd className="text-charcoal">
+                      {t(locale, `diffusion_${record.term.diffusion}`)}
+                      <span className="block text-[12px] leading-[1.5] text-steel">{t(locale, `diffusion_${record.term.diffusion}_why`)}</span>
+                    </dd>
+                  </>
+                )}
                 {m && <><dt className="text-steel">{t(locale, "term_used_by")}</dt><dd className="text-charcoal">{joinGens(locale, m.generations)}</dd></>}
                 {m && <><dt className="text-steel">{t(locale, "term_where")}</dt><dd className="text-charcoal">{joinRegions(locale, m.regions)}</dd></>}
                 <dt className="text-steel">{t(locale, "term_first_seen")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(record.term.first_seen)}</dd>

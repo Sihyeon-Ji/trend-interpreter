@@ -7,6 +7,7 @@ export type Aliases = string[];
 export type Category = "slang" | "meme" | "song" | "drama" | "dance" | "news" | "geopolitics" | "product" | "other";
 export type Status = "candidate" | "researching" | "needs_review" | "verified" | "retired";
 export type Lifecycle = "emerging" | "rising" | "peak" | "steady" | "declining" | "dormant" | "unknown";
+export type Diffusion = ("underground" | "spreading" | "mainstream" | "fading") | null;
 export type FirstSeen = string | null;
 export type LastSeen = string | null;
 /**
@@ -175,6 +176,7 @@ export interface Term {
   category?: Category;
   status?: Status;
   lifecycle?: Lifecycle;
+  diffusion?: Diffusion;
   first_seen?: FirstSeen;
   last_seen?: LastSeen;
 }

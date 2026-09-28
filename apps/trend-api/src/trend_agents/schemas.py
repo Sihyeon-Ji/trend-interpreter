@@ -95,6 +95,10 @@ Lifecycle = Literal["emerging", "rising", "peak", "steady", "declining", "dorman
 EvidenceKind = Literal["short", "news", "datalab", "web", "community", "human", "wiki"]
 
 
+# 확산 단계(Plan 02). 주간 언급 모양과 별개로 '어디까지 퍼졌나' 를 출처 종류로 본다. 규칙은 lifecycle.diffusion.
+Diffusion = Literal["underground", "spreading", "mainstream", "fading"]
+
+
 class Term(BaseModel):
     term_id: str
     canonical: str
@@ -103,6 +107,7 @@ class Term(BaseModel):
     category: Category = "slang"
     status: TermStatus = "candidate"
     lifecycle: Lifecycle = "unknown"
+    diffusion: Diffusion | None = None  # 태동·확산·주류·식상. 근거가 모자라면 None
     first_seen: datetime | None = None
     last_seen: datetime | None = None
 
