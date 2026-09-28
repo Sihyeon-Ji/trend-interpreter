@@ -8,7 +8,7 @@ import { TermTimeline } from "@/components/term-timeline";
 import { GenerationCurves } from "@/components/generation-curves";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { getGenerationCurves, getTermRecord, getTermRecords, getTermSignals, getTrendBoard } from "@/lib/data";
-import { searchLine } from "@/components/keyword-card";
+import { riskOf, searchLine } from "@/components/keyword-card";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, joinGens, joinRegions, regionLabel, sourceName, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
@@ -174,7 +174,8 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                 {hasTrend && (
                   <>
                     <p className="text-[14px] text-charcoal">{trendSentence(locale, labels.lifecycle[record.term.lifecycle ?? "unknown"], last4, prev4)}</p>
-                    <Sparkline points={record.weekly} width={480} height={64} className="w-full max-w-[480px]" />
+                    <Sparkline points={record.weekly} width={480} height={64} className="w-full max-w-[480px]"
+                      label={t(locale, "spark_label").replace("{n}", String(record.weekly.length)).replace("{last}", String(record.weekly.at(-1)?.count ?? 0)).replace("{max}", String(Math.max(0, ...record.weekly.map((p) => p.count))))} />
                   </>
                 )}
                 {usage.length > 0 && (
@@ -208,7 +209,7 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                     {signals.search.length > 0
                       ? <ul className="space-y-0.5 text-[14px] text-charcoal">{signals.search.map((h) => <li key={h.region}>{searchLine(locale, h)} <span className="text-steel">· {fmtDate(h.date)}</span></li>)}</ul>
                       : <p className="text-[14px] text-steel">{t(locale, "sig_search_none")}</p>}
-                    {curves.length === 0 && <p className="text-[13px] text-steel">{t(locale, "sig_gen_kr_only")}</p>}
+                    {curves.length === 0 && <p className="text-[13px] text-steel">{t(locale, (record.term.lang ?? "ko") === "ko" ? "sig_gen_none" : "sig_gen_kr_only")}</p>}
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_communities")}</h3>
@@ -306,15 +307,22 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                   </>
                 )}
                 {/* 브랜드가 쓸 때의 경고 — 수준은 백엔드 pipeline/risk.py 규칙(또는 검수자)이 정한다. 문제 없음·판단 보류는 줄을 내지 않는다 */}
-                {(record.term.risk_level === "caution" || record.term.risk_level === "avoid") && (
-                  <>
-                    <dt className="text-steel">{t(locale, "term_info_risk")}</dt>
-                    <dd className="text-charcoal">
-                      {t(locale, `risk_${record.term.risk_level}`)}
-                      <span className="block text-[12px] leading-[1.5] text-steel">{t(locale, `risk_${record.term.risk_level}_why`)}</span>
-                    </dd>
-                  </>
-                )}
+                {(() => {
+                  // 주의·사용 자제·근거 부족(검사했지만 문장이 모자람)을 보인다. 한국어 화면은 규칙이 남긴 실제 이유(근거 인용)를,
+                  // 영어 화면은 이유가 한국어뿐이라 일반 설명을 쓴다. 문제 없음·검사 전은 줄을 내지 않는다.
+                  const risk = riskOf(record.term);
+                  if (!risk) return null;
+                  const reason = (record.term.risk_reasons ?? []).find((x) => x !== "검수자가 정한 수준");
+                  return (
+                    <>
+                      <dt className="text-steel">{t(locale, "term_info_risk")}</dt>
+                      <dd className="text-charcoal">
+                        {t(locale, `risk_${risk}`)}
+                        <span className="block text-[12px] leading-[1.5] text-steel">{locale === "ko" && risk !== "unknown" && reason ? reason : t(locale, `risk_${risk}_why`)}</span>
+                      </dd>
+                    </>
+                  );
+                })()}
                 {m && <><dt className="text-steel">{t(locale, "term_used_by")}</dt><dd className="text-charcoal">{joinGens(locale, m.generations)}</dd></>}
                 {m && <><dt className="text-steel">{t(locale, "term_where")}</dt><dd className="text-charcoal">{joinRegions(locale, m.regions)}</dd></>}
                 <dt className="text-steel">{t(locale, "term_first_seen")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(record.term.first_seen)}</dd>

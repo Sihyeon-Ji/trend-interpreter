@@ -3,10 +3,12 @@
 LLM 이 혼자 "안전함" 을 붙이지 않는다. 로컬 Gemma 는 **근거 문장 하나하나**에 뉘앙스(긍정·중립·부정)와
 위험 유형(혐오·조롱·성별 갈등·정치·선정성)만 붙이고, 용어의 수준은 아래 규칙 코드가 정한다.
 
-  사용 자제  위험 유형 근거 3건 이상 · 표제어 자체가 욕설·성적 표현 · 영상 해석이 비하·혐오 기원을 지적
-  주의       부정 근거 30% 이상 · 위험 유형 근거 2건 · 확산 단계가 '식상'  (1건은 잡음이라 세지 않는다)
+  사용 자제  위험 유형 근거 3건 이상(출처 두 곳 이상) · 표제어 자체가 욕설·성적 표현 · 영상 해석이 비하·혐오 기원을 지적
+  주의       부정 근거 30% 이상 · 위험 유형 근거 2건 · 사전 뉘앙스에 적힌 주의점(욕설·비하·선정…)  (1건은 잡음이라 세지 않는다)
   없음       위 어디에도 걸리지 않고 분류된 근거가 5건 이상
   판단 보류  분류된 근거가 5건 미만 (화면에 '근거 부족')
+'식상' 은 리스크가 아니다 — 확산 단계와 대시보드의 '식어 가는 밈' 이 따로 보인다(2026-09-29 검토: 주의 43개 중 25개가 식상 하나로 주의였고,
+화면은 그것을 '민감한 맥락' 이라고 설명했다).
 
 이유는 걸린 근거 문장을 그대로 인용한다. 문장 분류는 Plan 04 대시보드의 긍정·부정 뉘앙스에도 쓴다.
 로컬 모델이 없으면(기본 개발 환경) 분류는 건너뛰고 이미 있는 분류로만 판정한다.
@@ -32,6 +34,21 @@ CAUTION_RISKY = 2
 CAUTION_NEGATIVE = 0.30
 MIN_LABELED = 5
 _BAD_ORIGIN = re.compile(r"비하|혐오|차별|멸칭|인종|slur|hate|derogat", re.I)
+# 조사 단계가 뜻풀이에 적어 둔 주의점(Plan 03 재료 '뉘앙스'). 예: 샤갈 "순화형이지만 뿌리는 욕설이다" — 근거 문장이 모자라도 사전이 이미 경고한다.
+_NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸칭|혐오|차별|조롱|선정적|성적|음란|저속|모욕|profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)
+_NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
+_NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'
+
+
+def nuance_warning(text: str) -> str:
+    """뜻풀이 문장에서 부정되지 않은 주의 낱말이 든 문장. 없으면 빈 문자열."""
+    for m in _NUANCE_WARN.finditer(text or ""):
+        if _NEGATED_AFTER.search(text[m.end():]) or _NEGATED_BEFORE.search(text[max(0, m.start() - 6):m.start()]):
+            continue
+        start = max(text.rfind(".", 0, m.start()), text.rfind("。", 0, m.start())) + 1
+        end = min([i for i in (text.find(".", m.end()), text.find("。", m.end())) if i >= 0] or [len(text)])
+        return text[start:end + 1].strip()[:90]
+    return ""
 
 PROMPT = """아래는 인터넷 표현 '{term}' 이 들어간 문장들이다. 사전의 뜻: {definition}
 문장마다 세 가지를 붙여라.
@@ -103,46 +120,63 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     # 한 곳(블루스카이 등)에 몰린 위험 문장은 그 커뮤니티의 말투일 수 있다 — 출처가 둘 이상일 때만 '피함'
     if len(risky) >= AVOID_RISKY and len({e.source_domain for e, _ in risky}) >= 2:
         return "avoid", [f"위험 유형이 붙은 근거 {len(risky)}건"] + [quote(e) for e, _ in risky[:2]]
+    m = ds.current_meaning(con, term.term_id)
+    warned = nuance_warning(f"{m.nuance} {m.origin}" if m else "")
+    reasons = [f"사전 뜻풀이에 적힌 주의점: “{warned}”"] if warned else []
     if len(labeled) < MIN_LABELED:
+        if reasons:                    # 근거 문장이 모자라도 사전이 이미 경고한 말은 주의
+            return "caution", reasons
         extra = f" (글자만 같은 딴 이야기 {offtopic}건 제외)" if offtopic else ""
         return None, [f"그 뜻으로 쓰인 근거가 {len(labeled)}건뿐이라 판단을 보류한다{extra}."]
-    reasons = []
     if len(risky) >= CAUTION_RISKY:
         reasons.append(f"위험 유형이 붙은 근거 {len(risky)}건: " + quote(risky[0][0]))
     ratio = len(negative) / len(labeled)
     if ratio >= CAUTION_NEGATIVE:
         reasons.append(f"부정적으로 쓰인 근거가 {ratio:.0%} — 예: " + quote(negative[0]))
-    if term.diffusion == "fading":
-        reasons.append("뉴스에 오른 뒤 언급이 줄고 있어 식상하게 보일 수 있다.")
     if reasons:
         return "caution", reasons
     return "none", [f"분류된 근거 {len(labeled)}건에 위험 신호가 없다."]
 
 
-def apply(con: Connection, term) -> None:
-    """규칙으로 수준을 다시 매겨 저장한다. 사람의 결정(risk_human)이 있으면 그것이 우선하고, 규칙의 이유는 참고로 남긴다."""
+def apply(con: Connection, term, *, human: bool = False) -> None:
+    """규칙으로 수준을 다시 매겨 저장한다. 사람의 결정(risk_human)이 있으면 그것이 실제 수준이고, 규칙의 판정(risk_rule_level)과
+    이유는 따로 남긴다.
+    human=True  검수 화면의 길 — 넘겨받은 용어의 사람의 결정을 그대로 저장한다.
+    human=False 파이프라인 — 저장된 용어를 다시 읽어 판정하고 리스크 필드만 쓴다(옛 사본이 상태·사람의 결정을 덮지 않게)."""
+    if not human:
+        term = ds.get_term(con, term.term_id) or term
     level, reasons = judge(con, term)
-    if term.risk_human:
-        term.risk_level, term.risk_reasons = term.risk_human, ["검수자가 정한 수준"] + reasons
+    effective, why = (term.risk_human, ["검수자가 정한 수준"] + reasons) if term.risk_human else (level, reasons)
+    now = datetime.now(timezone.utc)
+    if human:
+        term.risk_level, term.risk_reasons, term.risk_rule_level, term.risk_checked_at = effective, why, level, now
+        ds.upsert_term(con, term, human=True)
     else:
-        term.risk_level, term.risk_reasons = level, reasons
-    term.risk_checked_at = datetime.now(timezone.utc)
-    ds.upsert_term(con, term)
+        ds.set_risk(con, term.term_id, effective, why, level, now)
 
 
 def run(con: Connection) -> dict:
     with stage(con, "risk") as r:
         terms = ds.list_terms(con, ("verified",))
-        # 분류가 안 된 용어부터. 이미 분류된 것은 규칙만 다시 적용한다(빠름).
-        terms.sort(key=lambda t: len(ds.evidence_labels(con, t.term_id)))
+        # 분류할 문장이 남은 용어만, 남은 문장이 많은 것부터. 분류가 다 끝난 용어가 칸을 다 차지해 새 근거가 영영
+        # 분류되지 않았다(2026-09-29 검토: 앞 30칸이 전부 남은 문장 0).
+        pending = []
+        for t in terms:
+            done = ds.evidence_labels(con, t.term_id)
+            left = sum(1 for e in _usage(con, t.term_id) if e.evidence_id not in done)
+            if left:
+                pending.append((left, t))
+        pending.sort(key=lambda x: -x[0])
         labeled = 0
-        for n, t in enumerate(terms):
-            if n < MAX_TERMS:
-                try:
-                    labeled += classify(con, t)
-                except Exception as e:           # 한 용어의 형식 실패가 나머지를 막지 않는다
-                    r.note += f"{t.canonical}:{type(e).__name__} "
-            apply(con, t)
+        for _, t in pending[:MAX_TERMS]:
+            try:
+                labeled += classify(con, t)
+            except Exception as e:           # 한 용어의 형식 실패가 나머지를 막지 않는다
+                r.note += f"{t.canonical}:{type(e).__name__} "
+        for t in terms:
+            fresh = ds.get_term(con, t.term_id)   # 분류하는 몇 분 사이 검수자가 바꾸거나 제외한 것을 옛 사본이 덮지 않게
+            if fresh and fresh.status == "verified":
+                apply(con, fresh)
         r.count = len(terms)
-        r.detail = {"분류한 문장": labeled}
+        r.detail = {"분류한 문장": labeled, "분류 대기 용어": max(0, len(pending) - MAX_TERMS)}
     return {"risk": r}

@@ -13,7 +13,10 @@ from ..storage.db import Connection
 
 PER_CELL = 6
 WEEKS = 12
-SOURCE_PRIORITY = {"bq_rising": 0, "rss_now": 1, "bq_top": 2}
+SOURCE_PRIORITY = {"bq_rising": 0, "rss_now": 1, "bq_top": 2, "namu_rank": 3}
+# 출처 설명 (한국어, 영어). 나무위키 실시간 검색어가 빠져 있어 보드 단계 전체가 KeyError 로 멈췄다(2026-09-28 19시~).
+SOURCE_NOTE = {"bq_rising": ("Google Trends rising",) * 2, "rss_now": ("Google Trends now",) * 2, "bq_top": ("Google Trends top",) * 2,
+               "namu_rank": ("나무위키 실시간 검색어", "Namuwiki trending search")}
 
 
 def _week(d: date) -> str:
@@ -85,8 +88,8 @@ def build(con: Connection) -> TrendBoard:
         if x and x.self_confidence >= 0.5:
             note = Text2(ko=x.why_now, en=x.why_now_en or x.why_now)
         else:
-            plain = news_title or {"bq_rising": "Google Trends rising", "rss_now": "Google Trends now", "bq_top": "Google Trends top"}[source]
-            note = Text2(ko=plain, en=plain)
+            ko, en = SOURCE_NOTE[source]
+            note = Text2(ko=news_title or ko, en=news_title or en)
         cells[(region, c[3])].append(TrendItem(id=f"ti_{abs(hash((term, region))) % 10**8}", region=region, category=c[3], term=term, rank=0, change=change,
                                                 gain_pct=gain, weekly=weekly, term_id=t.term_id if t else None, note=note))
     for it in shopping_items(con):

@@ -5,15 +5,22 @@ import type { KeywordBoard, KeywordCard, SourceCount, TermRecord } from "../type
 import { SAMPLE_RECORDS } from "./dictionary";
 
 const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
+// 표제어 언어의 나라로 두는 것은 그 나라 글자로 쓴 말만 (백엔드 dashboard.term_regions 와 같은 규칙)
+const SCRIPT: Record<string, RegExp> = { ko: /[가-힣]/, ja: /[\u3040-\u30ff\u4e00-\u9fff]/, zh: /[\u4e00-\u9fff]/, th: /[\u0e00-\u0e7f]/ };
+const LATIN_ONLY = /^[\x00-\x7f\u00c0-\u024f\s]+$/;
+const LIST_MAX = 30;
 const DIFFUSION_ORDER: Record<string, number> = { spreading: 0, underground: 1, mainstream: 2 };
 const LIFECYCLE_ORDER: Record<string, number> = { emerging: 0, rising: 0, peak: 1, steady: 2 };
 
 function regionsOf(r: TermRecord): string[] {
-  const used = new Set(r.usage.map((u) => u.segment.region));
+  const used = new Set(r.usage.map((u) => u.segment.region).filter(Boolean));   // '' 는 나라 정보가 없는 것
   const regions = TARGET_REGIONS.filter((x) => used.has(x));
   const lang = r.term.lang ?? "ko";
-  if (!regions.length && TARGET_REGIONS.includes(LANG_REGION[lang])) regions.push(LANG_REGION[lang]);
-  if (used.has("GLOBAL") || (!regions.length && lang === "en")) regions.push("GLOBAL");
+  if (!used.size) {
+    if (TARGET_REGIONS.includes(LANG_REGION[lang]) && SCRIPT[lang]?.test(r.term.canonical)) regions.push(LANG_REGION[lang]);
+    else if (LATIN_ONLY.test(r.term.canonical)) return ["GLOBAL"];
+  }
+  if (used.has("GLOBAL") || (!regions.length && used.size && lang === "en")) regions.push("GLOBAL");
   return regions;
 }
 
@@ -30,7 +37,8 @@ function toCard(r: TermRecord): KeywordCard {
     regions: regionsOf(r), lifecycle: r.term.lifecycle ?? "unknown", diffusion: r.term.diffusion ?? null,
     risk_level: r.term.risk_level ?? null, risk_reasons: r.term.risk_reasons ?? [],
     weekly, mentions_4w: weekly.slice(-4).reduce((a, p) => a + p.count, 0),
-    search: [], search_trend: null, communities, tone: { positive: 0, neutral: 0, negative: 0 },
+    risk_checked_at: r.term.risk_checked_at ?? null,
+    search: [], gen_peaks: [], communities, tone: { positive: 0, neutral: 0, negative: 0 },
     evidences: recent.map((e) => ({ kind: e.kind, source_domain: e.source_domain, title: e.title ?? e.excerpt ?? "", url: e.url, observed_at: e.observed_at })),
     last_seen: r.term.last_seen ?? null,
   };
@@ -50,13 +58,15 @@ export function sampleKeywordBoard(regions: string[]): KeywordBoard {
     regions: picked,
     counts: Object.fromEntries(known.map((r) => [r, cards.filter((c) => c.regions.includes(r)).length])),
     rising: inView.filter((c) => !fading(c) && c.risk_level !== "avoid")
-      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b)),
-    fading: inView.filter((c) => fading(c) && c.risk_level !== "avoid").sort((a, b) => (b.last_seen ?? "").localeCompare(a.last_seen ?? "")),
-    caution: inView.filter((c) => c.risk_level === "caution" || c.risk_level === "avoid").sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b)),
+      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b))
+      .slice(0, LIST_MAX),
+    fading: inView.filter((c) => fading(c) && c.risk_level !== "avoid").sort((a, b) => (b.last_seen ?? "").localeCompare(a.last_seen ?? "")).slice(0, LIST_MAX),
+    caution: inView.filter((c) => c.risk_level === "caution" || c.risk_level === "avoid")
+      .sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b)).slice(0, LIST_MAX),
   };
 }
 
 export function sampleSignals(termId: string): KeywordCard | null {
   const r = SAMPLE_RECORDS.find((x) => x.term.term_id === termId);
-  return r ? toCard(r) : null;
+  return r && r.term.status === "verified" ? toCard(r) : null;   // 백엔드처럼 확인된 말만 (확인 중인 말은 404)
 }

@@ -79,6 +79,7 @@ export interface ReviewItem {
 /* 키워드 대시보드 (Plan 04) — 백엔드 pipeline/views.py 의 KeywordCard·KeywordBoard 와 1:1. 값은 pipeline/dashboard.py 규칙이 채운다. */
 export interface SearchHit { region: string; query: string; source: string; date: string; rank?: number | null; traffic?: string | null }
 export interface SourceCount { domain: string; count: number }
+export interface GenPeak { generation: string; date: string }
 export interface Tone { positive: number; neutral: number; negative: number }
 
 export interface KeywordCard {
@@ -93,10 +94,11 @@ export interface KeywordCard {
   diffusion?: Diffusion;
   risk_level?: RiskLevel;
   risk_reasons: string[];
+  risk_checked_at?: string | null; // 리스크 규칙을 돌린 때. 없으면 검사 전 — '근거 부족' 표시를 하지 않는다
   weekly: WeeklyPoint[];          // 최근 12주
   mentions_4w: number;
   search: SearchHit[];            // 고른 지역의 인기 검색어 기록
-  search_trend?: string | null;   // 네이버 데이터랩 연령대별 검색 추이 요약 (한국어 표제어만)
+  gen_peaks: GenPeak[];           // 연령대별 검색 정점 (네이버 데이터랩, 한국어 표제어만)
   communities: SourceCount[];
   tone: Tone;
   evidences: EvidenceBrief[];

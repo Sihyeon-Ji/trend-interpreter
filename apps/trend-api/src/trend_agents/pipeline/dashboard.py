@@ -1,36 +1,70 @@
-"""키워드 대시보드 (Plan 04). 용어 하나를 마케터가 볼 신호로 모은다 — 퍼진 정도·리스크·언급 추이·검색 순위·출몰 커뮤니티·뉘앙스·최근 근거.
+"""키워드 대시보드 (Plan 04). 용어 하나를 마케터가 볼 신호로 모은다 — 퍼진 정도·리스크·언급 추이·검색 순위·연령대 정점·출몰 커뮤니티·뉘앙스·최근 근거.
 
-지역 판정과 목록 나누기(지금 뜨는 밈·식어 가는 밈·주의가 필요한 밈)는 규칙이다. 모델은 부르지 않는다.
-단계(run)가 모든 카드를 만들어 board_cache 의 'dashboard' 에 두고, API(board)는 고른 지역으로 거르기만 한다.
+지역 판정과 목록 나누기(지금 쓰이는 밈·식어 가는 밈·주의가 필요한 밈)는 규칙이다. 모델은 부르지 않는다.
+단계(run)가 용어마다 **나라별 재료**(원본 언급·커뮤니티·뉘앙스·근거)를 만들어 board_cache 의 'dashboard' 에 두고,
+API(board)는 고른 지역의 재료만 더해 카드를 만든다 — 지역을 바꾸면 목록뿐 아니라 수치도 그 지역 것으로 바뀐다(Plan 04 완료 기준).
 """
 from __future__ import annotations
 
+import json
+import re
 from collections import Counter
 from datetime import date, datetime, timedelta
 
+from pydantic import BaseModel
+
+from ..collectors.community import COMMUNITY_SITES
 from ..config import LANG_REGION, REGIONS_FOCUS
 from ..schemas import Evidence, EvidenceBrief, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from .match import mentions
+from .match import mentions, unsafe
 from .runs import stage
-from .views import CATEGORY_MAP, KeywordBoard, KeywordCard, SearchHit, SourceCount, Tone, WeeklyPoint
+from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, SearchHit, SourceCount, Tone, WeeklyPoint
 
 GLOBAL = "GLOBAL"
 CACHE_KEY = "dashboard"
 LIST_MAX = 30
 SEARCH_DAYS = 14
+WEEKS = 12
 DIFFUSION_ORDER = {"spreading": 0, "underground": 1, "mainstream": 2}
 LIFECYCLE_ORDER = {"emerging": 0, "rising": 0, "peak": 1, "steady": 2}
+USAGE_KINDS = ("community", "news", "short")
+
+# 표제어 언어의 나라로 둘 때는 그 나라 글자로 쓴 말만. 위키 언어판(ja)에서 받은 영어 제목 'The cake is a lie' 가 일본 카드가 됐다(2026-09-29 검토).
+_SCRIPT = {"ko": r"[가-힣]", "ja": r"[぀-ヿ一-鿿]", "zh": r"[一-鿿]", "th": r"[฀-๿]"}
+_LATIN_ONLY = re.compile(r"^[\x00-\x7fÀ-ɏ\s]+$")
+
+# 커뮤니티 도메인의 나라. 수집기(COMMUNITY_SITES)에서 오고, 구글 뉴스가 한국어 이름으로 준 것과 나라 도메인을 더한다.
+# 나라를 가를 수 없는 전 세계 플랫폼(Reddit·Bluesky·Lemmy·Hacker News·유튜브 댓글…)은 GLOBAL.
+_SITE_REGION = {s: r for r, sites in COMMUNITY_SITES.items() for s in sites if s != "reddit.com"}
+_SITE_REGION.update({"디시인사이드": "KR", "갤러리": "KR", "클리앙": "KR", "에펨코리아": "KR", "더쿠": "KR", "루리웹": "KR", "인스티즈": "KR",
+                     "뽐뿌": "KR", "namu.wiki": "KR"})
+_TLD_REGION = {".kr": "KR", ".jp": "JP", ".tw": "TW", ".hk": "HK", ".th": "TH", ".vn": "VN", ".id": "ID", ".ph": "PH", ".my": "MY", ".sg": "SG"}
+
+
+def domain_region(domain: str) -> str:
+    d = (domain or "").lower()
+    if d.startswith("naver"):
+        return "KR"
+    if d in _SITE_REGION:
+        return _SITE_REGION[d]
+    return next((r for tld, r in _TLD_REGION.items() if d.endswith(tld)), GLOBAL)
 
 
 def term_regions(term: Term, usage_regions: set[str]) -> list[str]:
-    """이 용어를 보여 줄 지역. 조사가 정한 쓰는 나라(usage) 가운데 목표 지역, 비었으면 표제어 언어의 나라.
-    목표 지역 밖(미국 등)에서만 쓰인다고 한 영어 표현과 GLOBAL 은 '전 세계' 로 묶는다 — 나라 목록에 섞지 않는다."""
-    regions = [r for r in REGIONS_FOCUS if r in usage_regions]
-    if not regions and LANG_REGION.get(term.lang) in REGIONS_FOCUS:
-        regions = [LANG_REGION[term.lang]]
-    if GLOBAL in usage_regions or (not regions and term.lang == "en"):
+    """이 용어를 보여 줄 지역. 조사가 정한 쓰는 나라(usage) 가운데 목표 지역 → 목표 지역 밖(미국 등)에서만 쓰이는 영어 표현은 '전 세계'.
+    쓰는 나라 정보가 아예 없으면: 그 나라 글자로 쓴 말만 표제어 언어의 나라, 로마자로만 쓴 말은 '전 세계'.
+    목표 지역 밖 한 나라에서만 쓰는 말(독일의 Ehrenmann)은 빼고, 나라 목록에 '전 세계' 를 섞지 않는다."""
+    known = {r for r in usage_regions if r}              # '' 는 예전 조사가 나라 자리에 남긴 빈 값 — 정보가 없는 것
+    regions = [r for r in REGIONS_FOCUS if r in known]
+    if not known:
+        home, script = LANG_REGION.get(term.lang), _SCRIPT.get(term.lang)
+        if home in REGIONS_FOCUS and script and re.search(script, term.canonical):
+            regions = [home]
+        elif _LATIN_ONLY.match(term.canonical):
+            return [GLOBAL]
+    if GLOBAL in known or (not regions and known and term.lang == "en"):
         regions.append(GLOBAL)
     return regions
 
@@ -40,7 +74,7 @@ def _is_fading(c: KeywordCard) -> bool:
 
 
 def split(cards: list[KeywordCard]) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
-    """(지금 뜨는 밈, 식어 가는 밈, 주의가 필요한 밈). 사용 자제는 뜨는·식는 목록에 넣지 않고 주의 목록에만 둔다."""
+    """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈). 사용 자제는 쓰이는·식는 목록에 넣지 않고 주의 목록에만 둔다."""
     rising = sorted((c for c in cards if not _is_fading(c) and c.risk_level != "avoid"),
                     key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w))
     fading = sorted((c for c in cards if _is_fading(c) and c.risk_level != "avoid"),
@@ -72,59 +106,139 @@ def search_hits(term: Term, queries: list[tuple]) -> list[SearchHit]:
     return sorted(best.values(), key=lambda h: REGIONS_FOCUS.index(h.region))
 
 
-def _usage_examples(evs: list[Evidence], n: int = 5, per_domain: int = 2) -> list[Evidence]:
-    """최근 쓰임 근거. 검색 추이(datalab)는 쓰임이 아니라 따로 보이고, 한 곳에 몰리지 않게 출처마다 두 건까지."""
-    out: list[Evidence] = []
-    seen: Counter = Counter()
-    for e in evs:
-        if e.kind == "datalab" or seen[e.source_domain] >= per_domain:
+def gen_peaks(con: Connection, term_id: str) -> list[GenPeak]:
+    """네이버 데이터랩 연령대별 곡선에서 눈에 띄는 정점(평균의 1.3배 이상)만. 평평한 곡선은 뺀다. 한국어 표제어만 있다."""
+    out = []
+    for gen, pts in ds.get_gen_curves(con, term_id).items():
+        vals = [v for _, v in pts]
+        if not vals or max(vals) <= 0 or max(vals) < 1.3 * (sum(vals) / len(vals)):
             continue
-        seen[e.source_domain] += 1
-        out.append(e)
-        if len(out) == n:
-            break
-    return out
+        d, _ = max(pts, key=lambda p: p[1])
+        out.append(GenPeak(generation=gen, date=d))
+    return sorted(out, key=lambda p: p.date)
 
 
-def build_card(con: Connection, t: Term, queries: list[tuple], *, outside: bool = False) -> KeywordCard | None:
-    """카드 하나. 목표 지역 밖 용어는 대시보드에 없으므로 None — outside 면 지역을 비운 채 만든다(사전 화면용)."""
+class Stored(BaseModel):
+    """캐시에 두는 카드 재료. 나라별 수치는 여기에만 있고 API 로는 고른 지역을 더한 카드(KeywordCard)만 나간다."""
+
+    card: KeywordCard                               # 나라와 상관없는 필드(뜻·단계·리스크·검색 순위 전체·연령대 정점)
+    weeks: list[str]
+    weekly: dict[str, list[int]] = {}               # 나라(목표 지역·GLOBAL)별 원본 주간 언급
+    communities: dict[str, dict[str, int]] = {}     # 나라별 커뮤니티 도메인 건수
+    tone: dict[str, dict[str, int]] = {}            # 나라별 뉘앙스 수
+    evidences: dict[str, list[EvidenceBrief]] = {}  # 나라별 최근 쓰임 근거. "" = 나라를 가를 수 없는 문서(위키 등)
+
+
+class _Regions:
+    """근거 하나가 어느 나라 것인가 — 뉴스는 수집한 나라, 쇼츠는 영상의 나라, 커뮤니티는 도메인. 한 번 읽어 두고 쓴다."""
+
+    def __init__(self, con: Connection):
+        self.news = dict(con.execute("SELECT link, region FROM news").fetchall())
+        self.videos = dict(con.execute("SELECT video_id, region FROM videos").fetchall())
+
+    def of(self, e: Evidence) -> str:
+        if e.kind == "news":
+            r = self.news.get(e.url)
+            return (r if r in REGIONS_FOCUS else GLOBAL) if r else domain_region(e.source_domain)
+        if e.kind == "short":
+            m = re.search(r"(?:v=|/shorts/)([\w-]{6,})", e.url)
+            r = self.videos.get(m.group(1)) if m else None
+            return r if r in REGIONS_FOCUS else GLOBAL
+        if e.kind == "community":
+            return domain_region(e.source_domain)
+        return ""
+
+
+def _usage_ok(e: Evidence, t: Term) -> bool:
+    """쓰임으로 셀 근거 — 네이버 검색 결과는 약관상 표시 전용이고 느슨하게 맞은 글이 많아(바이킹 로우의 지식iN 글이 노르웨이 축구)
+    빼고, 표제어가 실제로 든 글만(mentions)."""
+    return (e.kind in USAGE_KINDS and not e.source_domain.startswith("naver")
+            and mentions(f"{e.title or ''} {e.excerpt or ''}", t.canonical, t.aliases))
+
+
+def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regions, weeks: list[str], *,
+               outside: bool = False) -> Stored | None:
+    """카드 재료 하나. 목표 지역 밖 용어는 대시보드에 없으므로 None — outside 면 지역을 비운 채 만든다(사전 화면용)."""
     regions = term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)})
     if not regions and not outside:
         return None
     m = ds.current_meaning(con, t.term_id)
     ko, en = ds.get_translation(con, t.term_id, "ko"), ds.get_translation(con, t.term_id, "en")
     base = m.definition if m else ""
-    weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id, 12)]
-    evs = ds.list_evidences(con, t.term_id)                        # 최근 것부터
-    trend = next((e for e in evs if e.source_domain == "datalab.naver.com"), None)
-    tone = Counter(p for p, _ in ds.evidence_labels(con, t.term_id).values() if p != "offtopic")
-    return KeywordCard(
+    evs = [e for e in ds.list_evidences(con, t.term_id) if _usage_ok(e, t) or e.kind in ("wiki", "web")]   # 최근 것부터
+    labels = ds.evidence_labels(con, t.term_id)
+    weekly: dict[str, list[int]] = {}
+    for r, cnt in ds.get_weekly_region(con, t.term_id).items():
+        row = weekly.setdefault(r if r in REGIONS_FOCUS else GLOBAL, [0] * len(weeks))
+        for i, w in enumerate(weeks):
+            row[i] += cnt.get(w, 0)
+    communities: dict[str, Counter] = {}
+    tone: dict[str, Counter] = {}
+    examples: dict[str, list[EvidenceBrief]] = {}
+    per_domain: Counter = Counter()
+    for e in evs:
+        r = regions_of.of(e)
+        if e.kind == "community":
+            communities.setdefault(r, Counter())[e.source_domain] += 1
+        p = labels.get(e.evidence_id, (None, None))[0]
+        if p and p != "offtopic":
+            tone.setdefault(r, Counter())[p] += 1
+        if per_domain[e.source_domain] < 2 and len(examples.get(r, [])) < 5:   # 한 곳에 몰리지 않게 출처마다 두 건까지
+            per_domain[e.source_domain] += 1
+            examples.setdefault(r, []).append(EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=(e.title or e.excerpt)[:160],
+                                                            url=e.url, observed_at=e.observed_at))
+    card = KeywordCard(
         term_id=t.term_id, canonical=t.canonical, lang=t.lang, category=CATEGORY_MAP.get(t.category, "other"),
-        gloss_ko=ko.definition if ko else base, gloss_en=en.definition if en else base, regions=regions,
-        lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons,
-        weekly=weekly, mentions_4w=sum(p.count for p in weekly[-4:]), search=search_hits(t, queries),
-        search_trend=(trend.excerpt or None) if trend else None,
-        communities=[SourceCount(domain=d, count=n) for d, n in Counter(e.source_domain for e in evs if e.kind == "community").most_common(5)],
-        tone=Tone(positive=tone["positive"], neutral=tone["neutral"], negative=tone["negative"]),
-        evidences=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=(e.title or e.excerpt)[:160], url=e.url, observed_at=e.observed_at)
-                   for e in _usage_examples(evs)],
-        last_seen=t.last_seen)
+        gloss_ko=ko.definition if ko else base, gloss_en=en.definition if en else base, regions=[] if outside else regions,
+        lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
+        weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
+        communities=[], tone=Tone(), evidences=[], last_seen=t.last_seen)
+    return Stored(card=card, weeks=weeks, weekly=weekly, communities={r: dict(c) for r, c in communities.items()},
+                  tone={r: dict(c) for r, c in tone.items()}, evidences=examples)
 
 
-def build(con: Connection) -> list[KeywordCard]:
-    queries = _recent_queries(con)
-    return [c for t in ds.list_terms(con, ("verified",)) if (c := build_card(con, t, queries))]
+def view(s: Stored, chosen: list[str]) -> KeywordCard:
+    """고른 지역의 재료만 더한 카드. 나라를 가를 수 없는 문서(위키 등)는 어느 지역에서나 근거로 보인다."""
+    series = [sum(s.weekly.get(r, [0] * len(s.weeks))[i] for r in chosen) for i in range(len(s.weeks))]
+    comm: Counter = Counter()
+    tone: Counter = Counter()
+    for r in chosen:
+        comm.update(s.communities.get(r, {}))
+        tone.update(s.tone.get(r, {}))
+    evs = sorted((e for r in (*chosen, "") for e in s.evidences.get(r, [])), key=lambda e: e.observed_at, reverse=True)[:5]
+    return s.card.model_copy(update={
+        "weekly": [WeeklyPoint(week_start=w, count=c) for w, c in zip(s.weeks, series)],
+        "mentions_4w": sum(series[-4:]),
+        "search": [h for h in s.card.search if h.region in chosen],
+        "communities": [SourceCount(domain=d, count=n) for d, n in comm.most_common(5)],
+        "tone": Tone(positive=tone["positive"], neutral=tone["neutral"], negative=tone["negative"]),
+        "evidences": evs,
+    })
 
 
-def _save(con: Connection, cards: list[KeywordCard]) -> None:
-    ds.cache_set(con, CACHE_KEY, "[" + ",".join(c.model_dump_json() for c in cards) + "]")
+def _weeks() -> list[str]:
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    return [(monday - timedelta(weeks=i)).isoformat() for i in range(WEEKS - 1, -1, -1)]
 
 
-def _load(con: Connection) -> tuple[list[KeywordCard], datetime] | None:
-    import json
+def build(con: Connection) -> list[Stored]:
+    queries, regions_of, weeks = _recent_queries(con), _Regions(con), _weeks()
+    return [s for t in ds.list_terms(con, ("verified",)) if (s := build_card(con, t, queries, regions_of, weeks))]
 
+
+def _save(con: Connection, stored: list[Stored]) -> None:
+    ds.cache_set(con, CACHE_KEY, "[" + ",".join(s.model_dump_json() for s in stored) + "]")
+
+
+def _load(con: Connection) -> tuple[list[Stored], datetime] | None:
     cached = ds.cache_get(con, CACHE_KEY)
-    return ([KeywordCard.model_validate(x) for x in json.loads(cached[0])], datetime.fromisoformat(cached[1])) if cached else None
+    if not cached:
+        return None
+    try:
+        return [Stored.model_validate(x) for x in json.loads(cached[0])], datetime.fromisoformat(cached[1])
+    except Exception:            # 예전 모양의 캐시(나라별 재료 없음) — 새로 만든다
+        return None
 
 
 def refresh_card(con: Connection, term_id: str) -> None:
@@ -132,45 +246,48 @@ def refresh_card(con: Connection, term_id: str) -> None:
     loaded = _load(con)
     if loaded is None:
         return
-    cards = [c for c in loaded[0] if c.term_id != term_id]
+    stored = [s for s in loaded[0] if s.card.term_id != term_id]
     t = ds.get_term(con, term_id)
-    if t and t.status == "verified" and (c := build_card(con, t, _recent_queries(con))):
-        cards.append(c)
-    _save(con, cards)
+    if t and t.status == "verified" and (s := build_card(con, t, _recent_queries(con), _Regions(con), _weeks())):
+        stored.append(s)
+    _save(con, stored)
 
 
 def board(con: Connection, regions: list[str] | None = None) -> KeywordBoard:
-    """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고)."""
+    """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고).
+    표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙)."""
     loaded = _load(con)
-    if loaded is None:                # 첫 실행 전 — 바로 만들어 둔다
+    if loaded is None:                # 첫 실행 전이거나 예전 캐시 — 바로 만들어 둔다
         _save(con, build(con))
-        loaded = _load(con)
-    cards, generated_at = loaded
+        loaded = _load(con) or ([], datetime.now())
+    stored, generated_at = loaded
+    stored = [s for s in stored if not unsafe(s.card.canonical)]
     known = [*REGIONS_FOCUS, GLOBAL]
     chosen = [r for r in known if r in (regions or [])] or list(REGIONS_FOCUS)
-    picked = [c.model_copy(update={"search": [h for h in c.search if h.region in chosen]})
-              for c in cards if set(c.regions) & set(chosen)]
+    picked = [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
     rising, fading, caution = split(picked)
     return KeywordBoard(generated_at=generated_at, regions=chosen,
-                        counts={r: sum(1 for c in cards if r in c.regions) for r in known},
+                        counts={r: sum(1 for s in stored if r in s.card.regions) for r in known},
                         rising=rising, fading=fading, caution=caution)
 
 
 def card(con: Connection, term_id: str) -> KeywordCard | None:
-    """용어 하나의 신호 (사전 화면의 '쓰임 신호'). 목표 지역 밖이라 대시보드에 없는 용어도 만들어 준다."""
-    for c in (_load(con) or ([], None))[0]:
-        if c.term_id == term_id:
-            return c
+    """용어 하나의 신호 (사전 화면의 '어디서 얼마나 쓰이나'). 모든 나라를 더한다. 목표 지역 밖 용어도 만들어 준다."""
+    everywhere = [*REGIONS_FOCUS, GLOBAL]
+    for s in (_load(con) or ([], None))[0]:
+        if s.card.term_id == term_id:
+            return view(s, everywhere)
     t = ds.get_term(con, term_id)
     if not t or t.status != "verified":
         return None
-    return build_card(con, t, _recent_queries(con), outside=True)
+    s = build_card(con, t, _recent_queries(con), _Regions(con), _weeks(), outside=True)
+    return view(s, everywhere) if s else None
 
 
 def run(con: Connection) -> dict:
     with stage(con, "dashboard") as r:
-        cards = build(con)
-        _save(con, cards)
-        r.count = len(cards)
-        r.detail = {k: sum(1 for c in cards if k in c.regions) for k in (*REGIONS_FOCUS, GLOBAL)}
+        stored = build(con)
+        _save(con, stored)
+        r.count = len(stored)
+        r.detail = {k: sum(1 for s in stored if k in s.card.regions) for k in (*REGIONS_FOCUS, GLOBAL)}
     return {"dashboard": r}

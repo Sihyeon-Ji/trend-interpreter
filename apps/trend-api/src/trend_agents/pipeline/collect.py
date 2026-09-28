@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from ..collectors import google_trends as gt
 from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
-from ..config import GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY
+from ..config import GOOGLE_CLOUD_PROJECT, LANG_REGION, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY
 from ..lifecycle import recheck_interval_days
 from ..storage import dictionary_store as ds
 from ..storage import store as db
@@ -70,7 +70,9 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
         n = 0
         for lang in wikipedia_top.LANG_REGION:
             try:
-                n += ds.upsert_wiki_top(con, wikipedia_top.top_articles(lang))
+                rows = wikipedia_top.top_articles(lang)
+                ds.upsert_wiki_top(con, rows)
+                n += len(rows)   # 받은 수. 새로 넣은 수를 세면 하루 두 번째 실행부터 0 이라 '소스 확인' 경고가 거짓으로 떴다
             except Exception as e:
                 r.note += f"{lang}:{type(e).__name__} "
         r.count = n
@@ -81,7 +83,7 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
         terms.sort(key=lambda t: recheck_interval_days(t.lifecycle))
         n = 0
         for t in terms[:mention_terms]:
-            region = "KR" if t.lang == "ko" else {"ja": "JP", "id": "ID", "th": "TH", "vi": "VN", "de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")
+            region = LANG_REGION.get(t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 중국어 표제어는 대만 뉴스에서
             if region not in news_rss.LOCALES:
                 region = "US"
             try:

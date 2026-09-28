@@ -224,6 +224,13 @@ class SearchHit(BaseModel):
     traffic: str | None = None
 
 
+class GenPeak(BaseModel):
+    """연령대별 검색 곡선의 정점 (네이버 데이터랩, 한국어 표제어만)."""
+
+    generation: str
+    date: str
+
+
 class SourceCount(BaseModel):
     domain: str
     count: int
@@ -249,10 +256,11 @@ class KeywordCard(BaseModel):
     diffusion: Diffusion | None = None
     risk_level: RiskLevel | None = None
     risk_reasons: list[str] = []
+    risk_checked_at: datetime | None = None   # 리스크 규칙을 돌린 때. None 이면 아직 검사 전 — 화면이 '근거 부족' 과 가른다
     weekly: list[WeeklyPoint]          # 최근 12주
     mentions_4w: int
     search: list[SearchHit]            # 나라마다 가장 최근·높은 순위 하나
-    search_trend: str | None = None    # 네이버 데이터랩 연령대별 검색 추이 요약 (한국어 표제어만)
+    gen_peaks: list[GenPeak] = []      # 연령대별 검색 정점 (네이버 데이터랩, 한국어 표제어만. 눈에 띄는 정점만)
     communities: list[SourceCount]     # 커뮤니티 근거가 많이 나온 곳 상위 5
     tone: Tone
     evidences: list[EvidenceBrief]     # 최근 근거 5건

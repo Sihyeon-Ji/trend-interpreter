@@ -238,17 +238,42 @@ def test_human_risk_level_overrides_rules_until_cleared():
     t = Term(term_id="t1", canonical="보통밈", lang="ko", status="verified", first_seen=now, last_seen=now)
     ds.upsert_term(con, t)
 
-    t.risk_human = "avoid"
-    risk.apply(con, t)
+    stale = ds.get_term(con, "t1")                          # 파이프라인이 시작할 때 읽어 둔 사본
+
+    t.risk_human = "avoid"                                  # 검수 화면(POST /review/{id}/risk)의 길
+    risk.apply(con, t, human=True)
     got = ds.get_term(con, "t1")
     assert got.risk_level == "avoid" and got.risk_reasons[0] == "검수자가 정한 수준"
+    assert got.risk_rule_level is None                      # 규칙의 판정은 따로 남는다(근거가 없으니 판단 보류)
 
-    risk.apply(con, got)                                   # 파이프라인이 다시 돌아도 유지된다
-    assert ds.get_term(con, "t1").risk_level == "avoid"
+    risk.apply(con, stale)                                  # 몇 분 뒤 파이프라인이 옛 사본으로 다시 매겨도 사람의 결정이 남는다
+    assert ds.get_term(con, "t1").risk_level == "avoid" and ds.get_term(con, "t1").risk_human == "avoid"
+    ds.upsert_term(con, stale)                              # 다른 단계(track 등)가 옛 사본을 통째로 저장해도
+    assert ds.get_term(con, "t1").risk_human == "avoid"
 
     got.risk_human = None
-    risk.apply(con, got)
+    risk.apply(con, got, human=True)
     assert ds.get_term(con, "t1").risk_level is None      # 근거가 없으니 규칙은 판단 보류
+
+
+def test_automation_never_unretires_a_term():
+    """제외(retired)는 사람만 한다 — 옛 사본을 저장하는 자동 단계가 제외한 말을 되살리지 않는다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.schemas import Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t1", canonical="내린말", lang="ko", status="verified", first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+    stale = ds.get_term(con, "t1")
+    t.status = "retired"
+    ds.upsert_term(con, t, human=True)
+    ds.upsert_term(con, stale)                               # 자동 단계의 옛 사본
+    assert ds.get_term(con, "t1").status == "retired"
+    stale.status = "verified"
+    ds.upsert_term(con, stale, human=True)                   # 사람이 다시 승인하면 되살아난다
+    assert ds.get_term(con, "t1").status == "verified"
 
 
 def test_dashboard_regions_lists_and_search_follow_rules():
@@ -287,9 +312,96 @@ def test_dashboard_regions_lists_and_search_follow_rules():
     assert dashboard.board(con, ["ID", "GLOBAL"]).rising[0].search[0].region == "ID"
     assert dashboard.board(con, ["XX"]).regions == dashboard.REGIONS_FOCUS          # 모르는 지역은 무시하고 기본값
 
-    t = ds.get_term(con, "kr")
-    t.risk_level = "avoid"
-    ds.upsert_term(con, t)
+    ds.set_risk(con, "kr", "avoid", ["검수자가 정한 수준"], None, now)   # 리스크 필드는 리스크 단계·검수자 길로만 바뀐다
     dashboard.refresh_card(con, "kr")                                             # 검수 결정이 다음 파이프라인을 기다리지 않는다
     assert {c.term_id for c in dashboard.board(con).caution} == {"bad", "kr"}
     assert dashboard.card(con, "de").regions == []                                # 사전 화면용으로는 지역 밖도 만든다
+
+
+def test_board_survives_namuwiki_trending_rows():
+    """나무위키 실시간 검색어(namu_rank)가 들어 있어도 보드가 만들어진다 — 출처표에 없어 보드 전체가 KeyError 로 멈췄다(2026-09-28)."""
+    from trend_agents.pipeline import board
+
+    con = db.connect(":memory:")
+    ds.upsert_trend_queries(con, [TrendQuery(term="럭키비키", region="KR", rank=1, source="namu_rank", date=date.today()),
+                                  TrendQuery(term="럭키비키", region="KR", rank=5, source="bq_top", date=date.today()),
+                                  TrendQuery(term="오살힘", region="KR", rank=2, source="namu_rank", date=date.today())])
+    for term in ("럭키비키", "오살힘"):
+        con.execute("INSERT INTO trend_class VALUES (?,?,?,?,?,?,?,?,?)",
+                    (f"{term}|KR", term, "KR", "slang_meme", "slang", 1, "ko", date.today().isoformat(), "test"))
+    con.commit()
+    r = board.run(con)["board"]
+    assert r.status == "ok" and r.count >= 1
+
+
+def test_risk_rules_nuance_fading_and_selection(monkeypatch):
+    """식상은 리스크가 아니고, 사전 뜻풀이의 주의점은 근거가 모자라도 주의다. 분류는 남은 문장이 있는 용어부터 한다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import risk
+    from trend_agents.schemas import Evidence, Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+
+    def term(tid, name, nuance, diffusion=None):
+        t = Term(term_id=tid, canonical=name, lang="ko", status="verified", first_seen=now, last_seen=now, diffusion=diffusion)
+        ds.upsert_term(con, t)
+        ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 뜻", origin="x", nuance=nuance, generations=["20s"], regions=["KR"],
+                                              self_confidence=0.9), "verified_auto", [])
+        return ds.get_term(con, tid)
+
+    stale = term("old", "옛말", "친근하게 쓴다", diffusion="fading")
+    ds.add_evidences(con, "old", [Evidence(evidence_id=f"o{i}", kind="community", url=f"u{i}", title="t", source_domain="theqoo.net",
+                                           observed_at=now, excerpt=f"옛말 {i}") for i in range(5)])
+    ds.set_evidence_labels(con, "old", [(f"o{i}", "neutral", "none") for i in range(5)], "test")
+    assert risk.judge(con, stale)[0] == "none"                                  # 식상 하나로는 주의가 아니다
+    rude = term("rude", "샤갈", "순화형이지만 뿌리는 욕설이다. 어른 앞에서는 욕으로 들린다")
+    level, reasons = risk.judge(con, rude)
+    assert level == "caution" and "욕설" in reasons[0]                          # 근거 0건이어도 사전이 이미 경고했다
+    assert risk.judge(con, term("fine", "착한말", "비하하는 뜻은 없다. 자기 비하 농담으로도 쓴다"))[0] is None   # 부정·자조는 경고가 아니다
+
+    # 분류할 문장이 남은 용어만 고른다 — 다 분류된 'old' 가 칸을 차지하지 않는다
+    ds.add_evidences(con, "rude", [Evidence(evidence_id="r1", kind="community", url="r1", title="t", source_domain="theqoo.net",
+                                            observed_at=now, excerpt="샤갈 진짜")])
+    seen = []
+    monkeypatch.setattr(risk, "classify", lambda con, t: seen.append(t.term_id) or 0)
+    risk.run(con)
+    assert seen == ["rude"]
+    assert ds.get_term(con, "rude").risk_rule_level == "caution"
+
+
+def test_track_counts_raw_sources_only_and_by_region():
+    """주간 언급·마지막 본 때는 원본(뉴스·쇼츠·검색어)만. 조사 근거를 더하면 '최근 조사한 것' 이 '요즘 뜨는 것' 이 됐다(2026-09-29).
+    원본은 나라별로도 센다 — 대시보드가 고른 지역의 수치만 보인다."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.schemas import Evidence, NewsItem, Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    long_ago = now - timedelta(days=300)
+    ds.upsert_term(con, Term(term_id="t1", canonical="럭키비키", lang="ko", status="verified", first_seen=long_ago, last_seen=long_ago))
+    ds.add_evidences(con, "t1", [Evidence(evidence_id=f"e{i}", kind="community", url=f"c{i}", title="럭키비키", source_domain="theqoo.net",
+                                          observed_at=now, excerpt="럭키비키") for i in range(9)])            # 오늘 조사한 근거 9건
+    from trend_agents.storage import store
+    store.upsert_news(con, [NewsItem(title="럭키비키 신드롬", link="n1", source="x", published_at=now, region="KR", query=None),
+                            NewsItem(title="럭키비키 in Japan", link="n2", source="x", published_at=now, region="JP", query=None)])
+    track.run(con)
+    weekly = ds.get_weekly(con, "t1")
+    assert weekly[-1][1] == 2                                                   # 원본 2건만 (근거 9건은 세지 않는다)
+    by_region = ds.get_weekly_region(con, "t1")
+    assert sum(by_region["KR"].values()) == 1 and sum(by_region["JP"].values()) == 1
+
+
+def test_gate_closures_are_not_public_review_decisions():
+    """게이트가 스스로 닫은 것은 공개 '오늘의 변화' 의 검수 결정이 아니다."""
+    con = db.connect(":memory:")
+    ds.queue_review(con, "t1", draft("뜻", None), ["표현이 아니라 상품"], 1)
+    ds.decide_review(con, "t1", "auto_rejected", "gate")
+    ds.queue_review(con, "t2", draft("뜻", None), ["근거 부족"], 1)
+    ds.decide_review(con, "t2", "approve", "kim")
+    for tid, name in (("t1", "안녕하세요"), ("t2", "럭키비키")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified"))
+    reviewed = [u for u in ds.recent_updates(con, hours=1) if u["kind"] == "reviewed"]
+    assert [u["term_id"] for u in reviewed] == ["t2"]

@@ -128,7 +128,14 @@ export async function getKeywordBoard(regions: string[]): Promise<KeywordBoard> 
   const fallback = sampleKeywordBoard(regions);
   if (isSampleMode) return fallback;
   const q = regions.length ? `?regions=${regions.map(encodeURIComponent).join(",")}` : "";
-  return apiOr<KeywordBoard>(`/dashboard${q}`, fallback, 60);
+  // Next 의 데이터 캐시에 넣지 않는다 — 지역 조합마다 30만 바이트짜리 항목이 쌓이고 지워지지 않는다(2026-09-29 검토).
+  // 백엔드가 이미 캐시(board_cache)에서 내준다.
+  try {
+    const res = await fetch(`${API}/dashboard${q}`, { cache: "no-store" });
+    return res.ok ? ((await res.json()) as KeywordBoard) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 /** 용어 하나의 쓰임 신호 (사전 화면). 서버가 없으면 신호 칸을 내지 않는다. */

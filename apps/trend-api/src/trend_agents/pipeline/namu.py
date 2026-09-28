@@ -20,7 +20,7 @@ from .match import unsafe
 from .runs import stage
 
 CATEGORIES = ("유행어", "인터넷 밈")
-MAX_NEW = 20
+MAX_NEW = 8       # 조사 단계가 실행마다 새로 세우는 수(research.run max_new)보다 많이 넣으면 대기열만 쌓인다(2026-09-29 검토)
 MAX_RECHECK = 6
 
 
@@ -50,14 +50,22 @@ def run(con: Connection) -> dict:
         for t in ds.list_terms(con, ("verified",)):
             if len(rechecked) >= MAX_RECHECK or t.lang != "ko":
                 continue
-            ev = namuwiki.lookup(t.canonical)          # 하루 캐시 — 문서를 매번 받지 않는다
+            cm = ds.current_meaning(con, t.term_id)
+            if cm and cm.verification == "verified_human":   # 사람이 승인한 뜻은 다시 조사하지 않는다 — 칸만 차지했다
+                continue
             last = ds.last_researched(con, t.term_id)
-            if ev and last and ev[0].observed_at > last.replace(tzinfo=last.tzinfo or timezone.utc):
+            if not last:
+                continue
+            ev = namuwiki.lookup(t.canonical)          # 하루 캐시 — 문서를 매번 받지 않는다
+            if ev and ev[0].observed_at > last.replace(tzinfo=last.tzinfo or timezone.utc):
                 try:
-                    research_one(con, t)
-                    rechecked.append(t.canonical)
+                    v, _ = research_one(con, t)
+                    if v != "verified_human":
+                        rechecked.append(t.canonical)
                 except Exception as e:
                     r.note += f"{t.canonical}:{type(e).__name__} "
+                    # 실패도 조사 기록으로 남겨, 다음 실행에 같은 용어가 다시 칸을 차지하지 않게 한다(research.run 과 같은 규칙)
+                    ds.log_research(con, t.term_id, "error", f"{type(e).__name__}: {e}"[:500], [], "error", [])
         r.count = len(rank) + added + len(rechecked)
         r.detail = {"실시간 검색어": rank[:10], "새 후보": added, "문서가 고쳐져 다시 조사": rechecked}
     return {"namu": r}

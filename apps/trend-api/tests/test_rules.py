@@ -510,3 +510,119 @@ def test_failed_research_waits_for_the_recheck_interval(monkeypatch):
     assert ds.last_researched(con, "t1") is not None
     assert [t.term_id for t in research.due_for_recheck(con, 10)] == []
     assert not any(u.get("term_id") == "t1" and u["kind"] == "recheck" for u in ds.recent_updates(con, hours=1))
+
+
+def test_promotion_puts_trend_signals_before_namuwiki_backfill():
+    """나무위키 분류(오래된 한국어 말 채우기)가 대만 위키·쇼츠 후보를 막지 않는다 — 뒤에 두고 한 번에 절반까지만(2026-09-29 검토)."""
+    from trend_agents.pipeline.research import promote_candidates
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    for k in range(20):
+        ds.upsert_candidate(con, f"나무말{k}", "ko", "KR", "namu", note="kind=slang namu=유행어")
+    for name in ("傻眼貓咪", "山道猴子的一生"):
+        ds.upsert_candidate(con, name, "zh", "TW", "wiki", note="kind=meme wiki=x")
+    ds.upsert_candidate(con, "Tung Sahur", "en", "ID", "shorts", note="kind=meme")
+    ds.upsert_candidate(con, "Tung Sahur", "en", "ID", "shorts", note="kind=meme")
+    got = [t.canonical for t in promote_candidates(con, 8)]
+    assert set(got[:3]) == {"傻眼貓咪", "山道猴子的一生", "Tung Sahur"}           # 위키·쇼츠가 먼저
+    assert sum(1 for g in got if g.startswith("나무말")) == 4                     # 8칸의 절반까지
+
+
+def test_model_only_reasons_do_not_close_documented_slang():
+    """모델의 자기 판단(is_expression=false 등)만으로는 문서가 있는 말을 사람 큐에서 빼지 않는다. 뜻이 빈 것은 규칙이라 닫는다."""
+    from trend_agents.pipeline.research import needs_human
+
+    model_only = ["표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님"]
+    assert not needs_human(model_only)                        # 문서가 없으면 닫는다(예전 그대로)
+    assert needs_human(model_only, documented=True)           # 나무위키·위키백과 문서가 있으면 사람이 본다
+    assert not needs_human(["뜻이 비었거나 표제어를 그대로 옮겨 적음"], documented=True)
+
+
+def test_namuwiki_ranking_is_not_cited_as_google_trends():
+    """나무위키 실시간 검색어를 'Google Trends' 로 적으면 한 사이트가 독립 출처 둘로 세졌다."""
+    from datetime import date
+
+    from trend_agents.pipeline.research import first_party_evidence
+    from trend_agents.schemas import TrendQuery
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    ds.upsert_trend_queries(con, [TrendQuery(term="럭키비키", region="KR", rank=1, source="namu_rank", date=date.today())])
+    ev = [e for e in first_party_evidence(con, "럭키비키", []) if e.kind == "datalab"]
+    assert ev and ev[0].source_domain == "namu.wiki" and "Google" not in ev[0].title
+
+
+def test_unsafe_does_not_fire_inside_other_words():
+    """욕설 글자가 다른 낱말 안에 든 것은 걸지 않는다 — 'Koshitantan'·'시발점'·'남자지만' 이 '사용 자제' 가 됐다(2026-09-29)."""
+    from trend_agents.pipeline.match import unsafe
+
+    for w in ("Shikanoko Nokonoko Koshitantan", "시발점", "쳐다보지 마", "남자지만", "자지러지게", "gozaimashita"):
+        assert not unsafe(w), w
+    for w in ("씨발", "인실좆", "아헤가오", "motherfucker", "Roblox Shitpost Animation", "bullshit", "如果早知道男生也會被性侵"):
+        assert unsafe(w), w
+
+
+def test_dashboard_numbers_follow_the_chosen_region():
+    """지역을 바꾸면 수치도 그 지역 것만 (Plan 04 완료 기준). 네이버 결과는 커뮤니티로 세지 않고, 욕설 표제어는 둘러보기에 없다.
+    표제어 언어의 나라는 그 나라 글자로 쓴 말만 — 위키 일본어판에서 받은 영어 제목은 '전 세계'."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import dashboard
+    from trend_agents.schemas import Evidence, MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    week = dashboard._weeks()[-1]
+
+    def term(tid, name, lang, usage=()):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang=lang, status="verified", first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=list(usage),
+                                              self_confidence=0.9), "verified_auto", [])
+        if usage:
+            ds.set_usage(con, tid, [("20s", r, now.isoformat(), 1.0) for r in usage])
+
+    term("oshi", "推し活", "ja", ("JP", "TW"))
+    ds.set_weekly_region(con, "oshi", {"JP": {week: 125}, "TW": {week: 2}})
+    ds.add_evidences(con, "oshi", [
+        Evidence(evidence_id="c1", kind="community", url="c1", title="推し活 まとめ", source_domain="togetter.com", observed_at=now, excerpt="推し活"),
+        Evidence(evidence_id="c2", kind="community", url="c2", title="推し活 心得", source_domain="dcard.tw", observed_at=now, excerpt="推し活"),
+        Evidence(evidence_id="c3", kind="community", url="c3", title="推し活", source_domain="bsky.app", observed_at=now, excerpt="推し活"),
+        Evidence(evidence_id="c4", kind="community", url="c4", title="노르웨이 축구", source_domain="naver:kin", observed_at=now, excerpt="축구"),
+    ])
+    term("cake", "The cake is a lie", "ja")                      # 일본어 위키에서 받은 영어 제목, 나라 정보 없음
+    term("rude", "인실좆", "ko", ("KR",))
+    dashboard.run(con)
+
+    tw = next(c for c in dashboard.board(con, ["TW"]).rising + dashboard.board(con, ["TW"]).fading if c.term_id == "oshi")
+    jp = next(c for c in dashboard.board(con, ["JP"]).rising + dashboard.board(con, ["JP"]).fading if c.term_id == "oshi")
+    assert tw.mentions_4w == 2 and jp.mentions_4w == 125
+    assert [s.domain for s in tw.communities] == ["dcard.tw"] and [s.domain for s in jp.communities] == ["togetter.com"]
+    everywhere = dashboard.card(con, "oshi")
+    assert "naver:kin" not in {s.domain for s in everywhere.communities} and "bsky.app" in {s.domain for s in everywhere.communities}
+
+    cake = dashboard.card(con, "cake")
+    assert cake.regions == ["GLOBAL"]                            # 일본 카드가 아니다
+    whole = dashboard.board(con)
+    assert "rude" not in {c.term_id for c in whole.rising + whole.fading + whole.caution}   # 둘러보기에 욕설 표제어는 없다
+    assert dashboard.card(con, "rude") is not None                                          # 사전에서 직접 찾으면 나온다
+
+
+def test_rechecks_repair_blank_region_usage(monkeypatch):
+    """예전 조사가 나라 자리에 '' 를 저장한 용어는 새 조사가 나라를 고친다 — 처음 한 번만 쓰면 영영 못 고쳤다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    ds.set_usage(con, "t1", [("20s", "", datetime.now(timezone.utc).isoformat(), 1.0)])
+    existing = ds.get_usage(con, "t1")
+    assert existing and not any(u["region"] for u in existing)
+    ds.clear_usage(con, "t1")
+    ds.set_usage(con, "t1", [("20s", "JP", datetime.now(timezone.utc).isoformat(), 1.0)])
+    assert [u["region"] for u in ds.get_usage(con, "t1")] == ["JP"]

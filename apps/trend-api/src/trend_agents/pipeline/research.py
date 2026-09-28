@@ -90,8 +90,11 @@ def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) ->
                                 observed_at=v.published_at if v else datetime.now(timezone.utc), excerpt=f"{hit[0].name}: {hit[0].origin_hypothesis}"[:240], derived=True))
     for t, region, d, src in con.execute("SELECT term, region, MAX(date), source FROM trend_queries GROUP BY term, region, source").fetchall():
         if key == _norm(t):
-            url = f"https://trends.google.com/trending?geo={region}"
-            out.append(Evidence(evidence_id=ds.new_id("e", f"{url}|{t}|{d}"), kind="datalab", url=url, title=f"Google Trends {region} {src}: {t}", source_domain="trends.google.com",
+            if src == "namu_rank":   # 나무위키 실시간 검색어는 Google Trends 가 아니다 — 출처를 바르게 적는다(한 사이트가 독립 출처 둘로 세지지 않게)
+                url, title, domain = "https://namu.wiki/", f"나무위키 실시간 검색어: {t}", "namu.wiki"
+            else:
+                url, title, domain = f"https://trends.google.com/trending?geo={region}", f"Google Trends {region} {src}: {t}", "trends.google.com"
+            out.append(Evidence(evidence_id=ds.new_id("e", f"{url}|{t}|{d}"), kind="datalab", url=url, title=title, source_domain=domain,
                                 observed_at=datetime.fromisoformat(d).replace(tzinfo=timezone.utc), excerpt=t))
     return out
 
@@ -100,9 +103,15 @@ def promote_candidates(con: Connection, limit: int) -> list[Term]:
     """후보 → 용어(researching). 쇼츠에서 나온 것 또는 2회 이상 본 것."""
     terms: list[Term] = []
     # 사람이 물어본 말·위키 문서가 있는 말을 먼저 조사한다. spot 출신이 앞을 막으면 좋은 후보가 대기열 뒤에 묻힌다.
-    first = {"hunt": 0, "namu": 1, "wiki": 2, "shorts": 3}
+    # 나무위키 분류는 오래된 한국어 말을 채워 넣는 것이라 지금 뜨는 신호(위키·쇼츠) 뒤에 두고, 한 번에 절반까지만 —
+    # 앞에 두었더니 나무위키 'ㄱ' 항목 47개가 대만 위키 후보를 모두 막았다(2026-09-29 검토).
+    first = {"hunt": 0, "wiki": 1, "shorts": 2, "namu": 3}
+    namu_cap, namu_n = max(1, limit // 2), 0
     pool = sorted(ds.candidates(con, "new", 400), key=lambda c: min((first.get(s, 9) for s in c.sources), default=9))
     for c in pool:
+        only_namu = set(c.sources) <= {"namu"}
+        if only_namu and namu_n >= namu_cap:
+            continue
         m = re.search(r"kind=(\w+)", c.note)
         kind = m.group(1) if m else ""
         if kind not in DICT_KINDS:  # 분류가 유행어·밈·노래·챌린지로 보지 않은 것은 사전에 넣지 않는다 (brics, aqi, iPhone Duo 같은 일반 검색어)
@@ -123,6 +132,7 @@ def promote_candidates(con: Connection, limit: int) -> list[Term]:
         ds.upsert_term(con, t)
         ds.set_candidate_status(con, c.candidate_id, "promoted")
         terms.append(t)
+        namu_n += only_namu
         if len(terms) >= limit:
             break
     return terms
@@ -308,10 +318,15 @@ def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
 
 
 MECHANICAL = ("표현이 아니라", "뜻이 비었", "모델 자기확신")
+MODEL_ONLY = ("표현이 아니라", "모델 자기확신")   # 모델이 스스로 한 판단(is_expression·self_confidence)
 
 
-def needs_human(reasons: list[str]) -> bool:
-    """사람이 볼 가치가 있는 보류인가. 뜻은 멀쩡한데 근거가 모자란 애매한 경우만 사람에게 보낸다."""
+def needs_human(reasons: list[str], documented: bool = False) -> bool:
+    """사람이 볼 가치가 있는 보류인가. 뜻은 멀쩡한데 근거가 모자란 애매한 경우만 사람에게 보낸다.
+    백과사전(나무위키·위키백과) 문서가 있는 말은 모델의 자기 판단만으로 닫지 않는다 — 나무위키 '분류:유행어' 에서 온
+    말 12개 중 7개가 is_expression=false 하나로 닫혀 사람이 보지 못했다(2026-09-29 검토)."""
+    if documented and any(m in r for r in reasons for m in MODEL_ONLY):
+        return True
     return not any(m in r for r in reasons for m in MECHANICAL)
 
 
@@ -383,6 +398,9 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         draft.expansion = None
     evidences = (web_evidence(term.canonical, urls) if not method.startswith("offline") else []) + first_party
     current = ds.current_meaning(con, term.term_id)
+    if current and current.verification == "verified_human":
+        # 조사하는 몇 분(그라운딩·GDELT 16초 간격·나무위키) 사이 검수자가 승인했다 — 그 결정을 덮지 않는다
+        return "verified_human", []
     verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases)
     # 용어가 원문에 없는 근거는 그 표제어의 근거가 아니다 — 인용으로 보여 주면 거짓말이 된다. 저장하지 않는다.
     # (표시 전용 네이버 결과는 게이트가 보지 않으므로 그대로 둔다.)
@@ -402,11 +420,14 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     else:
         term.status = "needs_review"
         ds.queue_review(con, term.term_id, draft, reasons, len(evidences))
-        if not needs_human(reasons):
+        if not needs_human(reasons, documented=any(e.kind == "wiki" for e in keep)):
             # 게이트가 '표현이 아니다' 로 보았거나 뜻이 비었다 — 사람이 봐도 할 일이 없다. 사람 큐에서만 빼고
             # 표제어는 그대로 둔다(재조사 주기가 오면 다시 본다). 큐가 이런 것으로 500건 넘게 막혀 있었다(2026-09-28).
             ds.decide_review(con, term.term_id, "auto_rejected", "gate")
-    if (draft.regions or draft.generations) and not ds.get_usage(con, term.term_id):
+    existing = ds.get_usage(con, term.term_id)
+    if (draft.regions or draft.generations) and not any(u["region"] for u in existing):
+        # 나라가 빈 줄만 있던 것(예전 조사가 '' 를 나라로 저장, 146개)은 새 조사로 고친다 — 처음 한 번만 쓰면 영영 못 고쳤다
+        ds.clear_usage(con, term.term_id)
         rows = []
         # 나라를 비워 두면 표제어 언어의 나라로 (예전 기본값 'KR' 은 일본어 표제어도 한국에 넣었다)
         regions = draft.regions or [LANG_REGION.get(term.lang, "GLOBAL")]

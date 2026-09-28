@@ -181,14 +181,17 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
         t.status = "retired"
     else:
         raise HTTPException(400, "decision must be approve|reject")
-    ds.upsert_term(_con, t)
+    ds.upsert_term(_con, t, human=True)     # 사람의 결정 — 제외를 되돌리는 승인도 여기서만 한다
     ds.decide_review(_con, term_id, body.decision, body.by)
+    if t.status == "verified":
+        risk.apply(_con, t)                 # 승인한 말도 리스크 규칙을 거친 뒤에 대시보드에 오른다(표제어 욕설 등)
     dashboard.refresh_card(_con, term_id)   # 승인한 말은 대시보드에 바로 오르고, 제외한 말은 바로 빠진다
     return {"ok": True, "term_id": term_id, "status": t.status}
 
 
 class RiskIn(BaseModel):
     level: RiskLevel | None  # None 이면 사람의 결정을 지우고 규칙 판정으로 돌아간다
+    by: str = "reviewer"     # 결정한 사람 — 프론트가 세션의 계정 이름을 넣는다
 
 
 @app.post("/review/{term_id}/risk")
@@ -200,9 +203,11 @@ def decide_risk(term_id: str, body: RiskIn, x_frontend_token: str = Header(defau
     if not t:
         raise HTTPException(404, "not found")
     t.risk_human = body.level
-    risk.apply(_con, t)
+    t.risk_decided_by, t.risk_decided_at = body.by, datetime.now(timezone.utc)   # 지운 것도 누가 언제 지웠는지 남긴다
+    risk.apply(_con, t, human=True)
     dashboard.refresh_card(_con, term_id)
-    return {"ok": True, "term_id": term_id, "risk_level": t.risk_level}
+    return {"ok": True, "term_id": term_id, "risk_level": t.risk_level, "risk_rule_level": t.risk_rule_level,
+            "risk_decided_by": t.risk_decided_by}
 
 
 class AskIn(BaseModel):

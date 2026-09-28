@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT
 CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
+-- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
+CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
 CREATE TABLE IF NOT EXISTS review_queue (
   term_id TEXT PRIMARY KEY, draft_json TEXT, reasons_json TEXT, evidence_count BIGINT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT);
@@ -174,7 +176,37 @@ def set_candidate_status(con: Connection, candidate_id: str, status: str) -> Non
 
 # ---------- 용어 ----------
 
-def upsert_term(con: Connection, term: Term) -> Term:
+# 사람이 정한 값. 파이프라인 단계는 시작할 때 읽은 용어를 몇 분 뒤에 통째로 저장하므로, 그 사이 검수자가 바꾼 값을
+# 옛 사본이 덮었다(2026-09-29 검토: track·risk·research·namu 모두).
+HUMAN_FIELDS = ("risk_human", "risk_decided_by", "risk_decided_at")
+# 리스크 필드는 리스크 단계(set_risk)와 검수자만 쓴다. 다른 단계의 자동 저장은 이 값을 저장된 쪽에서 가져온다 —
+# 사람의 수준만 지키면 '실제 수준'(risk_level)이 옛 값으로 돌아가 둘이 어긋났다.
+RISK_FIELDS = ("risk_level", "risk_reasons", "risk_checked_at", "risk_rule_level", *HUMAN_FIELDS)
+
+
+def upsert_term(con: Connection, term: Term, *, human: bool = False) -> Term:
+    """용어 저장. human=False(자동화)면 저장된 리스크 필드(사람의 결정 포함)와 '제외'(retired) 상태를 지킨다 —
+    제외는 사람만 한다(검수 화면·검토 스크립트). 사람의 결정을 기록하는 쪽만 human=True 로 부른다."""
+    if not human:
+        row = con.execute("SELECT json, status FROM terms WHERE term_id=?", (term.term_id,)).fetchone()
+        if row:
+            stored = Term.model_validate_json(row[0])
+            term = term.model_copy(update={f: getattr(stored, f) for f in RISK_FIELDS})
+            if row[1] == "retired":
+                term = term.model_copy(update={"status": "retired"})
+    return _write_term(con, term)
+
+
+def set_risk(con: Connection, term_id: str, level, reasons: list[str], rule_level, checked_at: datetime) -> Term | None:
+    """리스크 단계의 저장 — 리스크 필드만 바꾸고 나머지(상태·별칭·사람의 결정)는 저장된 그대로 둔다."""
+    t = get_term(con, term_id)
+    if not t:
+        return None
+    return _write_term(con, t.model_copy(update={"risk_level": level, "risk_reasons": reasons, "risk_rule_level": rule_level,
+                                                 "risk_checked_at": checked_at}))
+
+
+def _write_term(con: Connection, term: Term) -> Term:
     con.execute(
         "INSERT OR REPLACE INTO terms VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (term.term_id, norm(term.canonical), term.canonical, term.lang, term.category, term.status, term.lifecycle,
@@ -289,6 +321,11 @@ def set_usage(con: Connection, term_id: str, rows: list[tuple[str, str, str, flo
     con.commit()
 
 
+def clear_usage(con: Connection, term_id: str) -> None:
+    con.execute("DELETE FROM usage WHERE term_id=?", (term_id,))
+    con.commit()
+
+
 def get_usage(con: Connection, term_id: str) -> list[dict]:
     return [dict(zip(("segment_id", "generation", "region", "first_seen", "share"), r))
             for r in con.execute("SELECT segment_id, generation, region, first_seen, share FROM usage WHERE term_id=? ORDER BY share DESC", (term_id,)).fetchall()]
@@ -319,6 +356,21 @@ def set_weekly(con: Connection, term_id: str, counts: dict[str, int]) -> None:
     for wk, c in counts.items():
         con.execute("INSERT OR REPLACE INTO mentions_weekly VALUES (?,?,?)", (term_id, wk, c))
     con.commit()
+
+
+def set_weekly_region(con: Connection, term_id: str, counts: dict[str, dict[str, int]]) -> None:
+    """counts: {나라: {주 시작일: 건수}}. 그 용어의 나라별 기록을 통째로 바꾼다(0 인 칸은 두지 않는다)."""
+    con.execute("DELETE FROM mentions_weekly_region WHERE term_id=?", (term_id,))
+    con.executemany("INSERT INTO mentions_weekly_region VALUES (?,?,?,?)",
+                    [(term_id, r, wk, c) for r, weeks in counts.items() for wk, c in weeks.items() if c])
+    con.commit()
+
+
+def get_weekly_region(con: Connection, term_id: str) -> dict[str, dict[str, int]]:
+    out: dict[str, dict[str, int]] = {}
+    for r, wk, c in con.execute("SELECT region, week_start, count FROM mentions_weekly_region WHERE term_id=?", (term_id,)).fetchall():
+        out.setdefault(r, {})[wk] = c
+    return out
 
 
 def get_weekly(con: Connection, term_id: str, weeks: int = 12) -> list[tuple[str, int]]:
@@ -587,7 +639,9 @@ def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[di
         t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
         if t:
             rows.append({"kind": "recheck", "at": at, "label": t[0], "term_id": tid, "detail": ver})
-    for tid, decision, at in con.execute("SELECT term_id, decision, decided_at FROM review_queue WHERE decided_at>=?", (since,)).fetchall():
+    # 게이트가 스스로 닫은 것(decided_by='gate')은 검수 결정이 아니다 — 공개 피드에는 사람의 결정만
+    for tid, decision, at in con.execute("SELECT term_id, decision, decided_at FROM review_queue WHERE decided_at>=? AND decision IS NOT NULL "
+                                         "AND COALESCE(decided_by,'') != 'gate'", (since,)).fetchall():
         t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
         if t:
             rows.append({"kind": "reviewed", "at": at, "label": t[0], "term_id": tid, "detail": decision})

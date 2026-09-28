@@ -67,7 +67,10 @@ const SOURCE_NAME: Record<Locale, Record<string, string>> = {
   ko: { "naver:blog": "네이버 블로그", "naver:cafearticle": "네이버 카페", "naver:kin": "네이버 지식iN", "naver:news": "네이버 뉴스", "datalab.naver.com": "네이버 데이터랩",
         "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends" },
   en: { "naver:blog": "Naver Blog", "naver:cafearticle": "Naver Cafe", "naver:kin": "Naver KnowledgeiN", "naver:news": "Naver News", "datalab.naver.com": "Naver DataLab",
-        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends" },
+        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends",
+        // 구글 뉴스가 한국 커뮤니티를 한국어 이름으로 준다 — 영어 화면에서는 영어 이름으로
+        "디시인사이드": "DC Inside", "갤러리": "DC Inside", "클리앙": "Clien", "에펨코리아": "FM Korea", "더쿠": "theqoo", "루리웹": "Ruliweb",
+        "인스티즈": "instiz", "뽐뿌": "Ppomppu" },
 };
 export const sourceName = (locale: Locale, domain: string) => SOURCE_NAME[locale][domain] ?? domain;
 

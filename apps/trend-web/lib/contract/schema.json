@@ -788,6 +788,48 @@
           "default": null,
           "title": "Risk Human"
         },
+        "risk_rule_level": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "caution",
+                "avoid"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Rule Level"
+        },
+        "risk_decided_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Decided By"
+        },
+        "risk_decided_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Decided At"
+        },
         "first_seen": {
           "anyOf": [
             {

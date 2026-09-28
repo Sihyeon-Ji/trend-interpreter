@@ -136,6 +136,9 @@ class Term(BaseModel):
     risk_reasons: list[str] = Field(default_factory=list)
     risk_checked_at: datetime | None = None
     risk_human: RiskLevel | None = None  # 검수자가 정한 수준. 있으면 규칙보다 우선한다
+    risk_rule_level: RiskLevel | None = None  # 규칙이 본 수준 — 검수자가 덮어도 따로 남겨 관리 화면이 둘을 나란히 보인다
+    risk_decided_by: str | None = None   # 검수자 계정 (사람의 결정만 기록한다)
+    risk_decided_at: datetime | None = None
     first_seen: datetime | None = None
     last_seen: datetime | None = None
 

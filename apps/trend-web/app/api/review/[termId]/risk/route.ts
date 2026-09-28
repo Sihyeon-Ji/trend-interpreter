@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
     res = await fetch(`${API}/review/${encodeURIComponent(termId)}/risk`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
-      body: JSON.stringify({ level }),
+      body: JSON.stringify({ level, by: session.user }),   // 결정한 사람은 세션에서 — 검수 기록이 실제 계정이 된다
       cache: "no-store",
     });
   } catch {

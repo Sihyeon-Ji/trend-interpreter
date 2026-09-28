@@ -12,6 +12,9 @@ export type RiskLevel = ("none" | "caution" | "avoid") | null;
 export type RiskReasons = string[];
 export type RiskCheckedAt = string | null;
 export type RiskHuman = ("none" | "caution" | "avoid") | null;
+export type RiskRuleLevel = ("none" | "caution" | "avoid") | null;
+export type RiskDecidedBy = string | null;
+export type RiskDecidedAt = string | null;
 export type FirstSeen = string | null;
 export type LastSeen = string | null;
 /**
@@ -185,6 +188,9 @@ export interface Term {
   risk_reasons?: RiskReasons;
   risk_checked_at?: RiskCheckedAt;
   risk_human?: RiskHuman;
+  risk_rule_level?: RiskRuleLevel;
+  risk_decided_by?: RiskDecidedBy;
+  risk_decided_at?: RiskDecidedAt;
   first_seen?: FirstSeen;
   last_seen?: LastSeen;
 }
