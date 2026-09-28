@@ -271,6 +271,16 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                     </dd>
                   </>
                 )}
+                {/* 브랜드가 쓸 때의 경고 — 수준은 백엔드 pipeline/risk.py 규칙(또는 검수자)이 정한다. 문제 없음·판단 보류는 줄을 내지 않는다 */}
+                {(record.term.risk_level === "caution" || record.term.risk_level === "avoid") && (
+                  <>
+                    <dt className="text-steel">{t(locale, "term_info_risk")}</dt>
+                    <dd className="text-charcoal">
+                      {t(locale, `risk_${record.term.risk_level}`)}
+                      <span className="block text-[12px] leading-[1.5] text-steel">{t(locale, `risk_${record.term.risk_level}_why`)}</span>
+                    </dd>
+                  </>
+                )}
                 {m && <><dt className="text-steel">{t(locale, "term_used_by")}</dt><dd className="text-charcoal">{joinGens(locale, m.generations)}</dd></>}
                 {m && <><dt className="text-steel">{t(locale, "term_where")}</dt><dd className="text-charcoal">{joinRegions(locale, m.regions)}</dd></>}
                 <dt className="text-steel">{t(locale, "term_first_seen")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(record.term.first_seen)}</dd>

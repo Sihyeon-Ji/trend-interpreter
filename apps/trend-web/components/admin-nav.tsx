@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/admin", label: "검수" },
+  { href: "/admin/risk", label: "주의 표현" },
   { href: "/admin/status", label: "수집 현황" },
 ];
 

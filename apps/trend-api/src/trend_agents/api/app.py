@@ -15,8 +15,8 @@ from pydantic import BaseModel
 from ..config import WEB_ORIGINS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import explain as explain_stage
-from ..pipeline import views
-from ..schemas import TrendBoard
+from ..pipeline import risk, views
+from ..schemas import RiskLevel, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
 from ..storage import db
@@ -184,6 +184,23 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
     ds.upsert_term(_con, t)
     ds.decide_review(_con, term_id, body.decision, body.by)
     return {"ok": True, "term_id": term_id, "status": t.status}
+
+
+class RiskIn(BaseModel):
+    level: RiskLevel | None  # None 이면 사람의 결정을 지우고 규칙 판정으로 돌아간다
+
+
+@app.post("/review/{term_id}/risk")
+def decide_risk(term_id: str, body: RiskIn, x_frontend_token: str = Header(default="")):
+    # 리스크 수준도 검수자가 덮어쓸 수 있다(Plan 03). 사람의 결정이 규칙보다 우선한다.
+    if not frontend_token_ok(x_frontend_token):
+        raise HTTPException(401, "검수 권한이 필요합니다")
+    t = ds.get_term(_con, term_id)
+    if not t:
+        raise HTTPException(404, "not found")
+    t.risk_human = body.level
+    risk.apply(_con, t)
+    return {"ok": True, "term_id": term_id, "risk_level": t.risk_level}
 
 
 class AskIn(BaseModel):

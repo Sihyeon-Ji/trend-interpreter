@@ -224,3 +224,28 @@ def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
 
     t2 = Term(term_id="t2", canonical="근거적은말", lang="ko", status="verified", first_seen=now, last_seen=now)
     assert risk.judge(con, t2)[0] is None                  # 근거가 모자라면 판단 보류
+
+
+def test_human_risk_level_overrides_rules_until_cleared():
+    """검수자가 정한 리스크 수준이 규칙보다 우선하고, 지우면 규칙 판정으로 돌아간다 (Plan 03 5번)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import risk
+    from trend_agents.schemas import Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t1", canonical="보통밈", lang="ko", status="verified", first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+
+    t.risk_human = "avoid"
+    risk.apply(con, t)
+    got = ds.get_term(con, "t1")
+    assert got.risk_level == "avoid" and got.risk_reasons[0] == "검수자가 정한 수준"
+
+    risk.apply(con, got)                                   # 파이프라인이 다시 돌아도 유지된다
+    assert ds.get_term(con, "t1").risk_level == "avoid"
+
+    got.risk_human = None
+    risk.apply(con, got)
+    assert ds.get_term(con, "t1").risk_level is None      # 근거가 없으니 규칙은 판단 보류

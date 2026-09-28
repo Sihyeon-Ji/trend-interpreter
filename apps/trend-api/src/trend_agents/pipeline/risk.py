@@ -119,6 +119,17 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     return "none", [f"분류된 근거 {len(labeled)}건에 위험 신호가 없다."]
 
 
+def apply(con: Connection, term) -> None:
+    """규칙으로 수준을 다시 매겨 저장한다. 사람의 결정(risk_human)이 있으면 그것이 우선하고, 규칙의 이유는 참고로 남긴다."""
+    level, reasons = judge(con, term)
+    if term.risk_human:
+        term.risk_level, term.risk_reasons = term.risk_human, ["검수자가 정한 수준"] + reasons
+    else:
+        term.risk_level, term.risk_reasons = level, reasons
+    term.risk_checked_at = datetime.now(timezone.utc)
+    ds.upsert_term(con, term)
+
+
 def run(con: Connection) -> dict:
     with stage(con, "risk") as r:
         terms = ds.list_terms(con, ("verified",))
@@ -131,13 +142,7 @@ def run(con: Connection) -> dict:
                     labeled += classify(con, t)
                 except Exception as e:           # 한 용어의 형식 실패가 나머지를 막지 않는다
                     r.note += f"{t.canonical}:{type(e).__name__} "
-            level, reasons = judge(con, t)
-            if t.risk_human:                      # 사람의 결정이 규칙보다 우선한다
-                t.risk_level, t.risk_reasons = t.risk_human, ["검수자가 정한 수준"] + reasons
-            else:
-                t.risk_level, t.risk_reasons = level, reasons
-            t.risk_checked_at = datetime.now(timezone.utc)
-            ds.upsert_term(con, t)
+            apply(con, t)
         r.count = len(terms)
         r.detail = {"분류한 문장": labeled}
     return {"risk": r}
