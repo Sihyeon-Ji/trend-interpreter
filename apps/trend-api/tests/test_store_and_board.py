@@ -189,3 +189,38 @@ def test_research_does_not_override_human_approval(monkeypatch):
     monkeypatch.setattr(research, "research_term", lambda *a, **k: (_ for _ in ()).throw(AssertionError("불리면 안 됨")))
     assert research.research_one(con, t) == ("verified_human", [])
     assert ds.current_meaning(con, "t1").verification == "verified_human"
+
+
+def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
+    """리스크 수준은 규칙이 정한다. 위험 근거 1건은 잡음, 3건이면 사용 자제, 근거가 모자라면 판단 보류."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import risk
+    from trend_agents.schemas import Evidence, Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t1", canonical="테스트밈", lang="ko", status="verified", first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+    evs = [Evidence(evidence_id=f"e{i}", kind="community", url=f"u{i}", title="t", source_domain="bsky.app",
+                    observed_at=now, excerpt=f"@a.bsky.social · 0♥ — 테스트밈 문장 {i}") for i in range(6)]
+    ds.add_evidences(con, "t1", evs)
+
+    ds.set_evidence_labels(con, "t1", [("e0", "neutral", "politics")] + [(f"e{i}", "positive", "none") for i in range(1, 6)], "test")
+    assert risk.judge(con, t)[0] == "none"                 # 위험 근거 1건은 잡음
+
+    ds.set_evidence_labels(con, "t1", [(f"e{i}", "neutral", "hate") for i in range(3)], "test")
+    level, reasons = risk.judge(con, t)
+    assert level == "caution" and not any("@a.bsky" in r for r in reasons)   # 한 곳에 몰리면 주의까지, 머리말은 뗀다
+
+    ds.add_evidences(con, "t1", [Evidence(evidence_id="n1", kind="news", url="n1", title="t", source_domain="news.example",
+                                          observed_at=now, excerpt="테스트밈 기사")])
+    ds.set_evidence_labels(con, "t1", [("n1", "negative", "hate")], "test")
+    assert risk.judge(con, t)[0] == "avoid"                # 출처 둘 이상에서 3건 이상이면 사용 자제
+
+    ds.set_evidence_labels(con, "t1", [(f"e{i}", "offtopic", "none") for i in range(6)] + [("n1", "offtopic", "none")], "test")
+    level, reasons = risk.judge(con, t)
+    assert level is None and "딴 이야기 7건" in reasons[0]   # 글자만 같은 딴 이야기는 판정에서 뺀다
+
+    t2 = Term(term_id="t2", canonical="근거적은말", lang="ko", status="verified", first_seen=now, last_seen=now)
+    assert risk.judge(con, t2)[0] is None                  # 근거가 모자라면 판단 보류

@@ -8,6 +8,10 @@ export type Category = "slang" | "meme" | "song" | "drama" | "dance" | "news" | 
 export type Status = "candidate" | "researching" | "needs_review" | "verified" | "retired";
 export type Lifecycle = "emerging" | "rising" | "peak" | "steady" | "declining" | "dormant" | "unknown";
 export type Diffusion = ("underground" | "spreading" | "mainstream" | "fading") | null;
+export type RiskLevel = ("none" | "caution" | "avoid") | null;
+export type RiskReasons = string[];
+export type RiskCheckedAt = string | null;
+export type RiskHuman = ("none" | "caution" | "avoid") | null;
 export type FirstSeen = string | null;
 export type LastSeen = string | null;
 /**
@@ -177,6 +181,10 @@ export interface Term {
   status?: Status;
   lifecycle?: Lifecycle;
   diffusion?: Diffusion;
+  risk_level?: RiskLevel;
+  risk_reasons?: RiskReasons;
+  risk_checked_at?: RiskCheckedAt;
+  risk_human?: RiskHuman;
   first_seen?: FirstSeen;
   last_seen?: LastSeen;
 }

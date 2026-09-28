@@ -734,6 +734,60 @@
           "default": null,
           "title": "Diffusion"
         },
+        "risk_level": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "caution",
+                "avoid"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Level"
+        },
+        "risk_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Reasons",
+          "type": "array"
+        },
+        "risk_checked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Checked At"
+        },
+        "risk_human": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "caution",
+                "avoid"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Human"
+        },
         "first_seen": {
           "anyOf": [
             {

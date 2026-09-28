@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS shopping_trends (category TEXT, age TEXT, week TEXT, 
 CREATE TABLE IF NOT EXISTS gen_curves (term_id TEXT, generation TEXT, date TEXT, ratio DOUBLE PRECISION, PRIMARY KEY(term_id, generation, date));
 CREATE TABLE IF NOT EXISTS topic_notes (term_id TEXT, region TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS explain_cache (key TEXT PRIMARY KEY, lang TEXT, text TEXT, term_ids_json TEXT, plain TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS evidence_labels (evidence_id TEXT, term_id TEXT, polarity TEXT, risk TEXT, model TEXT, labeled_at TEXT,
+  PRIMARY KEY(evidence_id, term_id));
 CREATE TABLE IF NOT EXISTS reader_prefs (reader TEXT PRIMARY KEY, json TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count BIGINT, first_at TEXT, last_at TEXT);
 -- 표제어의 대표 그림·영상. 파일을 받아 오지 않고 주소만 둔다(저작권). license 가 빈 것은 화면에 내지 않는다.
@@ -684,3 +686,16 @@ def expire_candidates(con: Connection, days: int = 7, sources: tuple[str, ...] =
 
 def has_candidate(con: Connection, text: str, lang: str) -> bool:
     return con.execute("SELECT 1 FROM candidates WHERE norm=? AND lang=?", (norm(text), lang)).fetchone() is not None
+
+
+def set_evidence_labels(con: Connection, term_id: str, rows: list[tuple[str, str, str]], model: str) -> None:
+    """rows: (evidence_id, polarity, risk)"""
+    t = now_s()
+    con.executemany("INSERT OR REPLACE INTO evidence_labels VALUES (?,?,?,?,?,?)",
+                    [(eid, term_id, pol, risk, model, t) for eid, pol, risk in rows])
+    con.commit()
+
+
+def evidence_labels(con: Connection, term_id: str) -> dict[str, tuple[str, str]]:
+    return {e: (p, r) for e, p, r in con.execute(
+        "SELECT evidence_id, polarity, risk FROM evidence_labels WHERE term_id=?", (term_id,)).fetchall()}

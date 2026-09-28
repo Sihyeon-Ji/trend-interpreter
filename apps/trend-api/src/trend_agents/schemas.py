@@ -99,6 +99,29 @@ EvidenceKind = Literal["short", "news", "datalab", "web", "community", "human", 
 Diffusion = Literal["underground", "spreading", "mainstream", "fading"]
 
 
+# 리스크(Plan 03). 수준은 규칙 코드가 정한다(pipeline/risk.py). None 은 '근거가 모자라 판단 보류'.
+RiskLevel = Literal["none", "caution", "avoid"]
+RiskType = Literal["hate", "mockery", "gender", "politics", "sexual", "none"]
+
+
+class EvidenceLabel(BaseModel):
+    """근거 문장 하나의 뉘앙스와 위험 유형. 로컬 Gemma 가 붙이고, 수준 판정은 코드가 한다."""
+
+    i: int
+    polarity: Literal["positive", "neutral", "negative"] = "neutral"
+    risk: RiskType = "none"
+    # 그 유행어의 뜻으로 쓰인 문장인가. 글자만 같은 딴 이야기(2026-09-28: 'La Peace' 근거 다섯 건이 콜롬비아
+    # '토털 피스' 정책 기사)는 수준 판정에서 뺀다.
+    on_topic: bool = True
+
+    @field_validator("polarity", "risk", mode="before")
+    @classmethod
+    def _blank(cls, v, info):
+        if isinstance(v, str) and not v.strip():
+            return "neutral" if info.field_name == "polarity" else "none"
+        return v
+
+
 class Term(BaseModel):
     term_id: str
     canonical: str
@@ -108,6 +131,10 @@ class Term(BaseModel):
     status: TermStatus = "candidate"
     lifecycle: Lifecycle = "unknown"
     diffusion: Diffusion | None = None  # 태동·확산·주류·식상. 근거가 모자라면 None
+    risk_level: RiskLevel | None = None  # 없음·주의·사용 자제. None 은 판단 보류
+    risk_reasons: list[str] = Field(default_factory=list)
+    risk_checked_at: datetime | None = None
+    risk_human: RiskLevel | None = None  # 검수자가 정한 수준. 있으면 규칙보다 우선한다
     first_seen: datetime | None = None
     last_seen: datetime | None = None
 
