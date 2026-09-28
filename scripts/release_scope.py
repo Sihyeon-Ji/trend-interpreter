@@ -5,11 +5,7 @@ import sys
 
 ZERO_SHA = "0" * 40
 APP_FILES = {
-    "Dockerfile",
-    "deployment/model-controls.json",
-    "pyproject.toml",
-    "uv.lock",
-    "scripts/deploy-gcp.sh",
+    "scripts/container-smoke.sh",
 }
 RELAY_FILES = {
     "scripts/deploy-alert-relay.sh",
@@ -64,13 +60,13 @@ def classify(paths: set[str] | None, subject: str = "") -> dict[str, bool]:
     for path in paths:
         if path in SHARED_FILES:
             app = relay = full = True
-        elif path in APP_FILES or path.startswith(("apps/api/", "apps/web/")):
+        elif path in APP_FILES or path.startswith(("apps/trend-api/", "apps/trend-web/")):
             app = full = True
         elif path in RELAY_FILES or path.startswith("apps/alert-relay/"):
             relay = full = True
         elif path.startswith("infra/gcp/"):
             infra = True
-        elif path in VALIDATION_FILES or path.startswith(("tests/", "evaluation-cases/")):
+        elif path in VALIDATION_FILES or path.startswith("tests/"):
             full = True
         elif path.startswith(("docs/", "prototype/")) or path in {
             "README.md",

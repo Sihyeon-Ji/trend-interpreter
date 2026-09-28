@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 검수 결정을 백엔드에 기록한다. 브라우저는 백엔드를 직접 부르지 않는다 —
  *  로그인과 검수 권한을 여기서 확인하고, 쓰기 토큰은 서버에만 둔다. 결정한 사람 이름도 세션에서 가져온다. */

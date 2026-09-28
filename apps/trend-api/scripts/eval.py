@@ -76,9 +76,9 @@ def main() -> None:
     lines += ["## 1. 결정론 규칙·저장소 (pytest)", "", f"- 통과 {m.group(1) if m else '?'}건 — 생애주기, 검증 게이트, 매칭 경계, 뜻 버전 관리, 후보 추출, 보드, 추적, 급증 감지, 쇼핑 항목", ""]
 
     # 2) 프론트 매칭 배터리
-    out = sh(["node", "scripts/explain-check.mjs"], cwd=ROOT / "web", timeout=120)
+    out = sh(["node", "scripts/explain-check.mjs"], cwd=ROOT.parent / "trend-web", timeout=120)
     m = re.search(r"(\d+)/(\d+) as expected", out)
-    lines += ["## 2. 메시지 해석 매칭 배터리 (web/scripts/explain-check.mjs)", "",
+    lines += ["## 2. 메시지 해석 매칭 배터리 (apps/trend-web/scripts/explain-check.mjs)", "",
               (f"- {m.group(1)}/{m.group(2)} 의도대로 — 조사·어미, 띄어쓰기, 별칭, 숫자·영문 경계(6-7 vs 전화번호·날짜), 다국어 혼용, 사전에 없는 말" if m else "- 서버(3100) 미기동으로 건너뜀"), ""]
 
     # 3) 게이트 픽스처

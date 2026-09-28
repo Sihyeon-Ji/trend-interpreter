@@ -5,8 +5,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize("script", ["deploy-gcp.sh", "deploy-alert-relay.sh"])
-def test_failed_candidate_health_preserves_serving_revision(tmp_path, script):
+def test_failed_relay_candidate_health_preserves_serving_revision(tmp_path):
     tools = tmp_path / "tools"
     tools.mkdir()
     trace = tmp_path / "gcloud-calls.txt"
@@ -33,14 +32,13 @@ def test_failed_candidate_health_preserves_serving_revision(tmp_path, script):
         PROJECT_ID="test-project",
         PROJECT_NUMBER="12345",
         REGION="asia-northeast1",
-        SERVICE="builder-cup" if script == "deploy-gcp.sh" else "builder-cup-alert-relay",
-        GEMINI_MODEL="gemini-3.5-flash",
+        SERVICE="builder-cup-alert-relay",
         ALERT_TOPIC="test-topic",
         HEALTH_ID_TOKEN="synthetic-test-token",
     )
     root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
-        ["bash", f"scripts/{script}", "image@sha256:abc"],
+        ["bash", "scripts/deploy-alert-relay.sh", "image@sha256:abc"],
         cwd=root,
         env=env,
         capture_output=True,

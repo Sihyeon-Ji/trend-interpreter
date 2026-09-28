@@ -1,4 +1,4 @@
-/* 데이터 접근 계층. 지금은 예시 데이터, NEXT_PUBLIC_DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
+/* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, TrendBoard, TrendWhy, UpdateItem } from "./trends/types";
@@ -8,8 +8,8 @@ import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
 import { explainMessage, type ExplainResult } from "./explain";
 
-export const isSampleMode = process.env.NEXT_PUBLIC_DATA_MODE !== "api";
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+export const isSampleMode = process.env.DATA_MODE !== "api";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 class ApiError extends Error {
   constructor(path: string, readonly status: number) {

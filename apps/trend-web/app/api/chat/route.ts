@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { explain } from "@/lib/data";
 import { getReader } from "@/lib/reader-server";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 물음표나 의문사가 있으면 질문으로 본다. "AI slop 누가 써?" 처럼 사전 용어가 들어 있어도 묻는 말이면
  *  메시지를 번역해 주는 게 아니라 답을 해야 한다(09-16 실측: 그냥 용어 매칭으로 보내니 "…저질 콘텐츠 누가 써?" 가 나왔다). */

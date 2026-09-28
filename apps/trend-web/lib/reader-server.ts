@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { parseReader, type Reader } from "./reader";
 import { SESSION_COOKIE, readSession } from "./session";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 로그인한 사람의 설정. 익명이면 빈 값 — 설명이 중립으로 나가고 재작성 캐시도 하나로 모인다. */
 export async function getReader(): Promise<Reader> {

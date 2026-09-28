@@ -1,151 +1,94 @@
-# Run from the repository root. Command guide (Korean) is in docs/개발환경/개발-명령어.md.
-# Start development with docker compose up -d, then open http://localhost:5173.
-# Source edits reload automatically; dependency changes need docker compose up -d --build.
-# Run application checks with docker compose run --rm --build check.
-# Run browser tests with docker compose run --rm --build e2e.
-# Stop development with docker compose down.
+# Run from the repository root. Plain `docker compose up -d` starts the trend demo.
+# Source edits reload automatically. Rebuild after manifest, lockfile or Dockerfile changes.
 x-development: &development
   build:
     context: .
     dockerfile: Dockerfile.dev
     target: development
   init: true
-  environment: &development-environment
-    MODEL_PROVIDER: mock
-    DEMO_API_KEY: ""
-  volumes:
-    - ./apps/api/src:/workspace/apps/api/src:ro
-    - ./apps/web/src:/workspace/apps/web/src:ro
-    - ./apps/web/index.html:/workspace/apps/web/index.html:ro
-    - ./apps/web/vite.config.ts:/workspace/apps/web/vite.config.ts:ro
-    - ./apps/web/tsconfig.json:/workspace/apps/web/tsconfig.json:ro
-    - ./apps/web/playwright.config.ts:/workspace/apps/web/playwright.config.ts:ro
-    - ./apps/web/e2e:/workspace/apps/web/e2e:ro
-    - ./tests:/workspace/tests:ro
-    - ./scripts:/workspace/scripts:ro
-    - ./evaluation-cases:/workspace/evaluation-cases:ro
 
 services:
-  # Local passwords are generated once and kept in volumes, never in Git.
-  db:
-    image: postgres:18.6-bookworm
-    environment:
-      POSTGRES_USER: builder_cup
-      POSTGRES_DB: builder_cup
-      POSTGRES_PASSWORD_FILE: /run/db-admin/password
-    entrypoint: [bash, -ec]
-    command:
-      - |
-        umask 077
-        for directory in /run/db-admin /run/db-app; do
-          if [ ! -s "$$directory/password" ]; then
-            od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > "$$directory/password"
-          fi
-        done
-        umask 022
-        exec docker-entrypoint.sh postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql
-      - postgres_admin_password:/run/db-admin
-      - postgres_app_password:/run/db-app
-    healthcheck:
-      test: [CMD, pg_isready, -h, 127.0.0.1, -U, builder_cup, -d, builder_cup]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-
-  # Idempotent initial lab schema and restricted application role.
-  db-init:
-    <<: *development
-    command: python scripts/db_lab.py init
-    environment:
-      DATABASE_PASSWORD_FILE: /run/db-app/password
-      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - postgres_admin_password:/run/db-admin:ro
-      - postgres_app_password:/run/db-app:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
   api:
     <<: *development
-    command: uvicorn builder_cup.main:create_app --factory --reload --reload-dir apps/api/src --host 0.0.0.0 --port 8000
-    ports: ["127.0.0.1:${DEV_API_PORT:-8000}:8000"]
+    working_dir: /workspace/apps/trend-api
+    command: uvicorn trend_agents.api.app:app --reload --reload-dir src --host 0.0.0.0 --port 8000
     environment:
-      <<: *development-environment
+      MODEL_PROVIDER: mock
+      MODEL_REQUESTS_ENABLED: "false"
+      API_PORT: "8000"
+      WEB_ORIGINS: http://localhost:3000
       WATCHFILES_FORCE_POLLING: "true"
-      DATABASE_LAB_ENABLED: "true"
-      WORKFLOW_LAB_ENABLED: "true"
-      DATABASE_PASSWORD_FILE: /run/db-app/password
+    ports:
+      - "127.0.0.1:${DEV_API_PORT:-8000}:8000"
     volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./tests:/workspace/tests:ro
-      - ./scripts:/workspace/scripts:ro
-      - ./evaluation-cases:/workspace/evaluation-cases:ro
-      - postgres_app_password:/run/db-app:ro
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
+      - ./apps/trend-api/src:/workspace/apps/trend-api/src:ro
+      - ./apps/trend-api/scripts:/workspace/apps/trend-api/scripts:ro
+      - trend_data:/workspace/apps/trend-api/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
-      interval: 2s
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 3s
       timeout: 5s
-      retries: 15
+      retries: 20
 
   web:
     <<: *development
-    command: npm --prefix apps/web run dev -- --host 0.0.0.0 --port 5173 --strictPort
-    ports: ["127.0.0.1:${DEV_WEB_PORT:-5173}:5173"]
+    working_dir: /workspace/apps/trend-web
+    command: corepack pnpm dev --hostname 0.0.0.0 --port 3000
     environment:
-      <<: *development-environment
-      API_PROXY_TARGET: http://api:8000
-      VITE_USE_POLLING: "true"
+      DATA_MODE: ${DATA_MODE:-sample}
+      TREND_API_URL: http://api:8000
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "127.0.0.1:${DEV_WEB_PORT:-3000}:3000"
+    volumes:
+      - ./apps/trend-web/app:/workspace/apps/trend-web/app:ro
+      - ./apps/trend-web/components:/workspace/apps/trend-web/components:ro
+      - ./apps/trend-web/lib:/workspace/apps/trend-web/lib:ro
+      - ./apps/trend-web/public:/workspace/apps/trend-web/public:ro
+      - ./apps/trend-web/proxy.ts:/workspace/apps/trend-web/proxy.ts:ro
+      - ./apps/trend-web/next.config.ts:/workspace/apps/trend-web/next.config.ts:ro
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
 
-  # One-off validation; excluded from the default startup by the tools profile.
-  # Read-only probes do not start dependencies, initialize the DB or run inference.
-  doctor:
-    <<: *development
-    profiles: [tools]
-    command: python scripts/doctor.py
-    read_only: true
-    environment:
-      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
-    volumes:
-      - ./scripts:/workspace/scripts:ro
-      - ./compose.yaml:/checkout/compose.yaml:ro
-      - ./pyproject.toml:/checkout/pyproject.toml:ro
-
-  # Application checks can run without development services.
   check:
     <<: *development
     profiles: [tools]
+    environment:
+      PYTHONPATH: /workspace
     command:
       - sh
-      - -c
-      - >-
-        ruff check apps/api tests scripts &&
-        ruff format --check apps/api tests scripts &&
-        mypy && pytest -q &&
-        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay ruff check apps/alert-relay/src apps/alert-relay/tests &&
-        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay ruff format --check apps/alert-relay/src apps/alert-relay/tests &&
-        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay mypy apps/alert-relay/src &&
-        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --project apps/alert-relay pytest -q apps/alert-relay/tests &&
-        python scripts/evaluate.py &&
-        npm --prefix apps/web run typecheck &&
-        npm --prefix apps/web run build
+      - -ec
+      - |
+        uv run --offline --project apps/trend-api --locked pytest -q apps/trend-api/tests
+        uv run --offline --project apps/trend-api --locked pytest -q tests/test_release_scope.py tests/test_release_recovery.py tests/test_verify_alert_delivery.py tests/test_deploy_safety.py
+        UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --offline --project apps/alert-relay --locked pytest -q apps/alert-relay/tests
+        cd apps/trend-web
+        corepack pnpm lint
+        corepack pnpm build
 
-  # Audit only the shared application's locked dependencies; prototypes are separate candidates.
+  e2e:
+    <<: *development
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: browser-tests
+    working_dir: /workspace/apps/trend-web
+    command: corepack pnpm test:e2e
+    shm_size: 1gb
+    environment:
+      PLAYWRIGHT_BASE_URL: http://web:3000
+    depends_on:
+      web:
+        condition: service_healthy
+
+  # Only the selected application lockfiles are audited; other prototypes stay separate.
   security-check:
     image: ghcr.io/google/osv-scanner:v2.6.0@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa
     profiles: [tools]
@@ -156,235 +99,36 @@ services:
     command:
       - scan
       - source
-      - --lockfile=/src/uv.lock
+      - --lockfile=/src/apps/trend-api/uv.lock
       - --lockfile=/src/apps/alert-relay/uv.lock
-      - --lockfile=/src/apps/web/package-lock.json
+      - --lockfile=/src/apps/trend-web/pnpm-lock.yaml
       - --verbosity=error
 
-  # Browser tests start the development services they depend on.
-  e2e:
-    <<: *development
-    profiles: [tools]
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: browser-tests
-    command: npm --prefix apps/web run test:e2e
-    shm_size: 1gb
-    environment:
-      <<: *development-environment
-      PLAYWRIGHT_BASE_URL: http://web:5173
-    depends_on:
-      web:
-        condition: service_healthy
-
-  # Create/read a synthetic record through the API, or read a previous ID after a DB restart.
-  db-check:
-    <<: *development
-    profiles: [tools]
-    entrypoint: [python, scripts/db_lab.py]
-    command: [check]
-    environment:
-      <<: *development-environment
-      DEV_API_PORT: ${DEV_API_PORT:-8000}
-    depends_on:
-      api:
-        condition: service_healthy
-
-  # Verify ordered migration replay and transaction rollback without retaining probe objects.
-  db-migration-check:
-    <<: *development
-    profiles: [tools]
-    command: python scripts/migration_lab.py
-    environment:
-      DATABASE_PASSWORD_FILE: /run/db-app/password
-      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - postgres_admin_password:/run/db-admin:ro
-      - postgres_app_password:/run/db-app:ro
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
-
-  # Create a custom-format logical backup without roles, ACLs or credentials.
-  db-backup:
-    image: postgres:18.6-bookworm
-    profiles: [tools]
-    entrypoint: [sh, /scripts/db_backup.sh]
-    environment:
-      DATABASE_HOST: db
-      DATABASE_NAME: builder_cup
-      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
-      BACKUP_DIR: /backups
-      BACKUP_FILE: ${BACKUP_FILE:-}
-    volumes:
-      - ./scripts:/scripts:ro
-      - ./backups:/backups
-      - postgres_admin_password:/run/db-admin:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
-  # Restore only into a new explicitly named database in the selected local cluster.
-  db-restore:
-    image: postgres:18.6-bookworm
-    profiles: [tools]
-    entrypoint: [sh, /scripts/db_restore.sh]
-    environment:
-      DATABASE_HOST: db
-      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
-      BACKUP_FILE: ${BACKUP_FILE:-}
-      RESTORE_DATABASE: ${RESTORE_DATABASE:-}
-    volumes:
-      - ./scripts:/scripts:ro
-      - ./backups:/backups:ro
-      - postgres_admin_password:/run/db-admin:ro
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
-
-  # Compare source and restored data fingerprints plus application permissions.
-  db-recovery-check:
-    <<: *development
-    profiles: [tools]
-    command: python scripts/db_recovery.py
-    environment:
-      DATABASE_HOST: db
-      DATABASE_NAME: builder_cup
-      DATABASE_PASSWORD_FILE: /run/db-app/password
-      DATABASE_ADMIN_PASSWORD_FILE: /run/db-admin/password
-      RESTORE_DATABASE: ${RESTORE_DATABASE:-}
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - postgres_admin_password:/run/db-admin:ro
-      - postgres_app_password:/run/db-app:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
-  # Run synthetic documents through input validation, fan-out, join and rule-based routing.
-  workflow-check:
-    <<: *development
-    profiles: [tools]
-    command: python scripts/workflow_lab.py
-    depends_on:
-      api:
-        condition: service_healthy
-
-  # Verify persisted metadata, or supply an existing run ID to read it again.
-  history-check:
-    <<: *development
-    profiles: [tools]
-    entrypoint: [python, scripts/history_lab.py]
-    command: []
-    depends_on:
-      api:
-        condition: service_healthy
-
-  # Reproduce bounded Mock failures and recovery; optionally supply one scenario name.
-  failure-check:
-    <<: *development
-    profiles: [tools]
-    entrypoint: [python, scripts/failure_lab.py]
-    command: [all]
-    depends_on:
-      api:
-        condition: service_healthy
-
-  # Explicit local inference only; results persist on the host and never run in CI.
-  ollama-check:
-    <<: *development
-    profiles: [tools]
-    command: python scripts/ollama_lab.py
-    environment:
-      MODEL_PROVIDER: ollama
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: gemma4:e4b
-      MODEL_TIMEOUT_SECONDS: "120"
-      MODEL_MAX_ATTEMPTS: "1"
-      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
-      SOURCE_DIRTY: ${SOURCE_DIRTY:-unknown}
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - ./evaluation-cases:/workspace/evaluation-cases:ro
-      - ./artifacts:/workspace/artifacts
-
-  # Validate suites, manual reviews and report comparisons without model calls.
-  model-eval:
-    <<: *development
-    profiles: [tools]
-    entrypoint: [python, scripts/model_eval.py]
-    command: [validate-suite]
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - ./evaluation-cases:/workspace/evaluation-cases:ro
-      - ./artifacts:/workspace/artifacts
-
-  # Explicit Gemma 4 run with metadata-only PostgreSQL history; the default API stays Mock.
-  ollama-history-check:
-    <<: *development
-    profiles: [tools]
-    entrypoint: [python, scripts/ollama_history_lab.py]
-    command: [meeting]
-    environment:
-      MODEL_PROVIDER: ollama
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: gemma4:e4b
-      MODEL_TIMEOUT_SECONDS: "120"
-      MODEL_MAX_ATTEMPTS: "1"
-      DATABASE_LAB_ENABLED: "true"
-      WORKFLOW_LAB_ENABLED: "true"
-      DATABASE_PASSWORD_FILE: /run/db-app/password
-      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
-      SOURCE_DIRTY: ${SOURCE_DIRTY:-unknown}
-    volumes:
-      - ./apps/api/src:/workspace/apps/api/src:ro
-      - ./scripts:/workspace/scripts:ro
-      - ./evaluation-cases:/workspace/evaluation-cases:ro
-      - ./artifacts:/workspace/artifacts
-      - postgres_app_password:/run/db-app:ro
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
-
-  # Dependency tools write manifests and lockfiles back to the checkout without installing locally.
-  npm:
-    profiles: [tools]
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-      target: tooling
-    working_dir: /workspace/apps/web
-    entrypoint: [npm]
-    command: [--help]
-    environment:
-      NPM_CONFIG_PACKAGE_LOCK_ONLY: "true"
-      NPM_CONFIG_IGNORE_SCRIPTS: "true"
-      NPM_CONFIG_AUDIT: "false"
-      NPM_CONFIG_FUND: "false"
-    volumes:
-      - ./apps/web:/workspace/apps/web
-
+  # Editable dependency commands write only the chosen project's manifest and lockfile.
   uv:
     profiles: [tools]
     build:
       context: .
       dockerfile: Dockerfile.dev
       target: tooling
+    working_dir: /workspace/apps/trend-api
     entrypoint: [uv]
     command: [--help]
-    environment:
-      UV_NO_SYNC: "true"
-      UV_PROJECT_ENVIRONMENT: /tmp/dependency-venv
     volumes:
-      - .:/workspace
+      - ./apps/trend-api:/workspace/apps/trend-api
 
-  # Local validation only, without cloud credentials or resource provisioning.
+  pnpm:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: tooling
+    working_dir: /workspace/apps/trend-web
+    entrypoint: [corepack, pnpm]
+    command: [--help]
+    volumes:
+      - ./apps/trend-web:/workspace/apps/trend-web
+
   infra-check:
     profiles: [tools]
     image: hashicorp/terraform:1.16.3
@@ -397,21 +141,5 @@ services:
     command:
       - terraform fmt -check && terraform init -backend=false -lockfile=readonly && terraform validate
 
-  # Production-style mock preview on port 8080, without source reload.
-  # Start with docker compose up -d --build preview; stop with docker compose stop preview.
-  preview:
-    profiles: [preview]
-    build: .
-    ports: ["127.0.0.1:8080:8080"]
-    environment:
-      MODEL_PROVIDER: mock
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-
 volumes:
-  postgres_data:
-  postgres_admin_password:
-  postgres_app_password:
+  trend_data:

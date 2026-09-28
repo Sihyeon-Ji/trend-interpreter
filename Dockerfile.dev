@@ -5,28 +5,27 @@ FROM python:3.12-slim-bookworm AS tooling
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -s ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /workspace
-ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_LINK_MODE=copy \
+ENV UV_PROJECT_ENVIRONMENT=/opt/trend-venv UV_LINK_MODE=copy \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/opt/trend-venv/bin:$PATH"
 
 FROM tooling AS development
-COPY pyproject.toml uv.lock ./
-COPY apps/api/ apps/api/
-RUN uv sync --locked
+COPY apps/trend-api/ apps/trend-api/
+RUN uv sync --project apps/trend-api --locked
 COPY apps/alert-relay/ apps/alert-relay/
 RUN UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv sync --project apps/alert-relay --locked
-COPY apps/web/package*.json apps/web/
-RUN npm --prefix apps/web ci
-COPY apps/web/ apps/web/
+COPY apps/trend-web/package.json apps/trend-web/pnpm-lock.yaml apps/trend-web/pnpm-workspace.yaml apps/trend-web/
+RUN cd apps/trend-web && corepack pnpm install --frozen-lockfile
+COPY apps/trend-web/ apps/trend-web/
 COPY tests/ tests/
 COPY scripts/ scripts/
-COPY evaluation-cases/ evaluation-cases/
 
 FROM development AS browser-tests
-WORKDIR /workspace/apps/web
-RUN npx playwright install --with-deps chromium
+WORKDIR /workspace/apps/trend-web
+RUN corepack pnpm exec playwright install --with-deps chromium
 WORKDIR /workspace

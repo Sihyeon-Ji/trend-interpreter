@@ -1,4 +1,4 @@
-"""FastAPI — 프론트(web/lib/data.ts api 모드)가 부르는 엔드포인트. 읽기는 SQLite, 쓰기는 검수 결정만."""
+"""FastAPI — 프론트(apps/trend-web/lib/data.ts api 모드)가 부르는 엔드포인트. 읽기는 SQLite, 쓰기는 검수 결정만."""
 from __future__ import annotations
 
 import json

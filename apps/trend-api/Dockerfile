@@ -1,11 +1,18 @@
-# API + 파이프라인 컨테이너 (Cloud Run). 웹은 web/Dockerfile.
-FROM python:3.12-slim
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+FROM ghcr.io/astral-sh/uv:0.12.15 AS uv
+FROM python:3.12-slim-bookworm
+
+COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md ./
-COPY src ./src
-COPY scripts ./scripts
-RUN uv sync --frozen --no-dev
-ENV PATH="/app/.venv/bin:$PATH" PORT=8080 API_PORT=8080
-# 기본은 API. 파이프라인 잡은 같은 이미지로 `python scripts/run_pipeline.py` 를 Cloud Run Job 으로 실행.
-CMD ["python", "scripts/serve_api.py"]
+ENV UV_LINK_MODE=copy PYTHONUNBUFFERED=1
+COPY pyproject.toml uv.lock ./
+COPY src/ src/
+COPY scripts/ scripts/
+RUN uv sync --locked --no-dev \
+    && useradd --uid 10001 --create-home trend \
+    && mkdir -p /app/data \
+    && chown trend:trend /app/data
+
+USER trend
+ENV PATH="/app/.venv/bin:$PATH"
+EXPOSE 8080
+CMD ["uvicorn", "trend_agents.api.app:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_HOURS, signSession } from "@/lib/session";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 자격 확인은 백엔드가 하고(나중에 Firebase Auth 로 교체), 브라우저 세션 쿠키는 여기서 만든다.
  *  쿠키가 화면과 같은 출처에 있어야 /admin 미들웨어가 읽을 수 있다. */

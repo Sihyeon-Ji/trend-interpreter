@@ -1,7 +1,7 @@
-"""조사해서 만든 사전(web/lib/sample → data/seed/dictionary.json)을 실DB 에 '팀이 확인한 항목(verified_human, created_by=team)' 으로 심는다.
+"""조사해서 만든 사전(apps/trend-web/lib/sample → data/seed/dictionary.json)을 실DB 에 '팀이 확인한 항목(verified_human, created_by=team)' 으로 심는다.
 
 가정치였던 주간 수치·비중은 심지 않는다 — track(언급 실측)·naver(세대 실측) 단계가 채운다. 이미 있는 용어는 건너뛴다.
-사용: pnpm -C web dlx tsx scripts/export-sample.ts && uv run scripts/seed_dictionary.py
+사용: pnpm -C ../trend-web dlx tsx scripts/export-sample.ts && uv run scripts/seed_dictionary.py
 """
 from __future__ import annotations
 

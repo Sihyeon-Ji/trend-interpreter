@@ -24,7 +24,7 @@ Tung Tung Tung Sahur 는 일본어판이 가장 먼저 생겼다. 시작된 곳�
   uv run scripts/backfill_timeline.py --name "Tung Tung Tung Sahur" --local "KR=퉁퉁퉁 사후르" --local "JP=トゥントゥントゥンサフール" \
       --regions ID,KR,JP,US,TH,VN,PH --from 2025-01-01 --to 2025-08-31 --dry
   ... --term t_tung                                        # data/trend.db 의 term_timeline 에 쓴다
-  ... --json web/lib/sample/timelines/tung.json           # 예시 데이터용
+  ... --json ../trend-web/lib/sample/timelines/tung.json           # 예시 데이터용
 """
 from __future__ import annotations
 

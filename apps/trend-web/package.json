@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "playwright test",
     "contract": "json2ts -i lib/contract/schema.json -o lib/contract/types.ts --additionalProperties false --bannerComment \"/* 자동 생성 — 수정 금지. 원본: src/trend_agents/schemas.py → scripts/export_schema.py → pnpm contract */\""
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/d3-geo": "^3.1.1",
     "@types/node": "^20",

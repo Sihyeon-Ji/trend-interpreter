@@ -1,4 +1,4 @@
-"""API 응답 뷰 모델 — 프론트 `web/lib/types.ts` 와 1:1. 화면은 이 모양만 안다."""
+"""API 응답 뷰 모델 — 프론트 `apps/trend-web/lib/types.ts` 와 1:1. 화면은 이 모양만 안다."""
 from __future__ import annotations
 
 import sqlite3

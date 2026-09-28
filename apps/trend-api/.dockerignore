@@ -1,7 +1,10 @@
-.venv
-data
-web
-docs
-design
-*.zip
-.git
+.env*
+.venv/
+data/
+logs/
+tests/
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+.ruff_cache/

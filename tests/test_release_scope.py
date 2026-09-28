@@ -6,7 +6,7 @@ from scripts.release_scope import ZERO_SHA, changed_files, classify
 
 
 def test_release_scope_routes_services_and_checks():
-    assert classify({"apps/api/src/main.py"}) == {
+    assert classify({"apps/trend-api/src/trend_agents/api/app.py"}) == {
         "full": True,
         "infra": False,
         "app": True,
@@ -19,14 +19,14 @@ def test_release_scope_routes_services_and_checks():
         "relay": True,
     }
     assert classify({"scripts/verify_alert_delivery.py"})["relay"] is True
-    assert classify({"apps/web/index.html", "apps/alert-relay/pyproject.toml"}) == {
+    assert classify({"apps/trend-web/app/page.tsx", "apps/alert-relay/pyproject.toml"}) == {
         "full": True,
         "infra": False,
         "app": True,
         "relay": True,
     }
     assert classify({".dockerignore"})["app"] is True
-    assert classify({"deployment/model-controls.json"})["app"] is True
+    assert classify({"scripts/container-smoke.sh"})["app"] is True
     assert classify({".dockerignore"})["relay"] is True
     assert classify({"tests/test_api.py", "compose.yaml"}) == {
         "full": True,
@@ -76,12 +76,12 @@ def test_release_scope_reads_git_range_and_new_branch(tmp_path, monkeypatch):
     first = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     assert changed_files(ZERO_SHA, first) == {"README.md"}
 
-    source = tmp_path / "apps" / "api"
+    source = tmp_path / "apps" / "trend-api"
     source.mkdir(parents=True)
     (source / "main.py").write_text("pass")
     (tmp_path / "README.md").unlink()
     subprocess.run(["git", "add", "-A"], check=True)
     subprocess.run(["git", "commit", "-qm", "second"], check=True)
     second = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    assert changed_files(first, second) == {"README.md", "apps/api/main.py"}
+    assert changed_files(first, second) == {"README.md", "apps/trend-api/main.py"}
     assert changed_files("f" * 40, second) is None

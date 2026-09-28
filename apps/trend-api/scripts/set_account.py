@@ -70,7 +70,7 @@ def main() -> None:
         env = put(env, "FRONTEND_API_TOKEN", secrets.token_urlsafe(32))
     env_path.write_text(env, encoding="utf-8")
 
-    web_env = ROOT / "web" / ".env.local"   # 프론트 서버만 읽는 값 (NEXT_PUBLIC_ 아님 → 브라우저에 안 나감)
+    web_env = ROOT.parent / "trend-web" / ".env.local"   # 프론트 서버만 읽는 값 (NEXT_PUBLIC_ 아님 → 브라우저에 안 나감)
     we = web_env.read_text(encoding="utf-8") if web_env.exists() else ""
     we = put(we, "FRONTEND_API_TOKEN", read(env, "FRONTEND_API_TOKEN"))
     if not read(we, "SESSION_SECRET"):

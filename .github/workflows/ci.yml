@@ -10,25 +10,17 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose run --rm --build check
       - run: docker compose run --rm security-check
       - run: docker compose up -d --build --wait
-      - run: docker compose run --rm --build doctor
-      - run: docker compose run --rm --build db-check
-      - run: docker compose run --rm --build db-migration-check
-      - run: docker compose run --rm --build workflow-check
-      - run: docker compose run --rm --build history-check
-      - run: docker compose run --rm --build failure-check
       - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
       - run: docker compose run --rm infra-check
-      - run: BACKUP_FILE=/backups/ci.dump docker compose run --rm db-backup
-      - run: BACKUP_FILE=/backups/ci.dump RESTORE_DATABASE=builder_cup_restore_ci docker compose run --rm db-restore
-      - run: RESTORE_DATABASE=builder_cup_restore_ci docker compose run --rm --build db-recovery-check
-      - run: docker build -t builder-cup:ci .
-      - run: bash scripts/container-smoke.sh builder-cup:ci
+      - run: docker build -t builder-cup-trend-api:ci apps/trend-api
+      - run: docker build -t builder-cup-trend-web:ci apps/trend-web
+      - run: bash scripts/container-smoke.sh builder-cup-trend-api:ci builder-cup-trend-web:ci
       - run: docker build -f apps/alert-relay/Dockerfile -t builder-cup-alert-relay:ci .
       - run: bash scripts/alert-relay-smoke.sh builder-cup-alert-relay:ci
       - name: Collect browser failure artifacts

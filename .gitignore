@@ -9,6 +9,8 @@ __pycache__/
 .mypy_cache/
 *.pyc
 node_modules/
+.next/
+prototype/trend/
 dist/
 coverage/
 playwright-report/
@@ -24,5 +26,3 @@ gha-creds-*.json
 .DS_Store
 .tools/
 artifacts/
-backups/*
-!backups/.gitkeep

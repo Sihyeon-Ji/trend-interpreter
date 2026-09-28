@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { parseReader, type Reader } from "@/lib/reader";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
+const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 async function session() {
   return readSession((await cookies()).get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET ?? "");
