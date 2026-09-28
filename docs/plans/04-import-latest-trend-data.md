@@ -33,7 +33,7 @@ Google Drive 공유 링크면 충분하며, `.env`나 `data/accounts.txt`는 함
    docker compose up -d --wait
    ```
 
-2. 받은 파일을 API 컨테이너에 넣고 이관합니다. 표마다 복사한 행 수가 출력됩니다.
+2. 받은 파일을 API 컨테이너에 넣고 이관합니다. 표마다 복사한 행 수가 출력되고, 마지막에 별칭 표(`term_aliases`)를 다시 만듭니다.
 
    ```bash
    docker compose cp apps/trend-api/data/trend.db api:/workspace/apps/trend-api/data/trend.db

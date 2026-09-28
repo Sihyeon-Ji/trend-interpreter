@@ -1,6 +1,6 @@
 # 운영 준비 계획
 
-작성일 **2026-09-23** · 최종 갱신 **2026-09-28** · 상태 **Plan 03·05 설계 대기, Plan 04 파일 요청 대기, Plan 02 제출 전 대기**
+작성일 **2026-09-23** · 최종 갱신 **2026-09-28** · 상태 **Plan 03 설계 대기, Plan 05 설계 확정, Plan 04 파일 요청 대기, Plan 02 제출 전 대기**
 
 [현재 준비 상태 조사](../AI-개발/개발-준비-점검.md) · [실습 종합 보고서](../AI-개발/AI-개발-종합-보고서.md) · [운영 명령](../개발환경/개발-명령어.md) · [완료 계획](archive/)
 
@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | [03](03-trend-cloud-run-deployment.md) | 설계 대기 | Trend 앱 Cloud Run 배포 | Cloud SQL PostgreSQL을 준비한 뒤 `release/gcp` 한 번으로 API·웹·파이프라인 Job이 검증 후 배포 |
 | [04](04-import-latest-trend-data.md) | 파일 요청 대기 | 원작자 PC의 최신 `trend.db`로 로컬 DB 재이관 | 로컬 PostgreSQL이 원작자 파일과 같은 시점의 데이터를 가짐 |
-| [05](05-gemma-on-cloud-run-gpu.md) | 설계 대기 | Gemma 4를 Cloud Run GPU(L4, 싱가포르) + vLLM으로 제공 | 비공개 서비스가 도쿄 API의 번역·재작성·질문 응답을 처리하고 유휴 시 0으로 줄어듦 |
+| [05](05-gemma-on-cloud-run-gpu.md) | 설계 확정 | Gemma 4를 Cloud Run GPU(L4, 싱가포르) + vLLM으로 제공 | 비공개 서비스가 도쿄 API의 번역·재작성·질문 응답을 처리하고, 유휴 시 0으로 줄며 전용 예산·경보가 동작 |
 | [02](02-public-repository-release-protection.md) | 제출 전 대기 | 공개 저장소와 GCP 배포 승인 | 외부 사용자는 push할 수 없고 collaborator의 배포는 Environment 승인 후 진행 |
 
 2026-09-28에 `prototype/trend`를 메인 앱(`apps/trend-api`, `apps/trend-web`)으로 승격했습니다. Plan 03은 그 배포 계획이며, 이전 실습 앱의 배포 job은 제거했습니다. 운영 Plan 03~06은 구현과 운영 검증을 마쳤습니다.

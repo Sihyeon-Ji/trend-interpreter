@@ -12,6 +12,10 @@
 - API 키는 `apps/trend-api/.env` 만. 코드·문서·커밋에 절대 넣지 않는다. `config.require()` 로 읽는다.
 - **Gemini 클라이언트는 `model_client.client()` 한 곳에서만 만든다.** API 키를 쓰지 않고 Vertex AI(런타임 서비스 계정, `GCP_PROJECT_ID`)로 접속하며, `MODEL_PROVIDER=vertex`와 `MODEL_REQUESTS_ENABLED=true`가 모두 켜져야 호출한다. 로컬 기본값(mock)에서는 유료 모델을 호출하지 않는다.
 - 관계형 데이터는 모두 PostgreSQL 이다(`DATABASE_URL`). 저장소 함수는 `storage/db.py` 어댑터를 통해서만 SQL 을 보내고, `?` 자리표시자와 `INSERT OR REPLACE/IGNORE` 를 그대로 쓴다(어댑터가 `ON CONFLICT` 로 바꾼다). 표를 추가하면 DDL 에 기본키를 적어야 REPLACE 가 동작한다.
+- 기존 표의 변경·데이터 보정은 `storage/migrations/NNN_설명.sql` 새 파일로만 한다. 적용된 파일은 고치지 않는다(checksum 이 달라지면 연결을 거부한다).
+- API 는 `db.pool()` 의 연결을 요청마다 빌려 쓴다. 응답 뒤에도 도는 작업(스트리밍 등)은 `db.session()` 으로 따로 빌린다. 이벤트 루프에서 연결을 기다리지 않는다.
+- 로그는 `logging` 으로 표준 출력에만 낸다(`logging_setup.configure`). 파일 로그를 새로 만들지 않고, 사용자 문장·모델 출력·비밀값을 로그에 넣지 않는다.
+- 사람이 쓴 문장을 저장하는 표는 보존 기간을 둔다. 해석 캐시 7일, 미해결 질문 30일(`prune_user_text`).
 - `data/`, `logs/`, `*.db`, `*.zip` 은 커밋하지 않는다.
 - 새 데이터 소스는 `collectors/`, 모델 호출은 `interpreters/`, 저장은 `storage/`, ADK 에이전트는 `agents/`. 단계별 실행 스크립트는 `scripts/test_*.py` 로, 키가 없으면 `SystemExit` 메시지로 안내하고 죽는다.
 - 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, `gemma4:12b`(Ollama, `think=False`).
@@ -26,7 +30,7 @@
 - **익명은 설정을 갖지 않는다.** 지도·사전·해석은 로그인 없이 열리고 설명은 중립으로 나간다(재작성 캐시도 하나로 모인다). 세대·나라 설정은 로그인한 사람의 계정에 저장된다(`/me`, `reader_prefs`).
   `proxy.ts`(Next.js 16의 proxy 규칙): `/me` 는 로그인, `/admin` 은 그중 검수자(`session.reviewer`). 아니면 `/login` 또는 `/me?denied=review`.
   브라우저는 백엔드에 직접 쓰지 않는다 — 같은 사이트의 `app/api/prefs`·`app/api/review/[termId]` 가 세션과 권한을 확인하고 서버만 아는 `FRONTEND_API_TOKEN` 을 붙여 넘긴다. 저장 값은 `lib/reader.ts` 의 화이트리스트로 한 번 거른다. 결정한 사람 이름도 세션에서 가져오므로 검수 기록이 실제 계정이 된다.
-  계정은 `.env` 의 `ACCOUNTS`(JSON, PBKDF2 해시) — `scripts/set_account.py` 로 만든다. 나중에 Firebase Auth 로 갈 때는 `auth.check_account` 와 `app/api/auth/login/route.ts` 두 곳만 바꾸면 세션·미들웨어·저장 구조는 그대로다.
+  계정은 `.env` 의 `ACCOUNTS`(JSON, PBKDF2 해시) — `scripts/set_account.py` 로 만든다. 평문 비밀번호는 출력에 한 번만 보여 주고 파일에 남기지 않는다. 나중에 Firebase Auth 로 갈 때는 `auth.check_account` 와 `app/api/auth/login/route.ts` 두 곳만 바꾸면 세션·미들웨어·저장 구조는 그대로다.
 - 화면 문구는 `lib/i18n.ts` 에 한국어·영어를 함께 넣는다 (키 누락은 타입 에러). 데이터 라벨은 `lib/labels.ts` 의 `L(locale)`. **유행어 원문은 번역하지 않는다**; 뜻·유래·뉘앙스만 `MeaningText` 로 언어별 보관하고, 번역은 백엔드 로컬 Gemma(`interpreters/gemma_translate.py`)가 만든다.
 - `lib/contract/types.ts` 는 생성 파일이다. `schemas.py` 를 바꾸면 `apps/trend-api`에서 `uv run scripts/export_schema.py` 를 실행한 뒤 `apps/trend-web`에서 `pnpm contract` 로 다시 만든다. 손으로 고치지 않는다.
 - 화면은 `lib/data.ts` 의 함수만 부른다. 예시 데이터는 `lib/sample/`, 실데이터는 서버 환경변수 `DATA_MODE=api`와 `TREND_API_URL`(둘 다 브라우저에 나가지 않는다).

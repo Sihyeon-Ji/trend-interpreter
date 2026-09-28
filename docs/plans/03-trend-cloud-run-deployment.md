@@ -65,6 +65,19 @@ Spanner Graph(사전 지식 그래프)와 BigQuery(공개 시계열)는 관계�
 Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰기로 정할 때 추가합니다. 각 secret은
 읽는 서비스 계정에만 `secretmanager.secretAccessor`를 부여하고, 배포 스크립트는 숫자 version을 고정해 참조합니다.
 
+## 운영 전 결정 사항 (2026-09-28 확정)
+
+| 항목 | 결정 | 상태 |
+| --- | --- | --- |
+| 로컬 Gemma 제공 | Cloud Run GPU + vLLM, 싱가포르 | [Plan 05](05-gemma-on-cloud-run-gpu.md)에서 진행 |
+| 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
+| 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | 완료. 파이프라인 `collect.retention` 단계가 매 실행마다 삭제 |
+| 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |
+| 별칭 조회 | `term_aliases` 표와 기본키 인덱스 | 완료. 마이그레이션 001 |
+| DB 연결 | `psycopg_pool` 풀 + Cloud Run 동시성 제한 | 완료. `DB_POOL_SIZE`(기본 8)와 Cloud Run `--concurrency`를 같은 값으로 배포 |
+| Spanner Graph | 제출 범위에서 제외 | 그래프 조회는 PostgreSQL `edges` 표로 동작. 코드는 유지 |
+| 로그 | 표준 출력, Cloud Run에서는 JSON | 완료. `logging_setup.py`, `LOG_FORMAT`으로 형식 지정 |
+
 ## 구현 순서
 
 1. Cloud SQL PostgreSQL 인스턴스와 데이터베이스·사용자를 Terraform으로 만들고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다.
@@ -80,5 +93,6 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 - `release/gcp` push 한 번으로 Trend API·웹·파이프라인 Job이 검증 후 배포되고, 이전 revision이 실패한 후보에 영향을 받지 않는다.
 - 웹 공개 URL에서 사전·지구본·메시지 해석이 실데이터로 열리고, API URL은 익명 호출을 거부한다.
 - 서비스 재시작 뒤에도 사전·검수 기록이 Cloud SQL에 유지된다.
+- 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
 - `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 로그 지표로 확인한다.
 - 문서의 현재 상태와 검증 결과가 갱신되어 있다.
