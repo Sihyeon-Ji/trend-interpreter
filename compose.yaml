@@ -1,5 +1,6 @@
-# Run from the repository root. Plain `docker compose up -d` starts the trend demo.
+# Run from the repository root. Plain `docker compose up -d` starts PostgreSQL, the trend API and the web.
 # Source edits reload automatically. Rebuild after manifest, lockfile or Dockerfile changes.
+# The database credentials below are for the loopback-only development stack; the port is not published.
 x-development: &development
   build:
     context: .
@@ -7,12 +8,29 @@ x-development: &development
     target: development
   init: true
 
+x-database-url: &database_url postgresql://trend:trend@db:5432/trend
+
 services:
+  db:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_USER: trend
+      POSTGRES_PASSWORD: trend
+      POSTGRES_DB: trend
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U trend -d trend]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
   api:
     <<: *development
     working_dir: /workspace/apps/trend-api
     command: uvicorn trend_agents.api.app:app --reload --reload-dir src --host 0.0.0.0 --port 8000
     environment:
+      DATABASE_URL: *database_url
       MODEL_PROVIDER: mock
       MODEL_REQUESTS_ENABLED: "false"
       API_PORT: "8000"
@@ -24,6 +42,9 @@ services:
       - ./apps/trend-api/src:/workspace/apps/trend-api/src:ro
       - ./apps/trend-api/scripts:/workspace/apps/trend-api/scripts:ro
       - trend_data:/workspace/apps/trend-api/data
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 3s
@@ -61,6 +82,10 @@ services:
     profiles: [tools]
     environment:
       PYTHONPATH: /workspace
+      DATABASE_URL: *database_url
+    depends_on:
+      db:
+        condition: service_healthy
     command:
       - sh
       - -ec
@@ -142,4 +167,5 @@ services:
       - terraform fmt -check && terraform init -backend=false -lockfile=readonly && terraform validate
 
 volumes:
+  postgres_data:
   trend_data:

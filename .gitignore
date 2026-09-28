@@ -10,7 +10,6 @@ __pycache__/
 *.pyc
 node_modules/
 .next/
-prototype/trend/
 dist/
 coverage/
 playwright-report/
@@ -26,3 +25,9 @@ gha-creds-*.json
 .DS_Store
 .tools/
 artifacts/
+# Trend local state: collected data, logs, transfer archives, third-party design tokens
+apps/trend-api/data/
+apps/trend-api/logs/
+apps/trend-web/design/
+*.db
+*.zip
