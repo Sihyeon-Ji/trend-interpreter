@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from google import genai
 from google.genai import types
 
-from ..config import GEMINI_API_KEY, GEMINI_MODEL, require
+from ..config import GEMINI_MODEL
+from .. import model_client
 from ..schemas import ShortsInterpretation
 
 PROMPT = """You are a cross-generational, cross-cultural trend interpreter covering every country and language.
@@ -40,15 +40,7 @@ class InterpretResult:
     model: str = ""
 
 
-_CLIENT: genai.Client | None = None
-
-
-def _client() -> genai.Client:
-    # 임시 Client 는 호출 도중 GC 되며 httpx 연결을 닫는다 ("client has been closed") → 모듈에 하나만 두고 재사용
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = genai.Client(api_key=require("GEMINI_API_KEY", GEMINI_API_KEY))
-    return _CLIENT
+_client = model_client.client
 
 
 def interpret_shorts(urls: list[str], model: str = GEMINI_MODEL, low_res: bool = True) -> InterpretResult:

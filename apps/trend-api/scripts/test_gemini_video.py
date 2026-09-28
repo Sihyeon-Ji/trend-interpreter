@@ -1,4 +1,4 @@
-"""Gemini 가 쇼츠 URL 을 직접 보고 해석하는지 테스트. GEMINI_API_KEY 필요.
+"""Gemini 가 쇼츠 URL 을 직접 보고 해석하는지 테스트. Vertex AI ADC 필요.
 
 사용: uv run scripts/test_gemini_video.py [url ...]
 URL 을 안 주면 DB 에서 조회수 상위 3개를 쓴다.

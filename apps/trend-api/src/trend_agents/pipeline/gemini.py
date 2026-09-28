@@ -5,24 +5,17 @@ import sqlite3
 import time
 from typing import Any
 
-from google import genai
 from google.genai import errors, types
 
-from ..config import GEMINI_API_KEY, GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_MODEL, USE_LOCAL_GEMMA, require
+from ..config import GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_MODEL, USE_LOCAL_GEMMA
+from .. import model_client
 from ..storage import dictionary_store as ds
-
-_CLIENT: genai.Client | None = None
-
 
 class BudgetExhausted(RuntimeError):
     pass
 
 
-def client() -> genai.Client:
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = genai.Client(api_key=require("GEMINI_API_KEY", GEMINI_API_KEY))
-    return _CLIENT
+client = model_client.client
 
 
 def budget_left(con: sqlite3.Connection) -> int:

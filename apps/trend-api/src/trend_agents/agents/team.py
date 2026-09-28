@@ -12,12 +12,15 @@ import os
 
 from google.adk.agents import LlmAgent, SequentialAgent
 
-from ..config import GEMINI_API_KEY, GEMINI_DAILY_BUDGET, GEMINI_MODEL, GEMMA_LOCAL_MODEL, LOCAL_LLM_BASE_URL
+from ..config import GCP_PROJECT_ID, GEMINI_DAILY_BUDGET, GEMINI_MODEL, GEMMA_LOCAL_MODEL, GOOGLE_CLOUD_LOCATION, LOCAL_LLM_BASE_URL
+from ..model_client import requests_enabled
 from ..storage import dictionary_store as ds
 from . import tools
 
-os.environ.setdefault("GOOGLE_API_KEY", GEMINI_API_KEY)
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "0")
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "1")
+if GCP_PROJECT_ID:
+    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", GCP_PROJECT_ID)
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", GOOGLE_CLOUD_LOCATION)
 MODEL_NAME = os.getenv("ADK_MODEL", GEMINI_MODEL)
 LOCAL = MODEL_NAME == "local"
 
@@ -40,6 +43,11 @@ def _budget_guard(callback_context, llm_request):
     """모델 호출마다 예산 1 차감. 소진되면 모델을 부르지 않고 짧은 응답으로 대체한다. 로컬 모델은 예산이 없다."""
     if LOCAL:
         return None
+    if not requests_enabled():
+        from google.adk.models import LlmResponse
+        from google.genai import types
+
+        return LlmResponse(content=types.Content(role="model", parts=[types.Part(text="Gemini requests are disabled.")]))
     con = tools._con
     if ds.gemini_budget_left(con, GEMINI_DAILY_BUDGET) <= 0:
         from google.adk.models import LlmResponse

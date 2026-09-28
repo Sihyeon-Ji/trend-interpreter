@@ -9,7 +9,10 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "mock")
+MODEL_REQUESTS_ENABLED = os.getenv("MODEL_REQUESTS_ENABLED", "false").lower() == "true"
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT", "")
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID", "")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET", "")
@@ -31,7 +34,7 @@ API_PORT = int(os.getenv("API_PORT", "8080"))
 ACCOUNTS = os.getenv("ACCOUNTS", "")
 FRONTEND_API_TOKEN = os.getenv("FRONTEND_API_TOKEN", "")  # 프론트 서버만 아는 값. 로그인이 필요한 API 는 이게 있어야 받는다
 WEB_ORIGINS = [o for o in os.getenv("WEB_ORIGINS", "http://localhost:3100,http://localhost:3000").split(",") if o]
-GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "")  # BigQuery·Spanner 클라우드 (ADC 와 함께)
+GOOGLE_CLOUD_PROJECT = GCP_PROJECT_ID  # BigQuery·Spanner 클라우드 (ADC 와 함께)
 
 DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "trend.db"

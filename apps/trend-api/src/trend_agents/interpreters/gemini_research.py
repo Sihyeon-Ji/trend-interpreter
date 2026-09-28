@@ -6,10 +6,10 @@ grounding: 월 5,000회 무료, 이후 $14/1,000.
 """
 from __future__ import annotations
 
-from google import genai
 from google.genai import types
 
-from ..config import GEMINI_API_KEY, GEMINI_MODEL, require
+from ..config import GEMINI_MODEL
+from .. import model_client
 from ..schemas import MeaningDraft
 
 RESEARCH_PROMPT = """'{term}' 라는 표현을 조사하라. 어느 언어·국가의 인터넷 유행어/밈/줄임말일 수 있다. 원어 표기와 로마자 표기를 모두 검색하라.
@@ -26,15 +26,7 @@ is_expression 은 이 항목이 유행어·밈·줄임말·챌린지·노래 후
 {notes}"""
 
 
-_CLIENT: genai.Client | None = None
-
-
-def _client() -> genai.Client:
-    # 임시 Client 는 호출 도중 GC 되며 httpx 연결을 닫는다 ("client has been closed") → 모듈에 하나만 두고 재사용
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = genai.Client(api_key=require("GEMINI_API_KEY", GEMINI_API_KEY))
-    return _CLIENT
+_client = model_client.client
 
 
 def research_term(term: str, model: str = GEMINI_MODEL) -> tuple[MeaningDraft, list[str], str]:
