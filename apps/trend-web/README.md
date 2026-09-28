@@ -1,13 +1,18 @@
 # web — 트렌드 통역 프론트
 
-Next.js 16 · Tailwind v4 · shadcn/ui · Pretendard. 디자인 토큰은 `../design/Notion/DESIGN.md`, 결정 기록은 `../docs/FRONTEND.md`.
+Next.js 16 · Tailwind v4 · shadcn/ui · Pretendard. 디자인 토큰은 비공개 디자인 문서(저장소에 넣지 않음), 결정 기록은 `../../docs/트렌드/프론트엔드.md`, 작업 규칙은 `../trend-api/AGENTS.md`.
+
+평소에는 저장소 루트에서 `docker compose up -d` 로 API와 함께 띄운다(http://localhost:3000, 예시 데이터 모드).
+호스트에서 직접 실행할 때는 다음을 쓴다.
 
 ```bash
-pnpm install
-pnpm dev                                  # http://localhost:3000 · 예시 데이터 모드
-pnpm build && pnpm start -p 3100
-pnpm contract                             # ../src/trend_agents/schemas.py → lib/contract/types.ts (루트에서 uv run scripts/export_schema.py 먼저)
+corepack pnpm install --frozen-lockfile
+corepack pnpm dev                         # http://localhost:3000 · 예시 데이터 모드
+corepack pnpm build && corepack pnpm start
+corepack pnpm contract                    # ../trend-api/src/trend_agents/schemas.py → lib/contract/types.ts (먼저 ../trend-api 에서 uv run scripts/export_schema.py)
 ```
+
+실데이터 모드는 서버 환경변수 `DATA_MODE=api`와 `TREND_API_URL`로 켠다(`.env.example`). 두 값은 브라우저에 나가지 않는다.
 
 | 경로 | 화면 |
 |---|---|

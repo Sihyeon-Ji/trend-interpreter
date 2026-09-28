@@ -1,5 +1,7 @@
 # GCP 설정 및 운영
 
+> `builder-cup` 서비스, 팀 접근 코드, `/api/analyze` 관련 내용은 2026-09-28까지의 이전 실습 앱 기준입니다. Trend 앱 배포는 [Plan 03](../plans/03-trend-cloud-run-deployment.md)에서 정하며, 그전까지 이전 서비스는 그대로 운영됩니다.
+
 Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry는 도쿄
 `asia-northeast1`을 사용합니다. Gemini location은 `global`이며 이는 한국 내 데이터 보관을
 보장한다는 뜻이 아닙니다.

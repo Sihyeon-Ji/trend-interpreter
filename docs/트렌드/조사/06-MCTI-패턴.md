@@ -1,5 +1,7 @@
 # 06 · MCTI(threat-overview-standalone)에서 가져올 것 (2026-09-15)
 
+> 이 문서는 `prototype/trend` 시절의 기록이다. 당시 `src/`·`scripts/`·`tests/`는 지금 `apps/trend-api/`, `web/`은 `apps/trend-web/`, `docs/`는 `docs/트렌드/`(조사 자료는 `docs/트렌드/조사/`)에 있다. 명령은 저장소 루트의 `docker compose` 기준으로 바뀌었다(`docs/개발환경/개발-명령어.md`).
+
 위치 `~/MCTI/threat-overview-standalone` — Next.js 14 해양 사이버 위협 인텔리전스 플랫폼. 같은 GPU 의 vLLM(Qwen3.6-35B-A3B-FP8 `:11437`, bge-m3 `:11438`)을 상시 서비스로 쓴다.
 도메인은 다르지만 "LLM 을 배치 파이프라인에 넣고 조용히 망가지지 않게 하는" 문제를 6개월 먼저 겪었고, 그 흔적이 코드 주석에 실측 날짜와 함께 남아 있다.
 
@@ -15,7 +17,7 @@
 ## 다음에 참고할 것 (우선순위)
 
 1. **`lib/ai-quality.ts` — AI 산출물 상시 품질 감시.** 2단: ① 결정론 체크(LLM 0회) — 최근 24h 산출물에서 혼입률·적체율·포기율을 SQL 로, ② canary — 정답이 고정된 문제 6개를 실제 호출 경로로 24h 마다. 배경: 모델 교체 후 한자 혼입 3~5배가 됐는데 사흘간 아무도 몰랐다.
-   → trend: `docs/EVAL.md` 표를 자동화. 후보 지표: 번역 결과의 용어 원문 보존율, 재작성이 사전 문구를 그대로 붙인 비율(오늘 Qwen 에서 관측), spot 후보 중 `mentions()` 통과율. Gemma↔Qwen↔Gemini 를 바꿀 때 회귀를 바로 잡는다.
+   → trend: `평가.md` 표를 자동화. 후보 지표: 번역 결과의 용어 원문 보존율, 재작성이 사전 문구를 그대로 붙인 비율(오늘 Qwen 에서 관측), spot 후보 중 `mentions()` 통과율. Gemma↔Qwen↔Gemini 를 바꿀 때 회귀를 바로 잡는다.
 2. **`lib/translation-guard.ts` — 번역 환각 가드.** 번역문에 나온 고위험 엔티티는 원문(별칭 포함)에 앵커가 있어야 하고, 없으면 그 번역을 버린다. 판정은 문자열 대조 — LLM 에게 자기 번역을 검증시키지 않는다. 앵커는 넉넉하게(틀리는 방향이 "멀쩡한 번역을 버림"이 되도록).
    → trend: `gemma_translate` 결과에 용어 원문·인용된 다른 유행어·플랫폼·연도 보존 검사. `pipeline/match.mentions()` 가 이미 같은 철학이다.
 3. **`lib/label-honesty.ts`, `lib/threat-actor-guard.ts` — 판정은 데이터, LLM 은 서술.** LLM 의 타입 주장은 속성으로만 남기고, 라벨은 정본 목록 일치·구문 규칙으로만 준다.

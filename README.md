@@ -2,14 +2,15 @@
 
 English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/개발환경/처음-설치.md)
 
-A theme-independent foundation for a four-person team: React + TypeScript, FastAPI,
-Gemini on Google Cloud, and an optional separate Gemma/vLLM runtime.
-Candidate projects in `prototype/` are independent; the team's final theme is not selected.
+**Trend Interpreter**: a cross-generation, cross-culture trend interpretation service for the
+AI Builder Cup 2026. The repository holds the Next.js web app, the FastAPI API with its collection
+and dictionary pipeline, the Discord alert relay, and the GCP infrastructure.
+Other candidate projects under `prototype/` are kept for reference only.
 
 ## Local development
 
-Install Git and Docker with Compose v2. No host Node, Python, uv, Make, model key or GPU is
-required for the default workflow. Docker Desktop must be running.
+Install Git and Docker with Compose v2. No host Node, Python, uv, model key or GPU is required
+for the default workflow. Docker Desktop must be running.
 
 ```bash
 git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup.git
@@ -17,185 +18,113 @@ cd 2026-google-ai-builder-cup
 docker compose up -d
 ```
 
-Open **http://localhost:5173**. Compose builds the development images on the first run and
-starts PostgreSQL, initializes the lab schema, then starts the API and Vite web server.
-The API is available at http://localhost:8000/docs. `db-init` normally exits with code 0 after initialization.
+Open **http://localhost:3000**. Compose builds the development images on the first run, starts the
+API and then the Next.js dev server. The API is available at http://localhost:8000/docs.
 Use `docker compose ps` to check readiness; initial image downloads may take several minutes.
 
-- Changes in `apps/web/src/` update the open browser through Vite HMR.
-- Changes in `apps/api/src/` automatically restart the API through Uvicorn reload.
-- Both services use source bind mounts, with polling enabled for Docker Desktop/WSL.
+- The web starts in **sample mode** with built-in example data. `DATA_MODE=api docker compose up -d`
+  switches it to the local API, which reads the SQLite database in the `trend_data` volume.
+- Changes in `apps/trend-web/` (app, components, lib, public) reload through Next.js Fast Refresh.
+- Changes in `apps/trend-api/src/` restart the API through Uvicorn reload.
 - Dependencies stay inside the images, separate from host `.venv` and `node_modules`.
-- Node is **24.21.0**; Python is **3.12**. `Dockerfile.dev` prepares both toolchains.
-- The stack explicitly uses **mock** and an empty local access code. No `.env` is needed;
-  the development services do not load the host `.env` or cloud credentials.
+- Node is **24.21.0** with pnpm through Corepack; Python is **3.12** with uv.
+- The API runs with `MODEL_PROVIDER=mock` and `MODEL_REQUESTS_ENABLED=false`. It never calls a paid
+  model, and the development services do not load the host `.env` or cloud credentials.
 
-Changing dependency manifests/lockfiles, Dockerfiles or Python tool configuration requires a rebuild:
+Changing dependency manifests, lockfiles, Dockerfiles or Compose settings requires a rebuild:
 
 ```bash
 docker compose up -d --build
 ```
 
-New files inside the mounted source directories are picked up automatically. A new top-level
-source or asset directory must also be added to the image and Compose mounts.
-This development server is exposed only on host loopback; it is not a production deployment.
+The development servers are exposed only on host loopback; this is not a production deployment.
 
 ## Everyday commands
 
-Run these from the repository root. Compose is the single entry point; there is no Makefile
-or extra task runner to install.
-See the [Korean command reference](docs/개발환경/개발-명령어.md) for commands by task, expected effects and option meanings.
+Run these from the repository root. Compose is the single entry point; there is no Makefile or
+extra task runner to install. See the [Korean command reference](docs/개발환경/개발-명령어.md).
 
 | Command | Purpose |
 | --- | --- |
-| `docker compose up -d` | Start the development API and web server |
+| `docker compose up -d` | Start the API and the web dev server |
 | `docker compose ps` | Check service status |
-| `docker compose run --rm --build doctor` | Diagnose Mock readiness and optional Ollama availability without starting dependent services |
 | `docker compose logs -f` | Follow logs; Ctrl-C stops following, not the services |
 | `docker compose down` | Stop and remove the development containers |
-| `docker compose up -d --build` | Rebuild after dependency/configuration changes |
-| `docker compose run --rm --build check` | Python lint/format/types/tests, mock evaluation, frontend types and build |
-| `docker compose run --rm --build db-check` | Create and read a synthetic PostgreSQL lab record through the API |
-| `docker compose run --rm --build db-migration-check` | Verify migration order, checksums, replay and transaction rollback |
-| `docker compose run --rm db-backup` | Create a local custom-format database backup and checksum |
-| `docker compose run --rm --build workflow-check` | Exercise fan-out, join and deterministic routing with synthetic documents |
-| `docker compose run --rm --build history-check` | Verify successful/failed workflow history and metadata privacy |
-| `docker compose run --rm --build failure-check` | Reproduce Mock timeout, invalid JSON, branch failure and retry recovery |
-| `docker compose run --rm --build ollama-check` | Explicitly compare Mock with an installed Mac Ollama model; save local reports |
-| `docker compose run --rm --build model-eval validate-suite` | Validate versioned evaluation cases without calling a model |
-| `docker compose run --rm --build ollama-history-check` | Run one synthetic Gemma 4 case and link its report to PostgreSQL history |
+| `docker compose up -d --build` | Rebuild after dependency or configuration changes |
+| `docker compose run --rm --build check` | API tests, release and relay tests, web lint and production build |
+| `docker compose run --rm security-check` | Scan the three service lockfiles with OSV-Scanner |
 | `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
-| `docker compose up -d --build preview` | Run the production-style mock image on port 8080 |
-| `docker compose stop preview` | Stop the production preview |
+| `docker compose run --rm --build uv add httpx` | Edit `apps/trend-api` dependencies and lockfile |
+| `docker compose run --rm --build pnpm add zod` | Edit `apps/trend-web` dependencies and lockfile |
 
-`doctor`, `check`, `db-check`, `workflow-check`, `history-check`, `failure-check`, `ollama-check`, `model-eval`, `ollama-history-check`, `e2e`, `npm`, `uv`, `infra-check` and `preview` are opt-in services; plain `up -d` starts
-`db`, the one-off `db-init`, `api` and `web`. E2E starts its dependent development services if necessary. Its first build
-also installs Chromium and system libraries inside the test image.
+`check`, `security-check`, `e2e`, `infra-check`, `uv` and `pnpm` are opt-in services; plain `up -d`
+starts only `api` and `web`. E2E starts its dependent development services if necessary. Its first
+build also installs Chromium inside the test image.
 
-Mock evaluation checks the output contract and basic term retention, **not** factual correctness
-or AI quality. The validation containers are removed after `--rm`; generated test/evaluation
-files inside them are temporary. For diagnosis, omit `--rm`, name the container, and copy its
-results before removing it. CI retains browser failure artifacts automatically.
+Passing checks confirm the code contract and the build, **not** AI quality. Real Gemini access,
+collector keys and GPU inference are never exercised by the default stack or by CI.
 
 ## Dependency changes
 
-Use the Compose `npm` and `uv` tools to edit the checkout's manifests and lockfiles together:
+Use the Compose `uv` and `pnpm` tools so the manifest and lockfile change together on the host:
 
 ```bash
-docker compose run --rm --build npm install zod
 docker compose run --rm --build uv add httpx
+docker compose run --rm --build pnpm add zod
 ```
 
-Package names above are examples; add only what the feature needs. These tools do not install host
-`node_modules` or `.venv`. Rebuild with `docker compose up -d --build`, run `check` and `e2e`, then
-commit both `package.json` / `package-lock.json` or `pyproject.toml` / `uv.lock` in the same commit.
-See the [Korean command reference](docs/개발환경/개발-명령어.md) for removal and targeted upgrade commands.
+Package names above are examples. Rebuild with `docker compose up -d --build`, run `check` and
+`e2e`, then commit `pyproject.toml` / `uv.lock` or `package.json` / `pnpm-lock.yaml` in the same commit.
 Production and development builds reject out-of-date lockfiles.
 
-## PostgreSQL lab
+## Model access
 
-Run `docker compose run --rm db-check` to insert a synthetic record and read it back by ID.
-The output includes a read-only replay command and a browser URL. Use that same ID after restarting
-the database to verify persistence. See the [lab plan and recorded results](docs/AI-개발/AI-실습-기록.md).
+| Setting | Local default | Production intent |
+| --- | --- | --- |
+| `MODEL_PROVIDER` | `mock` | `vertex` |
+| `MODEL_REQUESTS_ENABLED` | `false` | `true` only while the service is meant to spend |
+| `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | empty | Vertex AI project and location |
+| `GEMINI_DAILY_BUDGET` | `36` | daily call cap recorded in the database |
 
-PostgreSQL 18.6 data and generated administrator/application passwords live in separate named volumes.
-Normal `docker compose down` preserves them; deleting volumes removes the corresponding data or credentials.
-The database has no published host port. The application role has schema usage, record SELECT/INSERT,
-and SELECT/INSERT/UPDATE on workflow history tables;
-the administrator credential is mounted only into the DB and initializer. The lab API is disabled by default
-and cannot be enabled in Cloud Run or with a non-mock provider. The production preview does not require a DB.
-Schema changes are ordered SQL migrations recorded with SHA-256 checksums in `lab.schema_migrations`.
-Local backup/restore commands exclude roles and ACLs, refuse existing restore targets and require a new
-`builder_cup_restore_*` database. Backup files are private local artifacts under ignored `backups/`.
-
-## Workflow lab
-
-The independent workflow lab is available through `docker compose run --rm workflow-check`.
-It checks three synthetic meeting notes and prints the mock result, routing decision and node events.
-`accepted` means the required document sections are present and nonempty, not that the content is factual.
-With both local labs enabled, workflow run and node metadata are persisted in PostgreSQL.
-Open **Workflow history** at http://localhost:5173 to run a sample, browse the latest 20 runs and inspect
-status, timing, model, reported tokens and safe error codes. Source text and generated output are not stored.
-Node snapshots are saved when execution ends; this is not live progress or automatic crash recovery.
-Run `docker compose run --rm --build history-check` for API and persistence checks.
-
-Choose **Practice scenario** in Workflow history to simulate a model timeout, invalid JSON, parallel
-branch failure or a transient connection error followed by recovery. Expectations are shown before running;
-the chosen scenario is stored with each run. `failure-check` verifies all scenarios, including a normal run.
-Expected HTTP errors are successful failure exercises, not AI quality results. Simulations are local Mock only.
-
-## Local model comparison
-
-The optional `ollama-check` service calls native Ollama on the Mac host via `host.docker.internal:11434`.
-Install Ollama and pull the required Google model `gemma4:e4b` first; see the [Korean lab instructions](docs/개발환경/개발-명령어.md#실제-로컬-모델-비교).
-It runs the same graph and ten versioned synthetic inputs with Mock and Ollama, then saves timestamped JSON,
-readable Markdown and evidence-review templates under ignored `artifacts/`. Reports include synthetic
-source/output, suite hash, source commit, model digest, usage and load/generation timing; they are evaluation
-artifacts, not operational logs or PostgreSQL history. `model-eval` validates the suite and completed reviews,
-and compares reports only when their suite hashes match.
-The default UI/API remains Mock. Real inference is opt-in and never runs in CI. There is no Mock fallback
-on model failure. Schema success is separate from factual quality; the [recorded review](docs/AI-개발/AI-실습-기록.md)
-includes observed omissions and unsupported generalizations.
-The separate `ollama-history-check` command can persist one synthetic Gemma 4 run's metadata under the same
-run ID shown in its ignored report. PostgreSQL still excludes source and generated text; the default API
-remains Mock and can display the saved provider, model, tokens, errors and five node snapshots.
-
-## Production preview
-
-```bash
-docker compose up -d --build preview
-```
-
-Open **http://localhost:8080**. This uses the original production `Dockerfile`: one container
-serves the compiled web app and API. It does not mount source or reload after edits. Re-run the
-command to build updated code. Development on 5173 and preview on 8080 can run together.
-Use `docker compose --profile preview down` to stop both development and preview services.
-
-## Commands and scripts
-
-- `compose.yaml` defines the commands team members and CI run.
-- `apps/web/package.json` contains the native frontend commands used inside those containers.
-- `scripts/` contains implementation for evaluation, container smoke checks and cloud operations.
-  It is not a second everyday command menu. See [script responsibilities](scripts/README.md).
-- Cloud operations remain explicit operator actions, outside the development Compose stack.
+Gemini clients are created only in `apps/trend-api/src/trend_agents/model_client.py`, through Vertex AI
+with the Cloud Run runtime service account. There is no Gemini API key anywhere in the codebase.
+Local Gemma runs through Ollama or an OpenAI-compatible server (`LOCAL_LLM_BASE_URL`); see
+[Gemma/vLLM](models/vllm/README.md). Collector keys (YouTube, Naver) belong only in
+`apps/trend-api/.env`; see `apps/trend-api/.env.example`.
 
 ## Repository layout
 
 ```text
-compose.yaml                 Development services and opt-in validation/preview tools
+compose.yaml                 Development services and opt-in validation tools
 Dockerfile.dev               Development toolchain and browser-test image
-Dockerfile                   Production application image
-apps/web/                    React application and browser tests
-apps/api/src/builder_cup/     API, validation, workflow and model adapters
+apps/trend-web/              Next.js web app, browser tests, production Dockerfile
+apps/trend-api/              FastAPI API, collection and dictionary pipeline, production Dockerfile
+apps/alert-relay/            Private Cloud Run relay from Pub/Sub alerts to Discord
 models/vllm/                 Separate GPU-host Gemma runtime
 infra/gcp/                   Terraform infrastructure
 .github/workflows/           CI and release/gcp deployment
-scripts/                     Evaluation and operational implementation
-tests/                       API and failure-mode tests
-evaluation-cases/            Team-owned evaluation fixtures
-prototype/                   Independent candidate projects
-docs/                        Setup, architecture, operations and team workflow
+scripts/                     Release, smoke-test and cloud operation implementation
+tests/                       Release routing and recovery tests
+prototype/                   Earlier candidate projects, not built or scanned
+docs/                        Korean documentation: setup, operations, Trend design records, plans
 ```
 
-## Real Gemini and release
+## Release and deployment
 
-The development stack uses mock by default. GCP billing is linked, and the release is live on Cloud Run
-with Vertex AI Gemini. Real-model operation still depends on project permissions, quota and billing;
-successful mock tests do not establish these.
-See [operations](docs/운영/GCP-운영.md) and [Gemma/vLLM](models/vllm/README.md).
+Develop on `develop`; pushes there do not start GitHub Actions. Pushing `release/gcp` classifies the
+change, runs the full checks once, and deploys the alert relay when it changed.
 
-Develop on `develop`; pushes do not start GitHub Actions. Fast-forwarding and pushing `release/gcp`
-runs the full checks once, publishes the image and deploys it. CI can also be started manually.
-Never commit credentials, `.env`, model weights, Terraform state or generated evaluation data.
+The **Trend application deployment job is intentionally disabled** until durable storage and a
+private API path are decided; see [Plan 03](docs/plans/03-trend-cloud-run-deployment.md). The
+previously deployed `builder-cup` Cloud Run service keeps serving until the Trend release replaces it.
+Never commit credentials, `.env`, model weights, Terraform state or collected data.
 
 ## Team and documentation
 
 - [Documentation index in Korean](docs/README.md)
-- [AI lab completion report, capabilities and next steps in Korean](docs/AI-개발/AI-개발-종합-보고서.md)
-- [Theme-independent development preparation plans in Korean](docs/plans/README.md)
-- [Local LLM, graph workflow and database guide in Korean](docs/AI-개발/AI-개발-가이드.md)
-- [AI development lab plan and prerequisites in Korean](docs/AI-개발/AI-실습-기록.md)
+- [Trend direction, pipeline and research records in Korean](docs/트렌드/방향.md)
+- [Current plans in Korean](docs/plans/README.md)
 - [First-time setup in Korean](docs/개발환경/처음-설치.md)
 - [Architecture](docs/운영/시스템-아키텍처.md)
 - [Operations](docs/운영/GCP-운영.md)

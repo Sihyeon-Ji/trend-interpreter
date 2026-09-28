@@ -55,7 +55,7 @@ Docker 명령이 없거나 엔진에 연결되지 않으면 Docker Desktop 실�
 VS Code를 쓴다면 WSL 확장을 통해 **그 Ubuntu 저장소 폴더**를 열어 편집합니다.
 Windows에 별도로 클론한 다른 폴더를 수정하면 실행 중인 컨테이너에 반영되지 않습니다.
 
-앱을 켠 뒤 Windows 브라우저에서 http://localhost:5173 에 접속합니다.
+앱을 켠 뒤 Windows 브라우저에서 http://localhost:3000 에 접속합니다.
 접속이 안 되면 [Microsoft WSL 네트워크 안내](https://learn.microsoft.com/en-us/windows/wsl/networking)를 참고하세요.
 
 이후 실행·검사·패키지 관리 명령은 Mac과 같습니다. [개발 명령어 모음](개발-명령어.md)을 사용하세요.

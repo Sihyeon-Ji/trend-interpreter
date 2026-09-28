@@ -74,26 +74,22 @@ docker compose ps -a
 Docker 명령 자체가 실패하면 아래 컨테이너 진단보다 엔진과 현재 context를 먼저 확인합니다.
 
 ```bash
-docker compose run --rm --build doctor
+docker compose ps
+curl --fail --silent http://localhost:8000/health
+curl --fail --silent --output /dev/null --write-out '%{http_code}\n' http://localhost:3000/
 ```
-
-이 명령은 의존 서비스를 자동으로 시작하지 않습니다. 처음 이미지 빌드는 도구 설치와 이미지 캐시를 만들고,
-실행 시 임시 진단 컨테이너·필요한 네트워크가 만들어질 수 있지만 기존 서비스·DB·모델을 변경하지 않습니다.
-소스와 컨테이너 파일시스템은 읽기 전용이며 Docker 소켓·DB 비밀번호·호스트 `.env`를 전달하지 않습니다.
 
 | 출력 또는 증상 | 의미와 다음 행동 |
 | --- | --- |
-| `PASS Container toolchain` | 진단 이미지의 Node·Python 버전 확인. 호스트 버전과 별개 |
-| `FAIL API` / `FAIL Web and API proxy` | 해당 프로젝트 서비스가 꺼졌거나 Mock 설정·연결에 문제가 있음. `docker compose up -d --wait` 후 재확인 |
-| `PASS API`, `FAIL DB history read` | API 생존과 DB 연결은 별개. `docker compose logs --tail 50 db-init api` 확인 |
-| `OPTIONAL Ollama server` | Docker에서 서버 접근 불가. 기본 Mock 개발에는 영향 없음 |
-| `OPTIONAL Local model` | 서버는 있지만 실습 모델 미설치. 실제 추론을 원할 때만 모델 다운로드 |
-| `NOT TESTED Inference and answer quality` | 이 진단은 추론·품질 검사를 수행하지 않음 |
+| `api`·`web`이 `healthy` | 정상. 브라우저에서 http://localhost:3000 을 엽니다 |
+| health 응답에 `"ok":true` | API 생존. `terms`는 SQLite에 있는 사전 항목 수이며 0이어도 예시 데이터 모드 화면은 열림 |
+| `web`이 `starting`에서 오래 머묾 | 첫 Next.js 컴파일 중. `docker compose logs -f web`으로 진행 확인 |
+| `api`가 반복 재시작 | `docker compose logs --tail 50 api`에서 Python 오류 확인 |
 | 기동 시 포트 사용 중 오류 | 아래 `lsof`로 현재 소유 프로세스를 확인하고 종료하거나 포트를 바꿀지 판단 |
 
 ```bash
 lsof -nP -iTCP:8000 -sTCP:LISTEN
-lsof -nP -iTCP:5173 -sTCP:LISTEN
+lsof -nP -iTCP:3000 -sTCP:LISTEN
 command -v ollama
 ```
 
@@ -101,7 +97,7 @@ command -v ollama
 `command -v ollama`는 호스트 CLI 경로를 확인할 뿐, 서버 실행이나 모델 설치를 보장하지 않습니다.
 CLI가 PATH에 없더라도 GUI 앱이 설치됐을 수 있습니다. 기본 개발에는 Ollama가 필요하지 않습니다.
 서버가 켜져 있을 때 `ollama list`로 다운로드 목록을 확인하고,
-실제 추론을 원하면 [Ollama 실습 안내](개발-명령어.md#실제-로컬-모델-비교)를 따릅니다.
+로컬 Gemma를 연결하려면 [로컬 Gemma 연결](개발-명령어.md#로컬-gemma-연결)을 따릅니다.
 
 ## 5. 별도 checkout을 독립적으로 검증하기
 
@@ -110,16 +106,13 @@ CLI가 PATH에 없더라도 GUI 앱이 설치됐을 수 있습니다. 기본 개
 ```bash
 export COMPOSE_PROJECT_NAME=builder-cup-onboarding
 export DEV_API_PORT=18000
-export DEV_WEB_PORT=15173
+export DEV_WEB_PORT=13000
 docker compose up -d --build --wait
-docker compose run --rm --build doctor
-docker compose run --rm --build db-check
 docker compose run --rm --build check
 ```
 
-이 터미널에서는 http://localhost:15173 와 http://localhost:18000/docs 를 사용합니다.
+이 터미널에서는 http://localhost:13000 와 http://localhost:18000/docs 를 사용합니다.
 서비스 간 통신은 내부 포트를 그대로 사용하며 다른 프로젝트의 컨테이너나 볼륨을 재사용하지 않습니다.
-`db-check`의 `Open` 주소도 설정한 API 포트를 사용합니다.
 종료할 때도 같은 터미널의 프로젝트 설정을 유지합니다.
 
 ```bash
