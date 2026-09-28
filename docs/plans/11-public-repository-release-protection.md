@@ -1,6 +1,6 @@
-# Plan 02 공개 저장소와 GCP 배포 승인
+# Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **실행 준비**
+작성일 **2026-09-23** · 상태 **실행 준비** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
 [현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
 

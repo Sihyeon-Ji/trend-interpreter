@@ -1,6 +1,6 @@
-# Plan 11. 추천·생성 품질 평가와 제출 데모 준비
+# Plan 09. 추천·생성 품질 평가와 제출 데모 준비
 
-작성일 **2026-09-28** · 상태 **대기** · 근거 [ADR 0002 결과와 후속 작업](../adr/0002-고도화-방안.md) · 목표일 **2026-10-15** · 선행 [Plan 09](09-meme-recommendation.md), [Plan 10](10-content-generation.md)
+작성일 **2026-09-28** · 상태 **대기** · 근거 [ADR 0002 결과와 후속 작업](../adr/0002-고도화-방안.md) · 목표일 **2026-10-15** · 선행 [Plan 07](07-meme-recommendation.md), [Plan 08](08-content-generation.md)
 
 ## 목표
 

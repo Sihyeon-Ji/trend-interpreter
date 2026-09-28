@@ -1,6 +1,6 @@
-# Plan 03. Trend 앱 Cloud Run 배포
+# Plan 05. Trend 앱 Cloud Run 배포
 
-작성일 **2026-09-28** · 상태 **설계 대기(저장소는 PostgreSQL로 결정, Cloud SQL 준비 필요)** · 선행 작업 **로컬 통합과 PostgreSQL 전환 완료**
+작성일 **2026-09-28** · 상태 **설계 대기(저장소는 PostgreSQL로 결정, Cloud SQL 준비 필요)** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md)
 
@@ -69,7 +69,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 | 항목 | 결정 | 상태 |
 | --- | --- | --- |
-| 로컬 Gemma 제공 | Cloud Run GPU + vLLM, 싱가포르 | [Plan 05](05-gemma-on-cloud-run-gpu.md)에서 진행 |
+| 로컬 Gemma 제공 | Cloud Run GPU + vLLM, 싱가포르 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행 |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
 | 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | 완료. 파이프라인 `collect.retention` 단계가 매 실행마다 삭제 |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |

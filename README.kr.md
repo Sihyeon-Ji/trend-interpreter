@@ -110,7 +110,7 @@ docs/                        설치, 운영, 트렌드 설계 기록, 계획 문
 `release/gcp` push는 변경 범위를 판정해 전체 검증을 한 번 실행하고, 알림 중계기가 바뀌었을 때만 중계기를 배포합니다.
 
 **Trend 앱의 배포 job은 일부러 꺼 두었습니다.** Cloud SQL PostgreSQL 인스턴스와 비공개 API 경로를 준비한 뒤
-[Plan 03](docs/plans/03-trend-cloud-run-deployment.md)에 따라 다시 켭니다. 그전까지는 이전에 배포한
+[Plan 05](docs/plans/05-trend-cloud-run-deployment.md)에 따라 다시 켭니다. 그전까지는 이전에 배포한
 `builder-cup` Cloud Run 서비스가 그대로 운영됩니다. `.env`, 인증정보, 모델 파일, Terraform 상태,
 수집 데이터는 Git에 올리지 않습니다.
 

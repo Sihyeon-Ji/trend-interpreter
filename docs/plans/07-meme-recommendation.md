@@ -1,6 +1,6 @@
-# Plan 09. 사진·홍보 문구 기반 밈 추천
+# Plan 07. 사진·홍보 문구 기반 밈 추천
 
-작성일 **2026-09-28** · 상태 **대기** · 근거 [ADR 0002 §4](../adr/0002-고도화-방안.md) · 목표일 **2026-10-10** · 선행 [Plan 06](06-lifecycle-stages.md), [Plan 07](07-term-risk.md), [Plan 08](08-target-regions-and-keyword-dashboard.md)
+작성일 **2026-09-28** · 상태 **대기** · 근거 [ADR 0002 §4](../adr/0002-고도화-방안.md) · 목표일 **2026-10-12** · 선행 [Plan 02](02-lifecycle-stages.md), [Plan 03](03-term-risk.md), [Plan 04](04-target-regions-and-keyword-dashboard.md)
 
 ## 목표
 
@@ -27,4 +27,4 @@
 - 사진과 문구 두 입력 모두에서 추천 5개가 근거와 함께 나옵니다.
 - `avoid` 용어는 추천에 나오지 않는 테스트가 있습니다.
 - 모델 없는 개발 환경에서 e2e 테스트가 추천 화면을 끝까지 통과합니다.
-- 실제 모델 품질은 [Plan 11](11-generation-quality-evaluation.md)에서 평가합니다.
+- 실제 모델 품질은 [Plan 09](09-generation-quality-evaluation.md)에서 평가합니다.

@@ -19,7 +19,7 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 | `rollback-gcp.sh` | Deployment operator | Check or restore main/relay traffic to a known revision |
 
 The Trend application deploy script does not exist yet; the release workflow's application job is
-disabled until [Plan 03](../docs/plans/03-trend-cloud-run-deployment.md) is implemented.
+disabled until [Plan 05](../docs/plans/05-trend-cloud-run-deployment.md) is implemented.
 Do not add parallel Make/just/task wrappers for these commands. Keep service/task definitions
 in `compose.yaml`, frontend tool commands in `apps/trend-web/package.json`, and multi-step operational
 implementation here. See [operations](../docs/운영/GCP-운영.md) before running cloud scripts.

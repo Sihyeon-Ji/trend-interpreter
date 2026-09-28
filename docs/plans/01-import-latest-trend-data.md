@@ -1,8 +1,8 @@
-# Plan 04. 최신 수집 데이터 받아서 한 번에 이관
+# Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 상태 **대기(원작자에게 파일 요청 필요)** · 선행 작업 **PostgreSQL 전환 완료**
+작성일 **2026-09-28** · 상태 **대기(원작자에게 파일 요청 필요)** · 선행 **없음** · 목표일 **2026-10-01**(파일을 받는 즉시)
 
-[계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 03 배포](03-trend-cloud-run-deployment.md)
+[계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
 
 ## 배경
 
@@ -56,4 +56,4 @@ Google Drive 공유 링크면 충분하며, `.env`나 `data/accounts.txt`는 함
 - `docker compose exec api python scripts/health_check.py`에 경고가 없다.
 - 이후 수집은 Compose `db`에만 쌓이고 SQLite 파일은 더 이상 만들어지지 않는다.
 
-이 데이터는 나중에 Cloud SQL이 준비되면 `pg_dump`·`pg_restore`로 옮깁니다(Plan 03).
+이 데이터는 나중에 Cloud SQL이 준비되면 `pg_dump`·`pg_restore`로 옮깁니다(Plan 05).

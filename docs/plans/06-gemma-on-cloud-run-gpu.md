@@ -1,8 +1,8 @@
-# Plan 05. Gemma 4를 Cloud Run GPU + vLLM으로 제공
+# Plan 06. Gemma 4를 Cloud Run GPU + vLLM으로 제공
 
-작성일 **2026-09-28** · 상태 **설계 확정, 구현 대기** · 선행 작업 **없음(Plan 03과 독립)**
+작성일 **2026-09-28** · 상태 **설계 확정, 구현 대기** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)(같은 배포 흐름을 씀) · 목표일 **2026-10-10** · Plan 07·08의 운영 사전 대조 검사가 이 서비스를 씀
 
-[계획 목록](README.md) · [Plan 03 배포](03-trend-cloud-run-deployment.md) · [모델 호출 경계](../운영/시스템-아키텍처.md#모델-호출-경계) · [로컬 vLLM 프로필](../../models/vllm/README.md)
+[계획 목록](README.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [모델 호출 경계](../운영/시스템-아키텍처.md#모델-호출-경계) · [로컬 vLLM 프로필](../../models/vllm/README.md)
 
 ## 왜 필요한가
 
