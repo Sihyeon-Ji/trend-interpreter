@@ -91,3 +91,12 @@ def strip_particle(s: str) -> list[str]:
             out.append(s[: -len(p)].strip())
             break
     return out
+
+
+# 목록·후보로 내보내면 안 되는 말 — 욕설·성적 표현. 직접 물으면 사전은 답하되, 둘러보기 목록에는 올리지 않는다
+# (2026-09-28 검토: "10대 유행어" 목록에 '아헤가오' 가 나왔다).
+UNSAFE = re.compile(r"시발|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|보지|자지|fuck|shit|porn|hentai|ahegao|nsfw|goatse", re.I)
+
+
+def unsafe(text: str) -> bool:
+    return bool(UNSAFE.search(text or ""))

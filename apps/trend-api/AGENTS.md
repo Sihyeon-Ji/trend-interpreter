@@ -40,9 +40,13 @@
 
 ## 파이프라인 (`src/trend_agents/pipeline/`)
 
-- 단계는 `run(con) -> {이름: Result}` 하나씩, 입력·출력은 PostgreSQL 표. 순서 collect → classify → spikes → interpret → candidates → spot → hunt → research → track → naver → translate → topics → board (`scripts/run_pipeline.py`, `--loop` 로 상시). 자세한 것은 `docs/트렌드/파이프라인.md`.
+- 단계는 `run(con) -> {이름: Result}` 하나씩, 입력·출력은 PostgreSQL 표. 순서 collect → classify → spikes → interpret → candidates → spot → namu → hunt → research → track → naver → translate → topics → board (`scripts/run_pipeline.py`, `--loop` 로 상시). 자세한 것은 `docs/트렌드/파이프라인.md`.
 - **파이프라인의 Gemini 호출은 `pipeline/gemini.py` 를 거친다** (하루 예산 `GEMINI_DAILY_BUDGET`, 503/429 재시도, `GEMINI_FALLBACK_MODEL` 폴백). 클라이언트는 `model_client.client()` 만 쓰고 단계 안에서 `genai.Client` 를 직접 만들지 않는다.
 - 단계는 예외를 삼키고 `pipeline_runs` 에 `error`/`zero` 로 남긴다 — 한 단계의 실패가 다음 단계를 막지 않는다. 결과 dict 는 `with stage()` 블록 **밖에서** 돌려준다.
+- **밈 정보는 커뮤니티 위키에서, 뉴스는 번짐을 재는 데(2026-09-28 출처 실측).** 한국어는 나무위키(`collectors/namuwiki.py`, `pipeline/namu.py`)가 사실상 표준이다 — 표제어 14개 중 13개에 문서, 문서마다 수정 시각. 실시간 검색어·분류:유행어로 발굴하고, 문서가 고쳐지면 다시 조사한다. CC BY-NC-SA 라 **본문을 저장하지 않고** 짧은 발췌·링크·시각만 근거로 쓴다. 넘겨받은 문서가 다른 것이면('샤갈'→'마르크 샤갈') 유행어 단서가 있는 문장만 받는다.
+  GDELT 는 밈을 찾는 데 약하다(3시간 2만 건 뉴스 제목에 표제어 0번). Context 2.0(`collectors/gdelt_context.py`, 16초 간격·72시간)으로 이미 아는 말의 실제 쓰임 문장만 가져온다. DOC 2.0 은 429, GEO 2.0 은 내려감.
+- **사람이 승인한 뜻(`verified_human`)은 자동 조사가 덮지 않는다.** 재조사 대상에서 빼고, `research_one` 도 바로 돌아간다. 사람 검수 큐에는 뜻은 멀쩡한데 근거가 모자란 것만 남긴다(`research.needs_human`) — '표현이 아니다'·빈 뜻은 `auto_rejected` 로 닫고 표제어는 그대로 둔다.
+- **조사는 `last_seen` 을 바꾸지 않는다**(밖에서 마지막으로 본 때). 사용 기록(`usage`)은 처음 조사 때만 쓴다. spot 에서 한 번만 본 후보는 7일 뒤 `expired`.
 - **못 답한 질문이 다음 조사 거리다(`pipeline/hunt.py`).** 지금 파이프라인은 '밀어내기'라 지금 뜨는 것만 들어온다 — 사람이 물었는데 없던 말은 `lookups` 에 쌓이고, hunt 가 거기서 표현 이름을 뽑아(한글 표기는 원어 표기까지) 표제어로 세우면 research 가 그 이름으로 인터넷을 직접 뒤진다. 판정은 코드가 한다: 질문 원문에 실제로 있는 말만 받고(앵커), 목록 요청·번역 부탁·갈래 낱말·자판 난타는 버린다.
 - 후보 → 용어 승격은 규칙(2회 이상 등장 또는 쇼츠 '유행어·노래', 위키 문서가 있거나 사람이 직접 물어본 것은 1회)이고, verified 는 `verification.gate` 만 정한다. 근거 발췌는 용어가 실제로 들어 있는 원문 문장만. 용어가 들어 있는지는 `pipeline/match.py` 의 `mentions()` 로만 판단한다(숫자꼴 용어는 밈 단서가 같이 있어야 함).
 - **사전에 묻기(`pipeline/ask.py`)는 도구 호출 루프다** — MCTI `lib/orchestration/query-loop.ts` 패턴. 모델은 `pipeline/tools.py` 의 읽기 전용 도구(lookup_term·search_terms·why_trending·country_trends·term_usage)로만 사전·그래프를 보고, 그 밖의 이야기는 하지 않는다. 마지막 턴에는 도구를 주지 않아 답을 강제하고, 연속 실패는 차단기로 끊고, 잘못된 인자는 실행하지 않고 오류를 모델에 되돌린다. 답하지 못한 질문은 `lookups` 에 쌓여 발굴(spot) 단계의 재료가 된다.

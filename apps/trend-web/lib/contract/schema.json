@@ -13,7 +13,8 @@
             "datalab",
             "web",
             "community",
-            "human"
+            "human",
+            "wiki"
           ],
           "title": "Kind",
           "type": "string"

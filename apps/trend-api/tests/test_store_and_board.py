@@ -140,3 +140,52 @@ def test_new_meaning_version_clears_stale_translations():
 
     ds.add_meaning(con, "t1", draft("고쳐 쓴 뜻"), "verified_auto", [])
     assert ds.get_translation(con, "t1", "ko") is None   # 옛 언어판은 사라진다
+
+
+def test_old_single_sighting_spot_candidates_expire():
+    """spot 에서 한 번만 보고 오래 묵은 후보는 만료된다 — 대기열이 끝없이 자라지 않게. 다른 출처는 건드리지 않는다."""
+    from datetime import datetime, timedelta, timezone
+
+    con = db.connect(":memory:")
+    old = ds.upsert_candidate(con, "한번본말", "ko", "KR", "spot", note="kind=meme")
+    keep = ds.upsert_candidate(con, "위키에서온말", "ko", "KR", "wiki", note="kind=meme")
+    for c in (old, keep):
+        c.last_seen = datetime.now(timezone.utc) - timedelta(days=30)
+        con.execute("UPDATE candidates SET json=? WHERE candidate_id=?", (c.model_dump_json(), c.candidate_id))
+    con.commit()
+    assert ds.expire_candidates(con) == 1
+    left = {c.text for c in ds.candidates(con, "new", 10)}
+    assert left == {"위키에서온말"}
+
+
+def test_expired_candidate_is_readable_and_revives_on_new_sighting():
+    """만료된 후보도 다시 읽혀야 하고(스키마), 다시 나오면 new 로 돌아온다 — 예전엔 upsert 가 검증 오류로 죽었다."""
+    from datetime import datetime, timedelta, timezone
+
+    con = db.connect(":memory:")
+    c = ds.upsert_candidate(con, "한번본말", "ko", "KR", "spot", note="kind=meme")
+    c.last_seen = datetime.now(timezone.utc) - timedelta(days=30)
+    con.execute("UPDATE candidates SET json=? WHERE candidate_id=?", (c.model_dump_json(), c.candidate_id))
+    con.commit()
+    assert ds.expire_candidates(con) == 1
+    assert [x.text for x in ds.candidates(con, "expired", 10)] == ["한번본말"]
+    again = ds.upsert_candidate(con, "한번본말", "ko", "KR", "spot", note="kind=meme")
+    assert again.status == "new"
+
+
+def test_research_does_not_override_human_approval(monkeypatch):
+    """사람이 승인한 뜻은 자동 재조사가 덮거나 강등하지 않는다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import research
+    from trend_agents.schemas import MeaningDraft, Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t1", canonical="사람확인말", lang="ko", status="verified", category="slang", first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+    ds.add_meaning(con, "t1", MeaningDraft(definition="사람이 확인한 뜻입니다.", origin="unknown", nuance="없음",
+                                           generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_human", [])
+    monkeypatch.setattr(research, "research_term", lambda *a, **k: (_ for _ in ()).throw(AssertionError("불리면 안 됨")))
+    assert research.research_one(con, t) == ("verified_human", [])
+    assert ds.current_meaning(con, "t1").verification == "verified_human"

@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 
 from ..lifecycle import recheck_interval_days  # noqa: F401  (생애주기 라벨과 같은 모듈을 쓴다는 표시)
 from ..storage import dictionary_store as ds
-from .match import keywords, loose_key, strip_particle
+from .match import keywords, loose_key, strip_particle, unsafe
 from ..storage.db import Connection
 
 LIFECYCLE = {"emerging": "막 뜨는 중", "rising": "오르는 중", "peak": "절정", "steady": "꾸준함",
@@ -209,13 +209,14 @@ def _find(con, q: str):
 def _same_family(con, q: str, limit: int = 5) -> list:
     """이름의 낱말 하나라도 겹치는 표제어들. "Espresso Assassino" 는 사전에 없지만
     "Cappuccino Assassino" 는 있다 — 같은 계열이라고 말해 줄 수 있어야 한다(사용자 지적 09-16)."""
-    toks = {w for w in re.split(r"[^A-Za-z0-9가-힣]+", q.lower()) if len(w) >= 5}
-    if not toks:
-        return []
+    low = q.lower()
+    toks = {w for w in re.split(r"[^A-Za-z0-9가-힣]+", low) if len(w) >= 5}
+    words = set(re.split(r"[^A-Za-z0-9가-힣]+", low))
     out = []
     for t in _entries(con):
-        names = " ".join([t.canonical, *t.aliases]).lower()
-        if any(w in names for w in toks):
+        names = [n.lower() for n in (t.canonical, *t.aliases)]
+        # 질문 안에 표제어가 낱말째로 들어 있어도 같은 계열이다 — "스키비디 토일렛" 속 '스키비디'(skibidi 의 별칭)
+        if any(w in " ".join(names) for w in toks) or any(len(n) >= 3 and n in words for n in names):
             out.append(t)
     return out[:limit]
 
@@ -447,8 +448,11 @@ def list_terms(ctx: Ctx, args: dict) -> str:
     # 그다음은 실제로 쓰이는 걸 본 표현. 위키에서 막 받아 온 것들은 last_seen 이 전부 지금이라 그냥 두면 목록을 덮는다.
     # 나라를 물었으면 그 나라 말, 아니면 지금 답하는 말. 한국어로 물었는데 일본어 표제어가 먼저 나오면 엉뚱하다.
     lang_of = {"KR": "ko", "JP": "ja", "ID": "id", "US": "en", "GB": "en"}.get(region, "") or ctx.lang
-    rows.sort(key=lambda t: (1 if lang_of and t.lang == lang_of else 0,
-                             1 if ds.get_usage(ctx.con, t.term_id) else 0, t.last_seen), reverse=True)
+    # '요즘' 은 실제 언급으로 잰다. last_seen 은 예전에 조사할 때마다 덮여서 '최근 조사한 순' 이 돼 있었다.
+    rows = [t for t in rows if not unsafe(t.canonical)]
+    recent = {t.term_id: sum(c for _, c in ds.get_weekly(ctx.con, t.term_id, weeks=4)) for t in rows}
+    rows.sort(key=lambda t: (1 if lang_of and t.lang == lang_of else 0, recent[t.term_id],
+                             1 if ds.get_usage(ctx.con, t.term_id) else 0), reverse=True)
     rows = rows[:12]
     for t in rows:
         ctx.seen(t.term_id)

@@ -99,7 +99,10 @@ def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) ->
 def promote_candidates(con: Connection, limit: int) -> list[Term]:
     """후보 → 용어(researching). 쇼츠에서 나온 것 또는 2회 이상 본 것."""
     terms: list[Term] = []
-    for c in ds.candidates(con, "new", 200):
+    # 사람이 물어본 말·위키 문서가 있는 말을 먼저 조사한다. spot 출신이 앞을 막으면 좋은 후보가 대기열 뒤에 묻힌다.
+    first = {"hunt": 0, "namu": 1, "wiki": 2, "shorts": 3}
+    pool = sorted(ds.candidates(con, "new", 400), key=lambda c: min((first.get(s, 9) for s in c.sources), default=9))
+    for c in pool:
         m = re.search(r"kind=(\w+)", c.note)
         kind = m.group(1) if m else ""
         if kind not in DICT_KINDS:  # 분류가 유행어·밈·노래·챌린지로 보지 않은 것은 사전에 넣지 않는다 (brics, aqi, iPhone Duo 같은 일반 검색어)
@@ -108,7 +111,7 @@ def promote_candidates(con: Connection, limit: int) -> list[Term]:
         # 위키백과에 문서가 있다는 것은 편집자가 백과사전 항목으로 쓸 만큼 자리잡은 표현이라는 뜻이다 —
         # 트렌드 목록에서 두 번 본 것보다 강한 신호라서 한 번에 승격한다. verified 여부는 여전히 게이트가 정한다.
         # 사람이 직접 물어본 말(hunt)은 수요가 곧 근거다. 위키 문서가 있는 것과 같은 급으로 본다.
-        if c.count < MIN_CANDIDATE_COUNT and kind not in STRONG_KINDS and not ({"wiki", "hunt"} & set(c.sources)):
+        if c.count < MIN_CANDIDATE_COUNT and kind not in STRONG_KINDS and not ({"wiki", "hunt", "namu"} & set(c.sources)):
             continue
         if ds.find_term(con, c.text):
             ds.set_candidate_status(con, c.candidate_id, "promoted")
@@ -130,6 +133,9 @@ def due_for_recheck(con: Connection, limit: int) -> list[Term]:
     out: list[Term] = []
     now = datetime.now(timezone.utc)
     for t in ds.list_terms(con, ("researching", "verified", "needs_review")):
+        cm = ds.current_meaning(con, t.term_id)
+        if cm and cm.verification == "verified_human":
+            continue
         last = ds.last_researched(con, t.term_id)
         if last is None or (now - last).days >= recheck_interval_days(t.lifecycle):
             out.append(t)
@@ -301,13 +307,28 @@ def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
     return "\n".join(lines) or "- (근거 없음)"
 
 
+MECHANICAL = ("표현이 아니라", "뜻이 비었", "모델 자기확신")
+
+
+def needs_human(reasons: list[str]) -> bool:
+    """사람이 볼 가치가 있는 보류인가. 뜻은 멀쩡한데 근거가 모자란 애매한 경우만 사람에게 보낸다."""
+    return not any(m in r for r in reasons for m in MECHANICAL)
+
+
 def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     """1) Search grounding 조사(3.8 → 3.5). 2) 둘 다 할당량이면 우리가 모은 근거만으로 구조화(오프라인). 판정은 어느 길이든 게이트가 한다."""
+    cur = ds.current_meaning(con, term.term_id)
+    if cur and cur.verification == "verified_human":
+        # 사람이 승인한 뜻은 자동 조사가 덮지 않는다. 게이트를 못 넘으면 사람 결정이 닫히고 강등되던 문제
+        # (2026-09-28 검토: 6-7 등 4건). 바꾸려면 사람이 검수 화면에서 다시 결정한다.
+        return "verified_human", []
     method = GEMINI_MODEL
     urls: list[str] = []
     draft: MeaningDraft | None = None
     notes = ""
-    for model in ((GEMINI_MODEL, GEMINI_FALLBACK_MODEL) if budget_left(con) >= 2 else ()):  # 예산 0 이면 grounding 시도 생략
+    # 무료 등급 할당량은 모델마다 따로다(하루 약 20회). 영상 해석(interpret)이 3.8 을 먼저 쓰므로 조사는 3.5 부터 —
+    # 같은 모델을 두 단계가 서로 뺏으면 아침 첫 실행에서 둘 다 바닥난다(2026-09-28 실측: 11일간 조사 289건 전부 오프라인).
+    for model in ((GEMINI_FALLBACK_MODEL, GEMINI_MODEL) if budget_left(con) >= 2 else ()):  # 예산 0 이면 grounding 시도 생략
         try:
             ds.gemini_spend(con, 2)  # research_term 은 호출 2회
             draft, urls, notes = research_term(term.canonical, model=model)
@@ -316,12 +337,28 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         except errors.APIError as e:
             if e.code not in (429, 503):
                 raise
+            if e.code == 429 and "RESOURCE_EXHAUSTED" in str(e) and model == GEMINI_MODEL:
+                # 구글이 '오늘 할당량 끝' 이라고 했다. 남은 조사가 매번 실패하며 예산을 깎고 기다리지 않게 오늘 몫을 닫는다.
+                ds.gemini_spend(con, max(0, budget_left(con)))
     first_party = first_party_evidence(con, term.canonical, term.aliases)
     try:
         from ..collectors import community, wiktionary
 
         first_party += wiktionary.lookup(term.canonical, term.lang)  # 사전이 이미 아는 표현이면 뜻풀이가 앵커가 된다
         first_party += _wikipedia_evidence(term.canonical, term.lang)
+        # 한국어 유행어는 나무위키가 사실상 표준 문서다(2026-09-28 실측 13/14). 짧은 발췌·링크·수정 시각만 쓴다.
+        if term.lang == "ko" or any(re.search(r"[가-힣]", a) for a in term.aliases):
+            from ..collectors import namuwiki
+
+            for name in [term.canonical, *[a for a in term.aliases if re.search(r"[가-힣]", a)]][:2]:
+                got = namuwiki.lookup(name)
+                if got:
+                    first_party += got
+                    break
+        # 뉴스에서 실제로 쓰인 문장(GDELT Context, 최근 72시간). 이미 아는 말이 언론까지 번졌는지 보여 준다.
+        from ..collectors import gdelt_context
+
+        first_party += gdelt_context.sentences(term.canonical)
 
         region = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN"}.get(term.lang, "US")
         first_party += community.gather(term.canonical, region)[0]
@@ -365,14 +402,19 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     else:
         term.status = "needs_review"
         ds.queue_review(con, term.term_id, draft, reasons, len(evidences))
-    if draft.regions or draft.generations:
+        if not needs_human(reasons):
+            # 게이트가 '표현이 아니다' 로 보았거나 뜻이 비었다 — 사람이 봐도 할 일이 없다. 사람 큐에서만 빼고
+            # 표제어는 그대로 둔다(재조사 주기가 오면 다시 본다). 큐가 이런 것으로 500건 넘게 막혀 있었다(2026-09-28).
+            ds.decide_review(con, term.term_id, "auto_rejected", "gate")
+    if (draft.regions or draft.generations) and not ds.get_usage(con, term.term_id):
         rows = []
         share = 1.0 / max(1, len(draft.generations) * max(1, len(draft.regions or ["KR"])))
         for g in draft.generations:
             for r in draft.regions or ["KR"]:
                 rows.append((g, r, (term.first_seen or datetime.now(timezone.utc)).isoformat(), round(share, 3)))
         ds.set_usage(con, term.term_id, rows)
-    term.last_seen = datetime.now(timezone.utc)
+    # last_seen 은 '밖에서 마지막으로 본 때' 다. 조사한 시각으로 덮으면 '최근 본 순' 목록이 '최근 조사한 순' 이 된다
+    # (2026-09-28: 재조사한 오래된 밈 여섯 개가 '10대 유행어' 목록 맨 앞을 채웠다).
     ds.upsert_term(con, term)
     ds.log_research(con, term.term_id, method, notes, urls, verification, reasons)
     return verification, reasons
@@ -395,6 +437,10 @@ def run(con: Connection, max_new: int = 4, max_recheck: int = 4) -> dict:
             except Exception as e:  # 한 용어의 조사 실패(모델 형식·네트워크)가 나머지를 막지 않는다. researching 상태로 남아 다음 실행에 먼저 잡힌다
                 r.note += f"{t.canonical}:{type(e).__name__} "
                 r.detail[t.canonical] = f"error {type(e).__name__}"
+                # researching 으로 두면 다음 실행에도 맨 앞에 잡혀 칸을 날린다(Frutiger Aero 18회 연속). 검수 대기로 뺀다.
+                if t.status == "researching":
+                    t.status = "needs_review"
+                    ds.upsert_term(con, t)
                 continue
             verified += v == "verified_auto"
             r.detail[t.canonical] = f"{v} {reasons[:2]}"

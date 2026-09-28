@@ -102,7 +102,7 @@ def flags(con, t, m, wiki_desc: dict[str, str]) -> list[str]:
     if desc and _NOT_EXPR.search(desc) and _is_proper_name(t.canonical, desc):
         out.append(f"비표현({desc[:30]})")
     # 표제어 자체가 '인터넷 밈·속어' 라는 갈래 이름이면 사전 항목이 아니라 목차다
-    if re.fullmatch(r"(인터넷\s*)?(밈|유행어|슬랭|속어)|internet (meme|slang)|インターネット(・?ミーム|スラング)|ネットスラング",
+    if re.fullmatch(r"(인터넷\s*)?(밈|유행어|슬랭|속어)|(internet\s+)?(memes?|slang)|インターネット(・?ミーム|スラング)|ネットスラング",
                     t.canonical.strip(), re.I):
         out.append("갈래이름")
     return out

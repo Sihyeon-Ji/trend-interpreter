@@ -14,6 +14,7 @@ MIN_MEME_CONFIDENCE = 0.6
 
 def run(con: Connection) -> dict:
     with stage(con, "candidates") as r:
+        expired = ds.expire_candidates(con)   # 한 번만 보고 7일 묵은 spot 후보 — 대기열이 끝없이 자라지 않게
         n = 0
         for term, region, lang, kind in con.execute("SELECT term, region, lang, kind FROM trend_class WHERE is_term_candidate=1").fetchall():
             if kind not in TREND_DICT_KINDS or ds.find_term(con, term):
@@ -34,4 +35,5 @@ def run(con: Connection) -> dict:
                     n += 1
         r.count = n
         r.detail["new_candidates"] = len(ds.candidates(con, "new", 1000))
+        r.detail["expired"] = expired
     return {"candidates": r}

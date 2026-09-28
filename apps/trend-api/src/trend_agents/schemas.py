@@ -80,7 +80,7 @@ class TrendQuery(BaseModel):
     term: str
     region: str  # ISO 3166-1 alpha-2
     rank: int
-    source: Literal["bq_top", "bq_rising", "rss_now"]
+    source: Literal["bq_top", "bq_rising", "rss_now", "namu_rank"]
     date: date
     score: int | None = None  # bq_top: 0~100 (해당 용어의 5년 시계열 안에서 상대값)
     percent_gain: int | None = None  # bq_rising 만
@@ -173,7 +173,7 @@ class WikiTop(BaseModel):
     views: int
 
 
-CandidateSource = Literal["trend", "shorts", "news", "manual", "spot", "wiki", "hunt"]
+CandidateSource = Literal["trend", "shorts", "news", "manual", "spot", "wiki", "hunt", "namu"]
 
 
 class Candidate(BaseModel):
@@ -187,7 +187,7 @@ class Candidate(BaseModel):
     count: int = 1
     first_seen: datetime
     last_seen: datetime
-    status: Literal["new", "researching", "promoted", "rejected"] = "new"
+    status: Literal["new", "researching", "promoted", "rejected", "expired"] = "new"  # expired: 한 번만 보고 묵은 후보(재등장하면 new 로)
     note: str = ""
 
 

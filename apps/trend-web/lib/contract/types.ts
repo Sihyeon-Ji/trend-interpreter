@@ -85,7 +85,7 @@ export type Nuance2 = string;
  */
 export type Plain = string | null;
 export type EvidenceId = string;
-export type Kind = "short" | "news" | "datalab" | "web" | "community" | "human";
+export type Kind = "short" | "news" | "datalab" | "web" | "community" | "human" | "wiki";
 export type Url = string;
 export type Title = string;
 export type SourceDomain = string;

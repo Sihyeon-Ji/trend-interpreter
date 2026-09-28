@@ -138,6 +138,8 @@ def upsert_candidate(con: Connection, text: str, lang: str, region: str | None, 
         c = Candidate.model_validate_json(row[0])
         c.count += 1
         c.last_seen = t
+        if c.status == "expired":
+            c.status = "new"          # 만료된 말이 다시 나왔다 — 다시 기다린다
         if region and region not in c.regions:
             c.regions.append(region)
         if source not in c.sources:
@@ -664,3 +666,20 @@ def get_media(con: Connection, term_id: str, limit: int = 4) -> list[dict]:
 
 def has_media(con: Connection, term_id: str) -> bool:
     return con.execute("SELECT 1 FROM term_media WHERE term_id=? LIMIT 1", (term_id,)).fetchone() is not None
+
+
+def expire_candidates(con: Connection, days: int = 7, sources: tuple[str, ...] = ("spot",)) -> int:
+    """한 번만 보이고 오래 묵은 후보를 만료시킨다. 두 번째 등장을 영원히 기다리면 대기열이 끝없이 자란다
+    (2026-09-28 실측: 11일 동안 167 → 426, 그중 spot 출신 한 번짜리가 353)."""
+    cutoff = (now() - timedelta(days=days)).isoformat()
+    n = 0
+    for cid, j in con.execute("SELECT candidate_id, json FROM candidates WHERE status='new'").fetchall():
+        c = Candidate.model_validate_json(j)
+        if c.count <= 1 and c.last_seen.isoformat() < cutoff and set(c.sources) <= set(sources):
+            set_candidate_status(con, cid, "expired")
+            n += 1
+    return n
+
+
+def has_candidate(con: Connection, text: str, lang: str) -> bool:
+    return con.execute("SELECT 1 FROM candidates WHERE norm=? AND lang=?", (norm(text), lang)).fetchone() is not None

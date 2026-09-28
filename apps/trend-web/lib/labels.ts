@@ -30,7 +30,7 @@ const ko: Labels = {
   verification: { verified_human: "확인됨", verified_auto: "확인됨", unverified: "확인 중", rejected: "제외" },
   termStatus: { candidate: "후보", researching: "조사 중", needs_review: "확인 중", verified: "확인됨", retired: "폐기" },
   category: { slang: "유행어", meme: "밈", song: "노래", drama: "드라마", dance: "댄스", news: "뉴스", geopolitics: "시사", product: "제품", other: "기타" },
-  evidenceKind: { short: "영상", news: "기사", datalab: "검색 통계", web: "웹", community: "커뮤니티", human: "검수자" },
+  evidenceKind: { short: "영상", news: "기사", datalab: "검색 통계", web: "웹", community: "커뮤니티", human: "검수자", wiki: "위키" },
 };
 
 const en: Labels = {
@@ -47,7 +47,7 @@ const en: Labels = {
   verification: { verified_human: "reviewed", verified_auto: "reviewed", unverified: "under review", rejected: "excluded" },
   termStatus: { candidate: "candidate", researching: "researching", needs_review: "under review", verified: "reviewed", retired: "retired" },
   category: { slang: "slang", meme: "meme", song: "song", drama: "drama", dance: "dance", news: "news", geopolitics: "current affairs", product: "product", other: "other" },
-  evidenceKind: { short: "video", news: "article", datalab: "search stats", web: "web", community: "community", human: "reviewer" },
+  evidenceKind: { short: "video", news: "article", datalab: "search stats", web: "web", community: "community", human: "reviewer", wiki: "wiki" },
 };
 
 const LABELS: Record<Locale, Labels> = { ko, en };
