@@ -14,6 +14,7 @@ from trend_agents.schemas import (
     MeaningDraft,
     MeaningText,
     NewsItem,
+    ProductBrief,
     Segment,
     ShortsInterpretation,
     ShortsVideo,
@@ -34,6 +35,7 @@ class Contract(BaseModel):
     shorts_interpretation: ShortsInterpretation
     generation_read: GenerationRead
     news_item: NewsItem
+    product_brief: ProductBrief   # 추천(Plan 07) 결과의 제품 설명 — 화면이 느낌·분야 낱말을 그대로 쓴다
 
 
 out = ROOT.parent / "trend-web" / "lib" / "contract" / "schema.json"

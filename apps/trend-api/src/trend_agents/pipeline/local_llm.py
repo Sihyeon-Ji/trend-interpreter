@@ -35,10 +35,11 @@ def _adapter(schema: Any):
     return TypeAdapter(schema), False
 
 
-def structured(prompt: str, schema: Any, temperature: float = 0.1) -> Any:
+def structured(prompt: str, schema: Any, temperature: float = 0.1, image: tuple[bytes, str] | None = None) -> Any:
     adapter, wrapped = _adapter(schema)
     t0 = time.time()
-    parsed = local_chat.structured(prompt + ("\n\nReturn JSON with a single key \"items\" holding the list." if wrapped else ""), adapter, temperature)
+    parsed = local_chat.structured(prompt + ("\n\nReturn JSON with a single key \"items\" holding the list." if wrapped else ""), adapter, temperature,
+                                   image=image)
     _stats["calls"] += 1
     _stats["seconds"] += time.time() - t0
     return parsed.items if wrapped else parsed  # type: ignore[attr-defined]

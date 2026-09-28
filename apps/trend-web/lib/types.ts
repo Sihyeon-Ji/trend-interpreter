@@ -1,5 +1,5 @@
 /* 계약 타입은 lib/contract/types.ts (자동 생성) 에서 온다. 여기는 프론트 전용 뷰 모델만. */
-import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, RiskLevel, Segment, Term } from "./contract/types";
+import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, ProductBrief, RiskLevel, Segment, Term } from "./contract/types";
 import type { EvidenceBrief } from "./trends/types";
 
 export type {
@@ -14,6 +14,7 @@ export type {
   Generation,
   Lifecycle,
   Verification,
+  ProductBrief,
 } from "./contract/types";
 
 export type TermStatus = NonNullable<Term["status"]>;
@@ -114,3 +115,37 @@ export interface KeywordBoard {
   fading: KeywordCard[];
   caution: KeywordCard[];
 }
+
+/* 밈 추천 (Plan 07) — 백엔드 pipeline/views.py 의 RecommendItem·RecommendResult 와 1:1. 순위는 pipeline/recommend.py 규칙이 매긴다. */
+export type FitCategory = ProductBrief["category"];
+export type Feeling = ProductBrief["feelings"][number];
+export type CampaignTone = "friendly" | "witty" | "premium";
+
+export interface RecommendItem {
+  term_id: string;
+  canonical: string;
+  gloss_ko: string;
+  gloss_en: string;
+  regions: string[];
+  diffusion?: Diffusion;
+  lifecycle: Lifecycle;
+  risk_level?: RiskLevel;
+  risk_reasons: string[];
+  matched_category: boolean;      // 제품 분야가 이 밈이 어울리는 분야에 있다
+  any_category: boolean;          // 분야를 가리지 않는 반응·감탄 표현
+  matched_feelings: Feeling[];
+  reason?: string | null;         // 모델이 쓴 이유 (사전 뜻과 겹칠 때만). 없으면 화면이 겹친 낱말로 문장을 만든다
+  score: number;
+  evidences: EvidenceBrief[];
+}
+
+export interface RecommendResult {
+  brief: ProductBrief;
+  brief_source: "gemini" | "local" | "sample";
+  regions: string[];
+  tone: CampaignTone;
+  items: RecommendItem[];
+  considered: number;
+  untagged: number;
+}
+

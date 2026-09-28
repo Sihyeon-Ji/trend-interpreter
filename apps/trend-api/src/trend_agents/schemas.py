@@ -123,6 +123,87 @@ class EvidenceLabel(BaseModel):
         return v
 
 
+# 밈 추천(Plan 07)의 닫힌 낱말. 용어 쪽은 배치(fit 단계)가, 제품 쪽은 요청 때 붙이고, 겹침 점수는 규칙(pipeline/recommend.py)이 매긴다.
+# 자유 낱말끼리 겹침을 세면 '여름' 이 'Brat Summer' 에 걸리는 우연만 남았다(2026-09-29 실측: 라떼 설명에 사전 135개 중 3개, 전부 우연).
+Feeling = Literal["joy", "hype", "cute", "funny", "relatable", "comfort", "pride", "surprise", "sarcasm", "frustration", "tired", "romance",
+                  "nostalgia", "cool"]
+MemeUse = Literal["reaction", "praise", "self_mockery", "celebration", "complaint", "recommendation", "greeting", "challenge", "catchphrase", "format"]
+FitCategory = Literal["food_drink", "fashion_beauty", "tech", "game", "entertainment", "travel", "finance", "health_fitness", "education", "lifestyle"]
+Voice = Literal["wholesome", "playful", "edgy", "crude"]
+CampaignTone = Literal["friendly", "witty", "premium"]   # 홍보 톤: 친근함·재치·고급스러움
+
+
+def _known(values, allowed: tuple, limit: int):
+    """모델이 목록 밖 낱말을 섞어도 그 값만 버린다(형식 실패로 전체를 잃지 않게)."""
+    if not isinstance(values, list):
+        return values
+    return list(dict.fromkeys(v for v in (str(x).strip().lower() for x in values) if v in allowed))[:limit]
+
+
+class MemeFit(BaseModel):
+    """표제어 하나가 광고 문구에서 어떤 느낌·쓰임으로 들어가나. 로컬 Gemma 가 사전 뜻을 보고 닫힌 낱말로만 붙인다."""
+
+    feelings: list[Feeling] = Field(description="이 표현이 전하는 느낌 1~3개")
+    uses: list[MemeUse] = Field(description="주로 쓰이는 방식 1~2개")
+    fits: list[FitCategory] = Field(default_factory=list, description="자연스럽게 어울리는 제품 분야 0~3개")
+    any_category: bool = Field(default=False, description="분야를 가리지 않고 쓰는 반응·감탄 표현이면 true")
+    voice: Voice = Field(description="말투의 결")
+
+    @field_validator("feelings", "uses", "fits", mode="before")
+    @classmethod
+    def _closed(cls, v, info):
+        allowed = {"feelings": Feeling, "uses": MemeUse, "fits": FitCategory}[info.field_name]
+        return _known(v, get_args(allowed), 3)
+
+    @field_validator("voice", mode="before")
+    @classmethod
+    def _voice(cls, v):
+        v = str(v or "").strip().lower()
+        return v if v in get_args(Voice) else "playful"
+
+
+class FitLabel(MemeFit):
+    """배치로 여러 표제어를 한 번에 붙일 때의 한 줄 — i 는 입력 번호."""
+
+    i: int
+
+
+class MemeReason(BaseModel):
+    """추천한 밈 하나가 이 제품에 어울리는 이유 (모델 서술). 사전 뜻과 겹치지 않으면 코드가 버린다."""
+
+    i: int
+    reason: str = ""
+
+
+class ProductBrief(BaseModel):
+    """사진이나 홍보 문구를 읽은 제품 설명. 요청 때 한 번 만든다(Gemini, 개발 환경은 로컬 Gemma 또는 고정 예시).
+    추천 점수에는 category·feelings 만 쓰고(닫힌 낱말), 나머지는 이유 서술과 화면 표시에 쓴다."""
+
+    product: str = Field(description="제품이 무엇인지 한 줄")
+    category: FitCategory = Field(description="제품 분야")
+    feelings: list[Feeling] = Field(description="이 제품 홍보가 전하고 싶은 느낌 1~3개")
+    values: list[str] = Field(default_factory=list, description="핵심 가치 1~3개 (예: 시원함, 한정판)")
+    scene: str = Field(default="", description="어떤 장면·상황에서 쓰이나")
+    colors: list[str] = Field(default_factory=list)
+    avoid: list[str] = Field(default_factory=list, description="이 홍보에서 피해야 할 표현·주제")
+
+    @field_validator("feelings", mode="before")
+    @classmethod
+    def _closed(cls, v):
+        return _known(v, get_args(Feeling), 3)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _category(cls, v):
+        v = str(v or "").strip().lower()
+        return v if v in get_args(FitCategory) else "lifestyle"
+
+    @field_validator("values", "colors", "avoid", mode="before")
+    @classmethod
+    def _short_list(cls, v):
+        return [str(x).strip()[:40] for x in v if str(x).strip()][:5] if isinstance(v, list) else v
+
+
 class Term(BaseModel):
     term_id: str
     canonical: str

@@ -1,7 +1,7 @@
 /* 데이터 값 → 사용자 언어 라벨. 내부 용어(에이전트·게이트·모델)는 화면에 내지 않는다. */
 import type { TrendCategory } from "./trends/types";
 import type { Locale } from "./i18n";
-import type { Category, EvidenceKind, Generation, Lifecycle, TermStatus, Verification } from "./types";
+import type { CampaignTone, Category, EvidenceKind, Feeling, FitCategory, Generation, Lifecycle, TermStatus, Verification } from "./types";
 
 interface Labels {
   generation: Record<Generation, string>;
@@ -14,6 +14,9 @@ interface Labels {
   termStatus: Record<TermStatus, string>;
   category: Record<Category, string>;
   evidenceKind: Record<EvidenceKind, string>;
+  feeling: Record<Feeling, string>;
+  fitCategory: Record<FitCategory, string>;
+  campaignTone: Record<CampaignTone, string>;
 }
 
 const ko: Labels = {
@@ -31,6 +34,11 @@ const ko: Labels = {
   termStatus: { candidate: "후보", researching: "조사 중", needs_review: "확인 중", verified: "확인됨", retired: "폐기" },
   category: { slang: "유행어", meme: "밈", song: "노래", drama: "드라마", dance: "댄스", news: "뉴스", geopolitics: "시사", product: "제품", other: "기타" },
   evidenceKind: { short: "영상", news: "기사", datalab: "검색 통계", web: "웹", community: "커뮤니티", human: "검수자", wiki: "위키" },
+  feeling: { joy: "기쁨", hype: "들뜸", cute: "귀여움", funny: "웃김", relatable: "공감", comfort: "위로", pride: "자부심", surprise: "놀람", sarcasm: "비꼼",
+             frustration: "답답함", tired: "지침", romance: "설렘", nostalgia: "추억", cool: "멋짐" },
+  fitCategory: { food_drink: "음식·음료", fashion_beauty: "패션·뷰티", tech: "전자기기·앱", game: "게임", entertainment: "공연·영상·음악", travel: "여행",
+                 finance: "금융", health_fitness: "건강·운동", education: "교육", lifestyle: "생활용품" },
+  campaignTone: { friendly: "친근함", witty: "재치", premium: "고급스러움" },
 };
 
 const en: Labels = {
@@ -48,6 +56,11 @@ const en: Labels = {
   termStatus: { candidate: "candidate", researching: "researching", needs_review: "under review", verified: "reviewed", retired: "retired" },
   category: { slang: "slang", meme: "meme", song: "song", drama: "drama", dance: "dance", news: "news", geopolitics: "current affairs", product: "product", other: "other" },
   evidenceKind: { short: "video", news: "article", datalab: "search stats", web: "web", community: "community", human: "reviewer", wiki: "wiki" },
+  feeling: { joy: "joy", hype: "hype", cute: "cute", funny: "funny", relatable: "relatable", comfort: "comfort", pride: "pride", surprise: "surprise",
+             sarcasm: "sarcasm", frustration: "frustration", tired: "tiredness", romance: "romance", nostalgia: "nostalgia", cool: "cool" },
+  fitCategory: { food_drink: "food & drink", fashion_beauty: "fashion & beauty", tech: "tech & apps", game: "games", entertainment: "shows & music",
+                 travel: "travel", finance: "finance", health_fitness: "health & fitness", education: "education", lifestyle: "home & lifestyle" },
+  campaignTone: { friendly: "Friendly", witty: "Witty", premium: "Premium" },
 };
 
 const LABELS: Record<Locale, Labels> = { ko, en };

@@ -9,7 +9,7 @@ import json
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, Term, TrendQuery, WikiTop
+from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, MemeFit, Term, TrendQuery, WikiTop
 from . import db
 from .db import Connection
 
@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS explain_cache (key TEXT PRIMARY KEY, lang TEXT, text 
 CREATE TABLE IF NOT EXISTS evidence_labels (evidence_id TEXT, term_id TEXT, polarity TEXT, risk TEXT, model TEXT, labeled_at TEXT,
   PRIMARY KEY(evidence_id, term_id));
 CREATE TABLE IF NOT EXISTS reader_prefs (reader TEXT PRIMARY KEY, json TEXT, updated_at TEXT);
+-- 표제어의 광고 쓰임 낱말(Plan 07, fit 단계, 마이그레이션 004). meaning_id 가 현재 뜻과 다르면 다시 붙인다.
+CREATE TABLE IF NOT EXISTS term_fit (term_id TEXT PRIMARY KEY, meaning_id TEXT, json TEXT, model TEXT, labeled_at TEXT);
 CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count BIGINT, first_at TEXT, last_at TEXT);
 -- 표제어의 대표 그림·영상. 파일을 받아 오지 않고 주소만 둔다(저작권). license 가 빈 것은 화면에 내지 않는다.
 CREATE TABLE IF NOT EXISTS term_media (
@@ -754,3 +756,16 @@ def set_evidence_labels(con: Connection, term_id: str, rows: list[tuple[str, str
 def evidence_labels(con: Connection, term_id: str) -> dict[str, tuple[str, str]]:
     return {e: (p, r) for e, p, r in con.execute(
         "SELECT evidence_id, polarity, risk FROM evidence_labels WHERE term_id=?", (term_id,)).fetchall()}
+
+
+# ---------- 광고 쓰임 낱말 (Plan 07) ----------
+
+def set_fit(con: Connection, term_id: str, meaning_id: str, fit: MemeFit, model: str) -> None:
+    con.execute("INSERT OR REPLACE INTO term_fit VALUES (?,?,?,?,?)", (term_id, meaning_id, fit.model_dump_json(), model, now_s()))
+    con.commit()
+
+
+def all_fits(con: Connection) -> dict[str, tuple[str, MemeFit]]:
+    """{term_id: (붙일 때의 meaning_id, MemeFit)}"""
+    return {tid: (mid, MemeFit.model_validate_json(j)) for tid, mid, j in con.execute("SELECT term_id, meaning_id, json FROM term_fit").fetchall()}
+

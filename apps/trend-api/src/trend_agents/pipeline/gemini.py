@@ -22,6 +22,11 @@ def budget_left(con: Connection) -> int:
     return ds.gemini_budget_left(con, GEMINI_DAILY_BUDGET)
 
 
+def configured() -> bool:
+    """Gemini(Vertex)를 부를 수 있게 설정돼 있나. 기본 개발 환경(MODEL_REQUESTS_ENABLED=false)은 아니다."""
+    return model_client.requests_enabled()
+
+
 def local_ok() -> bool:
     """텍스트 작업을 로컬 Gemma 로 보낼 수 있는가 (USE_LOCAL_GEMMA=1 + Ollama 에 모델 있음)."""
     if not USE_LOCAL_GEMMA:
@@ -58,11 +63,14 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
     raise last
 
 
-def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0.1, model: str | None = None) -> tuple[Any, str]:
+def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0.1, model: str | None = None,
+               image: tuple[bytes, str] | None = None) -> tuple[Any, str]:
+    """image 는 (바이트, MIME) 한 장. 로컬 Gemma 가 켜져 있으면 그쪽이 그림까지 읽고, 아니면 Gemini 가 읽는다."""
     if local_ok():
         from . import local_llm
         from ..config import GEMMA_LOCAL_MODEL
 
-        return local_llm.structured(prompt, schema, temperature), f"local:{GEMMA_LOCAL_MODEL}"
-    resp, used = generate(con, prompt, types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=temperature), model=model)
+        return local_llm.structured(prompt, schema, temperature, image=image), f"local:{GEMMA_LOCAL_MODEL}"
+    contents: Any = [types.Part.from_bytes(data=image[0], mime_type=image[1]), prompt] if image else prompt
+    resp, used = generate(con, contents, types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=temperature), model=model)
     return resp.parsed, used

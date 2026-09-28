@@ -5,17 +5,19 @@ import json
 from contextvars import ContextVar
 from queue import Queue
 import threading
+import time
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.formparsers import MultiPartParser
 from pydantic import BaseModel
 
 from ..config import WEB_ORIGINS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import explain as explain_stage
-from ..pipeline import dashboard, risk, views
+from ..pipeline import dashboard, recommend as recommend_stage, risk, views
 from ..schemas import RiskLevel, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
@@ -340,6 +342,50 @@ def graph_query(key: str):
 def term_graph(term_id: str):
     """이 용어로 판정된 급증 검색어들 (IS_TERM)."""
     return views.term_graph(_con, term_id)
+
+
+_recommend_limit = recommend_stage.RateLimit()
+# 사진은 메모리에서만(ADR 0002 §4). Starlette 는 1MB 넘는 업로드를 임시 파일(디스크)로 넘기므로 한도까지는 메모리에 두게 올리고,
+# 그보다 큰 요청은 폼을 읽기 전에 Content-Length 로 막는다.
+MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
+
+
+@app.middleware("http")
+async def _upload_cap(request, call_next):
+    if request.url.path == "/recommend" and int(request.headers.get("content-length") or 0) > recommend_stage.MAX_IMAGE + 64 * 1024:
+        return JSONResponse({"detail": "사진은 5MB까지입니다"}, status_code=413)
+    return await call_next(request)
+
+
+@app.post("/recommend", response_model=views.RecommendResult)
+def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("friendly"), lang: str = Form("ko"),
+              image: UploadFile | None = File(None)):
+    """사진 한 장이나 홍보 문구(또는 둘 다)로 밈 추천 (Plan 07). 사진은 메모리에서만 읽고 저장·기록하지 않는다.
+    모델 호출이 막히는 작업이라 동기 함수로 둔다(작업 스레드에서 돈다)."""
+    if tone not in recommend_stage.TONES:
+        raise HTTPException(400, "tone 은 friendly·witty·premium 가운데 하나입니다")
+    text = text.strip()
+    if len(text) > 500:
+        raise HTTPException(400, "홍보 문구는 500자까지입니다")
+    picture: tuple[bytes, str] | None = None
+    if image is not None:
+        data = image.file.read(recommend_stage.MAX_IMAGE + 1)
+        if len(data) > recommend_stage.MAX_IMAGE:
+            raise HTTPException(413, "사진은 5MB까지입니다")
+        mime = recommend_stage.sniff_image(data)
+        if data and not mime:
+            raise HTTPException(415, "JPEG·PNG·WebP 사진만 받습니다")
+        picture = (data, mime) if data else None
+    if not text and not picture:
+        raise HTTPException(400, "사진이나 홍보 문구 가운데 하나는 넣어 주세요")
+    if not _recommend_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    try:
+        brief, source = recommend_stage.understand(_con, text, picture)
+    except recommend_stage.Unavailable as e:
+        raise HTTPException(503, str(e)) from None
+    wanted = [r.strip().upper() for r in regions.split(",") if r.strip()]
+    return recommend_stage.recommend(_con, brief, source, wanted, tone, "en" if lang == "en" else "ko")
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)

@@ -1,0 +1,75 @@
+"""광고 쓰임 낱말 붙이기 (Plan 07 추천의 배치 준비).
+
+추천은 요청 때 모델을 부르지 않고 점수를 매겨야 한다(ADR 0002 §3). 그러려면 표제어와 제품을 같은 낱말로 비교할 수 있어야 해서,
+확인된 표제어마다 '어떤 느낌을 전하는가·어떻게 쓰이나·어느 분야에 어울리나·말투의 결' 을 닫힌 낱말(schemas.MemeFit)로 미리 붙인다.
+로컬 Gemma 가 사전 뜻만 보고 붙이고, 뜻이 바뀌면(새 meaning_id) 다시 붙인다. 로컬 모델이 없으면 건너뛰고 붙인 것은 그대로 둔다.
+"""
+from __future__ import annotations
+
+
+from ..schemas import FitLabel, MemeFit
+from ..storage import dictionary_store as ds
+from ..storage.db import Connection
+from .gemini import local_ok, structured
+from .runs import stage
+
+MAX_TERMS = 40      # 한 실행에 붙일 표제어 수 (8개씩 5번 호출)
+BATCH = 8
+
+PROMPT = """아래는 우리 사전에서 확인된 인터넷 표현과 그 뜻이다. 마케터가 광고 문구에 넣는다고 생각하고, 표현마다 아래 낱말로만 붙여라.
+feelings (이 표현이 전하는 느낌, 1~3개): joy 기쁨 · hype 들뜸·열광 · cute 귀여움 · funny 웃김 · relatable 공감 · comfort 위로 · pride 자부심 · surprise 놀람 ·
+  sarcasm 비꼼 · frustration 답답함 · tired 지침 · romance 설렘 · nostalgia 추억 · cool 멋짐
+uses (주로 쓰이는 방식, 1~2개): reaction 반응 · praise 칭찬 · self_mockery 자조 · celebration 축하 · complaint 불평 · recommendation 추천 · greeting 인사 ·
+  challenge 챌린지 · catchphrase 유행 문구 · format 밈 형식·짤
+fits (자연스럽게 어울리는 제품 분야, 0~3개): food_drink 음식·음료 · fashion_beauty 패션·뷰티 · tech 전자기기·앱 · game 게임 · entertainment 공연·영상·음악 ·
+  travel 여행 · finance 금융 · health_fitness 건강·운동 · education 교육 · lifestyle 생활용품
+any_category: 분야를 가리지 않고 쓰는 반응·감탄 표현이면 true
+voice (말투의 결): wholesome 누구에게나 무난 · playful 장난스러움 · edgy 비꼬거나 아슬아슬함 · crude 저속·선정
+뜻에 없는 것을 지어내지 말고, 모르면 fits 를 비워라. 입력 번호를 i 로 그대로 돌려줘라.
+
+표현:
+{items}"""
+
+
+def todo(con: Connection) -> list[tuple]:
+    """(표제어, 현재 뜻) — 아직 안 붙였거나 뜻이 바뀐 것만. 최근 언급이 많은 것부터(대시보드 윗줄이 먼저 준비되게)."""
+    fits = ds.all_fits(con)
+    out = []
+    for t in ds.list_terms(con, ("verified",)):
+        m = ds.current_meaning(con, t.term_id)
+        if m and (t.term_id not in fits or fits[t.term_id][0] != m.meaning_id):
+            out.append((t, m, sum(c for _, c in ds.get_weekly(con, t.term_id, 4))))
+    out.sort(key=lambda x: -x[2])
+    return [(t, m) for t, m, _ in out]
+
+
+def label(con: Connection, batch: list[tuple]) -> int:
+    lines = []
+    for i, (t, m) in enumerate(batch):
+        ko = ds.get_translation(con, t.term_id, "ko")
+        text = (ko.definition if ko else m.definition)[:160]
+        nuance = (ko.nuance if ko else m.nuance)[:100]
+        lines.append(f"{i}. {t.canonical} — {text} (뉘앙스: {nuance})")
+    parsed, model = structured(con, PROMPT.format(items="\n".join(lines)), list[FitLabel])
+    n = 0
+    for p in parsed or []:
+        if 0 <= p.i < len(batch):
+            t, m = batch[p.i]
+            ds.set_fit(con, t.term_id, m.meaning_id, MemeFit.model_validate(p.model_dump(exclude={"i"})), model)
+            n += 1
+    return n
+
+
+def run(con: Connection) -> dict:
+    with stage(con, "fit") as r:
+        if not local_ok():
+            r.status, r.note = "skipped", "로컬 모델 없음 — 붙인 것은 그대로 둔다"
+        else:
+            pending = todo(con)[:MAX_TERMS]
+            for k in range(0, len(pending), BATCH):
+                try:
+                    r.count += label(con, pending[k:k + BATCH])
+                except Exception as e:           # 한 묶음의 형식 실패가 나머지를 막지 않는다
+                    r.note += f"batch{k // BATCH}:{type(e).__name__} "
+            r.detail = {"남은 표제어": max(0, len(todo(con)))}
+    return {"fit": r}

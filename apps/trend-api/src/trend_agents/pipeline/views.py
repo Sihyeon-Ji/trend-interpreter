@@ -7,7 +7,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ..lifecycle import recheck_interval_days
-from ..schemas import Diffusion, Evidence, EvidenceBrief, Lifecycle, Meaning, MeaningText, RiskLevel, Segment, Term
+from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
+                       Segment, Term)
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 
@@ -72,7 +73,7 @@ class ReviewItem(BaseModel):
 STAGE_LABELS = {
     "collect.youtube": "영상 수집", "collect.news": "뉴스 수집", "collect.trends_rss": "검색 트렌드(지금)", "collect.trends_bq": "검색 트렌드(일별)",
     "collect.wikipedia": "위키 조회 상위", "collect.mentions": "용어 언급 추적", "collect.retention": "30일 보존 정리", "classify": "검색어 분류", "spikes": "급증 원인 조사", "candidates": "후보 추출", "spot": "새 표현 발굴", "namu": "나무위키 발굴·재조사", "hunt": "못 답한 질문 조사",
-    "interpret": "쇼츠 해석", "research": "조사·확인", "track": "추세 갱신", "risk": "쓸 때 주의 판정", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성", "dashboard": "키워드 대시보드",
+    "interpret": "쇼츠 해석", "research": "조사·확인", "track": "추세 갱신", "risk": "쓸 때 주의 판정", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성", "dashboard": "키워드 대시보드", "fit": "추천용 쓰임 낱말",
 }
 
 
@@ -275,4 +276,34 @@ class KeywordBoard(BaseModel):
     rising: list[KeywordCard]          # 지금 뜨는 밈
     fading: list[KeywordCard]          # 식어 가는 밈
     caution: list[KeywordCard]         # 주의가 필요한 밈
+
+
+# ---------- 밈 추천 (Plan 07) — 값은 pipeline/recommend.py 규칙이 채운다 ----------
+
+class RecommendItem(BaseModel):
+    term_id: str
+    canonical: str
+    gloss_ko: str
+    gloss_en: str
+    regions: list[str]
+    diffusion: Diffusion | None = None
+    lifecycle: Lifecycle
+    risk_level: RiskLevel | None = None
+    risk_reasons: list[str] = []
+    matched_category: bool             # 제품 분야가 이 밈이 어울리는 분야에 있다
+    any_category: bool                 # 분야를 가리지 않는 반응·감탄 표현
+    matched_feelings: list[Feeling]
+    reason: str | None = None          # 모델이 쓴 이유(사전 뜻과 겹칠 때만). 없으면 화면이 겹친 낱말로 문장을 만든다
+    score: float
+    evidences: list[EvidenceBrief] = []
+
+
+class RecommendResult(BaseModel):
+    brief: ProductBrief
+    brief_source: Literal["gemini", "local", "sample"]   # sample 이면 화면이 '예시 설명' 이라고 알린다
+    regions: list[str]
+    tone: CampaignTone
+    items: list[RecommendItem]
+    considered: int                    # 지역·말투·리스크를 통과해 점수를 받은 후보 수
+    untagged: int                      # 아직 쓰임 낱말이 없어 비교하지 못한 표제어 수
 

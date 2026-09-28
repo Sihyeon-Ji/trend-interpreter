@@ -12,6 +12,7 @@ export function SiteNav({ locale, sample, readerNick, signedIn }: { locale: Loca
   const links = [
     { href: "/", label: t(locale, "nav_map") },            // 지도가 첫 화면
     { href: "/trends", label: t(locale, "nav_trends") },   // 지역별 키워드 대시보드 (Plan 04)
+    { href: "/recommend", label: t(locale, "nav_recommend") },   // 사진·문구로 밈 추천 (Plan 07)
     { href: "/explain", label: t(locale, "nav_explain") },
     { href: "/dictionary", label: t(locale, "nav_dictionary") },
   ];

@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import base64
 import json
 import re
 from dataclasses import dataclass
@@ -46,14 +47,15 @@ def chat_text(prompt: str, temperature: float = 0.2, model: str = GEMMA_LOCAL_MO
     return _chat(prompt, temperature, model)
 
 
-def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = GEMMA_LOCAL_MODEL) -> Any:
-    """schema(pydantic 모델 클래스 또는 TypeAdapter)로 검증된 값을 돌려준다. 두 번 틀리면 ValueError."""
+def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = GEMMA_LOCAL_MODEL, image: tuple[bytes, str] | None = None) -> Any:
+    """schema(pydantic 모델 클래스 또는 TypeAdapter)로 검증된 값을 돌려준다. 두 번 틀리면 ValueError.
+    image 는 (바이트, MIME) — 사진 한 장을 함께 본다(Gemma 4 는 그림을 읽는다). 메모리에서만 쓰고 어디에도 남기지 않는다."""
     adapter = schema if isinstance(schema, TypeAdapter) else TypeAdapter(schema)
     js = adapter.json_schema()
     ask = prompt + _JSON_RULE.format(schema=describe_schema(js))
     error = ""
     for _ in range(2):
-        text = _chat(ask + (_RETRY_RULE if error else ""), temperature, model, json_schema=js)
+        text = _chat(ask + (_RETRY_RULE if error else ""), temperature, model, json_schema=js, **({"image": image} if image else {}))
         try:
             return adapter.validate_json(extract_json(text))
         except (ValidationError, ValueError) as e:
@@ -150,8 +152,14 @@ def describe_schema(js: dict) -> str:
     return render(js)
 
 
-def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None = None) -> str:
-    messages = [{"role": "user", "content": prompt}]
+def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None = None, image: tuple[bytes, str] | None = None) -> str:
+    messages: list[dict] = [{"role": "user", "content": prompt}]
+    if image and LOCAL_LLM_BASE_URL:   # OpenAI 호환: 글과 그림을 한 메시지의 조각으로
+        data = base64.b64encode(image[0]).decode()
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt},
+                                                 {"type": "image_url", "image_url": {"url": f"data:{image[1]};base64,{data}"}}]}]
+    elif image:                        # Ollama: 메시지에 images 로
+        messages[0]["images"] = [image[0]]
     if LOCAL_LLM_BASE_URL:
         # response_format(guided decoding) 은 보내지 않는다 — 모듈 주석 참조.
         body = {"model": model, "messages": messages, "temperature": temperature, "max_tokens": MAX_TOKENS,

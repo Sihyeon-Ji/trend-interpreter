@@ -469,6 +469,93 @@
       "title": "NewsItem",
       "type": "object"
     },
+    "ProductBrief": {
+      "description": "사진이나 홍보 문구를 읽은 제품 설명. 요청 때 한 번 만든다(Gemini, 개발 환경은 로컬 Gemma 또는 고정 예시).\n추천 점수에는 category·feelings 만 쓰고(닫힌 낱말), 나머지는 이유 서술과 화면 표시에 쓴다.",
+      "properties": {
+        "product": {
+          "description": "제품이 무엇인지 한 줄",
+          "title": "Product",
+          "type": "string"
+        },
+        "category": {
+          "description": "제품 분야",
+          "enum": [
+            "food_drink",
+            "fashion_beauty",
+            "tech",
+            "game",
+            "entertainment",
+            "travel",
+            "finance",
+            "health_fitness",
+            "education",
+            "lifestyle"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "feelings": {
+          "description": "이 제품 홍보가 전하고 싶은 느낌 1~3개",
+          "items": {
+            "enum": [
+              "joy",
+              "hype",
+              "cute",
+              "funny",
+              "relatable",
+              "comfort",
+              "pride",
+              "surprise",
+              "sarcasm",
+              "frustration",
+              "tired",
+              "romance",
+              "nostalgia",
+              "cool"
+            ],
+            "type": "string"
+          },
+          "title": "Feelings",
+          "type": "array"
+        },
+        "values": {
+          "description": "핵심 가치 1~3개 (예: 시원함, 한정판)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "scene": {
+          "default": "",
+          "description": "어떤 장면·상황에서 쓰이나",
+          "title": "Scene",
+          "type": "string"
+        },
+        "colors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Colors",
+          "type": "array"
+        },
+        "avoid": {
+          "description": "이 홍보에서 피해야 할 표현·주제",
+          "items": {
+            "type": "string"
+          },
+          "title": "Avoid",
+          "type": "array"
+        }
+      },
+      "required": [
+        "product",
+        "category",
+        "feelings"
+      ],
+      "title": "ProductBrief",
+      "type": "object"
+    },
     "Segment": {
       "description": "세대 × 국가. 확산 경로의 노드.",
       "properties": {
@@ -896,6 +983,9 @@
     },
     "news_item": {
       "$ref": "#/$defs/NewsItem"
+    },
+    "product_brief": {
+      "$ref": "#/$defs/ProductBrief"
     }
   },
   "required": [
@@ -908,7 +998,8 @@
     "shorts_video",
     "shorts_interpretation",
     "generation_read",
-    "news_item"
+    "news_item",
+    "product_brief"
   ],
   "title": "Contract",
   "type": "object"

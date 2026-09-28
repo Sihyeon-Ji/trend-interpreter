@@ -159,6 +159,56 @@ export type PublishedAt1 = string | null;
 export type Source1 = string;
 export type Region2 = string;
 export type Query = string | null;
+/**
+ * 제품이 무엇인지 한 줄
+ */
+export type Product = string;
+/**
+ * 제품 분야
+ */
+export type Category1 =
+  | "food_drink"
+  | "fashion_beauty"
+  | "tech"
+  | "game"
+  | "entertainment"
+  | "travel"
+  | "finance"
+  | "health_fitness"
+  | "education"
+  | "lifestyle";
+/**
+ * 이 제품 홍보가 전하고 싶은 느낌 1~3개
+ */
+export type Feelings = (
+  | "joy"
+  | "hype"
+  | "cute"
+  | "funny"
+  | "relatable"
+  | "comfort"
+  | "pride"
+  | "surprise"
+  | "sarcasm"
+  | "frustration"
+  | "tired"
+  | "romance"
+  | "nostalgia"
+  | "cool"
+)[];
+/**
+ * 핵심 가치 1~3개 (예: 시원함, 한정판)
+ */
+export type Values = string[];
+/**
+ * 어떤 장면·상황에서 쓰이나
+ */
+export type Scene = string;
+export type Colors = string[];
+/**
+ * 이 홍보에서 피해야 할 표현·주제
+ */
+export type Avoid = string[];
 
 /**
  * 프론트가 소비하는 모델 묶음. $defs 에 전부 나온다.
@@ -174,6 +224,7 @@ export interface Contract {
   shorts_interpretation: ShortsInterpretation;
   generation_read: GenerationRead;
   news_item: NewsItem;
+  product_brief: ProductBrief;
 }
 export interface Term {
   term_id: TermId;
@@ -307,4 +358,17 @@ export interface NewsItem {
   source: Source1;
   region: Region2;
   query?: Query;
+}
+/**
+ * 사진이나 홍보 문구를 읽은 제품 설명. 요청 때 한 번 만든다(Gemini, 개발 환경은 로컬 Gemma 또는 고정 예시).
+ * 추천 점수에는 category·feelings 만 쓰고(닫힌 낱말), 나머지는 이유 서술과 화면 표시에 쓴다.
+ */
+export interface ProductBrief {
+  product: Product;
+  category: Category1;
+  feelings: Feelings;
+  values?: Values;
+  scene?: Scene;
+  colors?: Colors;
+  avoid?: Avoid;
 }
