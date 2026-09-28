@@ -43,17 +43,95 @@ Cloud Run에는 GPU도 Ollama도 없습니다. 대회 요건상 로컬 LLM은 Ge
 
 ## 예산과 알림
 
-GPU는 켜져 있는 동안 계속 과금되므로 기존 서비스별 지출 한도와 별도로 Gemma 전용 예산과 알림을 둡니다.
-설정 방식은 [GCP 운영의 예산과 리전](../운영/GCP-운영.md#예산과-리전)에서 서비스별 지출 한도를 만든 방식과 같습니다.
+GPU는 켜져 있는 동안 계속 과금되므로 기존 서비스별 지출 한도와 별도로 Gemma 전용 예산과 경보를 둡니다.
+**둘 다 gcloud로 만들며, Gemma 서비스를 처음 배포한 직후에 실행합니다.**
 
-| 장치 | 설정 | 효과 |
-| --- | --- | --- |
-| 기존 Cloud Run 월 지출 한도(₩100,000) | 변경 없음 | Cloud Run GPU 비용도 Cloud Run 서비스에 청구되므로 이 한도에 함께 포함됨. 100%에서 Cloud Run 전체 사용이 중지됨 |
-| **Gemma 전용 알림 예산** | 월 **₩50,000**, 필터는 서비스 라벨 `app=builder-cup-gemma`, 50%·80%·100% 알림 | Cloud Run 한도에 닿기 전에 GPU 지출만 따로 경고. ₩50,000은 L4 약 50시간 분량 |
-| **GPU 켜짐 경보** | Cloud Monitoring 알림 정책. `builder-cup-gemma`의 인스턴스 수가 **2시간 연속 1 이상**이면 발생 | 시연 뒤 최소 인스턴스를 되돌리지 않은 실수를 Discord로 알림 |
+| 장치 | 설정 | 효과 | 만드는 방법 |
+| --- | --- | --- | --- |
+| 기존 Cloud Run 월 지출 한도(₩100,000) | 변경 없음 | GPU 비용도 Cloud Run에 청구되므로 이 한도에 포함됨. 100%에서 Cloud Run 전체 사용 중지 | 이미 있음(콘솔 전용 Preview 기능, gcloud 옵션 없음) |
+| **Gemma 전용 알림 예산** | 월 **₩50,000**, 라벨 `app=builder-cup-gemma`만, 50%·80%·100% | Cloud Run 한도에 닿기 전에 GPU 지출만 따로 경고. ₩50,000은 L4 약 50시간 분량 | `gcloud billing budgets create` |
+| **GPU 켜짐 경보** | `builder-cup-gemma` 인스턴스 수가 **2시간 연속 1 이상** | 시연 뒤 최소 인스턴스를 되돌리지 않은 실수를 Discord와 이메일로 알림 | `gcloud monitoring policies create` |
 
-알림 경로는 기존과 같이 Cloud Monitoring → Pub/Sub → Discord 중계기와 보조 이메일을 씁니다. 예산 알림은 결제 관리자 이메일로도 갑니다.
-금액과 시간 기준은 시연 일정이 정해지면 조정합니다.
+알림 예산은 지출을 멈추지 않습니다. 멈추는 장치는 기존 Cloud Run 지출 한도입니다.
+
+### 1. 알림 채널 확인
+
+기존 Discord 중계 채널과 운영 이메일 채널의 이름을 확인해 변수에 담습니다.
+
+```bash
+PROJECT_ID=stunning-crane-508614-c1
+BILLING_ACCOUNT=011938-DF350E-463C2B
+gcloud monitoring channels list --project="$PROJECT_ID" --format='table(name,displayName,type)'
+DISCORD_CHANNEL=$(gcloud monitoring channels list --project="$PROJECT_ID" \
+  --filter='displayName="Builder Cup Discord relay"' --format='value(name)')
+EMAIL_CHANNEL=$(gcloud monitoring channels list --project="$PROJECT_ID" \
+  --filter='displayName="Builder Cup operations email"' --format='value(name)')
+```
+
+### 2. Gemma 전용 알림 예산
+
+배포 명령의 `--labels app=builder-cup-gemma`가 청구 데이터에 붙으므로 그 라벨로만 거릅니다.
+예산 알림은 이메일 채널로 보내고, 결제 관리자 기본 수신자에게도 갑니다. 예산 알림은 Pub/Sub 형식이 Monitoring 사건과 달라 Discord 중계기로는 보내지 않습니다.
+
+```bash
+gcloud billing budgets create \
+  --billing-account="$BILLING_ACCOUNT" \
+  --display-name="Builder Cup Gemma GPU 월 알림 예산" \
+  --budget-amount=50000KRW \
+  --calendar-period=month \
+  --filter-projects="projects/$PROJECT_ID" \
+  --filter-labels=app=builder-cup-gemma \
+  --threshold-rule=percent=0.5 \
+  --threshold-rule=percent=0.8 \
+  --threshold-rule=percent=1.0 \
+  --notifications-rule-monitoring-notification-channels="$EMAIL_CHANNEL"
+
+gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
+  --format='table(displayName,amount.specifiedAmount.units,budgetFilter.labels)'
+```
+
+### 3. GPU 켜짐 경보
+
+정책 파일은 저장소의 `infra/gcp/policies/gemma-gpu-on.json`으로 두고 커밋합니다(구현 단계에서 추가).
+
+```json
+{
+  "displayName": "Builder Cup Gemma GPU 2시간 연속 켜짐",
+  "combiner": "OR",
+  "severity": "WARNING",
+  "conditions": [{
+    "displayName": "builder-cup-gemma instance count >= 1 for 2h",
+    "conditionThreshold": {
+      "filter": "metric.type=\"run.googleapis.com/container/instance_count\" resource.type=\"cloud_run_revision\" resource.label.service_name=\"builder-cup-gemma\"",
+      "aggregations": [{"alignmentPeriod": "300s", "perSeriesAligner": "ALIGN_MAX", "crossSeriesReducer": "REDUCE_SUM"}],
+      "comparison": "COMPARISON_GT",
+      "thresholdValue": 0,
+      "duration": "7200s",
+      "trigger": {"count": 1}
+    }
+  }],
+  "alertStrategy": {"autoClose": "1800s", "notificationPrompts": ["OPENED", "CLOSED"]},
+  "documentation": {"content": "시연이 끝났다면 gcloud run services update builder-cup-gemma --region asia-southeast1 --min-instances 0 으로 되돌립니다.", "mimeType": "text/markdown"}
+}
+```
+
+```bash
+gcloud monitoring policies create --project="$PROJECT_ID" \
+  --policy-from-file=infra/gcp/policies/gemma-gpu-on.json \
+  --notification-channels="$DISCORD_CHANNEL,$EMAIL_CHANNEL"
+
+gcloud monitoring policies list --project="$PROJECT_ID" \
+  --filter='displayName="Builder Cup Gemma GPU 2시간 연속 켜짐"' --format='table(name,displayName,enabled)'
+```
+
+### 4. 확인
+
+- 예산 목록에 `Builder Cup Gemma GPU 월 알림 예산`이 ₩50,000·라벨 필터로 보인다.
+- 경보 정책이 켜져 있고 두 채널이 연결돼 있다.
+- 시연 전 `--min-instances 1`로 두고 2시간 뒤 Discord에 경보가 오는지 한 번 확인한 뒤 0으로 되돌린다.
+- 결과와 생성된 예산·정책 이름을 [GCP 운영의 예산과 리전](../운영/GCP-운영.md#예산과-리전)에 기록한다.
+
+금액과 시간 기준은 시연 일정이 정해지면 `gcloud billing budgets update`와 `gcloud monitoring policies update`로 조정합니다.
 
 ## 구현 순서
 
@@ -81,8 +159,8 @@ GPU는 켜져 있는 동안 계속 과금되므로 기존 서비스별 지출 �
    `LOCAL_LLM_AUDIENCE=https://<gemma 서비스 URL>`, `GEMMA_LOCAL_MODEL=google/gemma-4-E2B-it`을 넣습니다.
 5. **검증.** `scripts/test_gemma_translate.py`와 `scripts/test_gemma_rewrite.py`를 Cloud Run 주소로 실행해 로컬 실측(한→영 8~13초)과 비교하고,
    콜드 스타트 시간과 인스턴스 1개당 처리량을 기록합니다.
-6. **비용 통제.** 배포 명령에 `--labels app=builder-cup-gemma`를 붙이고, 위 [예산과 알림](#예산과-알림)의 Gemma 전용 알림 예산과
-   GPU 켜짐 경보를 만듭니다. 경보 정책은 `infra/gcp`에 Terraform으로, 예산은 기존 방식대로 콘솔에서 만든 뒤 문서에 상태를 기록합니다.
+6. **비용 통제.** 첫 배포 직후 위 [예산과 알림](#예산과-알림)의 1~4단계를 gcloud로 실행해 Gemma 전용 알림 예산과
+   GPU 켜짐 경보를 만들고, 정책 파일 `infra/gcp/policies/gemma-gpu-on.json`을 커밋합니다.
    시간당 약 $0.67이면 하루 3시간 켜 두는 시연 2주가 약 $28입니다.
 7. **문서.** [AI 호출 제어](../운영/AI-호출-제어.md)에 Gemma 서비스를 끄고 켜는 방법(`--min-instances`, `USE_LOCAL_GEMMA=0`으로 Gemini 대체)을 적습니다.
 

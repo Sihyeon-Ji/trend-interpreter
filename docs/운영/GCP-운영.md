@@ -217,7 +217,7 @@ storage는 남습니다.
 해제하거나 조정해야 합니다. 다른 서비스의 비용은 이 상한에 포함되지 않습니다.
 [GCP 지출 한도 설명](https://docs.cloud.google.com/billing/docs/how-to/budgets-spend-caps)
 
-이 Preview 한도는 현재 콘솔에서 관리합니다. 기존 알림 예산의 Terraform 설정과 구별하며,
+이 Preview 한도는 gcloud에 옵션이 없어 콘솔에서 관리합니다(2026-09-26 생성 시 콘솔 화면을 자동 조작). 알림 전용 예산과 경보 정책은 gcloud로 만듭니다([Plan 05 예산과 알림](../plans/05-gemma-on-cloud-run-gpu.md#예산과-알림)). 기존 알림 예산의 Terraform 설정과 구별하며,
 `gcloud billing budgets list` 결과에 세 지출 한도가 보이지 않더라도 콘솔의 `구성됨` 상태를 확인합니다.
 
 ## Gemini 사용량과 비용 확인
