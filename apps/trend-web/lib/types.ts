@@ -1,5 +1,6 @@
 /* 계약 타입은 lib/contract/types.ts (자동 생성) 에서 온다. 여기는 프론트 전용 뷰 모델만. */
-import type { Evidence, Meaning, MeaningText, MemeRef, Segment, Term } from "./contract/types";
+import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, RiskLevel, Segment, Term } from "./contract/types";
+import type { EvidenceBrief } from "./trends/types";
 
 export type {
   Term,
@@ -73,4 +74,40 @@ export interface ReviewItem {
   reasons: string[];
   evidence_count: number;
   queued_at: string;
+}
+
+/* 키워드 대시보드 (Plan 04) — 백엔드 pipeline/views.py 의 KeywordCard·KeywordBoard 와 1:1. 값은 pipeline/dashboard.py 규칙이 채운다. */
+export interface SearchHit { region: string; query: string; source: string; date: string; rank?: number | null; traffic?: string | null }
+export interface SourceCount { domain: string; count: number }
+export interface Tone { positive: number; neutral: number; negative: number }
+
+export interface KeywordCard {
+  term_id: string;
+  canonical: string;
+  lang: string;
+  category: string;
+  gloss_ko: string;
+  gloss_en: string;
+  regions: string[];              // 목표 지역 코드, 목표 지역 밖에서 널리 쓰이면 GLOBAL
+  lifecycle: Lifecycle;
+  diffusion?: Diffusion;
+  risk_level?: RiskLevel;
+  risk_reasons: string[];
+  weekly: WeeklyPoint[];          // 최근 12주
+  mentions_4w: number;
+  search: SearchHit[];            // 고른 지역의 인기 검색어 기록
+  search_trend?: string | null;   // 네이버 데이터랩 연령대별 검색 추이 요약 (한국어 표제어만)
+  communities: SourceCount[];
+  tone: Tone;
+  evidences: EvidenceBrief[];
+  last_seen?: string | null;
+}
+
+export interface KeywordBoard {
+  generated_at: string;
+  regions: string[];
+  counts: Record<string, number>;
+  rising: KeywordCard[];
+  fading: KeywordCard[];
+  caution: KeywordCard[];
 }

@@ -5,8 +5,9 @@ Gemini 구조화 출력(response_schema), Ollama format, SQLite 저장에 그대
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -161,6 +162,23 @@ class MeaningDraft(BaseModel):
     regions: list[str] = Field(description="ISO 국가코드")
     self_confidence: float = Field(ge=0, le=1)
     is_expression: bool = Field(default=True, description="유행어·밈·줄임말·챌린지·노래 후렴 같은 '표현'인가. 상품·기관·인물·정책·일반 단어면 false")
+
+    @field_validator("generations", mode="before")
+    @classmethod
+    def _known_generations(cls, v):
+        # 모델이 연령대 자리에 연대('90s'·'2000s')를 넣으면 형식 실패로 조사 전체가 죽었다(2026-09-28, 같은 세 용어가 이틀 내내).
+        # 세대는 부가 정보라 모르는 값만 버린다.
+        return [g for g in v if g in get_args(Generation)] if isinstance(v, list) else v
+
+    @field_validator("regions", mode="before")
+    @classmethod
+    def _country_codes(cls, v):
+        # 빈 문자열('')이 나라로 저장돼 36개 용어가 어느 나라에도 속하지 않았다(2026-09-28). 두 글자 코드와 GLOBAL 만 받는다.
+        if not isinstance(v, list):
+            return v
+        codes = [str(r).strip().upper() for r in v]
+        return list(dict.fromkeys(r for r in codes if re.fullmatch(r"[A-Z]{2}", r) or r == "GLOBAL"))
+
 
 
 class Meaning(MeaningDraft):

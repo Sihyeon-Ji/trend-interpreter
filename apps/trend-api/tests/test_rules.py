@@ -468,8 +468,45 @@ def test_diffusion_stage_rules():
     from trend_agents.lifecycle import diffusion
 
     assert diffusion({"community": 5}, "steady") == "underground"
+    assert diffusion({"community": 5, "documented": 1}, "steady") is None   # 문서가 있으면 이미 자리 잡은 말 — 태동이 아니다
     assert diffusion({"community": 5, "short": 1}, "rising") == "spreading"
     assert diffusion({"news": 3, "community": 2}, "steady") == "mainstream"
     assert diffusion({"news": 1}, "declining") == "fading"
     assert diffusion({"news": 1}, "steady") is None          # 뉴스 한 건으로는 주류라 할 수 없다
     assert diffusion({}, "unknown") is None
+
+
+def test_meaning_draft_drops_decades_and_blank_regions():
+    """모델이 세대 자리에 연대('90s')를, 나라 자리에 빈 문자열을 넣어도 조사가 죽지 않고 그 값만 버린다 (2026-09-28)."""
+    from trend_agents.schemas import MeaningDraft
+
+    d = MeaningDraft.model_validate({"definition": "뜻", "origin": "유래", "nuance": "뉘앙스", "generations": ["90s", "20s", "2000s"],
+                                     "regions": ["", " jp", "KOR", "GLOBAL", "kr", "KR"], "self_confidence": 0.5})
+    assert d.generations == ["20s"]
+    assert d.regions == ["JP", "GLOBAL", "KR"]
+
+
+def test_failed_research_waits_for_the_recheck_interval(monkeypatch):
+    """조사가 실패한 용어는 기록을 남겨 다음 실행에 다시 맨 앞에 잡히지 않는다 — 같은 세 용어가 이틀 동안 칸을 차지했다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import research
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="Temple fade", lang="en", status="researching", first_seen=now, last_seen=now))
+
+    def boom(con, term):
+        raise ValueError("형식 실패")
+
+    monkeypatch.setattr(research, "research_one", boom)
+    monkeypatch.setattr(research, "promote_candidates", lambda con, n: [])
+    monkeypatch.setattr(research, "local_ok", lambda: True)
+    research.run(con)
+    assert ds.get_term(con, "t1").status == "needs_review"
+    assert ds.last_researched(con, "t1") is not None
+    assert [t.term_id for t in research.due_for_recheck(con, 10)] == []
+    assert not any(u.get("term_id") == "t1" and u["kind"] == "recheck" for u in ds.recent_updates(con, hours=1))

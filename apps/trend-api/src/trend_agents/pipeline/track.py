@@ -45,12 +45,15 @@ def evidence_weeks(con: Connection, term_id: str) -> Counter:
 
 
 def usage_kinds(con: Connection, term_id: str) -> dict[str, int]:
-    """쓰임 근거를 종류별로 센다(네이버 표시 전용 결과 제외). 확산 단계 판정에 쓴다."""
+    """쓰임 근거를 종류별로 센다(네이버 표시 전용 결과 제외). 확산 단계 판정에 쓴다.
+    'documented' 는 백과사전 문서(위키백과·나무위키) 근거 수 — 쓰임은 아니지만 자리 잡은 말인지 가른다."""
     c: Counter = Counter()
     for (j,) in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall():
         e = Evidence.model_validate_json(j)
         if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver"):
             c[e.kind] += 1
+        elif e.kind == "wiki" or e.source_domain == "namu.wiki" or e.source_domain.endswith("wikipedia.org"):
+            c["documented"] += 1
     return dict(c)
 
 

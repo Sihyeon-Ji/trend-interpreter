@@ -1,12 +1,13 @@
 """API 응답 뷰 모델 — 프론트 `apps/trend-web/lib/types.ts` 와 1:1. 화면은 이 모양만 안다."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
 
 from ..lifecycle import recheck_interval_days
-from ..schemas import Evidence, EvidenceBrief, Meaning, MeaningText, Segment, Term
+from ..schemas import Diffusion, Evidence, EvidenceBrief, Lifecycle, Meaning, MeaningText, RiskLevel, Segment, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 
@@ -70,8 +71,8 @@ class ReviewItem(BaseModel):
 
 STAGE_LABELS = {
     "collect.youtube": "영상 수집", "collect.news": "뉴스 수집", "collect.trends_rss": "검색 트렌드(지금)", "collect.trends_bq": "검색 트렌드(일별)",
-    "collect.wikipedia": "위키 조회 상위", "collect.mentions": "용어 언급 추적", "collect.retention": "30일 보존 정리", "classify": "검색어 분류", "spikes": "급증 원인 조사", "candidates": "후보 추출",
-    "interpret": "쇼츠 해석", "research": "조사·확인", "track": "추세 갱신", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성",
+    "collect.wikipedia": "위키 조회 상위", "collect.mentions": "용어 언급 추적", "collect.retention": "30일 보존 정리", "classify": "검색어 분류", "spikes": "급증 원인 조사", "candidates": "후보 추출", "spot": "새 표현 발굴", "namu": "나무위키 발굴·재조사", "hunt": "못 답한 질문 조사",
+    "interpret": "쇼츠 해석", "research": "조사·확인", "track": "추세 갱신", "risk": "쓸 때 주의 판정", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성", "dashboard": "키워드 대시보드",
 }
 
 
@@ -208,3 +209,61 @@ def shared_nodes(con: Connection, min_queries: int = 2) -> list[SharedNode]:
 
 def term_graph(con: Connection, term_id: str) -> list[TermGraphQuery]:
     return [TermGraphQuery(**q) for q in ds.graph_term_queries(con, term_id)]
+
+
+# ---------- 키워드 대시보드 (Plan 04) — 값은 pipeline/dashboard.py 가 규칙으로 채운다 ----------
+
+class SearchHit(BaseModel):
+    """이 표현이 든 검색어가 그 나라 인기 검색어에 오른 기록 (Google Trends·나무위키 실시간 검색어)."""
+
+    region: str
+    query: str
+    source: str
+    date: str
+    rank: int | None = None
+    traffic: str | None = None
+
+
+class SourceCount(BaseModel):
+    domain: str
+    count: int
+
+
+class Tone(BaseModel):
+    """근거 문장의 뉘앙스 수 (Plan 03 분류, 글자만 같은 딴 이야기는 뺐다)."""
+
+    positive: int = 0
+    neutral: int = 0
+    negative: int = 0
+
+
+class KeywordCard(BaseModel):
+    term_id: str
+    canonical: str
+    lang: str
+    category: str
+    gloss_ko: str
+    gloss_en: str
+    regions: list[str]                 # 목표 지역 코드, 목표 지역 밖에서 널리 쓰이면 GLOBAL
+    lifecycle: Lifecycle
+    diffusion: Diffusion | None = None
+    risk_level: RiskLevel | None = None
+    risk_reasons: list[str] = []
+    weekly: list[WeeklyPoint]          # 최근 12주
+    mentions_4w: int
+    search: list[SearchHit]            # 나라마다 가장 최근·높은 순위 하나
+    search_trend: str | None = None    # 네이버 데이터랩 연령대별 검색 추이 요약 (한국어 표제어만)
+    communities: list[SourceCount]     # 커뮤니티 근거가 많이 나온 곳 상위 5
+    tone: Tone
+    evidences: list[EvidenceBrief]     # 최근 근거 5건
+    last_seen: datetime | None = None
+
+
+class KeywordBoard(BaseModel):
+    generated_at: datetime
+    regions: list[str]                 # 고른 지역
+    counts: dict[str, int]             # 지역마다 카드 수 (지역 고르기 버튼에 쓴다)
+    rising: list[KeywordCard]          # 지금 뜨는 밈
+    fading: list[KeywordCard]          # 식어 가는 밈
+    caution: list[KeywordCard]         # 주의가 필요한 밈
+

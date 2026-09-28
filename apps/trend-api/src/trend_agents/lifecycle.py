@@ -63,19 +63,21 @@ MAINSTREAM_NEWS = 3
 def diffusion(kinds: dict[str, int], lc: Lifecycle):
     """어디까지 퍼졌나(Plan 02). 이미 수집하는 근거의 출처 종류만 본다 — X·인스타·틱톡은 모으지 않아 쓰지 않는다.
 
-    태동  커뮤니티 근거만 있다
+    태동  커뮤니티 근거만 있고, 백과사전(위키백과·나무위키)에 아직 문서가 없다
     확산  쇼츠 근거가 있고 언급이 막 뜨거나 오르는 중이다
     주류  뉴스 근거가 3건 이상이고 정점이거나 꾸준하다
     식상  뉴스 근거가 있고 지는 중이거나 잠잠하다
     어느 것도 아니면 None(판단 보류).
     """
     community, short, news = kinds.get("community", 0), kinds.get("short", 0), kinds.get("news", 0)
+    documented = kinds.get("documented", 0)
     if news and lc in ("declining", "dormant"):
         return "fading"
     if news >= MAINSTREAM_NEWS and lc in ("peak", "steady"):
         return "mainstream"
     if short and lc in ("emerging", "rising"):
         return "spreading"
-    if community and not short and not news:
+    # 문서가 있는 말은 이미 자리 잡은 밈이다 — 'The cake is a lie'(2007) 같은 것이 '태동'으로 나왔다(09-28: 태동 53개 중 50개가 문서 있음)
+    if community and not short and not news and not documented:
         return "underground"
     return None

@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from ..config import WEB_ORIGINS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import explain as explain_stage
-from ..pipeline import risk, views
+from ..pipeline import dashboard, risk, views
 from ..schemas import RiskLevel, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
@@ -183,6 +183,7 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
         raise HTTPException(400, "decision must be approve|reject")
     ds.upsert_term(_con, t)
     ds.decide_review(_con, term_id, body.decision, body.by)
+    dashboard.refresh_card(_con, term_id)   # 승인한 말은 대시보드에 바로 오르고, 제외한 말은 바로 빠진다
     return {"ok": True, "term_id": term_id, "status": t.status}
 
 
@@ -200,6 +201,7 @@ def decide_risk(term_id: str, body: RiskIn, x_frontend_token: str = Header(defau
         raise HTTPException(404, "not found")
     t.risk_human = body.level
     risk.apply(_con, t)
+    dashboard.refresh_card(_con, term_id)
     return {"ok": True, "term_id": term_id, "risk_level": t.risk_level}
 
 
@@ -333,6 +335,21 @@ def graph_query(key: str):
 def term_graph(term_id: str):
     """이 용어로 판정된 급증 검색어들 (IS_TERM)."""
     return views.term_graph(_con, term_id)
+
+
+@app.get("/dashboard", response_model=views.KeywordBoard)
+def keyword_dashboard(regions: str = ""):
+    """키워드 대시보드 (Plan 04). regions 는 쉼표로 (KR,JP,GLOBAL). 없거나 모르는 값뿐이면 목표 지역 전체."""
+    return dashboard.board(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
+
+
+@app.get("/terms/{term_id}/signals", response_model=views.KeywordCard | None)
+def term_signals(term_id: str):
+    """용어 하나의 쓰임 신호 — 검색 순위·출몰 커뮤니티·뉘앙스·최근 근거 (사전 화면)."""
+    c = dashboard.card(_con, term_id)
+    if not c:
+        raise HTTPException(404, "not found")
+    return c
 
 
 @app.get("/terms/{term_id}/generations")

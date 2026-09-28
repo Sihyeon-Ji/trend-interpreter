@@ -7,9 +7,10 @@ import { Sparkline } from "@/components/sparkline";
 import { TermTimeline } from "@/components/term-timeline";
 import { GenerationCurves } from "@/components/generation-curves";
 import { currentMeaning, textFor } from "@/lib/explain";
-import { getGenerationCurves, getTermRecord, getTermRecords, getTrendBoard } from "@/lib/data";
+import { getGenerationCurves, getTermRecord, getTermRecords, getTermSignals, getTrendBoard } from "@/lib/data";
+import { searchLine } from "@/components/keyword-card";
 import { t, type Locale } from "@/lib/i18n";
-import { L, fmtDate, joinGens, joinRegions, regionLabel, termLangLabel } from "@/lib/labels";
+import { L, fmtDate, joinGens, joinRegions, regionLabel, sourceName, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import type { Evidence, TermRecord } from "@/lib/types";
 
@@ -56,7 +57,7 @@ function snippet(e: Evidence, term: string, width = 60): string {
 
 export default async function TermPage({ params }: { params: Promise<{ termId: string }> }) {
   const { termId } = await params;
-  const [record, locale, curves, board, all] = await Promise.all([getTermRecord(termId), getLocale(), getGenerationCurves(termId), getTrendBoard(), getTermRecords()]);
+  const [record, locale, curves, board, all, signals] = await Promise.all([getTermRecord(termId), getLocale(), getGenerationCurves(termId), getTrendBoard(), getTermRecords(), getTermSignals(termId)]);
   if (!record) notFound();
   const labels = L(locale);
   const m = currentMeaning(record);
@@ -80,6 +81,7 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
     { id: "usage", title: t(locale, "term_sec_usage"), show: !!m },
     { id: "variants", title: t(locale, "term_sec_variants"), show: !!topic && topic.variants.length > 1 },
     { id: "trend", title: t(locale, "term_trend"), show: hasTrend || usage.length > 0 },
+    { id: "signals", title: t(locale, "term_signals"), show: !!signals },
     { id: "generations", title: t(locale, "term_gen_curves"), show: curves.length > 0 },
     { id: "timeline", title: t(locale, "term_timeline"), show: true },
     { id: "related", title: t(locale, "term_related"), show: related.length > 0 || (record.term.aliases?.length ?? 0) > 0 },
@@ -195,6 +197,38 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
               </section>
             )}
 
+            {signals && (() => {
+              const toneTotal = signals.tone.positive + signals.tone.neutral + signals.tone.negative;
+              const pct = (n: number) => `${Math.round((n / toneTotal) * 100)}%`;
+              return (
+                <section className="space-y-4">
+                  {heading("signals")}
+                  <div className="space-y-1">
+                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_search")}</h3>
+                    {signals.search.length > 0
+                      ? <ul className="space-y-0.5 text-[14px] text-charcoal">{signals.search.map((h) => <li key={h.region}>{searchLine(locale, h)} <span className="text-steel">· {fmtDate(h.date)}</span></li>)}</ul>
+                      : <p className="text-[14px] text-steel">{t(locale, "sig_search_none")}</p>}
+                    {curves.length === 0 && <p className="text-[13px] text-steel">{t(locale, "sig_gen_kr_only")}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_communities")}</h3>
+                    {signals.communities.length > 0
+                      ? <p className="text-[14px] text-charcoal">{signals.communities.map((c) => `${sourceName(locale, c.domain)} ${c.count}`).join(" · ")}</p>
+                      : <p className="text-[14px] text-steel">{t(locale, "sig_communities_none")}</p>}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_tone")}</h3>
+                    {toneTotal >= 5
+                      ? <p className="text-[14px] text-charcoal">
+                          {t(locale, "tone_positive")} {pct(signals.tone.positive)} · {t(locale, "tone_neutral")} {pct(signals.tone.neutral)} · {t(locale, "tone_negative")} {pct(signals.tone.negative)}
+                          <span className="text-steel"> {locale === "ko" ? `(문장 ${toneTotal}개 기준)` : `(${toneTotal} sentences)`}</span>
+                        </p>
+                      : <p className="text-[14px] text-steel">{t(locale, "sig_tone_none")}</p>}
+                  </div>
+                </section>
+              );
+            })()}
+
             {curves.length > 0 && (
               <section className="space-y-3">
                 {heading("generations")}
@@ -228,7 +262,7 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                     <li key={e.evidence_id} id={`ref-${i + 1}`} className="grid grid-cols-[28px_1fr] gap-2 scroll-mt-4">
                       <span className="text-steel tabular-nums">[{i + 1}]</span>
                       <span className="text-charcoal">
-                        <span className="text-steel">{labels.evidenceKind[e.kind]} · {e.source_domain} · {fmtDate(e.observed_at)}</span>{" "}
+                        <span className="text-steel">{labels.evidenceKind[e.kind]} · {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}</span>{" "}
                         {e.url ? <Link href={e.url} target="_blank" rel="noreferrer" className="text-link-blue hover:underline">{e.title || e.url}</Link> : e.title}
                         {snippet(e, record.term.canonical) && (
                           <span className="block text-steel">“{snippet(e, record.term.canonical)}”</span>

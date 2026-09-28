@@ -3,6 +3,8 @@
 import type { Generation } from "./types";
 
 export const READER_GENS: Exclude<Generation, "all">[] = ["10s", "20s", "30s", "40s", "50s+"];
+/** 목표 지역(ADR 0001) — 백엔드 config.REGIONS_FOCUS 와 같다. 중국 본토는 없다. */
+export const TARGET_REGIONS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"];
 export const READER_REGIONS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG", "IN", "AU", "US", "CA", "GB", "DE", "FR", "ES", "IT", "BR", "MX", "AR", "TR", "SA", "EG", "NG", "ZA"];
 
 export interface Reader {

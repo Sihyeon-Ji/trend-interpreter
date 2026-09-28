@@ -249,3 +249,47 @@ def test_human_risk_level_overrides_rules_until_cleared():
     got.risk_human = None
     risk.apply(con, got)
     assert ds.get_term(con, "t1").risk_level is None      # 근거가 없으니 규칙은 판단 보류
+
+
+def test_dashboard_regions_lists_and_search_follow_rules():
+    """대시보드 지역·목록은 규칙이다 (Plan 04). 조사가 정한 나라 → 없으면 표제어 언어의 나라 → 목표 지역 밖 영어는 '전 세계'.
+    사용 자제는 뜨는·식는 목록에 넣지 않고, 검색 순위는 고른 지역 것만 보인다."""
+    from trend_agents.pipeline import dashboard
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+
+    def term(tid, name, lang, lifecycle="steady", usage=(), **kw):
+        t = Term(term_id=tid, canonical=name, lang=lang, status="verified", lifecycle=lifecycle, first_seen=now, last_seen=now, **kw)
+        ds.upsert_term(con, t)
+        ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=list(usage),
+                                              self_confidence=0.9), "verified_auto", [])
+        if usage:
+            ds.set_usage(con, tid, [("20s", r, now.isoformat(), 1.0) for r in usage])
+
+    term("kr", "럭키비키", "ko", "rising", ("KR",), diffusion="underground")
+    term("jp", "推し活", "ja", "declining")                         # 나라 없음 → 일본어라 JP
+    term("us", "aura farming", "en", usage=("US",))                 # 목표 지역 밖 영어 → 전 세계
+    term("bad", "나쁜말", "ko", usage=("KR",), risk_level="avoid")
+    term("de", "Ehrenmann", "de", usage=("DE",))                    # 목표 지역 밖 → 카드 없음
+    ds.upsert_trend_queries(con, [TrendQuery(term="럭키비키 뜻", region="KR", rank=3, source="bq_top", date=date.today()),
+                                  TrendQuery(term="aura farming kid", region="ID", rank=7, source="rss_now", date=date.today())])
+    dashboard.run(con)
+
+    b = dashboard.board(con)
+    assert b.regions == dashboard.REGIONS_FOCUS
+    assert [c.term_id for c in b.rising] == ["kr"] and [c.term_id for c in b.fading] == ["jp"] and [c.term_id for c in b.caution] == ["bad"]
+    assert b.rising[0].search[0].query == "럭키비키 뜻"
+    assert b.counts["KR"] == 2 and b.counts["JP"] == 1 and b.counts["GLOBAL"] == 1 and "DE" not in b.counts
+
+    g = dashboard.board(con, ["GLOBAL"])
+    assert [c.term_id for c in g.rising] == ["us"] and g.rising[0].search == []   # 인도네시아 순위는 인도네시아를 고를 때만
+    assert dashboard.board(con, ["ID", "GLOBAL"]).rising[0].search[0].region == "ID"
+    assert dashboard.board(con, ["XX"]).regions == dashboard.REGIONS_FOCUS          # 모르는 지역은 무시하고 기본값
+
+    t = ds.get_term(con, "kr")
+    t.risk_level = "avoid"
+    ds.upsert_term(con, t)
+    dashboard.refresh_card(con, "kr")                                             # 검수 결정이 다음 파이프라인을 기다리지 않는다
+    assert {c.term_id for c in dashboard.board(con).caution} == {"bad", "kr"}
+    assert dashboard.card(con, "de").regions == []                                # 사전 화면용으로는 지역 밖도 만든다

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { t, type Locale } from "@/lib/i18n";
-import { L, fmtDate, regionLabel } from "@/lib/labels";
+import { L, fmtDate, regionLabel, sourceName } from "@/lib/labels";
 import type { TrendWhy } from "@/lib/trends/types";
 
 /* 왜 지금 뜨나 — 검색어 하나의 급증 원인 카드. 근거는 접어 두고 종류별 개수만 먼저 보인다. */
@@ -29,7 +29,7 @@ export function WhyCard({ w, locale, showRegion = false }: { w: TrendWhy; locale
           <ul className="mt-1.5 space-y-1">
             {w.evidence.map((e) => (
               <li key={e.url} className="truncate">
-                <span className="text-steel">{labels.evidenceKind[e.kind as keyof typeof labels.evidenceKind] ?? e.kind} · {e.source_domain} · {fmtDate(e.observed_at)}</span>{" "}
+                <span className="text-steel">{labels.evidenceKind[e.kind as keyof typeof labels.evidenceKind] ?? e.kind} · {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}</span>{" "}
                 <Link href={e.url} target="_blank" rel="noreferrer" className="text-link-blue hover:underline">{e.title}</Link>
               </li>
             ))}

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TrendGlobe, type GlobeApi, type GlobeArc, type GlobeBubble, type GlobeFocus } from "@/components/globe/trend-globe";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
+import { TARGET_REGIONS } from "@/lib/reader";
 import { CENTROID } from "@/lib/trends/geo";
 import { displayOrder, originOf, pathOf } from "@/lib/trends/path";
 import { TREND_CATEGORIES, type Topic, type TrendBoard, type TrendCategory, type TrendItem } from "@/lib/trends/types";
@@ -240,7 +241,10 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
                   <button type="button" onClick={back} className="inline-flex items-center gap-1 text-[13px] text-steel hover:text-ink"><ChevronLeft className="size-4" aria-hidden />{t(locale, "ex_back")}</button>
                   <div className="mt-2 flex items-baseline justify-between gap-2">
                     <h2 className="text-[20px] font-semibold text-ink">{regionLabel(locale, region)}</h2>
-                    <Link href={`/country/${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "country_page")}</Link>
+                    <span className="flex gap-3 whitespace-nowrap">
+                      {TARGET_REGIONS.includes(region) && <Link href={`/trends?regions=${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "dash_open_country")}</Link>}
+                      <Link href={`/country/${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "country_page")}</Link>
+                    </span>
                   </div>
                   <p className="text-[12px] text-steel">{panelItems.length}{t(locale, "ex_items_unit")}</p>
                   {board.why.filter((w) => w.region === region).length > 0 && (

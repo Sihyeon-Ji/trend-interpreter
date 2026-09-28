@@ -2,11 +2,12 @@
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, TrendBoard, TrendWhy, UpdateItem } from "./trends/types";
-import type { PipelineStage, ReviewItem, TermRecord } from "./types";
+import type { KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
 import { explainMessage, type ExplainResult } from "./explain";
+import { sampleKeywordBoard, sampleSignals } from "./sample/keyword-board";
 
 export const isSampleMode = process.env.DATA_MODE !== "api";
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
@@ -120,4 +121,17 @@ export async function getReviewStats(): Promise<ReviewStats> {
     return { verified_auto: count("verified_auto"), verified_human: count("verified_human"), needs_review: SAMPLE_QUEUE.length, rejected: count("rejected") };
   }
   return api<ReviewStats>("/review/stats");
+}
+
+/** 키워드 대시보드 (Plan 04). regions 가 비면 목표 지역 전체. 지역 판정과 목록 나누기는 백엔드 규칙이 한다. */
+export async function getKeywordBoard(regions: string[]): Promise<KeywordBoard> {
+  const fallback = sampleKeywordBoard(regions);
+  if (isSampleMode) return fallback;
+  const q = regions.length ? `?regions=${regions.map(encodeURIComponent).join(",")}` : "";
+  return apiOr<KeywordBoard>(`/dashboard${q}`, fallback, 60);
+}
+
+/** 용어 하나의 쓰임 신호 (사전 화면). 서버가 없으면 신호 칸을 내지 않는다. */
+export async function getTermSignals(termId: string): Promise<KeywordCard | null> {
+  return isSampleMode ? sampleSignals(termId) : apiOr<KeywordCard | null>(`/terms/${encodeURIComponent(termId)}/signals`, null, 300);
 }

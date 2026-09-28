@@ -582,7 +582,8 @@ def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[di
         rows.append({"kind": kind, "at": vf, "label": t[0], "term_id": tid, "detail": ver})
     for term, region, created, updated, trig in con.execute("SELECT term, region, created_at, updated_at, trigger FROM trend_explanations WHERE updated_at>=?", (since,)).fetchall():
         rows.append({"kind": "spike", "at": updated, "label": term, "region": region, "detail": trig})
-    for tid, at, ver in con.execute("SELECT term_id, researched_at, verification FROM research_log WHERE researched_at>=?", (since,)).fetchall():
+    # 실패한 조사('error')는 이용자 피드에 낼 변화가 아니다
+    for tid, at, ver in con.execute("SELECT term_id, researched_at, verification FROM research_log WHERE researched_at>=? AND verification != 'error'", (since,)).fetchall():
         t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
         if t:
             rows.append({"kind": "recheck", "at": at, "label": t[0], "term_id": tid, "detail": ver})

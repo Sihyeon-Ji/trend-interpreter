@@ -62,6 +62,15 @@ export const joinGens = (locale: Locale, gens: Generation[]) => listJoin(locale,
 export const joinRegions = (locale: Locale, regions: string[]) => listJoin(locale, regions.map((r) => L(locale).region[r] ?? r));
 export const regionLabel = (locale: Locale, code: string) => L(locale).region[code] ?? code;
 
+/* 근거 출처 이름. 수집기가 붙인 코드('naver:cafearticle')를 사람이 읽는 이름으로. 모르는 것은 도메인 그대로. */
+const SOURCE_NAME: Record<Locale, Record<string, string>> = {
+  ko: { "naver:blog": "네이버 블로그", "naver:cafearticle": "네이버 카페", "naver:kin": "네이버 지식iN", "naver:news": "네이버 뉴스", "datalab.naver.com": "네이버 데이터랩",
+        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends" },
+  en: { "naver:blog": "Naver Blog", "naver:cafearticle": "Naver Cafe", "naver:kin": "Naver KnowledgeiN", "naver:news": "Naver News", "datalab.naver.com": "Naver DataLab",
+        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends" },
+};
+export const sourceName = (locale: Locale, domain: string) => SOURCE_NAME[locale][domain] ?? domain;
+
 /** 용어 원문의 언어 (Term.lang) */
 const TERM_LANG: Record<Locale, Record<string, string>> = {
   ko: { ko: "한국어", en: "영어", ja: "일본어", id: "인도네시아어", th: "태국어", vi: "베트남어", zh: "중국어" },

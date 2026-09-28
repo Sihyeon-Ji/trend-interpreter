@@ -11,7 +11,7 @@ import httpx
 
 from google.genai import errors
 
-from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL
+from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, LANG_REGION
 from ..interpreters.gemini_research import research_term
 from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo, Term
@@ -29,9 +29,6 @@ STRONG_KINDS = {"slang", "slang_meme", "song", "challenge"}  # 한 번만 보여
 MAX_WEB_FETCH = 6
 UA = "Mozilla/5.0 (compatible; trend-agents/0.1)"
 
-
-# 표제어 언어 → 근거를 찾을 나라. 중국어는 목표 지역인 대만으로(본토 제외, ADR 0001).
-LANG_REGION = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN", "zh": "TW", "tl": "PH", "fil": "PH", "ms": "MY"}
 
 def _norm(s: str) -> str:
     return "".join(s.split()).lower()
@@ -411,9 +408,11 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
             ds.decide_review(con, term.term_id, "auto_rejected", "gate")
     if (draft.regions or draft.generations) and not ds.get_usage(con, term.term_id):
         rows = []
-        share = 1.0 / max(1, len(draft.generations) * max(1, len(draft.regions or ["KR"])))
+        # 나라를 비워 두면 표제어 언어의 나라로 (예전 기본값 'KR' 은 일본어 표제어도 한국에 넣었다)
+        regions = draft.regions or [LANG_REGION.get(term.lang, "GLOBAL")]
+        share = 1.0 / max(1, len(draft.generations) * len(regions))
         for g in draft.generations:
-            for r in draft.regions or ["KR"]:
+            for r in regions:
                 rows.append((g, r, (term.first_seen or datetime.now(timezone.utc)).isoformat(), round(share, 3)))
         ds.set_usage(con, term.term_id, rows)
     # last_seen 은 '밖에서 마지막으로 본 때' 다. 조사한 시각으로 덮으면 '최근 본 순' 목록이 '최근 조사한 순' 이 된다
@@ -423,7 +422,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     return verification, reasons
 
 
-def run(con: Connection, max_new: int = 4, max_recheck: int = 4) -> dict:
+def run(con: Connection, max_new: int = 8, max_recheck: int = 4) -> dict:
+    # 새 표제어는 한 번에 8개까지(예전 4). 조사 대기 131건이 하루 16건씩이면 8일 밀렸다(09-28). Gemini 는 하루 예산이 따로 막는다.
     with stage(con, "research") as r:
         seen: set[str] = set()
         targets = [t for t in promote_candidates(con, max_new) + due_for_recheck(con, max_recheck) if not (t.term_id in seen or seen.add(t.term_id))]
@@ -440,6 +440,8 @@ def run(con: Connection, max_new: int = 4, max_recheck: int = 4) -> dict:
             except Exception as e:  # 한 용어의 조사 실패(모델 형식·네트워크)가 나머지를 막지 않는다. researching 상태로 남아 다음 실행에 먼저 잡힌다
                 r.note += f"{t.canonical}:{type(e).__name__} "
                 r.detail[t.canonical] = f"error {type(e).__name__}"
+                # 실패도 조사 기록으로 남겨 재조사 주기를 따르게 한다 — 기록이 없으면 '아직 조사 안 함' 으로 보여 매번 맨 앞에 다시 잡혔다
+                ds.log_research(con, t.term_id, "error", f"{type(e).__name__}: {e}"[:500], [], "error", [])
                 # researching 으로 두면 다음 실행에도 맨 앞에 잡혀 칸을 날린다(Frutiger Aero 18회 연속). 검수 대기로 뺀다.
                 if t.status == "researching":
                     t.status = "needs_review"
