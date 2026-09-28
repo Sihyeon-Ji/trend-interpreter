@@ -15,11 +15,13 @@ Trend API(`apps/trend-api`)는 환경변수 두 개가 **모두** 켜져야 Gemi
 | `GOOGLE_CLOUD_LOCATION` | `global` | Vertex AI 위치 | |
 | `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | `gemini-3.8-flash`, `gemini-3.5-flash` | 모델 ID | 503·429가 반복되면 폴백 모델 사용 |
 | `GEMINI_DAILY_BUDGET` | `36` | 하루 호출 상한 | DB `gemini_calls` 장부가 상한에 닿으면 호출하지 않음 |
-| `USE_LOCAL_GEMMA` | `0` | `1`이면 번역·재작성에 로컬 Gemma 사용 | Gemini 대신 `LOCAL_LLM_BASE_URL`의 모델 호출 |
+| `USE_LOCAL_GEMMA` | `0` | 개발자 PC의 편집 파이프라인에서 `1` | 텍스트 작업을 로컬 Gemma로 라우팅. 운영 Cloud Run API는 `0` 유지 |
 
 호출이 꺼진 상태에서 파이프라인을 돌리면 Gemini가 필요한 단계는 `pipeline_runs`에 오류로 남고 다음 단계는
 계속 진행합니다. ADK 에이전트 팀(`agents/team.py`)은 예산 가드에서 같은 조건을 확인해 모델을 부르기 전에
 짧은 응답으로 대체합니다. 로컬 Gemma 호출은 이 제어와 무관하게 `LOCAL_LLM_BASE_URL`·Ollama 준비 여부로 결정됩니다.
+Cloud Run 서비스에서 `USE_LOCAL_GEMMA=1`을 켜도 개발자 PC의 Ollama에 연결되지는 않습니다. 운영 요청의 신규 서술은
+[Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)에 따라 게시된 데이터·규칙 또는 Gemini 경로로 구현·검증해야 합니다.
 
 ## 로컬에서 확인하기
 
