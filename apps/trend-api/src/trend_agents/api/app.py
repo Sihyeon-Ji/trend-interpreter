@@ -1,7 +1,8 @@
-"""FastAPI — 프론트(apps/trend-web/lib/data.ts api 모드)가 부르는 엔드포인트. 읽기는 SQLite, 쓰기는 검수 결정만."""
+"""FastAPI — 프론트(apps/trend-web/lib/data.ts api 모드)가 부르는 엔드포인트. 읽기는 PostgreSQL, 쓰기는 검수 결정만."""
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
 from queue import Queue
 import threading
 from datetime import datetime, timezone
@@ -17,34 +18,59 @@ from ..pipeline import explain as explain_stage
 from ..pipeline import views
 from ..schemas import TrendBoard
 from ..auth import check_account, frontend_token_ok
+from ..logging_setup import configure as configure_logging
+from ..storage import db
 from ..storage import dictionary_store as ds
-from ..storage import store as db
+from ..storage.db import Connection
 
+configure_logging()
 app = FastAPI(title="trend-agents api", version="0.1")
 app.add_middleware(CORSMiddleware, allow_origins=WEB_ORIGINS or ["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-class _PerThreadConnection:
-    """스레드마다 자기 PostgreSQL 연결을 쓴다. 엔드포인트는 그대로 `_con` 을 넘기면 된다.
-
-    FastAPI 는 동기 엔드포인트를 스레드풀에서 동시에 돌리므로 연결 하나를 나눠 쓰면 안 된다(SQLite 시절 2026-09-26 실측).
-    끊긴 연결은 다음 요청에서 다시 연다.
-    """
+class _Borrowed:
+    """요청 하나가 빌린 연결. 처음 DB 를 쓸 때 작업 스레드에서 빌리고, 요청이 끝나면 미들웨어가 돌려준다."""
 
     def __init__(self) -> None:
-        self._local = threading.local()
+        self.raw = None
+        self.con: Connection | None = None
 
-    def _get(self):
-        con = getattr(self._local, "con", None)
-        if con is None or con.broken:
-            con = self._local.con = db.connect()
-        return con
+
+_request_slot: ContextVar[_Borrowed | None] = ContextVar("request_slot", default=None)
+
+
+class _RequestConnection:
+    """요청마다 풀에서 빌린 연결을 쓴다. 엔드포인트는 그대로 `_con` 을 넘기면 된다.
+
+    FastAPI 는 동기 엔드포인트를 스레드풀에서 동시에 돌리므로 연결 하나를 나눠 쓰면 안 된다(SQLite 시절 2026-09-26 실측).
+    연결은 이벤트 루프가 아니라 엔드포인트를 실행하는 작업 스레드에서 빌린다. 루프에서 빌리면 풀이 찼을 때 루프가 멈춰
+    앞선 요청도 끝나지 못한다. 풀 크기(DB_POOL_SIZE)가 인스턴스당 동시 DB 사용 수의 상한이다.
+    응답 뒤에도 일하는 스트리밍 작업은 db.session() 으로 따로 빌린다.
+    """
 
     def __getattr__(self, name: str):
-        return getattr(self._get(), name)
+        slot = _request_slot.get()
+        if slot is None:
+            raise RuntimeError("요청 밖에서 _con 을 썼습니다. db.session() 으로 연결을 빌리세요.")
+        if slot.con is None:
+            slot.raw = db.pool().getconn()
+            slot.con = Connection(slot.raw)
+        return getattr(slot.con, name)
 
 
-_con = _PerThreadConnection()
+_con = _RequestConnection()
+
+
+@app.middleware("http")
+async def _database_session(request, call_next):
+    slot = _Borrowed()
+    token = _request_slot.set(slot)
+    try:
+        return await call_next(request)
+    finally:
+        _request_slot.reset(token)
+        if slot.raw is not None:
+            db.pool().putconn(slot.raw)  # 열린 트랜잭션은 풀이 롤백한다
 
 
 class ReaderIn(BaseModel):
@@ -192,9 +218,10 @@ def ask_stream(body: AskIn):
 
     def work() -> None:
         try:
-            a = ask_stage.run(_con, q[:500], body.lang, body.history[-6:],
-                              progress=lambda step, label: events.put(("progress", {"step": step, "label": label})),
-                              log_miss=body.log_miss)
+            with db.session() as con:  # 응답 헤더가 나간 뒤에도 돌므로 요청 연결과 별도로 빌린다
+                a = ask_stage.run(con, q[:500], body.lang, body.history[-6:],
+                                  progress=lambda step, label: events.put(("progress", {"step": step, "label": label})),
+                                  log_miss=body.log_miss)
             events.put(("result", AskOut(answer=a.text, cards=a.cards, term_ids=a.term_ids, tools=a.used,
                                          turns=a.turns, seconds=round(a.seconds, 1), fallback=a.fallback).model_dump()))
         except Exception as e:

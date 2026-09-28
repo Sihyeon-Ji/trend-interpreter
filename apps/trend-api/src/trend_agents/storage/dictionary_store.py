@@ -176,8 +176,20 @@ def upsert_term(con: Connection, term: Term) -> Term:
         (term.term_id, norm(term.canonical), term.canonical, term.lang, term.category, term.status, term.lifecycle,
          term.first_seen.isoformat() if term.first_seen else None, term.last_seen.isoformat() if term.last_seen else None, term.model_dump_json()),
     )
+    # 별칭 표는 용어 JSON 과 같은 트랜잭션에서 통째로 다시 만든다 (마이그레이션 001).
+    con.execute("DELETE FROM term_aliases WHERE term_id=?", (term.term_id,))
+    con.executemany("INSERT OR IGNORE INTO term_aliases VALUES (?,?)", [(norm(a), term.term_id) for a in term.aliases if norm(a)])
     con.commit()
     return term
+
+
+def rebuild_aliases(con: Connection) -> int:
+    """용어 JSON 에서 별칭 표를 통째로 다시 만든다. 용어를 upsert_term 밖에서 넣었을 때(이관 등) 쓴다."""
+    con.execute("DELETE FROM term_aliases")
+    rows = [(norm(a), t.term_id) for t in list_terms(con) for a in t.aliases if norm(a)]
+    con.executemany("INSERT OR IGNORE INTO term_aliases VALUES (?,?)", rows)
+    con.commit()
+    return len(rows)
 
 
 def get_term(con: Connection, term_id: str) -> Term | None:
@@ -189,13 +201,11 @@ def find_term(con: Connection, text: str) -> Term | None:
     """표준형 또는 별칭 일치."""
     key = norm(text)
     row = con.execute("SELECT json FROM terms WHERE norm=?", (key,)).fetchone()
-    if row:
-        return Term.model_validate_json(row[0])
-    for (j,) in con.execute("SELECT json FROM terms").fetchall():
-        t = Term.model_validate_json(j)
-        if any(norm(a) == key for a in t.aliases):
-            return t
-    return None
+    if not row:
+        row = con.execute(
+            "SELECT t.json FROM term_aliases a JOIN terms t ON t.term_id=a.term_id WHERE a.norm=? ORDER BY t.term_id LIMIT 1", (key,)
+        ).fetchone()
+    return Term.model_validate_json(row[0]) if row else None
 
 
 def list_terms(con: Connection, statuses: tuple[str, ...] | None = None) -> list[Term]:
@@ -608,6 +618,16 @@ def log_lookup_miss(con: Connection, text: str, lang: str) -> None:
     t = now_s()
     con.execute("INSERT INTO lookups VALUES (?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET count=lookups.count+1, last_at=excluded.last_at", (key, text, lang, 1, t, t))
     con.commit()
+
+
+def prune_user_text(con: Connection, cache_days: int = 7, lookup_days: int = 30) -> tuple[int, int]:
+    """사람이 붙여 넣은 문장은 오래 두지 않는다. 해석 캐시는 cache_days, 못 답한 질문은 lookup_days 가 지나면 지운다 (2026-09-28 결정)."""
+    cache_cutoff = (now() - timedelta(days=cache_days)).isoformat()
+    lookup_cutoff = (now() - timedelta(days=lookup_days)).isoformat()
+    cache = con.execute("DELETE FROM explain_cache WHERE created_at < ?", (cache_cutoff,)).rowcount
+    lookups = con.execute("DELETE FROM lookups WHERE last_at < ?", (lookup_cutoff,)).rowcount
+    con.commit()
+    return cache, lookups
 
 
 def pending_lookups(con: Connection, limit: int = 100) -> list[tuple[str, str, str]]:

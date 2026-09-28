@@ -7,17 +7,24 @@
 from __future__ import annotations
 
 import atexit
+import hashlib
 import re
 import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
+from psycopg_pool import ConnectionPool
 
-from ..config import DATABASE_URL
+from ..config import DATABASE_URL, DB_POOL_SIZE
+
+MIGRATIONS_DIR = Path(__file__).with_name("migrations")
 
 
 @dataclass(frozen=True)
@@ -172,7 +179,7 @@ class Connection:
         self._raw.close()
 
 
-_lock = threading.Lock()
+_lock = threading.RLock()  # pool() 이 잠금을 쥔 채 connect() 를 부른다
 _ensured: set[str] = set()
 _EPHEMERAL: set[str] = set()
 _EPHEMERAL_URL: str | None = None
@@ -213,8 +220,61 @@ def connect(path: str | None = None, *, url: str | None = None) -> Connection:
         if schema or key not in _ensured:
             con.executescript(store.DDL)
             con.executescript(dictionary_store.DDL)
+            apply_migrations(con)
             _ensured.add(key)
     return con
+
+
+def apply_migrations(con: Connection, directory: Path = MIGRATIONS_DIR) -> list[str]:
+    """번호가 붙은 SQL 파일을 순서대로 한 번씩 적용한다. 적용 기록은 schema_migrations 에 남고, 적용된 파일이 바뀌면 거부한다.
+
+    기본 표는 DDL 의 CREATE TABLE IF NOT EXISTS 가 만들고, 그 뒤의 컬럼 추가·표 추가·데이터 보정은 여기 파일로 한다.
+    파일 이름은 NNN_설명.sql 이며 한 파일은 한 트랜잭션이다.
+    """
+    con.executescript(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (version BIGINT PRIMARY KEY, name TEXT, checksum TEXT, applied_at TEXT)"
+    )
+    applied = dict(con.execute("SELECT version, checksum FROM schema_migrations").fetchall())
+    done: list[str] = []
+    for path in sorted(directory.glob("*.sql")):
+        version = int(path.name.split("_", 1)[0])
+        sql = path.read_text(encoding="utf-8")
+        checksum = hashlib.sha256(sql.encode()).hexdigest()
+        if version in applied:
+            if applied[version] != checksum:
+                raise RuntimeError(f"마이그레이션 {path.name} 은 이미 적용된 뒤 내용이 바뀌었습니다. 새 번호의 파일로 추가하세요.")
+            continue
+        try:
+            con.raw.execute(sql)
+            con.execute("INSERT INTO schema_migrations VALUES (?,?,?,?)",
+                        (version, path.stem, checksum, datetime.now(timezone.utc).isoformat()))
+            con.commit()
+        except psycopg.Error:
+            con.rollback()
+            raise
+        done.append(path.name)
+    return done
+
+
+_pool: ConnectionPool | None = None
+
+
+def pool() -> ConnectionPool:
+    """API 프로세스가 공유하는 연결 풀. 크기는 DB_POOL_SIZE 이며 Cloud Run 의 인스턴스당 동시 요청 수와 같게 맞춘다."""
+    global _pool
+    with _lock:
+        if _pool is None:
+            connect().close()  # 스키마와 마이그레이션을 먼저 맞춰 둔다
+            _pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=DB_POOL_SIZE, timeout=30,
+                                   kwargs={"application_name": "trend-api"}, open=True)
+    return _pool
+
+
+@contextmanager
+def session() -> Iterator[Connection]:
+    """풀에서 연결 하나를 빌려 쓰고 돌려준다. 블록이 예외로 끝나면 풀이 롤백한다."""
+    with pool().connection() as raw:
+        yield Connection(raw)
 
 
 def drop_ephemeral_schemas(url: str | None = None, *, stale: bool = False) -> int:
