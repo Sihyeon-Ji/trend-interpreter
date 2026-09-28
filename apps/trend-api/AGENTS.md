@@ -16,7 +16,7 @@
 - API 는 `db.pool()` 의 연결을 요청마다 빌려 쓴다. 응답 뒤에도 도는 작업(스트리밍 등)은 `db.session()` 으로 따로 빌린다. 이벤트 루프에서 연결을 기다리지 않는다.
 - 로그는 `logging` 으로 표준 출력에만 낸다(`logging_setup.configure`). 파일 로그를 새로 만들지 않고, 사용자 문장·모델 출력·비밀값을 로그에 넣지 않는다.
 - 사람이 쓴 문장을 저장하는 표는 보존 기간을 둔다. 해석 캐시 7일, 미해결 질문 30일(`prune_user_text`).
-- `data/`, `logs/`, `*.db`, `*.zip` 은 커밋하지 않는다.
+- `data/`, `*.db`, `*.zip` 은 커밋하지 않는다.
 - 새 데이터 소스는 `collectors/`, 모델 호출은 `interpreters/`, 저장은 `storage/`, ADK 에이전트는 `agents/`. 단계별 실행 스크립트는 `scripts/test_*.py` 로, 키가 없으면 `SystemExit` 메시지로 안내하고 죽는다.
 - 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, `gemma4:12b`(Ollama, `think=False`).
 - 영상은 URL 만 저장, 파일로 받지 않는다 (저작권).
