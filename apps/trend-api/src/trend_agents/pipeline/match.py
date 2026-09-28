@@ -95,7 +95,9 @@ def strip_particle(s: str) -> list[str]:
 
 # 목록·후보로 내보내면 안 되는 말 — 욕설·성적 표현. 직접 물으면 사전은 답하되, 둘러보기 목록에는 올리지 않는다
 # (2026-09-28 검토: "10대 유행어" 목록에 '아헤가오' 가 나왔다).
-UNSAFE = re.compile(r"시발|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|보지|자지|fuck|shit|porn|hentai|ahegao|nsfw|goatse", re.I)
+# 목표 지역(대만·홍콩)의 중국어도 거른다. 뜻이 하나뿐인 말만 — '穴'·'エロ' 처럼 흔히 다른 뜻으로 쓰이는 글자는 넣지 않는다.
+UNSAFE = re.compile(r"시발|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|보지|자지|fuck|shit|porn|hentai|ahegao|nsfw|goatse|"
+                    r"性侵|強姦|强奸|色情|做愛|做爱|幹你娘|干你娘|肏|屄", re.I)
 
 
 def unsafe(text: str) -> bool:

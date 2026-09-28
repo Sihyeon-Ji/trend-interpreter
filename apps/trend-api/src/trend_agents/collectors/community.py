@@ -22,6 +22,11 @@ COMMUNITY_SITES = {
     "TH": ["pantip.com", "reddit.com"],
     "TW": ["ptt.cc", "dcard.tw", "reddit.com"],
     "VN": ["voz.vn", "reddit.com"],
+    # 목표 지역(ADR 0001) 나머지. 말레이시아·싱가포르는 본 도메인이 기술 뉴스라 포럼 하위 도메인을 쓴다(09-28 실측)
+    "HK": ["lihkg.com", "discuss.com.hk", "reddit.com"],
+    "PH": ["reddit.com", "pinoyexchange.com"],
+    "MY": ["forum.lowyat.net", "reddit.com"],
+    "SG": ["forums.hardwarezone.com.sg", "reddit.com"],
 }
 DEFAULT_SITES = ["reddit.com"]
 
@@ -32,6 +37,11 @@ def _ev(kind: str, url: str, title: str, domain: str, when: datetime | None, exc
     return Evidence(evidence_id=new_id("e", url), kind=kind, url=url, title=title[:200], source_domain=domain, observed_at=when or datetime.now(timezone.utc), excerpt=excerpt[:240])  # type: ignore[arg-type]
 
 
+def _site_key(site: str) -> str:
+    """출처 이름에서 찾을 사이트 낱말. 'forum.lowyat.net' 은 'forum' 이 아니라 'lowyat' — 앞 낱말은 아무 제목에나 있다."""
+    return next((p for p in site.split(".") if p not in ("forum", "forums", "www")), site)
+
+
 def google_indexed_posts(term: str, region: str, limit: int = 8) -> list[Evidence]:
     """구글에 색인된 커뮤니티 글. 제목에 게시판·사이트 이름이 붙어 온다."""
     sites = COMMUNITY_SITES.get(region, DEFAULT_SITES)
@@ -39,7 +49,7 @@ def google_indexed_posts(term: str, region: str, limit: int = 8) -> list[Evidenc
     news_region = region if region in news_rss.LOCALES else "US"
     out: list[Evidence] = []
     for n in news_rss.fetch_news(news_region, query=q, limit=limit):
-        domain = next((s for s in sites if s.split(".")[0] in n.title.lower() or s.split(".")[0] in (n.source or "").lower()), (n.source or "community").lower().replace(" ", ""))
+        domain = next((s for s in sites if _site_key(s) in n.title.lower() or _site_key(s) in (n.source or "").lower()), (n.source or "community").lower().replace(" ", ""))
         out.append(_ev("community", n.link, n.title, domain, n.published_at, n.title))
     return out
 

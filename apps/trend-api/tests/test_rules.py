@@ -93,6 +93,18 @@ def test_wiki_clean_title_keeps_meme_paren_drops_others():
     assert clean_title("List of Internet phenomena") is None
     assert clean_title("2024") is None
     assert clean_title("Yee") is None                  # 네 글자 이하 영문 한 낱말
+    assert clean_title("Danh sách biểu tượng cảm xúc") is None   # 베트남어 목록 문서
+    assert clean_title("網路流行語大賞") is None                  # 시상 행사는 표현이 아니다
+    assert clean_title("傻眼貓咪") == "傻眼貓咪"
+
+
+def test_unsafe_covers_target_region_chinese():
+    """목표 지역(대만·홍콩)의 중국어 선정·욕설 표현도 사전·후보에서 거른다. 흔한 글자 하나로는 걸지 않는다."""
+    from trend_agents.pipeline.match import unsafe
+
+    assert unsafe("如果早知道男生也會被性侵") and unsafe("幹你娘")
+    assert not unsafe("傻眼貓咪") and not unsafe("樹洞") and not unsafe("럭키비키")
+
 
 
 def test_wiki_is_meme_rejects_songs_films_people_keeps_undescribed():

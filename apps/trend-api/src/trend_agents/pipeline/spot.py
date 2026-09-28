@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from collections import defaultdict
 
+from ..config import REGIONS_FOCUS
 from ..schemas import ShortsVideo, SpottedTerm
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, local_ok, structured
@@ -29,9 +30,14 @@ def gather_lines(con: Connection, videos: int = 100, community: int = 60, lookup
     """(줄 목록, 소비한 lookups 키). 줄: text·region·source."""
     lines: list[dict] = []
     since = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
-    for (j,) in con.execute("SELECT json FROM videos WHERE last_seen >= ? ORDER BY view_count DESC LIMIT ?", (since, videos)).fetchall():
+    # 목표 지역마다 조회수 상위를 고르게 — 전 세계 상위 100개는 인도·영국이 절반이고 대만·베트남·필리핀은 0~1개였다(09-28 실측)
+    per = max(1, videos // len(REGIONS_FOCUS))
+    focus = ",".join("?" * len(REGIONS_FOCUS))
+    for region, j in con.execute(
+            "SELECT region, json FROM (SELECT region, json, ROW_NUMBER() OVER (PARTITION BY region ORDER BY view_count DESC) AS rn FROM videos "
+            f"WHERE last_seen >= ? AND region IN ({focus})) AS v WHERE rn <= ?", (since, *REGIONS_FOCUS, per)).fetchall():
         v = ShortsVideo.model_validate_json(j)
-        lines.append({"text": v.title[:160], "region": v.region or "US", "source": "shorts"})
+        lines.append({"text": v.title[:160], "region": region, "source": "shorts"})  # JSON 의 region 은 마지막으로 본 나라라 고른 나라와 다를 수 있다
     for title, excerpt, term_id in con.execute(
         "SELECT json::jsonb->>'title', json::jsonb->>'excerpt', term_id FROM evidences "
         "WHERE kind='community' AND observed_at >= ? ORDER BY observed_at DESC LIMIT ?", (since, community)).fetchall():

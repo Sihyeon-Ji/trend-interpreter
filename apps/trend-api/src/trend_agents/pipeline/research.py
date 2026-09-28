@@ -30,6 +30,9 @@ MAX_WEB_FETCH = 6
 UA = "Mozilla/5.0 (compatible; trend-agents/0.1)"
 
 
+# 표제어 언어 → 근거를 찾을 나라. 중국어는 목표 지역인 대만으로(본토 제외, ADR 0001).
+LANG_REGION = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN", "zh": "TW", "tl": "PH", "fil": "PH", "ms": "MY"}
+
 def _norm(s: str) -> str:
     return "".join(s.split()).lower()
 
@@ -277,7 +280,7 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
         try:
             from ..collectors import youtube as yt
 
-            region = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN"}.get(term.lang, "US")
+            region = LANG_REGION.get(term.lang, "US")
             best = _pick_video(yt.search_shorts(term.canonical, region, hours=24 * 365, max_results=10), term)
             if best:
                 ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={best.video_id}",
@@ -360,7 +363,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
 
         first_party += gdelt_context.sentences(term.canonical)
 
-        region = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN"}.get(term.lang, "US")
+        region = LANG_REGION.get(term.lang, "US")
         first_party += community.gather(term.canonical, region)[0]
         if region == "KR":
             from ..collectors import naver_search

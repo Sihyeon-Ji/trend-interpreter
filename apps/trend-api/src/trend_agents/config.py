@@ -46,7 +46,8 @@ REGIONS_ALL = [
     "KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG", "IN", "AU",   # JAPAC
     "US", "CA", "GB", "DE", "FR", "ES", "IT", "BR", "MX", "AR", "TR", "SA", "EG", "NG", "ZA",  # 글로벌
 ]
-REGIONS_FOCUS = ["KR", "JP", "US", "ID", "TH", "BR", "IN", "GB"]
+# 목표 지역(ADR 0001): 동·동남아 10개국. 중국 본토는 제외. 미국·브라질 등은 REGIONS_ALL 로 계속 모은다.
+REGIONS_FOCUS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"]
 REGIONS = REGIONS_FOCUS  # 기존 참조 호환
 
 

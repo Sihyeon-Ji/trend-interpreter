@@ -24,11 +24,14 @@ CATEGORIES: dict[str, list[str]] = {
     "ko": ["분류:인터넷 밈"],
     "ja": ["Category:インターネット・ミーム"],
     "id": ["Kategori:Meme Internet"],
+    # 목표 지역(ADR 0001): 중국어는 대만·홍콩으로 본다. 태국어·타갈로그어 위키에는 밈 분류가 없고, 말레이어·베트남어
+    # 분류는 영어 밈(Anonymous·T-pose…)을 옮긴 문서라 그 나라 밈으로 잘못 붙는다(09-28 실측) — 넣지 않는다.
+    "zh": ["Category:网络流行语"],
 }
-LANG_REGION = {"en": "US", "ko": "KR", "ja": "JP", "id": "ID"}
+LANG_REGION = {"en": "US", "ko": "KR", "ja": "JP", "id": "ID", "zh": "TW"}
 
 # 목록·설명 문서는 표현이 아니다. 괄호 주석이 붙은 것은 살린다("6-7 (meme)" → "6-7").
-SKIP = ("List of", "목록", "일람", "Daftar", "Internet meme", "인터넷 밈", "インターネット・ミーム", "Meme Internet",
+SKIP = ("List of", "목록", "일람", "Daftar", "Danh sách", "列表", "一覽", "一览", "大賞", "Internet meme", "인터넷 밈", "インターネット・ミーム", "Meme Internet",
         "Category:", "분류:", "Template:", "틀:")
 
 # 괄호 주석을 떼도 되는 것 — 뗀 이름이 그대로 표제어다.
@@ -49,7 +52,8 @@ _NOT_TERM = re.compile(
     r"노래|음반|싱글|영화|드라마|만화|게임|웹사이트|기업|프렌차이즈|프랜차이즈|브랜드|음료|"
     r"가수|래퍼|배우|선수|정치인|유튜버|스트리머|등장인물|품종|무예|\d{4}년 출생|"
     r"の楽曲|のアルバム|のシングル|の映画|の漫画|のゲーム|のキャラクター|登場人物|テレビアニメ|"
-    r"歌手|俳優|声優|企業|チェーン|商品|飲料|プラットフォーム|ウェブサイト|品種|馬\b",
+    r"歌手|俳優|声優|企業|チェーン|商品|飲料|プラットフォーム|ウェブサイト|品種|馬\b|"
+    r"歌曲|專輯|专辑|電影|电影|電視劇|电视剧|遊戲|游戏|公司|演員|演员|政治人物|網站|网站",
     re.I)
 
 
@@ -58,13 +62,6 @@ def is_meme(description: str) -> bool:
     return not _NOT_TERM.search(description or "")
 
 
-LANG_REGION = {"en": "US", "ko": "KR", "ja": "JP", "id": "ID"}
-
-# 목록·설명 문서는 표현이 아니다. 괄호 주석이 붙은 것은 살린다("6-7 (meme)" → "6-7").
-SKIP = ("List of", "목록", "일람", "Daftar", "Internet meme", "인터넷 밈", "インターネット・ミーム", "Meme Internet",
-        "Category:", "분류:", "Template:", "틀:")
-
-# 괄호 주석을 떼도 되는 것 — 뗀 이름이 그대로 표제어다.
 CACHE = Path("data/wiki_memes.json")   # 받아 온 원천 자료. 거르기는 읽을 때 하므로 규칙을 고쳐도 다시 받지 않는다
 
 
@@ -125,6 +122,20 @@ def _descriptions(lang: str, titles: list[str]) -> dict[str, str]:
 
 
 
+def _simplified(titles: list[str]) -> set[str]:
+    """간체로 쓴 중국어 제목. 대만·홍콩 표기와 다르면 간체다 — 중국 본토의 말은 목표 지역 밖이다(ADR 0001).
+    간체·번체가 같은 글자로만 된 제목(三高男 등)은 가릴 수 없어 남긴다. 조사·게이트가 대만·홍콩 근거로 다시 거른다."""
+    out: set[str] = set()
+    for i in range(0, len(titles), 50):
+        j = _api("zh", {"action": "query", "prop": "info", "inprop": "varianttitles", "titles": "|".join(titles[i : i + 50])})
+        for pg in j.get("query", {}).get("pages", []):
+            v, t = pg.get("varianttitles") or {}, pg.get("title", "")
+            if v and t not in (v.get("zh-tw"), v.get("zh-hk")):
+                out.add(t)
+        time.sleep(1.0)                               # 예의상 간격
+    return out
+
+
 def _fetch_raw(langs: tuple[str, ...], per_category: int) -> list[dict]:
     """[{title, term, lang, description}] — 분류 구성원과 그 한 줄 설명. 거르지 않는다."""
     raw: list[dict] = []
@@ -136,18 +147,23 @@ def _fetch_raw(langs: tuple[str, ...], per_category: int) -> list[dict]:
             except Exception:
                 continue
         keep = [t for t in dict.fromkeys(titles) if clean_title(t)]
+        if lang == "zh" and keep:
+            simplified = _simplified(keep)
+            keep = [t for t in keep if t not in simplified]
         desc = _descriptions(lang, keep) if keep else {}
         raw += [{"title": t, "term": clean_title(t), "lang": lang, "description": desc.get(t, "")} for t in keep]
     return raw
 
 
-def known_memes(langs: tuple[str, ...] = ("en", "ko", "ja", "id"), per_category: int = 200, *, cache: bool = True) -> list[dict]:
+def known_memes(langs: tuple[str, ...] = ("en", "ko", "ja", "id", "zh"), per_category: int = 200, *, cache: bool = True) -> list[dict]:
     """[{term, lang, region, source_title, description}] — 노래·영화·사람이 아닌 밈 이름만."""
     raw: list[dict] = []
     if cache and CACHE.exists():
         raw = json.loads(CACHE.read_text(encoding="utf-8"))
-    if not raw:
-        raw = _fetch_raw(langs, per_category)
+    # 캐시에 없는 언어만 새로 받는다 — 언어판을 늘려도 이미 받은 것을 다시 받지 않는다
+    missing = tuple(lang for lang in langs if not any(r.get("lang") == lang for r in raw))
+    if missing:
+        raw += _fetch_raw(missing, per_category)
         if cache and raw:
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             CACHE.write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")

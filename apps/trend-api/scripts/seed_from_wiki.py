@@ -17,11 +17,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.collectors import wiki_memes  # noqa: E402
+from trend_agents.pipeline.match import unsafe  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
 from trend_agents.storage import store as db  # noqa: E402
 
 RECENT = {"en": ["Category:Internet memes introduced in 2025", "Category:Internet memes introduced in 2024"],
-          "ko": ["분류:인터넷 밈"], "ja": ["Category:インターネット・ミーム"], "id": ["Kategori:Meme Internet"]}
+          "ko": ["분류:인터넷 밈"], "ja": ["Category:インターネット・ミーム"], "id": ["Kategori:Meme Internet"],
+          "zh": ["Category:网络流行语"]}   # 목표 지역 대만·홍콩. 다른 언어판을 넣지 않은 이유는 collectors/wiki_memes.py
 
 
 def main() -> None:
@@ -29,7 +31,7 @@ def main() -> None:
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--all", action="store_true", help="전체 밈 분류까지 (수백 건)")
     ap.add_argument("--limit", type=int, default=400)
-    ap.add_argument("--lang", help="이 언어만 (en/ko/ja/id). 조사 순서는 last_seen 이 최신인 것부터라,\n                                   먼저 조사시키고 싶은 언어를 나중에 넣으면 된다")
+    ap.add_argument("--lang", help="이 언어만 (en/ko/ja/id/zh). 조사 순서는 last_seen 이 최신인 것부터라,\n                                   먼저 조사시키고 싶은 언어를 나중에 넣으면 된다")
     a = ap.parse_args()
 
     if not a.all:
@@ -41,6 +43,8 @@ def main() -> None:
     if a.lang:
         rows = [r for r in rows if r["lang"] == a.lang]
     for r in rows[: a.limit]:
+        if unsafe(r["term"]):          # 사전에 올릴 말이 아니다 — 조사 예산도 쓰지 않는다
+            continue
         if ds.find_term(con, r["term"]):
             known += 1
             continue
