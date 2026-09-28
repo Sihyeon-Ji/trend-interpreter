@@ -2,13 +2,13 @@
 기본은 Gemini(예산 안에서), USE_LOCAL_GEMMA=1 이고 Ollama 가 떠 있으면 로컬 Gemma."""
 from __future__ import annotations
 
-import sqlite3
 
 from ..config import USE_LOCAL_GEMMA
 from ..schemas import Meaning, MeaningText
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, structured
 from .runs import stage
+from ..storage.db import Connection
 
 LANG_NAME = {"ko": "Korean", "en": "English"}
 PROMPT = """Rewrite this dictionary entry about the internet slang term "{term}" in {target}. Return JSON with keys definition, expansion, origin, nuance, plain.
@@ -25,7 +25,7 @@ def _entry(m: Meaning) -> dict:
     return {"definition": m.definition, "expansion": m.expansion, "origin": m.origin, "nuance": m.nuance}
 
 
-def make_text(con: sqlite3.Connection, term: str, m: Meaning, target: str) -> tuple[MeaningText, str]:
+def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[MeaningText, str]:
     if USE_LOCAL_GEMMA:
         from ..interpreters import gemma_local, gemma_translate
 
@@ -36,7 +36,7 @@ def make_text(con: sqlite3.Connection, term: str, m: Meaning, target: str) -> tu
     return (parsed if isinstance(parsed, MeaningText) else MeaningText.model_validate(parsed)), model
 
 
-def run(con: sqlite3.Connection, max_calls: int = 12) -> dict:
+def run(con: Connection, max_calls: int = 12) -> dict:
     with stage(con, "translate") as r:
         calls = 0
         for t in ds.list_terms(con, ("verified",)):

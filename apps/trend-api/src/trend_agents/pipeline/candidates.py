@@ -1,18 +1,18 @@
 """2b단계 후보 추출. 분류에서 '뜻을 찾아볼 가치'가 있다고 본 검색어 + Gemini 가 쇼츠에서 읽어낸 밈 이름 → 후보. 이미 사전에 있으면 후보가 아니다."""
 from __future__ import annotations
 
-import sqlite3
 
 from ..schemas import ShortsInterpretation
 from ..storage import dictionary_store as ds
 from .runs import stage
+from ..storage.db import Connection
 
 MEME_KINDS = {"slang", "meme", "song", "dance"}
 TREND_DICT_KINDS = {"slang_meme", "song", "challenge"}  # 분류가 이렇게 본 검색어만 사전 후보. 인물·상품·사건·일반 단어는 지도에만 남는다
 MIN_MEME_CONFIDENCE = 0.6
 
 
-def run(con: sqlite3.Connection) -> dict:
+def run(con: Connection) -> dict:
     with stage(con, "candidates") as r:
         n = 0
         for term, region, lang, kind in con.execute("SELECT term, region, lang, kind FROM trend_class WHERE is_term_candidate=1").fetchall():

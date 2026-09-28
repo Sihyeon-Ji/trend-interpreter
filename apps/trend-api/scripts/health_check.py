@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.config import GEMINI_DAILY_BUDGET  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 # 선을 넘으면 경고. 근거는 2026-09-16 전수 검토에서 잡은 실제 사고들.
 LIMITS = {
@@ -45,8 +45,8 @@ def collect(con) -> dict:
     day = now.date().isoformat()
     since = (now - timedelta(hours=24)).isoformat()
     m["stages_24h"] = {s: (c, st) for s, c, st in con.execute(
-        "SELECT stage, count, status FROM pipeline_runs WHERE finished_at >= ? "
-        "GROUP BY stage HAVING MAX(finished_at)", (since,)).fetchall()}
+        "SELECT DISTINCT ON (stage) stage, count, status FROM pipeline_runs WHERE finished_at >= ? "
+        "ORDER BY stage, finished_at DESC", (since,)).fetchall()}
     m["errors_24h"] = [s for s, (_, st) in m["stages_24h"].items() if st == "error"]
 
     by_status = dict(con.execute("SELECT status, COUNT(*) FROM terms GROUP BY status").fetchall())

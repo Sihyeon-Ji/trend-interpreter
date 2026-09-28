@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 import time
 from dataclasses import dataclass, field
 
 from ..interpreters import local_chat
 from ..storage import dictionary_store as ds
 from . import tools as T
+from ..storage.db import Connection
 
 MAX_TURNS = 4
 LIVE_BUDGET_S = 8.0   # 사전에 없는 말을 지금 찾아보는 데 쓰는 전체 시간 (후보 여러 개를 합쳐서)
@@ -179,7 +179,7 @@ _ONE_WORD_ASK = re.compile(r"^\s*(.{1,30}?)\s*(?:이|가|은|는)?\s*(뭐야|뭔
                            r"[?？!.\s]*$")
 
 
-def _recover_by_meaning(con: sqlite3.Connection, ctx: "T.Ctx", question: str) -> None:
+def _recover_by_meaning(con: Connection, ctx: "T.Ctx", question: str) -> None:
     """이름을 모르고 뜻만 설명한 질문인데 모델이 엉뚱한 도구를 불렀을 때, 설명으로 직접 찾아 준다.
 
     "AI로 만든 이탈리아 캐릭터 밈 이름이 뭐였지?" 에 list_terms 를 부르고 '목록에 없다' 고 답하던 문제
@@ -208,7 +208,7 @@ def _asked_word(question: str) -> str:
     return w
 
 
-def _check_asked_word(con: sqlite3.Connection, ctx: "T.Ctx", question: str) -> None:
+def _check_asked_word(con: Connection, ctx: "T.Ctx", question: str) -> None:
     """질문이 한 낱말을 물었으면 코드가 직접 확인한다.
 
     사전에 있으면 그 표제어를 내놓고(모델이 도구를 안 불러 '없다' 고 답하는 일이 잦다),
@@ -226,7 +226,7 @@ def _check_asked_word(con: sqlite3.Connection, ctx: "T.Ctx", question: str) -> N
         ctx.missed(word)
 
 
-def _sum_list(con: sqlite3.Connection, question: str, card: dict) -> str:
+def _sum_list(con: Connection, question: str, card: dict) -> str:
     """목록을 사람 말로 간추린다. 도구가 뱉은 줄을 그대로 답으로 내보내면 표를 두 번 읽히는 꼴이 된다
     (사용자 지적 09-16: "너무 답변이 단조로워")."""
     from .gemini import generate
@@ -247,7 +247,7 @@ def _sum_list(con: sqlite3.Connection, question: str, card: dict) -> str:
     return _tidy(local_chat.sanitize(text))[:700]
 
 
-def _live_answer(con: sqlite3.Connection, ctx: "T.Ctx", lang: str) -> str:
+def _live_answer(con: Connection, ctx: "T.Ctx", lang: str) -> str:
     """사전에 없는 말을 그 자리에서 찾아보고 알려 준다. 사전 답과 섞이지 않게 카드로 따로 낸다."""
     from . import live
 
@@ -278,7 +278,7 @@ def _live_answer(con: sqlite3.Connection, ctx: "T.Ctx", lang: str) -> str:
     return ""
 
 
-def _drop_invented(con: sqlite3.Connection, text: str, question: str) -> str:
+def _drop_invented(con: Connection, text: str, question: str) -> str:
     """사전에 없는 이름을 '있다' 고 말하는 문장을 지운다. 사용자가 말한 이름은 그대로 둔다(되풀이일 뿐)."""
     if not text:
         return text
@@ -309,7 +309,7 @@ def reset_breaker() -> None:
     _fails = 0
 
 
-def run(con: sqlite3.Connection, question: str, lang: str = "ko", history: list[dict] | None = None,
+def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | None = None,
         progress=None, log_miss: bool = True) -> Answer:
     """질문 하나에 답한다. 실패하면 Answer.fallback 에 이유를 담아 돌려준다 — 화면은 규칙 기반 해석으로 물러선다."""
     global _fails

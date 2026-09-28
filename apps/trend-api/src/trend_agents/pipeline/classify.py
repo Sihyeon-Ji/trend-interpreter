@@ -1,13 +1,13 @@
 """2단계 분류. 트렌드 검색어에 카테고리와 '사전 후보 여부'를 붙인다. 인덱스 매핑 배치 JSON — 순서가 어긋나면 그 배치는 버린다."""
 from __future__ import annotations
 
-import sqlite3
 
 from ..config import REGIONS_FOCUS
 from ..schemas import TrendClassification
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, local_ok, structured
 from .runs import stage
+from ..storage.db import Connection
 
 BATCH = 40
 PROMPT = """You label trending Google search queries from {region_note}. For EACH item return one object with the same "i".
@@ -35,7 +35,7 @@ def _batch_prompt(rows: list[dict]) -> str:
     return PROMPT.format(region_note=", ".join(regions), n=len(rows), items=items)
 
 
-def run(con: sqlite3.Connection, max_batches: int = 6) -> dict:
+def run(con: Connection, max_batches: int = 6) -> dict:
     with stage(con, "classify") as r:
         batch = 15 if local_ok() else BATCH  # 12b 로컬 모델은 작은 배치가 안정적
         if local_ok():

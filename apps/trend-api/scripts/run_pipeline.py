@@ -15,7 +15,7 @@ from trend_agents.config import GEMINI_DAILY_BUDGET, PIPELINE_INTERVAL_HOURS
 from trend_agents.pipeline import (board, candidates, classify, collect, hunt, interpret, naver, research, spikes, spot,
                                    topics, track, translate)
 from trend_agents.pipeline.gemini import budget_left
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 STAGES = {  # 실행 순서: 해석(쇼츠→밈 이름)이 후보 추출보다 앞
     "collect": collect.run, "classify": classify.run, "spikes": spikes.run, "interpret": interpret.run, "candidates": candidates.run,

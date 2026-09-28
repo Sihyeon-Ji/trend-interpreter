@@ -3,9 +3,23 @@ from __future__ import annotations
 
 from ..pipeline import board, candidates, classify, collect, interpret, naver, research, spikes, track, translate, views
 from ..storage import dictionary_store as ds
-from ..storage import sqlite_store as db
+from ..storage import store as db
 
-_con = db.connect()
+
+
+class _LazyConnection:
+    """처음 도구를 부를 때 연결한다. 모듈 import 만으로 DB 가 필요하지 않게."""
+
+    def __init__(self) -> None:
+        self._con = None
+
+    def __getattr__(self, name: str):
+        if self._con is None or self._con.broken:
+            self._con = db.connect()
+        return getattr(self._con, name)
+
+
+_con = _LazyConnection()
 
 
 def _report(results: dict) -> dict:

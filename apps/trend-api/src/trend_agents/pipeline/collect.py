@@ -1,7 +1,6 @@
 """1단계 수집. 키 없는 소스(뉴스 RSS·트렌드 RSS·위키)는 항상, YouTube·BigQuery 는 키·ADC 가 있을 때만."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import date, timedelta
 
 from ..collectors import google_trends as gt
@@ -9,8 +8,9 @@ from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
 from ..config import GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY
 from ..lifecycle import recheck_interval_days
 from ..storage import dictionary_store as ds
-from ..storage import sqlite_store as db
+from ..storage import store as db
 from .runs import stage
+from ..storage.db import Connection
 
 SEARCH_REGIONS_PER_RUN = 4  # search.list 는 100 unit → 하루 쿼터 안에서 집중 국가를 돌려 가며
 
@@ -22,7 +22,7 @@ def _rotate(items: list[str], k: int) -> list[str]:
     return [items[(start + i) % len(items)] for i in range(k)]
 
 
-def run(con: sqlite3.Connection, mention_terms: int = 30) -> dict:
+def run(con: Connection, mention_terms: int = 30) -> dict:
     news_rss.reset_breaker()  # 상류 차단기는 수집 한 바퀴 단위 — 이 뒤의 spikes·topics 는 같은 판정을 이어받고, 다음 실행은 다시 시도한다
     out: dict = {}
     with stage(con, "collect.youtube") as r:

@@ -1,12 +1,12 @@
 """단계 실행 기록 + '조용한 0' 카나리. 단계가 예외 없이 0건을 내면 경고로 남긴다."""
 from __future__ import annotations
 
-import sqlite3
 import traceback
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from ..storage import dictionary_store as ds
+from ..storage.db import Connection
 
 
 @dataclass
@@ -19,7 +19,7 @@ class Result:
 
 
 @contextmanager
-def stage(con: sqlite3.Connection, name: str):
+def stage(con: Connection, name: str):
     rid = ds.run_start(con, name)
     res = Result(stage=name)
     try:

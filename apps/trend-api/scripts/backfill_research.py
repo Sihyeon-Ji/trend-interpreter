@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.pipeline import research  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 
 def main() -> None:

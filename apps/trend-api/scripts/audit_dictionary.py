@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import argparse
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -22,8 +21,9 @@ from trend_agents.pipeline.match import mentions  # noqa: E402
 from trend_agents.pipeline.research import first_party_evidence  # noqa: E402
 from trend_agents.schemas import Evidence, MeaningDraft  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 from trend_agents.verification import gate  # noqa: E402
+from trend_agents.storage.db import Connection
 
 REGION_BY_LANG = {"ko": "KR", "ja": "JP", "id": "ID", "de": "DE", "pt": "BR", "hi": "IN", "te": "IN", "es": "MX", "th": "TH", "vi": "VN"}
 BY = "team"
@@ -36,7 +36,7 @@ def blocking(reasons: list[str], human: bool) -> list[str]:
     return out
 
 
-def strengthen(con: sqlite3.Connection, t, evs: list[Evidence]) -> list[Evidence]:
+def strengthen(con: Connection, t, evs: list[Evidence]) -> list[Evidence]:
     """뉴스 검색·커뮤니티·위키에서 용어를 실제로 말하는 근거만 더 모은다."""
     region = REGION_BY_LANG.get(t.lang, "US")
     have = {e.evidence_id for e in evs}
@@ -138,11 +138,11 @@ def main() -> None:
         print(f"  - {t.canonical}: {'; '.join(bl)}")
 
 
-def _evidences(con: sqlite3.Connection, term_id: str) -> list[Evidence]:
+def _evidences(con: Connection, term_id: str) -> list[Evidence]:
     return [Evidence.model_validate_json(r[0]) for r in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,))]
 
 
-def ds_count(con: sqlite3.Connection, term_id: str) -> int:
+def ds_count(con: Connection, term_id: str) -> int:
     return con.execute("SELECT COUNT(*) FROM evidences WHERE term_id=?", (term_id,)).fetchone()[0]
 
 

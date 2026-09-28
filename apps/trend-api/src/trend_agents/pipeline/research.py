@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import html
 import re
-import sqlite3
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -22,6 +21,7 @@ from ..verification import anchor_hit, gate
 from .gemini import BudgetExhausted, budget_left, local_ok, structured
 from .match import mentions, same_term
 from .runs import stage
+from ..storage.db import Connection
 
 MIN_CANDIDATE_COUNT = 2  # 소스 두 번 이상 등장했거나 쇼츠에서 나온 후보만
 DICT_KINDS = {"slang": "slang", "slang_meme": "slang", "meme": "meme", "dance": "meme", "challenge": "meme", "song": "song"}  # kind → 사전 분류
@@ -70,7 +70,7 @@ def web_evidence(term: str, urls: list[str]) -> list[Evidence]:
     return out
 
 
-def first_party_evidence(con: sqlite3.Connection, term: str, aliases: list[str] = ()) -> list[Evidence]:
+def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) -> list[Evidence]:
     key = _norm(term)
     out: list[Evidence] = []
     for (j,) in con.execute("SELECT json FROM news").fetchall():
@@ -96,7 +96,7 @@ def first_party_evidence(con: sqlite3.Connection, term: str, aliases: list[str] 
     return out
 
 
-def promote_candidates(con: sqlite3.Connection, limit: int) -> list[Term]:
+def promote_candidates(con: Connection, limit: int) -> list[Term]:
     """후보 → 용어(researching). 쇼츠에서 나온 것 또는 2회 이상 본 것."""
     terms: list[Term] = []
     for c in ds.candidates(con, "new", 200):
@@ -125,7 +125,7 @@ def promote_candidates(con: sqlite3.Connection, limit: int) -> list[Term]:
     return terms
 
 
-def due_for_recheck(con: sqlite3.Connection, limit: int) -> list[Term]:
+def due_for_recheck(con: Connection, limit: int) -> list[Term]:
     """아직 조사 기록이 없는 'researching' 용어가 먼저, 그다음 재검증 주기가 지난 것."""
     out: list[Term] = []
     now = datetime.now(timezone.utc)
@@ -236,7 +236,7 @@ def _pick_video(videos: list, term):
     return picks[0][2] if picks else None
 
 
-def attach_media(con: sqlite3.Connection, term, evidences: list[Evidence], *, youtube: bool = False) -> int:
+def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: bool = False) -> int:
     """표제어의 대표 그림·영상을 붙인다. 파일은 받지 않고 주소만 둔다.
 
     그림은 위키미디어 공용의 자유 라이선스만 (영어판 공정이용 그림은 collectors 쪽에서 거른다).
@@ -301,7 +301,7 @@ def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
     return "\n".join(lines) or "- (근거 없음)"
 
 
-def research_one(con: sqlite3.Connection, term: Term) -> tuple[str, list[str]]:
+def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     """1) Search grounding 조사(3.8 → 3.5). 2) 둘 다 할당량이면 우리가 모은 근거만으로 구조화(오프라인). 판정은 어느 길이든 게이트가 한다."""
     method = GEMINI_MODEL
     urls: list[str] = []
@@ -378,7 +378,7 @@ def research_one(con: sqlite3.Connection, term: Term) -> tuple[str, list[str]]:
     return verification, reasons
 
 
-def run(con: sqlite3.Connection, max_new: int = 4, max_recheck: int = 4) -> dict:
+def run(con: Connection, max_new: int = 4, max_recheck: int = 4) -> dict:
     with stage(con, "research") as r:
         seen: set[str] = set()
         targets = [t for t in promote_candidates(con, max_new) + due_for_recheck(con, max_recheck) if not (t.term_id in seen or seen.add(t.term_id))]

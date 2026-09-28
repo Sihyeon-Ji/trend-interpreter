@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 MAX_LEN = 40
 MAX_WORDS = 8

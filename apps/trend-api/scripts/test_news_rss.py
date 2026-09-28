@@ -1,6 +1,6 @@
 """Google News RSS 수집 테스트. 키 불필요."""
 from trend_agents.collectors.news_rss import fetch_news
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 con = db.connect()
 for region in ["KR", "JP", "TH"]:

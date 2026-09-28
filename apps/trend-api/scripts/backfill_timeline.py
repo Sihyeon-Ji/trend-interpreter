@@ -38,7 +38,7 @@ from pathlib import Path
 from trend_agents.collectors import news_rss
 from trend_agents.pipeline import match
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 RSS_CAP = 100  # Google 뉴스 RSS 는 한 번에 100건까지. 가득 차면 더 이른 기사가 잘렸을 수 있어 그 앞쪽을 다시 찾는다
 K = 3  # 서로 다른 언론사가 이만큼 보도해야 그 나라에 '나타났다' 고 본다

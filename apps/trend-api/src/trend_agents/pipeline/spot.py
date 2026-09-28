@@ -2,7 +2,8 @@
 모델은 제안만 한다: 표현이 원문 줄에 실재해야 하고(앵커), 후보 규칙상 두 번 이상 목격돼야 승격되며, 뜻은 게이트가 판정한다."""
 from __future__ import annotations
 
-import sqlite3
+from datetime import datetime, timedelta, timezone
+
 from collections import defaultdict
 
 from ..schemas import ShortsVideo, SpottedTerm
@@ -10,6 +11,7 @@ from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, local_ok, structured
 from .match import mentions
 from .runs import stage
+from ..storage.db import Connection
 
 BATCH = 20
 MIN_CONFIDENCE = 0.6
@@ -23,15 +25,16 @@ Lines:
 {items}"""
 
 
-def gather_lines(con: sqlite3.Connection, videos: int = 100, community: int = 60, lookups: int = 60) -> tuple[list[dict], list[str]]:
+def gather_lines(con: Connection, videos: int = 100, community: int = 60, lookups: int = 60) -> tuple[list[dict], list[str]]:
     """(줄 목록, 소비한 lookups 키). 줄: text·region·source."""
     lines: list[dict] = []
-    for (j,) in con.execute("SELECT json FROM videos WHERE last_seen >= datetime('now','-2 day') ORDER BY view_count DESC LIMIT ?", (videos,)).fetchall():
+    since = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    for (j,) in con.execute("SELECT json FROM videos WHERE last_seen >= ? ORDER BY view_count DESC LIMIT ?", (since, videos)).fetchall():
         v = ShortsVideo.model_validate_json(j)
         lines.append({"text": v.title[:160], "region": v.region or "US", "source": "shorts"})
     for title, excerpt, term_id in con.execute(
-        "SELECT json_extract(json,'$.title'), json_extract(json,'$.excerpt'), term_id FROM evidences "
-        "WHERE kind='community' AND observed_at >= datetime('now','-2 day') ORDER BY observed_at DESC LIMIT ?", (community,)).fetchall():
+        "SELECT json::jsonb->>'title', json::jsonb->>'excerpt', term_id FROM evidences "
+        "WHERE kind='community' AND observed_at >= ? ORDER BY observed_at DESC LIMIT ?", (since, community)).fetchall():
         text = (excerpt or title or "")[:160]
         region = term_id.rsplit("|", 1)[-1] if term_id.startswith("q|") else "US"  # 급증 검색어 근거는 'q|검색어|나라', 용어 근거는 나라 정보가 없다
         if text:
@@ -68,7 +71,7 @@ def keep(p: SpottedTerm, line: str, existing) -> bool:
     return not existing(t)
 
 
-def run(con: sqlite3.Connection, max_batches: int = 8) -> dict:
+def run(con: Connection, max_batches: int = 8) -> dict:
     with stage(con, "spot") as r:
         if not local_ok():
             r.note = "로컬 Gemma 없음 — 발굴은 로컬 모델로만 (Gemini 예산 보호)"

@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 from datetime import date, datetime, timezone
 from urllib.parse import urlparse
 
@@ -16,13 +15,14 @@ from ..collectors import community, naver_search, news_rss, wikipedia_search, yo
 from ..config import REGIONS_FOCUS, YOUTUBE_API_KEY
 from ..schemas import Evidence, ExplanationDraft, TrendExplanation
 from ..storage import dictionary_store as ds
-from ..storage import sqlite_store as db
+from ..storage import store as db
 from google.genai import errors
 
 from .gemini import BudgetExhausted, budget_left, local_ok, structured
 from .match import mentions
 from .research import first_party_evidence
 from .runs import stage
+from ..storage.db import Connection
 
 MIN_GAIN = 1000          # bq_rising percent_gain
 MIN_TRAFFIC = 2000       # rss_now approx_traffic
@@ -60,7 +60,7 @@ def _traffic(s: str | None) -> int:
     return int(m.group(0).replace(",", "")) if m else 0
 
 
-def detect(con: sqlite3.Connection, limit: int = 8) -> list[dict]:
+def detect(con: Connection, limit: int = 8) -> list[dict]:
     """오늘 급증한 (term, region) 후보. 집중 국가·상승률 순. 경기는 제외."""
     cls = {r[0]: r for r in con.execute("SELECT key, kind, lang FROM trend_class").fetchall()}
     latest = {}
@@ -93,7 +93,7 @@ def detect(con: sqlite3.Connection, limit: int = 8) -> list[dict]:
     return ranked[:limit]
 
 
-def gather(con: sqlite3.Connection, term: str, region: str, lang: str, use_youtube: bool) -> tuple[list[Evidence], list[str]]:
+def gather(con: Connection, term: str, region: str, lang: str, use_youtube: bool) -> tuple[list[Evidence], list[str]]:
     """여러 곳에서 근거를 모은다. 발췌는 원문 그대로."""
     now = datetime.now(timezone.utc)
     evs: list[Evidence] = []
@@ -140,7 +140,7 @@ def gather(con: sqlite3.Connection, term: str, region: str, lang: str, use_youtu
     return evs, notes
 
 
-def explain(con: sqlite3.Connection, term: str, region: str, d: str, evs: list[Evidence]) -> TrendExplanation:
+def explain(con: Connection, term: str, region: str, d: str, evs: list[Evidence]) -> TrendExplanation:
     model_evs = naver_search.for_model(evs)  # 네이버 검색 결과는 화면 표시 전용(약관)
     lines = [f"- [{e.kind}] {e.source_domain} ({e.observed_at.date()}): {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in model_evs[:30]]
     parsed, model = structured(con, PROMPT.format(term=term, region=region, date=d, notes="\n".join(lines) or "- (근거 없음)"), ExplanationDraft, temperature=0.2)
@@ -155,7 +155,7 @@ def explain(con: sqlite3.Connection, term: str, region: str, d: str, evs: list[E
                             evidence_ids=[e.evidence_id for e in evs[:30]], model=model)
 
 
-def run(con: sqlite3.Connection, max_spikes: int = 6) -> dict:
+def run(con: Connection, max_spikes: int = 6) -> dict:
     with stage(con, "spikes") as r:
         spikes = detect(con, limit=max_spikes * 2)
         yt_used = 0

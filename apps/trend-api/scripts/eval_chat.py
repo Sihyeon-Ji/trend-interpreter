@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.pipeline.tools import usable  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 WEB = "http://127.0.0.1:3100/api/chat"
 

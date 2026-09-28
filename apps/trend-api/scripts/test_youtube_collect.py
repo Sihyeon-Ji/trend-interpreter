@@ -1,6 +1,6 @@
 """YouTube Data API 쇼츠 수집 테스트. YOUTUBE_API_KEY 필요. 쿼터 사용량을 출력한다."""
 from trend_agents.collectors.youtube import fetch_most_popular, search_shorts
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 con = db.connect()
 units = 0

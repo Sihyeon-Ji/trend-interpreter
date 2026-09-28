@@ -2,7 +2,6 @@
 Segment 사용(usage)과 datalab 근거로 저장한다. 한국어 용어(lang=ko)만. 용어당 5회, 실행당 8개 용어."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 from ..collectors import naver_datalab as nd
@@ -10,12 +9,13 @@ from ..collectors.naver_search import available
 from ..schemas import Evidence
 from ..storage import dictionary_store as ds
 from .runs import stage
+from ..storage.db import Connection
 
 TERMS_PER_RUN = 12
 DAYS = 180
 
 
-def run(con: sqlite3.Connection) -> dict:
+def run(con: Connection) -> dict:
     with stage(con, "naver") as r:
         if not available():
             r.status, r.note = "skipped", "NAVER_CLIENT_ID 없음"

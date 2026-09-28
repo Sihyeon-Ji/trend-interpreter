@@ -12,7 +12,7 @@ from pathlib import Path
 
 from trend_agents.schemas import Evidence, MeaningDraft
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 from trend_agents.verification import gate
 
 ROOT = Path(__file__).resolve().parents[1]

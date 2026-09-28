@@ -2,7 +2,6 @@
 '그 나라에서는 무엇으로 바뀌었나'와 현지 밈 이름을 모델이 쓰고, 이름은 근거 원문에 실재하는 것만 남긴다. 실행당 6개 변형."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
@@ -15,6 +14,7 @@ from .gemini import BudgetExhausted, budget_left, local_ok, structured
 from .match import mentions
 from .research import first_party_evidence
 from .runs import stage
+from ..storage.db import Connection
 
 PER_RUN = 6
 
@@ -38,7 +38,7 @@ PROMPT = """아래는 '{term}' 이(가) {region} 에서 어떻게 쓰이는지 �
 {notes}"""
 
 
-def gather(con: sqlite3.Connection, term: str, region: str) -> list[Evidence]:
+def gather(con: Connection, term: str, region: str) -> list[Evidence]:
     evs: list[Evidence] = []
     news_region = region if region in news_rss.LOCALES else "US"
     try:
@@ -63,7 +63,7 @@ def gather(con: sqlite3.Connection, term: str, region: str) -> list[Evidence]:
     return evs
 
 
-def run(con: sqlite3.Connection) -> dict:
+def run(con: Connection) -> dict:
     with stage(con, "topics") as r:
         todo: list[tuple] = []
         for t in ds.list_terms(con, ("verified",)):

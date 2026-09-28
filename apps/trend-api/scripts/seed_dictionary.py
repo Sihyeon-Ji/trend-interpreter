@@ -11,7 +11,7 @@ from pathlib import Path
 
 from trend_agents.schemas import Evidence, MeaningDraft, MeaningText, Term
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 ROOT = Path(__file__).resolve().parents[1]
 CATEGORY = {"slang": "slang", "meme": "meme", "song": "song", "other": "other"}

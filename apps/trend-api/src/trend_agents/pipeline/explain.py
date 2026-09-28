@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 
@@ -11,6 +10,7 @@ from ..schemas import Term
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, generate
 from .match import term_pattern  # noqa: F401  (tests 와 다른 단계가 여기서 가져간다)
+from ..storage.db import Connection
 
 def match_terms(text: str, terms: list[Term]) -> list[Term]:
     hits: list[tuple[int, Term]] = []
@@ -39,7 +39,7 @@ REWRITE_TIMEOUT_S = 12  # 로컬 Gemma 가 파이프라인 배치에 밀려 있�
 _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="rewrite")
 
 
-def rewrite(con: sqlite3.Connection, text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S) -> str | None:
+def rewrite(con: Connection, text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S) -> str | None:
     if not glossary:
         return None
     g = "\n".join(f"- {t}: {m}" for t, m in glossary)
@@ -63,7 +63,7 @@ def rewrite(con: sqlite3.Connection, text: str, lang: str, glossary: list[tuple[
         return None
 
 
-def explain(con: sqlite3.Connection, text: str, lang: str, reader: dict | None = None) -> tuple[list[str], str | None]:
+def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -> tuple[list[str], str | None]:
     key_lang = lang + (f"|{reader.get('gen','')}|{reader.get('region','')}" if reader else "")  # 읽는 사람이 다르면 재작성도 다르다
     cached = ds.explain_cache_get(con, key_lang, text)
     if cached:

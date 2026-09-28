@@ -1,7 +1,6 @@
 """5단계 추적. 뉴스 제목·쇼츠 해석·트렌드 검색어에서 용어 언급을 주 단위로 세고, 생애주기 규칙으로 단계와 재검증 주기를 정한다."""
 from __future__ import annotations
 
-import sqlite3
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
@@ -10,6 +9,7 @@ from ..schemas import NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
 from .match import mentions, same_term
 from .runs import stage
+from ..storage.db import Connection
 
 WEEKS = 12
 
@@ -22,7 +22,7 @@ def _week(d: date) -> str:
     return (d - timedelta(days=d.weekday())).isoformat()
 
 
-def weekly_counts(con: sqlite3.Connection, term: str, aliases: list[str]) -> Counter:
+def weekly_counts(con: Connection, term: str, aliases: list[str]) -> Counter:
     keys = {_norm(term), *(_norm(a) for a in aliases)}
     c: Counter = Counter()
     for (j,) in con.execute("SELECT json FROM news").fetchall():
@@ -41,7 +41,7 @@ def weekly_counts(con: sqlite3.Connection, term: str, aliases: list[str]) -> Cou
     return c
 
 
-def run(con: sqlite3.Connection) -> dict:
+def run(con: Connection) -> dict:
     with stage(con, "track") as r:
         today = date.today()
         weeks = [_week(today - timedelta(weeks=i)) for i in range(WEEKS - 1, -1, -1)]

@@ -11,7 +11,6 @@
 """
 from __future__ import annotations
 
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
@@ -19,6 +18,7 @@ from ..schemas import Evidence
 from ..storage import dictionary_store as ds
 from .gemini import generate
 from .match import mentions
+from ..storage.db import Connection
 
 TIMEOUT_S = 4.0        # 출처 하나가 늦으면 버린다. 채팅은 기다려 주지 않는다
 MAX_SNIPPETS = 6
@@ -69,7 +69,7 @@ def _sources(term: str, lang: str) -> list:
             lambda: community.bluesky_search(term, 5)]
 
 
-def look_up(con: sqlite3.Connection, term: str, lang: str = "ko", deadline: float | None = None,
+def look_up(con: Connection, term: str, lang: str = "ko", deadline: float | None = None,
             say=None) -> LiveResult:
     """지금 찾아본다. 찾은 글에 그 말이 실제로 들어 있는 것만 쓴다. deadline 을 넘기면 있는 것만 가지고 끝낸다."""
     import time
@@ -104,7 +104,7 @@ def look_up(con: sqlite3.Connection, term: str, lang: str = "ko", deadline: floa
     return LiveResult(term=term, summary=summary[:400], evidences=keep, seconds=time.time() - t0)
 
 
-def queue_for_research(con: sqlite3.Connection, term: str, lang: str, alias: str = "") -> None:
+def queue_for_research(con: Connection, term: str, lang: str, alias: str = "") -> None:
     """뒤에서 제대로 조사하도록 후보로 넘긴다. 사전에 올릴지는 게이트가 정한다."""
     if ds.find_term(con, term):
         return

@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 # 뜻이 아니라 분류만 적은 것
 _EMPTY = re.compile(

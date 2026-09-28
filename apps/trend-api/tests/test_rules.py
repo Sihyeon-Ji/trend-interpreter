@@ -163,7 +163,7 @@ def test_gate_blocks_model_web_hallucination_not_search_noise():
 def test_ask_drops_sentences_claiming_terms_that_do_not_exist():
     """사전에 없는 표제어를 '있다' 고 말하는 문장은 지운다 (인용 제품에서 지어내기는 치명적)."""
     from trend_agents.pipeline.ask import _drop_invented
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
     q = "에스프레쏘 어쌔씨노 이런건 뭐야?"
@@ -198,7 +198,7 @@ def test_fuzzy_find_bridges_transliteration_spelling_gaps():
     from trend_agents.pipeline.tools import _fuzzy_find
     from trend_agents.schemas import Term
     from trend_agents.storage import dictionary_store as ds
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
     _seed(con, ("Tralalero Tralala", "Hawk tuah"))
@@ -256,7 +256,7 @@ def test_same_family_offers_entries_sharing_a_name_word():
     from trend_agents.pipeline.tools import _same_family
     from trend_agents.schemas import Term
     from trend_agents.storage import dictionary_store as ds
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
     _seed(con, ("Cappuccino Assassino", "Ballerina Cappuccina", "Hawk tuah"))

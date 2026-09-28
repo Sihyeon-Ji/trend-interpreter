@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from trend_agents.pipeline import board, candidates, track
 from trend_agents.schemas import MeaningDraft, Term, TrendQuery
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 
 def draft(defn, exp):

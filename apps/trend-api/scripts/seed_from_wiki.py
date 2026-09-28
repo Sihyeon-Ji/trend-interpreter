@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.collectors import wiki_memes  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
-from trend_agents.storage import sqlite_store as db  # noqa: E402
+from trend_agents.storage import store as db  # noqa: E402
 
 RECENT = {"en": ["Category:Internet memes introduced in 2025", "Category:Internet memes introduced in 2024"],
           "ko": ["분류:인터넷 밈"], "ja": ["Category:インターネット・ミーム"], "id": ["Kategori:Meme Internet"]}

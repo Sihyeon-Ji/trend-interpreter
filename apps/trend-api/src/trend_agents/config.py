@@ -36,8 +36,8 @@ FRONTEND_API_TOKEN = os.getenv("FRONTEND_API_TOKEN", "")  # 프론트 서버만 
 WEB_ORIGINS = [o for o in os.getenv("WEB_ORIGINS", "http://localhost:3100,http://localhost:3000").split(",") if o]
 GOOGLE_CLOUD_PROJECT = GCP_PROJECT_ID  # BigQuery·Spanner 클라우드 (ADC 와 함께)
 
-DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "trend.db"
+DATA_DIR = ROOT / "data"  # 로그·시드·계정 메모. 데이터는 PostgreSQL
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://trend:trend@localhost:5432/trend")
 
 # 수집 대상 국가 (ISO 3166-1 alpha-2). 트렌드는 전세계 대상.
 # REGIONS_ALL: mostPopular 는 1 unit/회 → 넓게 돈다. REGIONS_FOCUS: search 는 100 unit/회 → 쿼터상 집중 국가만.

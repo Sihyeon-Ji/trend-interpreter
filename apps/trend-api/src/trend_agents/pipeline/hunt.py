@@ -13,7 +13,6 @@ hunt 는 '우리 이용자가 이미 물어봤는데 우리가 못 답한 말' �
 """
 from __future__ import annotations
 
-import sqlite3
 
 import re
 
@@ -21,6 +20,7 @@ from ..schemas import DemandedTerm
 from ..storage import dictionary_store as ds
 from .gemini import structured
 from .runs import stage
+from ..storage.db import Connection
 
 MAX_NEW = 8          # 한 번에 세울 표제어 수
 MIN_ASKED = 1        # 몇 번 물어야 좇을지
@@ -62,7 +62,7 @@ def _norm(s: str) -> str:
     return "".join((s or "").split()).lower()
 
 
-def _known(con: sqlite3.Connection, name: str) -> bool:
+def _known(con: Connection, name: str) -> bool:
     """사전에 이미 있는가. 반복·된소리를 무시하는 느슨한 대조까지 쓴다 —
     "Tung Tung Tung Tung Tung Sahur" 는 "Tung Tung Tung Sahur" 와 같은 말이다."""
     from .tools import _find
@@ -70,7 +70,7 @@ def _known(con: sqlite3.Connection, name: str) -> bool:
     return _find(con, name) is not None
 
 
-def run(con: sqlite3.Connection, max_new: int = MAX_NEW) -> dict:
+def run(con: Connection, max_new: int = MAX_NEW) -> dict:
     with stage(con, "hunt") as r:
         rows = [(k, t, lg) for k, t, lg in ds.pending_lookups(con, 40)]
         if not rows:

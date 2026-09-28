@@ -1,7 +1,6 @@
 """Gemini 호출 공통: 하루 예산, 503/429 재시도, 3.8 → 3.5 폴백. 모든 파이프라인 단계는 이 함수로만 호출한다."""
 from __future__ import annotations
 
-import sqlite3
 import time
 from typing import Any
 
@@ -10,6 +9,7 @@ from google.genai import errors, types
 from ..config import GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_MODEL, USE_LOCAL_GEMMA
 from .. import model_client
 from ..storage import dictionary_store as ds
+from ..storage.db import Connection
 
 class BudgetExhausted(RuntimeError):
     pass
@@ -18,7 +18,7 @@ class BudgetExhausted(RuntimeError):
 client = model_client.client
 
 
-def budget_left(con: sqlite3.Connection) -> int:
+def budget_left(con: Connection) -> int:
     return ds.gemini_budget_left(con, GEMINI_DAILY_BUDGET)
 
 
@@ -31,7 +31,7 @@ def local_ok() -> bool:
     return local_llm.available()
 
 
-def generate(con: sqlite3.Connection, contents: Any, config: types.GenerateContentConfig | None = None,
+def generate(con: Connection, contents: Any, config: types.GenerateContentConfig | None = None,
              model: str | None = None, tries: int = 3, allow_fallback: bool = True) -> tuple[Any, str]:
     """(응답, 실제로 쓴 모델). 예산이 없으면 BudgetExhausted. 텍스트 전용 호출은 로컬 Gemma 가 켜져 있으면 그쪽으로."""
     if local_ok() and isinstance(contents, str):
@@ -58,7 +58,7 @@ def generate(con: sqlite3.Connection, contents: Any, config: types.GenerateConte
     raise last
 
 
-def structured(con: sqlite3.Connection, prompt: str, schema: Any, temperature: float = 0.1, model: str | None = None) -> tuple[Any, str]:
+def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0.1, model: str | None = None) -> tuple[Any, str]:
     if local_ok():
         from . import local_llm
         from ..config import GEMMA_LOCAL_MODEL

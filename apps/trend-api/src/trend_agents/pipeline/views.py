@@ -1,7 +1,6 @@
 """API 응답 뷰 모델 — 프론트 `apps/trend-web/lib/types.ts` 와 1:1. 화면은 이 모양만 안다."""
 from __future__ import annotations
 
-import sqlite3
 from typing import Literal
 
 from pydantic import BaseModel
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, EvidenceBrief, Meaning, MeaningText, Segment, Term
 from ..storage import dictionary_store as ds
+from ..storage.db import Connection
 
 CATEGORY_MAP = {"slang": "slang", "meme": "meme", "song": "song", "drama": "other", "dance": "other", "news": "other", "geopolitics": "other", "product": "other", "other": "other"}
 
@@ -75,7 +75,7 @@ STAGE_LABELS = {
 }
 
 
-def term_record(con: sqlite3.Connection, t: Term) -> TermRecord:
+def term_record(con: Connection, t: Term) -> TermRecord:
     meanings = ds.list_meanings(con, t.term_id)
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
@@ -90,11 +90,11 @@ def term_record(con: sqlite3.Connection, t: Term) -> TermRecord:
                       gate_reasons=reasons or None)
 
 
-def term_records(con: sqlite3.Connection, statuses: tuple[str, ...] = ("verified",)) -> list[TermRecord]:
+def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",)) -> list[TermRecord]:
     return [term_record(con, t) for t in ds.list_terms(con, statuses)]
 
 
-def pipeline_stages(con: sqlite3.Connection) -> list[PipelineStage]:
+def pipeline_stages(con: Connection) -> list[PipelineStage]:
     counts = ds.stage_counts_24h(con)
     out = []
     for key, label in STAGE_LABELS.items():
@@ -104,7 +104,7 @@ def pipeline_stages(con: sqlite3.Connection) -> list[PipelineStage]:
     return out
 
 
-def review_items(con: sqlite3.Connection) -> list[ReviewItem]:
+def review_items(con: Connection) -> list[ReviewItem]:
     out = []
     for q in ds.review_queue(con):
         t = ds.get_term(con, q["term_id"])
@@ -122,7 +122,7 @@ class ReviewStats(BaseModel):
     rejected: int
 
 
-def review_stats(con: sqlite3.Connection) -> ReviewStats:
+def review_stats(con: Connection) -> ReviewStats:
     rows = dict(con.execute("SELECT verification, COUNT(*) FROM meanings WHERE valid_to IS NULL GROUP BY verification").fetchall())
     return ReviewStats(verified_auto=rows.get("verified_auto", 0), verified_human=rows.get("verified_human", 0),
                        needs_review=len(ds.review_queue(con)), rejected=rows.get("rejected", 0))
@@ -137,7 +137,7 @@ class CountryPage(BaseModel):
     updated_at: str | None
 
 
-def country_page(con: sqlite3.Connection, region: str) -> CountryPage:
+def country_page(con: Connection, region: str) -> CountryPage:
     from ..schemas import TrendBoard
     from ..storage import dictionary_store as ds2
 
@@ -192,7 +192,7 @@ def _label(node_type: str, node_id: str) -> str:
     return node_id.split(":", 1)[1] if node_type == "wiki" and ":" in node_id else node_id
 
 
-def query_graph(con: sqlite3.Connection, key: str, limit_evidence: int = 12) -> QueryGraph | None:
+def query_graph(con: Connection, key: str, limit_evidence: int = 12) -> QueryGraph | None:
     g = ds.graph_query(con, key)
     if not g:
         return None
@@ -201,10 +201,10 @@ def query_graph(con: sqlite3.Connection, key: str, limit_evidence: int = 12) -> 
                       evidence=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=e.title or e.excerpt, url=e.url, observed_at=e.observed_at) for e in evs[:limit_evidence]])
 
 
-def shared_nodes(con: sqlite3.Connection, min_queries: int = 2) -> list[SharedNode]:
+def shared_nodes(con: Connection, min_queries: int = 2) -> list[SharedNode]:
     return [SharedNode(type=n["type"], id=n["id"], label=_label(n["type"], n["id"]), queries=n["queries"], regions=n["regions"])
             for n in ds.graph_shared_nodes(con, min_queries) if n["type"] in ("actor", "wiki")]
 
 
-def term_graph(con: sqlite3.Connection, term_id: str) -> list[TermGraphQuery]:
+def term_graph(con: Connection, term_id: str) -> list[TermGraphQuery]:
     return [TermGraphQuery(**q) for q in ds.graph_term_queries(con, term_id)]

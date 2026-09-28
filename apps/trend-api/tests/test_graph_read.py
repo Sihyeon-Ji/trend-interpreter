@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from trend_agents.pipeline import views
 from trend_agents.schemas import Evidence
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 
 def _explanation(con, key, term, region):

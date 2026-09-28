@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from trend_agents.pipeline import board
 from trend_agents.schemas import MeaningDraft, Term
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 FIRST = datetime(2025, 9, 14, tzinfo=timezone.utc)  # 관측을 시작한 날처럼, 모든 나라에 똑같이 찍힌 날짜
 

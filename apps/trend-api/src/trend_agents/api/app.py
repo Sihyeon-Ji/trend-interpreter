@@ -18,19 +18,17 @@ from ..pipeline import views
 from ..schemas import TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..storage import dictionary_store as ds
-from ..storage import sqlite_store as db
+from ..storage import store as db
 
 app = FastAPI(title="trend-agents api", version="0.1")
 app.add_middleware(CORSMiddleware, allow_origins=WEB_ORIGINS or ["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 class _PerThreadConnection:
-    """스레드마다 자기 SQLite 연결을 쓴다. 엔드포인트는 그대로 `_con` 을 넘기면 된다.
+    """스레드마다 자기 PostgreSQL 연결을 쓴다. 엔드포인트는 그대로 `_con` 을 넘기면 된다.
 
-    전에는 연결 하나를 모든 요청이 나눠 썼다. check_same_thread=False 는 스레드 간 공유를 허용할 뿐 동시 사용을 안전하게 하지
-    않는다 — FastAPI 는 동기 엔드포인트를 스레드풀에서 동시에 돌리므로, 화면이 보드·메타·업데이트를 한꺼번에 부르면
-    sqlite3.InterfaceError('bad parameter or other API misuse') 가 났다(2026-09-26 실측). 보드가 500 을 받으면 프론트는
-    예시 데이터로 물러서서, 실데이터가 아닌 화면이 오류 없이 보였다.
+    FastAPI 는 동기 엔드포인트를 스레드풀에서 동시에 돌리므로 연결 하나를 나눠 쓰면 안 된다(SQLite 시절 2026-09-26 실측).
+    끊긴 연결은 다음 요청에서 다시 연다.
     """
 
     def __init__(self) -> None:
@@ -38,7 +36,7 @@ class _PerThreadConnection:
 
     def _get(self):
         con = getattr(self._local, "con", None)
-        if con is None:
+        if con is None or con.broken:
             con = self._local.con = db.connect()
         return con
 

@@ -1,5 +1,4 @@
 """09-15 백엔드 감사에서 고친 것: 근거 PK, 고아 엣지 정리, 밈 이름 동일성, 숫자꼴 단서."""
-import sqlite3
 from datetime import datetime, timezone
 
 import pytest
@@ -7,7 +6,7 @@ import pytest
 from trend_agents.pipeline.match import mentions, same_term
 from trend_agents.schemas import Evidence
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 
 def ev(url="https://a.com/x", title="6-7 meme"):
@@ -21,17 +20,6 @@ def test_same_evidence_attaches_to_query_card_and_term():
     assert ds.add_evidences(con, "t_67", [e]) == 1  # 단일 PK 였다면 0 — 용어가 급증 근거를 잃었다
     assert [x.evidence_id for x in ds.list_evidences(con, "t_67")] == [e.evidence_id]
     assert ds.add_evidences(con, "t_67", [e]) == 0  # 같은 (근거, 용어) 는 중복 저장 안 함
-
-
-def test_old_single_pk_evidences_table_is_migrated():
-    con = sqlite3.connect(":memory:")
-    con.executescript("CREATE TABLE evidences (evidence_id TEXT PRIMARY KEY, term_id TEXT, kind TEXT, source_domain TEXT, url TEXT, observed_at TEXT, json TEXT);"
-                      "INSERT INTO evidences VALUES ('e1','t_a','news','a.com','https://a.com/x','2026-09-15T00:00:00+00:00','{}');")
-    ds.ensure(con)
-    pk = [r[1] for r in sorted(con.execute("PRAGMA table_info(evidences)").fetchall(), key=lambda r: r[5]) if r[5]]
-    assert pk == ["evidence_id", "term_id"]
-    assert con.execute("SELECT term_id FROM evidences WHERE evidence_id='e1'").fetchone()[0] == "t_a"
-    ds.ensure(con)  # 두 번 불러도 그대로
 
 
 def test_prune_dangling_edges_keeps_live_ones():
@@ -244,7 +232,7 @@ def test_frontend_token_is_locked_by_default(monkeypatch):
 
 def test_prefs_are_per_account():
     from trend_agents.storage import dictionary_store as ds
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
     assert ds.get_prefs(con, "lee") == {}          # 설정한 적 없으면 빈 값 → 설명이 중립으로 나간다
@@ -260,7 +248,7 @@ def test_stage_status_follows_the_latest_run_not_the_worst(monkeypatch):
     """고친 문제가 24시간 내내 '주의' 로 남지 않아야 한다(2026-09-16)."""
     from trend_agents.pipeline import views
     from trend_agents.storage import dictionary_store as ds
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
 
@@ -313,7 +301,7 @@ def test_model_cannot_deny_what_the_tools_found(monkeypatch):
     """도구가 찾았는데 모델이 '사전에 없습니다' 라고 하면(09-16 실측) 찾은 것을 내보낸다 — 판정은 데이터가 한다."""
     from trend_agents.interpreters import local_chat
     from trend_agents.pipeline import ask, tools as T
-    from trend_agents.storage import sqlite_store as db
+    from trend_agents.storage import store as db
 
     con = db.connect(":memory:")
     monkeypatch.setattr(T, "run_tool", lambda ctx, n, a: (ctx.offer("Tung Tung Tung Sahur", "이탈리안 브레인로트 밈 캐릭터"), "찾음")[1])

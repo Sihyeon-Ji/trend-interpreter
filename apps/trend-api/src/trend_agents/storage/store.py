@@ -1,44 +1,42 @@
-"""로컬 개발용 SQLite. 배포 시 Firestore(문서) + BigQuery(시계열) 로 교체 예정.
+"""수집 원본 저장(PostgreSQL). 사전·파이프라인 상태는 dictionary_store, 연결은 db 모듈이 맡는다.
 
 Pydantic 모델을 JSON 으로 통째로 저장하고, 조회·조인에 필요한 컬럼만 따로 뽑아둔다.
 video_snapshots 가 조회수 시계열 = 트렌드 곡선의 원천.
 """
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
 
-from ..config import DATA_DIR, DB_PATH
+from ..config import DATA_DIR
 from ..schemas import NewsItem, ShortsInterpretation, ShortsVideo
+from . import db
+from .db import Connection
 
 DDL = """
 CREATE TABLE IF NOT EXISTS videos (
   video_id TEXT PRIMARY KEY, region TEXT, source TEXT, published_at TEXT,
-  duration_sec INT, view_count INT, first_seen TEXT, last_seen TEXT, json TEXT);
+  duration_sec BIGINT, view_count BIGINT, first_seen TEXT, last_seen TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS video_snapshots (
-  video_id TEXT, seen_at TEXT, view_count INT, like_count INT, comment_count INT);
+  video_id TEXT, seen_at TEXT, view_count BIGINT, like_count BIGINT, comment_count BIGINT);
 CREATE TABLE IF NOT EXISTS interpretations (
   video_id TEXT, model TEXT, created_at TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS news (
   link TEXT PRIMARY KEY, region TEXT, query TEXT, published_at TEXT, first_seen TEXT, json TEXT);
 """
+db.register_schema(DDL)
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def connect(path=None) -> sqlite3.Connection:
-    from . import dictionary_store
-
+def connect(path: str | None = None) -> Connection:
+    """DATA_DIR 은 로그·시드·계정 메모가 쓰므로 계속 만들어 둔다. 데이터 자체는 PostgreSQL 에 있다."""
     DATA_DIR.mkdir(exist_ok=True)
-    con = sqlite3.connect(str(path or DB_PATH), check_same_thread=False)
-    con.executescript(DDL)
-    dictionary_store.ensure(con)
-    return con
+    return db.connect(path)
 
 
-def upsert_videos(con: sqlite3.Connection, videos: list[ShortsVideo]) -> int:
+def upsert_videos(con: Connection, videos: list[ShortsVideo]) -> int:
     now = _now()
     for v in videos:
         con.execute(
@@ -56,7 +54,7 @@ def upsert_videos(con: sqlite3.Connection, videos: list[ShortsVideo]) -> int:
     return len(videos)
 
 
-def save_interpretations(con: sqlite3.Connection, items: list[ShortsInterpretation], model: str) -> int:
+def save_interpretations(con: Connection, items: list[ShortsInterpretation], model: str) -> int:
     now = _now()
     for it in items:
         vid = it.url.split("v=")[-1].split("&")[0].split("/")[-1]
@@ -65,7 +63,7 @@ def save_interpretations(con: sqlite3.Connection, items: list[ShortsInterpretati
     return len(items)
 
 
-def upsert_news(con: sqlite3.Connection, items: list[NewsItem]) -> int:
+def upsert_news(con: Connection, items: list[NewsItem]) -> int:
     now = _now()
     for it in items:
         con.execute(
@@ -77,7 +75,7 @@ def upsert_news(con: sqlite3.Connection, items: list[NewsItem]) -> int:
     return len(items)
 
 
-def top_videos(con: sqlite3.Connection, n: int = 3, region: str | None = None) -> list[str]:
+def top_videos(con: Connection, n: int = 3, region: str | None = None) -> list[str]:
     q = "SELECT json FROM videos" + (" WHERE region=?" if region else "") + " ORDER BY view_count DESC LIMIT ?"
     rows = con.execute(q, ((region, n) if region else (n,))).fetchall()
     return [ShortsVideo.model_validate_json(r[0]).url for r in rows]

@@ -1,7 +1,6 @@
 """7단계 보드. 분류된 트렌드 검색어를 나라 × 카테고리로 묶고 사전 용어와 연결한다. 주제(나라별 변형)는 용어의 사용 지역이 2개 이상일 때 최소 형태로 만든다 — 차이 설명은 에이전트 단계가 채운다."""
 from __future__ import annotations
 
-import sqlite3
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
@@ -10,6 +9,7 @@ import json
 from ..schemas import EvidenceBrief, Text2, Topic, TopicVariant, TopicVariantLink, TrendBoard, TrendItem, TrendWhy
 from ..storage import dictionary_store as ds
 from .runs import stage
+from ..storage.db import Connection
 
 PER_CELL = 6
 WEEKS = 12
@@ -25,7 +25,7 @@ SHOPPING_CATEGORY = {"패션의류": ("fashion_beauty", "Fashion apparel"), "패
 AGE_LABEL = {"10": ("10대", "teens"), "20": ("20대", "20s"), "30": ("30대", "30s"), "40": ("40대", "40s"), "50": ("50대", "50s"), "60": ("60대 이상", "60+")}
 
 
-def shopping_items(con: sqlite3.Connection) -> list[TrendItem]:
+def shopping_items(con: Connection) -> list[TrendItem]:
     """네이버쇼핑 분야별 클릭 추세 → 한국 보드의 패션·뷰티/음식/제품 항목. 값은 요청 내 상대지수라 방향(상승·하락)과 연령 비중만 쓴다."""
     series = ds.shopping_series(con)
     items: list[TrendItem] = []
@@ -48,7 +48,7 @@ def shopping_items(con: sqlite3.Connection) -> list[TrendItem]:
     return items
 
 
-def build(con: sqlite3.Connection) -> TrendBoard:
+def build(con: Connection) -> TrendBoard:
     cls = {row[0]: row for row in con.execute("SELECT key, term, region, category, kind, is_term_candidate, lang FROM trend_class").fetchall()}
     # (term, region) 별 등장 날짜 → 주간 등장 수 + 최신 순위
     hist: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -138,7 +138,7 @@ def build(con: sqlite3.Connection) -> TrendBoard:
     return TrendBoard(generated_at=datetime.now(timezone.utc), items=items, topics=topics, why=why_list(con))
 
 
-def run(con: sqlite3.Connection) -> dict:
+def run(con: Connection) -> dict:
     with stage(con, "board") as r:
         b = build(con)
         ds.cache_set(con, "board", b.model_dump_json())
@@ -148,7 +148,7 @@ def run(con: sqlite3.Connection) -> dict:
     return {"board": r}
 
 
-def why_list(con: sqlite3.Connection, limit_evidence: int = 8) -> list[TrendWhy]:
+def why_list(con: Connection, limit_evidence: int = 8) -> list[TrendWhy]:
     """급증 원인 설명 + 근거 요약 (이용자 카드)."""
     out: list[TrendWhy] = []
     for x in ds.explanations_by_region(con).values():

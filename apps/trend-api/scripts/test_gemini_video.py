@@ -8,7 +8,7 @@ import time
 
 from trend_agents.config import GEMINI_MODEL
 from trend_agents.interpreters.gemini_video import interpret_shorts
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 con = db.connect()
 urls = sys.argv[1:] or db.top_videos(con, n=3)

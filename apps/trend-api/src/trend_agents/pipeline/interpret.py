@@ -1,21 +1,21 @@
 """3단계 쇼츠 해석. 아직 해석하지 않은 집중 국가 인기 쇼츠를 조회수순으로, 요청 하나에 최대 8개. 무료 등급 503 이면 폴백 모델."""
 from __future__ import annotations
 
-import sqlite3
 
 from google.genai import errors
 
 from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, REGIONS_FOCUS
 from ..interpreters.gemini_video import interpret_shorts
 from ..storage import dictionary_store as ds
-from ..storage import sqlite_store as db
+from ..storage import store as db
 from .gemini import budget_left
 from .runs import stage
+from ..storage.db import Connection
 
 BATCH = 8
 
 
-def pending_urls(con: sqlite3.Connection, limit: int) -> list[str]:
+def pending_urls(con: Connection, limit: int) -> list[str]:
     q = f"""SELECT v.json FROM videos v LEFT JOIN interpretations i ON i.video_id = v.video_id
             WHERE i.video_id IS NULL AND v.duration_sec <= 180 AND v.region IN ({','.join('?' * len(REGIONS_FOCUS))})
             ORDER BY v.view_count DESC LIMIT ?"""
@@ -25,7 +25,7 @@ def pending_urls(con: sqlite3.Connection, limit: int) -> list[str]:
     return [ShortsVideo.model_validate_json(r[0]).url for r in rows]
 
 
-def run(con: sqlite3.Connection, max_batches: int = 2) -> dict:
+def run(con: Connection, max_batches: int = 2) -> dict:
     with stage(con, "interpret") as r:
         urls = pending_urls(con, BATCH * max_batches)
         n = 0

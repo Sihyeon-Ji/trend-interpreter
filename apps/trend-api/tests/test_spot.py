@@ -2,7 +2,7 @@
 from trend_agents.pipeline.spot import keep
 from trend_agents.schemas import SpottedTerm
 from trend_agents.storage import dictionary_store as ds
-from trend_agents.storage import sqlite_store as db
+from trend_agents.storage import store as db
 
 
 def sp(term, kind="slang", conf=0.9, lang="ko"):

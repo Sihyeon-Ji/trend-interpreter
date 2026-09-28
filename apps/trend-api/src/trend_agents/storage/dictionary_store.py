@@ -1,4 +1,4 @@
-"""사전·파이프라인 상태의 SQLite 저장 (로컬 시스템 오브 레코드). Spanner Graph 는 이 내용을 미러링한다.
+"""사전·파이프라인 상태의 PostgreSQL 저장 (시스템 오브 레코드). Spanner Graph 는 이 내용을 미러링한다.
 
 원칙: Pydantic JSON 통째 + 조회용 컬럼. 삭제는 없다 — 뜻이 바뀌면 새 version, 이전 version 은 valid_to 를 닫는다.
 """
@@ -6,54 +6,57 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, Term, TrendQuery, WikiTop
+from . import db
+from .db import Connection
 
 DDL = """
 CREATE TABLE IF NOT EXISTS trend_queries (
-  term TEXT, region TEXT, rank INT, source TEXT, date TEXT, score INT, percent_gain INT, approx_traffic TEXT,
+  term TEXT, region TEXT, rank BIGINT, source TEXT, date TEXT, score BIGINT, percent_gain BIGINT, approx_traffic TEXT,
   news_title TEXT, news_url TEXT, first_seen TEXT, json TEXT, PRIMARY KEY(term, region, source, date));
-CREATE TABLE IF NOT EXISTS wiki_top (lang TEXT, date TEXT, rank INT, article TEXT, views INT, PRIMARY KEY(lang, date, article));
+CREATE TABLE IF NOT EXISTS wiki_top (lang TEXT, date TEXT, rank BIGINT, article TEXT, views BIGINT, PRIMARY KEY(lang, date, article));
 CREATE TABLE IF NOT EXISTS trend_class (
-  key TEXT PRIMARY KEY, term TEXT, region TEXT, category TEXT, kind TEXT, is_term_candidate INT, lang TEXT, classified_at TEXT, model TEXT);
+  key TEXT PRIMARY KEY, term TEXT, region TEXT, category TEXT, kind TEXT, is_term_candidate BIGINT, lang TEXT, classified_at TEXT, model TEXT);
 CREATE TABLE IF NOT EXISTS candidates (
-  candidate_id TEXT PRIMARY KEY, norm TEXT, text TEXT, lang TEXT, count INT, status TEXT, first_seen TEXT, last_seen TEXT, json TEXT);
+  candidate_id TEXT PRIMARY KEY, norm TEXT, text TEXT, lang TEXT, count BIGINT, status TEXT, first_seen TEXT, last_seen TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS terms (
   term_id TEXT PRIMARY KEY, norm TEXT, canonical TEXT, lang TEXT, category TEXT, status TEXT, lifecycle TEXT,
   first_seen TEXT, last_seen TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS meanings (
-  meaning_id TEXT PRIMARY KEY, term_id TEXT, version INT, verification TEXT, valid_from TEXT, valid_to TEXT, json TEXT);
+  meaning_id TEXT PRIMARY KEY, term_id TEXT, version BIGINT, verification TEXT, valid_from TEXT, valid_to TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS evidences (
   evidence_id TEXT, term_id TEXT, kind TEXT, source_domain TEXT, url TEXT, observed_at TEXT, json TEXT, PRIMARY KEY(evidence_id, term_id));
-CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT, region TEXT, first_seen TEXT, share REAL, PRIMARY KEY(term_id, segment_id));
+CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT, region TEXT, first_seen TEXT, share DOUBLE PRECISION, PRIMARY KEY(term_id, segment_id));
 CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
-CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count INT, PRIMARY KEY(term_id, week_start));
+CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
 CREATE TABLE IF NOT EXISTS review_queue (
-  term_id TEXT PRIMARY KEY, draft_json TEXT, reasons_json TEXT, evidence_count INT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT);
+  term_id TEXT PRIMARY KEY, draft_json TEXT, reasons_json TEXT, evidence_count BIGINT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT);
 CREATE TABLE IF NOT EXISTS research_log (term_id TEXT, researched_at TEXT, model TEXT, notes TEXT, urls_json TEXT, verification TEXT, reasons_json TEXT);
-CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count INT, status TEXT, note TEXT);
-CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count INT);
+CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
+CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
 CREATE TABLE IF NOT EXISTS trend_explanations (
-  key TEXT PRIMARY KEY, term TEXT, region TEXT, date TEXT, trigger TEXT, confidence REAL, json TEXT, created_at TEXT, updated_at TEXT);
+  key TEXT PRIMARY KEY, term TEXT, region TEXT, date TEXT, trigger TEXT, confidence DOUBLE PRECISION, json TEXT, created_at TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS edges (
   src_type TEXT, src_id TEXT, rel TEXT, dst_type TEXT, dst_id TEXT, evidence_id TEXT, created_at TEXT, PRIMARY KEY(src_type, src_id, rel, dst_type, dst_id));
-CREATE TABLE IF NOT EXISTS shopping_trends (category TEXT, age TEXT, week TEXT, ratio REAL, PRIMARY KEY(category, age, week));
-CREATE TABLE IF NOT EXISTS gen_curves (term_id TEXT, generation TEXT, date TEXT, ratio REAL, PRIMARY KEY(term_id, generation, date));
+CREATE TABLE IF NOT EXISTS shopping_trends (category TEXT, age TEXT, week TEXT, ratio DOUBLE PRECISION, PRIMARY KEY(category, age, week));
+CREATE TABLE IF NOT EXISTS gen_curves (term_id TEXT, generation TEXT, date TEXT, ratio DOUBLE PRECISION, PRIMARY KEY(term_id, generation, date));
 CREATE TABLE IF NOT EXISTS topic_notes (term_id TEXT, region TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS explain_cache (key TEXT PRIMARY KEY, lang TEXT, text TEXT, term_ids_json TEXT, plain TEXT, created_at TEXT);
-CREATE TABLE IF NOT EXISTS reader_prefs (user TEXT PRIMARY KEY, json TEXT, updated_at TEXT);
-CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count INTEGER, first_at TEXT, last_at TEXT);
+CREATE TABLE IF NOT EXISTS reader_prefs (reader TEXT PRIMARY KEY, json TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count BIGINT, first_at TEXT, last_at TEXT);
 -- 표제어의 대표 그림·영상. 파일을 받아 오지 않고 주소만 둔다(저작권). license 가 빈 것은 화면에 내지 않는다.
 CREATE TABLE IF NOT EXISTS term_media (
   term_id TEXT, kind TEXT, url TEXT, page_url TEXT, title TEXT, license TEXT, attribution TEXT, added_at TEXT,
   PRIMARY KEY(term_id, url));
 """
+db.register_schema(DDL)
+
 
 
 def now() -> datetime:
@@ -68,22 +71,8 @@ def norm(s: str) -> str:
     return "".join(s.split()).lower()
 
 
-def ensure(con: sqlite3.Connection) -> None:
+def ensure(con: Connection) -> None:
     con.executescript(DDL)
-    _migrate_evidences_pk(con)
-
-
-def _migrate_evidences_pk(con: sqlite3.Connection) -> None:
-    """옛 DB 의 evidences PK 는 evidence_id 하나였다. 같은 근거가 급증 카드(q|…)와 사전 용어에 함께 붙어야 하므로 (evidence_id, term_id) 로 바꾼다 (2026-09-15).
-    단일 PK 에서는 spikes 가 q| 로 먼저 넣은 근거가 INSERT OR IGNORE 에 막혀 용어 쪽에 남지 않았다."""
-    pk = [r[1] for r in sorted(con.execute("PRAGMA table_info(evidences)").fetchall(), key=lambda r: r[5]) if r[5]]
-    if pk == ["evidence_id", "term_id"]:
-        return
-    con.executescript("""
-        CREATE TABLE evidences_v2 (evidence_id TEXT, term_id TEXT, kind TEXT, source_domain TEXT, url TEXT, observed_at TEXT, json TEXT, PRIMARY KEY(evidence_id, term_id));
-        INSERT OR IGNORE INTO evidences_v2 SELECT evidence_id, term_id, kind, source_domain, url, observed_at, json FROM evidences;
-        DROP TABLE evidences;
-        ALTER TABLE evidences_v2 RENAME TO evidences;""")
 
 
 def new_id(prefix: str, seed: str | None = None) -> str:
@@ -94,7 +83,7 @@ def new_id(prefix: str, seed: str | None = None) -> str:
 
 # ---------- 수집 ----------
 
-def upsert_trend_queries(con: sqlite3.Connection, items: list[TrendQuery]) -> int:
+def upsert_trend_queries(con: Connection, items: list[TrendQuery]) -> int:
     n = 0
     for q in items:
         cur = con.execute(
@@ -107,7 +96,7 @@ def upsert_trend_queries(con: sqlite3.Connection, items: list[TrendQuery]) -> in
     return n
 
 
-def upsert_wiki_top(con: sqlite3.Connection, items: list[WikiTop]) -> int:
+def upsert_wiki_top(con: Connection, items: list[WikiTop]) -> int:
     n = 0
     for w in items:
         n += con.execute("INSERT OR IGNORE INTO wiki_top VALUES (?,?,?,?,?)", (w.lang, w.date.isoformat(), w.rank, w.article, w.views)).rowcount
@@ -115,7 +104,7 @@ def upsert_wiki_top(con: sqlite3.Connection, items: list[WikiTop]) -> int:
     return n
 
 
-def unclassified_queries(con: sqlite3.Connection, regions: list[str] | None = None, limit: int = 200) -> list[dict]:
+def unclassified_queries(con: Connection, regions: list[str] | None = None, limit: int = 200) -> list[dict]:
     """가장 최근 날짜 기준, 아직 분류되지 않은 (term, region) 조합."""
     q = """SELECT t.term, t.region, MAX(t.news_title) AS news_title, MAX(t.date) AS date
            FROM trend_queries t LEFT JOIN trend_class c ON c.key = lower(replace(t.term,' ','')) || '|' || t.region
@@ -129,7 +118,7 @@ def unclassified_queries(con: sqlite3.Connection, regions: list[str] | None = No
     return [dict(zip(("term", "region", "news_title", "date"), r)) for r in con.execute(q, params).fetchall()]
 
 
-def save_classifications(con: sqlite3.Connection, rows: list[dict], model: str) -> int:
+def save_classifications(con: Connection, rows: list[dict], model: str) -> int:
     for r in rows:
         con.execute(
             "INSERT OR REPLACE INTO trend_class VALUES (?,?,?,?,?,?,?,?,?)",
@@ -141,7 +130,7 @@ def save_classifications(con: sqlite3.Connection, rows: list[dict], model: str) 
 
 # ---------- 후보 ----------
 
-def upsert_candidate(con: sqlite3.Connection, text: str, lang: str, region: str | None, source: str, note: str = "") -> Candidate:
+def upsert_candidate(con: Connection, text: str, lang: str, region: str | None, source: str, note: str = "") -> Candidate:
     key = norm(text)
     row = con.execute("SELECT json FROM candidates WHERE norm=? AND lang=?", (key, lang)).fetchone()
     t = now()
@@ -164,12 +153,12 @@ def upsert_candidate(con: sqlite3.Connection, text: str, lang: str, region: str 
     return c
 
 
-def candidates(con: sqlite3.Connection, status: str = "new", limit: int = 50) -> list[Candidate]:
+def candidates(con: Connection, status: str = "new", limit: int = 50) -> list[Candidate]:
     rows = con.execute("SELECT json FROM candidates WHERE status=? ORDER BY count DESC, last_seen DESC LIMIT ?", (status, limit)).fetchall()
     return [Candidate.model_validate_json(r[0]) for r in rows]
 
 
-def set_candidate_status(con: sqlite3.Connection, candidate_id: str, status: str) -> None:
+def set_candidate_status(con: Connection, candidate_id: str, status: str) -> None:
     row = con.execute("SELECT json FROM candidates WHERE candidate_id=?", (candidate_id,)).fetchone()
     if not row:
         return
@@ -181,7 +170,7 @@ def set_candidate_status(con: sqlite3.Connection, candidate_id: str, status: str
 
 # ---------- 용어 ----------
 
-def upsert_term(con: sqlite3.Connection, term: Term) -> Term:
+def upsert_term(con: Connection, term: Term) -> Term:
     con.execute(
         "INSERT OR REPLACE INTO terms VALUES (?,?,?,?,?,?,?,?,?,?)",
         (term.term_id, norm(term.canonical), term.canonical, term.lang, term.category, term.status, term.lifecycle,
@@ -191,12 +180,12 @@ def upsert_term(con: sqlite3.Connection, term: Term) -> Term:
     return term
 
 
-def get_term(con: sqlite3.Connection, term_id: str) -> Term | None:
+def get_term(con: Connection, term_id: str) -> Term | None:
     row = con.execute("SELECT json FROM terms WHERE term_id=?", (term_id,)).fetchone()
     return Term.model_validate_json(row[0]) if row else None
 
 
-def find_term(con: sqlite3.Connection, text: str) -> Term | None:
+def find_term(con: Connection, text: str) -> Term | None:
     """표준형 또는 별칭 일치."""
     key = norm(text)
     row = con.execute("SELECT json FROM terms WHERE norm=?", (key,)).fetchone()
@@ -209,7 +198,7 @@ def find_term(con: sqlite3.Connection, text: str) -> Term | None:
     return None
 
 
-def list_terms(con: sqlite3.Connection, statuses: tuple[str, ...] | None = None) -> list[Term]:
+def list_terms(con: Connection, statuses: tuple[str, ...] | None = None) -> list[Term]:
     if statuses:
         rows = con.execute(f"SELECT json FROM terms WHERE status IN ({','.join('?' * len(statuses))}) ORDER BY canonical", statuses).fetchall()
     else:
@@ -219,17 +208,17 @@ def list_terms(con: sqlite3.Connection, statuses: tuple[str, ...] | None = None)
 
 # ---------- 뜻 (버전) ----------
 
-def current_meaning(con: sqlite3.Connection, term_id: str) -> Meaning | None:
+def current_meaning(con: Connection, term_id: str) -> Meaning | None:
     row = con.execute("SELECT json FROM meanings WHERE term_id=? AND valid_to IS NULL ORDER BY version DESC LIMIT 1", (term_id,)).fetchone()
     return Meaning.model_validate_json(row[0]) if row else None
 
 
-def list_meanings(con: sqlite3.Connection, term_id: str) -> list[Meaning]:
+def list_meanings(con: Connection, term_id: str) -> list[Meaning]:
     rows = con.execute("SELECT json FROM meanings WHERE term_id=? ORDER BY version", (term_id,)).fetchall()
     return [Meaning.model_validate_json(r[0]) for r in rows]
 
 
-def add_meaning(con: sqlite3.Connection, term_id: str, draft: MeaningDraft, verification: str, citations: list[str], created_by: str = "research_agent") -> Meaning:
+def add_meaning(con: Connection, term_id: str, draft: MeaningDraft, verification: str, citations: list[str], created_by: str = "research_agent") -> Meaning:
     """새 version 을 만들고 이전 현행 version 의 valid_to 를 닫는다. 뜻이 같으면(정의·풀이 동일) 새 version 을 만들지 않고 현행을 돌려준다."""
     cur = current_meaning(con, term_id)
     if cur and cur.definition == draft.definition and cur.expansion == draft.expansion and cur.verification == verification:
@@ -249,7 +238,7 @@ def add_meaning(con: sqlite3.Connection, term_id: str, draft: MeaningDraft, veri
     return m
 
 
-def set_verification(con: sqlite3.Connection, meaning_id: str, verification: str, by: str) -> None:
+def set_verification(con: Connection, meaning_id: str, verification: str, by: str) -> None:
     row = con.execute("SELECT json FROM meanings WHERE meaning_id=?", (meaning_id,)).fetchone()
     if not row:
         return
@@ -262,7 +251,7 @@ def set_verification(con: sqlite3.Connection, meaning_id: str, verification: str
 
 # ---------- 근거·사용·추세 ----------
 
-def add_evidences(con: sqlite3.Connection, term_id: str, evs: list[Evidence]) -> int:
+def add_evidences(con: Connection, term_id: str, evs: list[Evidence]) -> int:
     n = 0
     for e in evs:
         n += con.execute(
@@ -273,24 +262,24 @@ def add_evidences(con: sqlite3.Connection, term_id: str, evs: list[Evidence]) ->
     return n
 
 
-def list_evidences(con: sqlite3.Connection, term_id: str) -> list[Evidence]:
+def list_evidences(con: Connection, term_id: str) -> list[Evidence]:
     rows = con.execute("SELECT json FROM evidences WHERE term_id=? ORDER BY observed_at DESC", (term_id,)).fetchall()
     return [Evidence.model_validate_json(r[0]) for r in rows]
 
 
-def set_usage(con: sqlite3.Connection, term_id: str, rows: list[tuple[str, str, str, float]]) -> None:
+def set_usage(con: Connection, term_id: str, rows: list[tuple[str, str, str, float]]) -> None:
     """rows: (generation, region, first_seen_iso, share)"""
     for gen, region, first, share in rows:
         con.execute("INSERT OR REPLACE INTO usage VALUES (?,?,?,?,?,?)", (term_id, f"{region}-{gen}", gen, region, first, share))
     con.commit()
 
 
-def get_usage(con: sqlite3.Connection, term_id: str) -> list[dict]:
+def get_usage(con: Connection, term_id: str) -> list[dict]:
     return [dict(zip(("segment_id", "generation", "region", "first_seen", "share"), r))
             for r in con.execute("SELECT segment_id, generation, region, first_seen, share FROM usage WHERE term_id=? ORDER BY share DESC", (term_id,)).fetchall()]
 
 
-def set_timeline(con: sqlite3.Connection, term_id: str, rows: list[dict]) -> None:
+def set_timeline(con: Connection, term_id: str, rows: list[dict]) -> None:
     """나라별로 '언제 처음 나타났나' — 날짜를 대는 출처가 있을 때만 넣는다.
 
     usage.first_seen 은 이 자리에 쓸 수 없다. 조사 단계가 용어 하나의 날짜를 모든 나라에 똑같이 적고, 관측을 시작한 날(09-14)
@@ -305,36 +294,36 @@ def set_timeline(con: sqlite3.Connection, term_id: str, rows: list[dict]) -> Non
     con.commit()
 
 
-def get_timeline(con: sqlite3.Connection, term_id: str) -> list[dict]:
+def get_timeline(con: Connection, term_id: str) -> list[dict]:
     return [dict(zip(("region", "first_date", "source_ko", "source_en", "url"), r))
             for r in con.execute("SELECT region, first_date, source_ko, source_en, url FROM term_timeline WHERE term_id=? ORDER BY first_date",
                                  (term_id,)).fetchall()]
 
 
-def set_weekly(con: sqlite3.Connection, term_id: str, counts: dict[str, int]) -> None:
+def set_weekly(con: Connection, term_id: str, counts: dict[str, int]) -> None:
     for wk, c in counts.items():
         con.execute("INSERT OR REPLACE INTO mentions_weekly VALUES (?,?,?)", (term_id, wk, c))
     con.commit()
 
 
-def get_weekly(con: sqlite3.Connection, term_id: str, weeks: int = 12) -> list[tuple[str, int]]:
+def get_weekly(con: Connection, term_id: str, weeks: int = 12) -> list[tuple[str, int]]:
     rows = con.execute("SELECT week_start, count FROM mentions_weekly WHERE term_id=? ORDER BY week_start DESC LIMIT ?", (term_id, weeks)).fetchall()
     return list(reversed(rows))
 
 
-def set_translation(con: sqlite3.Connection, term_id: str, lang: str, text: MeaningText, model: str) -> None:
+def set_translation(con: Connection, term_id: str, lang: str, text: MeaningText, model: str) -> None:
     con.execute("INSERT OR REPLACE INTO translations VALUES (?,?,?,?,?)", (term_id, lang, text.model_dump_json(), now_s(), model))
     con.commit()
 
 
-def get_translation(con: sqlite3.Connection, term_id: str, lang: str) -> MeaningText | None:
+def get_translation(con: Connection, term_id: str, lang: str) -> MeaningText | None:
     row = con.execute("SELECT json FROM translations WHERE term_id=? AND lang=?", (term_id, lang)).fetchone()
     return MeaningText.model_validate_json(row[0]) if row else None
 
 
 # ---------- 검수 큐 · 리서치 로그 ----------
 
-def queue_review(con: sqlite3.Connection, term_id: str, draft: MeaningDraft, reasons: list[str], evidence_count: int) -> None:
+def queue_review(con: Connection, term_id: str, draft: MeaningDraft, reasons: list[str], evidence_count: int) -> None:
     con.execute(
         "INSERT OR REPLACE INTO review_queue VALUES (?,?,?,?,?,NULL,NULL,NULL)",
         (term_id, draft.model_dump_json(), json.dumps(reasons, ensure_ascii=False), evidence_count, now_s()),
@@ -342,47 +331,47 @@ def queue_review(con: sqlite3.Connection, term_id: str, draft: MeaningDraft, rea
     con.commit()
 
 
-def review_queue(con: sqlite3.Connection) -> list[dict]:
+def review_queue(con: Connection) -> list[dict]:
     rows = con.execute("SELECT term_id, draft_json, reasons_json, evidence_count, queued_at FROM review_queue WHERE decision IS NULL ORDER BY queued_at DESC").fetchall()
     return [{"term_id": r[0], "draft": MeaningDraft.model_validate_json(r[1]), "reasons": json.loads(r[2]), "evidence_count": r[3], "queued_at": r[4]} for r in rows]
 
 
-def decide_review(con: sqlite3.Connection, term_id: str, decision: str, by: str) -> None:
+def decide_review(con: Connection, term_id: str, decision: str, by: str) -> None:
     con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=?", (decision, now_s(), by, term_id))
     con.commit()
 
 
-def gate_reasons(con: sqlite3.Connection, term_id: str) -> list[str]:
+def gate_reasons(con: Connection, term_id: str) -> list[str]:
     row = con.execute("SELECT reasons_json FROM review_queue WHERE term_id=? AND decision IS NULL", (term_id,)).fetchone()
     return json.loads(row[0]) if row else []
 
 
-def log_research(con: sqlite3.Connection, term_id: str, model: str, notes: str, urls: list[str], verification: str, reasons: list[str]) -> None:
+def log_research(con: Connection, term_id: str, model: str, notes: str, urls: list[str], verification: str, reasons: list[str]) -> None:
     con.execute("INSERT INTO research_log VALUES (?,?,?,?,?,?,?)",
                 (term_id, now_s(), model, notes[:4000], json.dumps(urls), verification, json.dumps(reasons, ensure_ascii=False)))
     con.commit()
 
 
-def last_researched(con: sqlite3.Connection, term_id: str) -> datetime | None:
+def last_researched(con: Connection, term_id: str) -> datetime | None:
     row = con.execute("SELECT MAX(researched_at) FROM research_log WHERE term_id=?", (term_id,)).fetchone()
     return datetime.fromisoformat(row[0]) if row and row[0] else None
 
 
 # ---------- 실행 기록 · 예산 · 캐시 ----------
 
-def run_start(con: sqlite3.Connection, stage: str) -> str:
+def run_start(con: Connection, stage: str) -> str:
     rid = new_id("r")
     con.execute("INSERT INTO pipeline_runs VALUES (?,?,?,?,?,?,?)", (rid, stage, now_s(), None, 0, "running", ""))
     con.commit()
     return rid
 
 
-def run_finish(con: sqlite3.Connection, run_id: str, count: int, status: str, note: str = "") -> None:
+def run_finish(con: Connection, run_id: str, count: int, status: str, note: str = "") -> None:
     con.execute("UPDATE pipeline_runs SET finished_at=?, count=?, status=?, note=? WHERE run_id=?", (now_s(), count, status, note[:500], run_id))
     con.commit()
 
 
-def stage_counts_24h(con: sqlite3.Connection) -> dict[str, tuple[int, str, str]]:
+def stage_counts_24h(con: Connection) -> dict[str, tuple[int, str, str]]:
     """(24시간 건수, 마지막 실행의 상태, 비고).
 
     상태는 **마지막 실행** 기준이다. 전에는 24시간 안에 오류가 한 번이라도 있으면 계속 '주의' 로 보여서,
@@ -391,7 +380,7 @@ def stage_counts_24h(con: sqlite3.Connection) -> dict[str, tuple[int, str, str]]
     since = (now() - timedelta(hours=24)).isoformat()
     out: dict[str, tuple[int, str, str]] = {}
     rows = con.execute(
-        "SELECT stage, SUM(count), SUM(status IN ('error','skipped')), COUNT(*) FROM pipeline_runs WHERE started_at>=? GROUP BY stage", (since,)
+        "SELECT stage, SUM(count), COUNT(*) FILTER (WHERE status IN ('error','skipped')), COUNT(*) FROM pipeline_runs WHERE started_at>=? GROUP BY stage", (since,)
     ).fetchall()
     for stage, cnt, bad, total in rows:
         last = con.execute(
@@ -406,33 +395,33 @@ def stage_counts_24h(con: sqlite3.Connection) -> dict[str, tuple[int, str, str]]
     return out
 
 
-def gemini_budget_left(con: sqlite3.Connection, daily_budget: int) -> int:
+def gemini_budget_left(con: Connection, daily_budget: int) -> int:
     row = con.execute("SELECT count FROM gemini_calls WHERE day=?", (date.today().isoformat(),)).fetchone()
     return max(0, daily_budget - (row[0] if row else 0))
 
 
-def gemini_spend(con: sqlite3.Connection, n: int = 1) -> None:
-    con.execute("INSERT INTO gemini_calls VALUES (?,?) ON CONFLICT(day) DO UPDATE SET count=count+excluded.count", (date.today().isoformat(), n))
+def gemini_spend(con: Connection, n: int = 1) -> None:
+    con.execute("INSERT INTO gemini_calls VALUES (?,?) ON CONFLICT(day) DO UPDATE SET count=gemini_calls.count+excluded.count", (date.today().isoformat(), n))
     con.commit()
 
 
-def cache_set(con: sqlite3.Connection, key: str, payload: str) -> None:
+def cache_set(con: Connection, key: str, payload: str) -> None:
     con.execute("INSERT OR REPLACE INTO board_cache VALUES (?,?,?)", (key, payload, now_s()))
     con.commit()
 
 
-def cache_get(con: sqlite3.Connection, key: str) -> tuple[str, str] | None:
+def cache_get(con: Connection, key: str) -> tuple[str, str] | None:
     row = con.execute("SELECT json, generated_at FROM board_cache WHERE key=?", (key,)).fetchone()
     return (row[0], row[1]) if row else None
 
 
-def explain_cache_get(con: sqlite3.Connection, lang: str, text: str) -> tuple[list[str], str | None] | None:
+def explain_cache_get(con: Connection, lang: str, text: str) -> tuple[list[str], str | None] | None:
     key = hashlib.sha1(f"{lang}|{text.strip()}".encode()).hexdigest()
     row = con.execute("SELECT term_ids_json, plain FROM explain_cache WHERE key=?", (key,)).fetchone()
     return (json.loads(row[0]), row[1]) if row else None
 
 
-def explain_cache_set(con: sqlite3.Connection, lang: str, text: str, term_ids: list[str], plain: str | None) -> None:
+def explain_cache_set(con: Connection, lang: str, text: str, term_ids: list[str], plain: str | None) -> None:
     key = hashlib.sha1(f"{lang}|{text.strip()}".encode()).hexdigest()
     con.execute("INSERT OR REPLACE INTO explain_cache VALUES (?,?,?,?,?,?)", (key, lang, text.strip()[:2000], json.dumps(term_ids), plain, now_s()))
     con.commit()
@@ -440,7 +429,7 @@ def explain_cache_set(con: sqlite3.Connection, lang: str, text: str, term_ids: l
 
 # ---------- 급증 원인 설명 · 지식그래프 엣지 ----------
 
-def save_explanation(con: sqlite3.Connection, x) -> None:
+def save_explanation(con: Connection, x) -> None:
     key = f"{norm(x.term)}|{x.region}"
     row = con.execute("SELECT created_at FROM trend_explanations WHERE key=?", (key,)).fetchone()
     created = row[0] if row else now_s()
@@ -449,14 +438,14 @@ def save_explanation(con: sqlite3.Connection, x) -> None:
     con.commit()
 
 
-def get_explanation(con: sqlite3.Connection, term: str, region: str):
+def get_explanation(con: Connection, term: str, region: str):
     from ..schemas import TrendExplanation
 
     row = con.execute("SELECT json, updated_at FROM trend_explanations WHERE key=?", (f"{norm(term)}|{region}",)).fetchone()
     return (TrendExplanation.model_validate_json(row[0]), datetime.fromisoformat(row[1])) if row else None
 
 
-def explanations_by_region(con: sqlite3.Connection) -> dict[tuple[str, str], object]:
+def explanations_by_region(con: Connection) -> dict[tuple[str, str], object]:
     from ..schemas import TrendExplanation
 
     out = {}
@@ -466,17 +455,17 @@ def explanations_by_region(con: sqlite3.Connection) -> dict[tuple[str, str], obj
     return out
 
 
-def add_edge(con: sqlite3.Connection, src_type: str, src_id: str, rel: str, dst_type: str, dst_id: str, evidence_id: str | None = None) -> None:
+def add_edge(con: Connection, src_type: str, src_id: str, rel: str, dst_type: str, dst_id: str, evidence_id: str | None = None) -> None:
     con.execute("INSERT OR IGNORE INTO edges VALUES (?,?,?,?,?,?,?)", (src_type, src_id, rel, dst_type, dst_id, evidence_id, now_s()))
     con.commit()
 
 
-def edges_from(con: sqlite3.Connection, src_type: str, src_id: str) -> list[dict]:
+def edges_from(con: Connection, src_type: str, src_id: str) -> list[dict]:
     return [dict(zip(("rel", "dst_type", "dst_id", "evidence_id"), r))
             for r in con.execute("SELECT rel, dst_type, dst_id, evidence_id FROM edges WHERE src_type=? AND src_id=?", (src_type, src_id)).fetchall()]
 
 
-def prune_dangling_edges(con: sqlite3.Connection) -> int:
+def prune_dangling_edges(con: Connection) -> int:
     """근거 행이 없는 EVIDENCED_BY 엣지 삭제. 09-15 02:09 이전 spikes 는 엣지만 남기고 근거를 저장하지 않았다 — 그 잔재 정리용(retention 단계)."""
     n = con.execute("DELETE FROM edges WHERE dst_type='evidence' AND dst_id NOT IN (SELECT evidence_id FROM evidences)").rowcount
     con.commit()
@@ -487,7 +476,7 @@ def prune_dangling_edges(con: sqlite3.Connection) -> int:
 # 노드: query(norm(term)|region) · actor(이름) · wiki(lang:제목) · evidence(evidence_id) · term(term_id)
 # 엣지: EVIDENCED_BY · TRIGGERED_BY · ABOUT · IS_TERM — 전부 spikes 가 근거에 앵커된 것만 쓴다. 읽기도 판정 없이 있는 그대로 돌려준다.
 
-def graph_query(con: sqlite3.Connection, key: str) -> dict | None:
+def graph_query(con: Connection, key: str) -> dict | None:
     """급증 검색어 노드의 이웃. 엣지도 설명도 없으면 None."""
     rows = edges_from(con, "query", key)
     row = con.execute("SELECT term, region FROM trend_explanations WHERE key=?", (key,)).fetchone()
@@ -501,7 +490,7 @@ def graph_query(con: sqlite3.Connection, key: str) -> dict | None:
             "term_id": next((r["dst_id"] for r in rows if r["rel"] == "IS_TERM"), None)}
 
 
-def graph_shared_nodes(con: sqlite3.Connection, min_queries: int = 2, limit: int = 50) -> list[dict]:
+def graph_shared_nodes(con: Connection, min_queries: int = 2, limit: int = 50) -> list[dict]:
     """여러 급증 검색어에 함께 걸린 인물·위키. 나라 수가 많은 것부터 — 같은 인물·사건이 나라를 건너 뜨는지 데이터로 본다(LLM 없음)."""
     by: dict[tuple[str, str], set[str]] = {}
     for dst_type, dst_id, src_id in con.execute("SELECT dst_type, dst_id, src_id FROM edges WHERE rel IN ('TRIGGERED_BY','ABOUT')").fetchall():
@@ -512,7 +501,7 @@ def graph_shared_nodes(con: sqlite3.Connection, min_queries: int = 2, limit: int
     return out[:limit]
 
 
-def graph_term_queries(con: sqlite3.Connection, term_id: str) -> list[dict]:
+def graph_term_queries(con: Connection, term_id: str) -> list[dict]:
     """사전 용어에 IS_TERM 으로 연결된 급증 검색어 — 어느 나라 검색어가 이 표현이었나."""
     out = []
     for (key,) in con.execute("SELECT src_id FROM edges WHERE rel='IS_TERM' AND dst_type='term' AND dst_id=? ORDER BY created_at", (term_id,)).fetchall():
@@ -524,7 +513,7 @@ def graph_term_queries(con: sqlite3.Connection, term_id: str) -> list[dict]:
 
 # ---------- 네이버 쇼핑인사이트 ----------
 
-def upsert_shopping(con: sqlite3.Connection, category: str, age: str, points: list[dict]) -> int:
+def upsert_shopping(con: Connection, category: str, age: str, points: list[dict]) -> int:
     """points: [{period, ratio}] — age 는 "all" 또는 "10"~"60"."""
     n = 0
     for p in points:
@@ -533,7 +522,7 @@ def upsert_shopping(con: sqlite3.Connection, category: str, age: str, points: li
     return n
 
 
-def shopping_series(con: sqlite3.Connection) -> dict[tuple[str, str], list[tuple[str, float]]]:
+def shopping_series(con: Connection) -> dict[tuple[str, str], list[tuple[str, float]]]:
     out: dict[tuple[str, str], list[tuple[str, float]]] = {}
     for cat, age, wk, ratio in con.execute("SELECT category, age, week, ratio FROM shopping_trends ORDER BY week").fetchall():
         out.setdefault((cat, age), []).append((wk, ratio))
@@ -542,29 +531,29 @@ def shopping_series(con: sqlite3.Connection) -> dict[tuple[str, str], list[tuple
 
 # ---------- 세대 곡선(네이버) · 주제 나라별 서술 ----------
 
-def set_gen_curve(con: sqlite3.Connection, term_id: str, generation: str, points: list[dict]) -> None:
+def set_gen_curve(con: Connection, term_id: str, generation: str, points: list[dict]) -> None:
     con.execute("DELETE FROM gen_curves WHERE term_id=? AND generation=?", (term_id, generation))
     con.executemany("INSERT OR REPLACE INTO gen_curves VALUES (?,?,?,?)", [(term_id, generation, p["period"], float(p["ratio"])) for p in points])
     con.commit()
 
 
-def get_gen_curves(con: sqlite3.Connection, term_id: str) -> dict[str, list[tuple[str, float]]]:
+def get_gen_curves(con: Connection, term_id: str) -> dict[str, list[tuple[str, float]]]:
     out: dict[str, list[tuple[str, float]]] = {}
     for g, d, r in con.execute("SELECT generation, date, ratio FROM gen_curves WHERE term_id=? ORDER BY date", (term_id,)).fetchall():
         out.setdefault(g, []).append((d, r))
     return out
 
 
-def set_topic_note(con: sqlite3.Connection, term_id: str, region: str, payload: str, model: str) -> None:
+def set_topic_note(con: Connection, term_id: str, region: str, payload: str, model: str) -> None:
     con.execute("INSERT OR REPLACE INTO topic_notes VALUES (?,?,?,?,?)", (term_id, region, payload, now_s(), model))
     con.commit()
 
 
-def get_topic_notes(con: sqlite3.Connection, term_id: str) -> dict[str, dict]:
+def get_topic_notes(con: Connection, term_id: str) -> dict[str, dict]:
     return {r: json.loads(j) for r, j in con.execute("SELECT region, json FROM topic_notes WHERE term_id=?", (term_id,)).fetchall()}
 
 
-def recent_updates(con: sqlite3.Connection, hours: int = 48, limit: int = 60) -> list[dict]:
+def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[dict]:
     """최근 변화: 새 용어, 확인된 뜻, 바뀐 뜻, 급증 설명, 재조사, 검수 결정."""
     since = (now() - timedelta(hours=hours)).isoformat()
     rows: list[dict] = []
@@ -590,7 +579,7 @@ def recent_updates(con: sqlite3.Connection, hours: int = 48, limit: int = 60) ->
     return rows[:limit]
 
 
-def last_finished(con: sqlite3.Connection) -> str | None:
+def last_finished(con: Connection) -> str | None:
     row = con.execute("SELECT MAX(finished_at) FROM pipeline_runs WHERE status IN ('ok','zero','skipped')").fetchone()
     return row[0] if row else None
 
@@ -598,35 +587,35 @@ def last_finished(con: sqlite3.Connection) -> str | None:
 # ---------- 로그인한 사람의 설정 (세대·나라) ----------
 # 익명 방문자는 설정을 갖지 않는다 — 설명은 중립으로 나가고 재작성 캐시도 하나로 모인다(2026-09-16 결정).
 
-def get_prefs(con: sqlite3.Connection, user: str) -> dict:
-    row = con.execute("SELECT json FROM reader_prefs WHERE user=?", (user,)).fetchone()
+def get_prefs(con: Connection, user: str) -> dict:
+    row = con.execute("SELECT json FROM reader_prefs WHERE reader=?", (user,)).fetchone()
     return json.loads(row[0]) if row else {}
 
 
-def set_prefs(con: sqlite3.Connection, user: str, prefs: dict) -> None:
+def set_prefs(con: Connection, user: str, prefs: dict) -> None:
     con.execute("INSERT OR REPLACE INTO reader_prefs VALUES (?,?,?)", (user, json.dumps(prefs, ensure_ascii=False), now_s()))
     con.commit()
 
 
 # ---------- 해석 실패 메시지 (표현 발굴 재료) ----------
 
-def log_lookup_miss(con: sqlite3.Connection, text: str, lang: str) -> None:
+def log_lookup_miss(con: Connection, text: str, lang: str) -> None:
     """사전에 없는 표현이 든 메시지. 200자 이하만, 발굴 단계가 소비하면 지운다 — 사람이 쓴 문장을 오래 두지 않는다."""
     text = text.strip()
     if not text or len(text) > 200:
         return
     key = new_id("l", f"{lang}|{norm(text)}")
     t = now_s()
-    con.execute("INSERT INTO lookups VALUES (?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET count=count+1, last_at=excluded.last_at", (key, text, lang, 1, t, t))
+    con.execute("INSERT INTO lookups VALUES (?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET count=lookups.count+1, last_at=excluded.last_at", (key, text, lang, 1, t, t))
     con.commit()
 
 
-def pending_lookups(con: sqlite3.Connection, limit: int = 100) -> list[tuple[str, str, str]]:
+def pending_lookups(con: Connection, limit: int = 100) -> list[tuple[str, str, str]]:
     """(key, text, lang) — 많이 물어본 것부터."""
     return con.execute("SELECT key, text, lang FROM lookups ORDER BY count DESC, last_at DESC LIMIT ?", (limit,)).fetchall()
 
 
-def delete_lookups(con: sqlite3.Connection, keys: list[str]) -> None:
+def delete_lookups(con: Connection, keys: list[str]) -> None:
     if keys:
         con.executemany("DELETE FROM lookups WHERE key=?", [(k,) for k in keys])
         con.commit()
@@ -637,7 +626,7 @@ def delete_lookups(con: sqlite3.Connection, keys: list[str]) -> None:
 # 영어판에 직접 올라온 공정이용 그림은 여기 들어오면 안 된다 (collectors/wikipedia_search.free_image 가 거른다).
 
 
-def add_media(con: sqlite3.Connection, term_id: str, kind: str, url: str, *, page_url: str = "",
+def add_media(con: Connection, term_id: str, kind: str, url: str, *, page_url: str = "",
               title: str = "", license: str = "", attribution: str = "") -> None:
     if not url:
         return
@@ -646,12 +635,12 @@ def add_media(con: sqlite3.Connection, term_id: str, kind: str, url: str, *, pag
     con.commit()
 
 
-def get_media(con: sqlite3.Connection, term_id: str, limit: int = 4) -> list[dict]:
+def get_media(con: Connection, term_id: str, limit: int = 4) -> list[dict]:
     rows = con.execute("SELECT kind, url, page_url, title, license, attribution FROM term_media "
                        "WHERE term_id=? ORDER BY kind DESC, added_at LIMIT ?", (term_id, limit)).fetchall()
     return [{"kind": k, "url": u, "page_url": p, "title": t, "license": lic, "attribution": a}
             for k, u, p, t, lic, a in rows]
 
 
-def has_media(con: sqlite3.Connection, term_id: str) -> bool:
+def has_media(con: Connection, term_id: str) -> bool:
     return con.execute("SELECT 1 FROM term_media WHERE term_id=? LIMIT 1", (term_id,)).fetchone() is not None

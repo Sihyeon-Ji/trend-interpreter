@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
@@ -14,6 +13,7 @@ from difflib import SequenceMatcher
 from ..lifecycle import recheck_interval_days  # noqa: F401  (생애주기 라벨과 같은 모듈을 쓴다는 표시)
 from ..storage import dictionary_store as ds
 from .match import keywords, loose_key, strip_particle
+from ..storage.db import Connection
 
 LIFECYCLE = {"emerging": "막 뜨는 중", "rising": "오르는 중", "peak": "절정", "steady": "꾸준함",
              "declining": "지는 중", "dormant": "잠잠함", "unknown": "판단 보류"}
@@ -25,7 +25,7 @@ MAX_CHARS = 1200   # 도구 결과가 길면 모델이 앞부분만 보고 답�
 
 @dataclass
 class Ctx:
-    con: sqlite3.Connection
+    con: Connection
     term_ids: list[str] = field(default_factory=list)
     best: tuple[str, str] | None = None   # (표제어, 뜻) — 도구가 찾은 가장 가까운 항목
     _roman: dict[str, str] = field(default_factory=dict)   # 한글 표기 → 로마자 (같은 대화에서 한 번만 묻는다)
