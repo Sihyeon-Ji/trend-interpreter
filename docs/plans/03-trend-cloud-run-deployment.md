@@ -83,16 +83,29 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 1. Cloud SQL PostgreSQL 인스턴스와 데이터베이스·사용자를 Terraform으로 만들고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다.
 2. `infra/gcp/main.tf`에 Trend용 service account, secret metadata, IAM을 추가하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
-4. `.github/workflows/release-gcp.yml`에 application job을 다시 추가하고, `scripts/release_scope.py`의 `app` 판정이 그 job을 켜도록 연결합니다. `scripts/release_recovery.py`의 `SECRETS`에 새 서비스를 추가합니다.
-5. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
-6. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
-7. [AI 호출 제어](../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../운영/배포-복구.md)에 실제 명령을 채웁니다.
+   API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
+   Cloud SQL 연결 총량은 `max-instances × DB_POOL_SIZE + 파이프라인 Job 1`(기본 17)이며, 인스턴스 등급의 최대 연결 수보다 작아야 합니다.
+4. 같은 스크립트에서 **파이프라인 Cloud Run Job과 Cloud Scheduler**를 만듭니다. 원작자 PC의 cron(`15 9,14,19,23 * * *`, `flock`으로 겹침 방지)을 대신합니다.
+
+   | 항목 | 설정 |
+   | --- | --- |
+   | Job | `builder-cup-trend-pipeline`, API와 같은 이미지, 명령 `python scripts/run_pipeline.py`, `--tasks 1 --max-retries 0 --task-timeout 3h` |
+   | 일정 | Cloud Scheduler `15 9,14,19,23 * * *`(Asia/Seoul), Job 실행 API 호출. 호출 계정에는 `roles/run.invoker`만 |
+   | 겹침 방지 | Job은 실행이 겹칠 수 있으므로 task timeout을 다음 실행 간격(최소 4시간)보다 짧게 두고, 시작 시 진행 중인 실행이 있으면 바로 끝내는 확인을 `run_pipeline.py`에 추가 |
+   | 건강 점검 | 두 번째 Job `builder-cup-trend-health`가 `scripts/health_check.py`를 매일 10:45에 실행. 경고가 있으면 종료 코드 1로 끝나 Cloud Monitoring 경보로 이어짐 |
+   | 로그·보존 | 로그는 표준 출력 JSON으로 Cloud Logging에 남고, 파이프라인의 `collect.retention` 단계가 사용자 문장(7일·30일)과 30일 지난 수집 데이터를 지움 |
+5. `.github/workflows/release-gcp.yml`에 application job을 다시 추가하고, `scripts/release_scope.py`의 `app` 판정이 그 job을 켜도록 연결합니다. `scripts/release_recovery.py`의 `SECRETS`에 새 서비스를 추가합니다.
+6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
+7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
+8. [AI 호출 제어](../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../운영/배포-복구.md)에 실제 명령을 채웁니다.
 
 ## 완료 기준
 
 - `release/gcp` push 한 번으로 Trend API·웹·파이프라인 Job이 검증 후 배포되고, 이전 revision이 실패한 후보에 영향을 받지 않는다.
 - 웹 공개 URL에서 사전·지구본·메시지 해석이 실데이터로 열리고, API URL은 익명 호출을 거부한다.
 - 서비스 재시작 뒤에도 사전·검수 기록이 Cloud SQL에 유지된다.
+- 파이프라인 Job이 Scheduler 일정대로 실행되고, 실행이 겹치지 않으며, 건강 점검 경고가 Discord로 온다.
+- API의 Cloud Run 동시성과 `DB_POOL_SIZE`가 같은 값으로 배포되어 있다.
 - 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
 - `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 로그 지표로 확인한다.
 - 문서의 현재 상태와 검증 결과가 갱신되어 있다.
