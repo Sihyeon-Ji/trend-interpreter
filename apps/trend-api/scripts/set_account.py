@@ -1,4 +1,4 @@
-"""계정을 만든다/바꾼다. 비밀번호는 해시만 .env 에, 평문은 data/ 에만 남는다(data/ 는 커밋되지 않는다).
+"""계정을 만든다/바꾼다. 비밀번호는 해시만 .env 에 남고, 평문은 이 명령의 출력에 한 번만 보여 준다(파일에 쓰지 않는다).
 
   uv run scripts/set_account.py --user admin --reviewer   # 검수자 (사전 승인·제외 가능)
   uv run scripts/set_account.py --user demo               # 일반 이용자 (설정만)
@@ -77,15 +77,8 @@ def main() -> None:
         we = put(we, "SESSION_SECRET", secrets.token_urlsafe(32))
     web_env.write_text(we, encoding="utf-8")
 
-    note = ROOT / "data" / "accounts.txt"
-    note.parent.mkdir(exist_ok=True)
-    have = note.read_text(encoding="utf-8") if note.exists() else "계정 비밀번호 (이 파일은 커밋되지 않는다)\n"
-    have = "\n".join(l for l in have.splitlines() if not l.startswith(f"{a.user}\t")) + f"\n{a.user}\t{password}\t{'검수자' if a.reviewer else '이용자'}\n"
-    note.write_text(have, encoding="utf-8")
-    note.chmod(0o600)
-
     print(f"계정 '{a.user}' ({'검수자' if a.reviewer else '이용자'}) 설정 완료")
-    print(f"  비밀번호는 {note} 에 (.env 에는 해시만)")
+    print(f"  비밀번호: {password}   ← 지금 안전한 경로로 전달하고 이 출력은 남기지 않는다 (.env 에는 해시만)")
     print("  프론트를 다시 시작해야 토큰이 반영된다")
 
 
