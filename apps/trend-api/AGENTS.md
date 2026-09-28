@@ -6,12 +6,13 @@
 ## 규칙
 
 - Python 3.12, `uv` 로만 실행 (`uv run ...`, `uv add ...`). 전역 pip 사용 금지.
-- `src/trend_agents/schemas.py` 가 파이프라인 계약이다. 수집·해석 모델(ShortsVideo, ShortsInterpretation…)과 사전 모델(Term, Meaning, Evidence, Segment)이 여기 있다. 필드를 바꾸면 Gemini `response_schema`, Ollama `format`, SQLite, Spanner DDL(`storage/spanner_graph.ddl.sql`) 에 동시에 영향 → 바꾸기 전에 전부 확인.
+- `src/trend_agents/schemas.py` 가 파이프라인 계약이다. 수집·해석 모델(ShortsVideo, ShortsInterpretation…)과 사전 모델(Term, Meaning, Evidence, Segment)이 여기 있다. 필드를 바꾸면 Gemini `response_schema`, Ollama `format`, PostgreSQL 표, Spanner DDL(`storage/spanner_graph.ddl.sql`) 에 동시에 영향 → 바꾸기 전에 전부 확인.
 - **판정은 데이터, LLM 은 서술.** 생애주기(`lifecycle.py`), 검증 상태(`verification.py`), 재검증 주기는 규칙 코드가 정한다. LLM 출력에 "검증됨" 같은 상태를 직접 쓰게 하지 않는다.
 - 사전에는 검증 게이트를 통과한 Meaning 만 verified 로 들어간다. 뜻이 바뀌면 새 version 을 만들고 이전 version 의 `valid_to` 를 닫는다. 삭제하지 않는다.
 - API 키는 `apps/trend-api/.env` 만. 코드·문서·커밋에 절대 넣지 않는다. `config.require()` 로 읽는다.
 - **Gemini 클라이언트는 `model_client.client()` 한 곳에서만 만든다.** API 키를 쓰지 않고 Vertex AI(런타임 서비스 계정, `GCP_PROJECT_ID`)로 접속하며, `MODEL_PROVIDER=vertex`와 `MODEL_REQUESTS_ENABLED=true`가 모두 켜져야 호출한다. 로컬 기본값(mock)에서는 유료 모델을 호출하지 않는다.
-- `data/`, `*.db`, `*.zip` 은 커밋하지 않는다.
+- 관계형 데이터는 모두 PostgreSQL 이다(`DATABASE_URL`). 저장소 함수는 `storage/db.py` 어댑터를 통해서만 SQL 을 보내고, `?` 자리표시자와 `INSERT OR REPLACE/IGNORE` 를 그대로 쓴다(어댑터가 `ON CONFLICT` 로 바꾼다). 표를 추가하면 DDL 에 기본키를 적어야 REPLACE 가 동작한다.
+- `data/`, `logs/`, `*.db`, `*.zip` 은 커밋하지 않는다.
 - 새 데이터 소스는 `collectors/`, 모델 호출은 `interpreters/`, 저장은 `storage/`, ADK 에이전트는 `agents/`. 단계별 실행 스크립트는 `scripts/test_*.py` 로, 키가 없으면 `SystemExit` 메시지로 안내하고 죽는다.
 - 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, `gemma4:12b`(Ollama, `think=False`).
 - 영상은 URL 만 저장, 파일로 받지 않는다 (저작권).
@@ -35,7 +36,7 @@
 
 ## 파이프라인 (`src/trend_agents/pipeline/`)
 
-- 단계는 `run(con) -> {이름: Result}` 하나씩, 입력·출력은 SQLite 테이블. 순서 collect → classify → spikes → interpret → candidates → spot → hunt → research → track → naver → translate → topics → board (`scripts/run_pipeline.py`, `--loop` 로 상시). 자세한 것은 `docs/트렌드/파이프라인.md`.
+- 단계는 `run(con) -> {이름: Result}` 하나씩, 입력·출력은 PostgreSQL 표. 순서 collect → classify → spikes → interpret → candidates → spot → hunt → research → track → naver → translate → topics → board (`scripts/run_pipeline.py`, `--loop` 로 상시). 자세한 것은 `docs/트렌드/파이프라인.md`.
 - **파이프라인의 Gemini 호출은 `pipeline/gemini.py` 를 거친다** (하루 예산 `GEMINI_DAILY_BUDGET`, 503/429 재시도, `GEMINI_FALLBACK_MODEL` 폴백). 클라이언트는 `model_client.client()` 만 쓰고 단계 안에서 `genai.Client` 를 직접 만들지 않는다.
 - 단계는 예외를 삼키고 `pipeline_runs` 에 `error`/`zero` 로 남긴다 — 한 단계의 실패가 다음 단계를 막지 않는다. 결과 dict 는 `with stage()` 블록 **밖에서** 돌려준다.
 - **못 답한 질문이 다음 조사 거리다(`pipeline/hunt.py`).** 지금 파이프라인은 '밀어내기'라 지금 뜨는 것만 들어온다 — 사람이 물었는데 없던 말은 `lookups` 에 쌓이고, hunt 가 거기서 표현 이름을 뽑아(한글 표기는 원어 표기까지) 표제어로 세우면 research 가 그 이름으로 인터넷을 직접 뒤진다. 판정은 코드가 한다: 질문 원문에 실제로 있는 말만 받고(앵커), 목록 요청·번역 부탁·갈래 낱말·자판 난타는 버린다.
@@ -45,7 +46,7 @@
   **찾기는 느슨하게, 판정은 엄격하게.** `match.loose_key`(반복·된소리 무시)·`strip_particle`(조사 제거)·`keywords`(뜻으로 찾기)는 도구가 항목을 *찾을 때만* 쓴다 — 게이트의 `mentions()` 는 그대로 엄격하다.
   도구를 한 번도 안 부른 답은 사전에 근거하지 않은 말이므로, 코드가 직접 찾아 그 결과로 다시 답하게 한다. 도구가 찾은 것이 있으면 모델이 '없다' 고 말할 수 없다.
 - API 는 `api/app.py`(FastAPI). 응답 뷰 모델은 `pipeline/views.py` — 프론트 `apps/trend-web/lib/types.ts` 와 1:1 로 유지한다. `/explain` 은 용어 id 와 재작성 문장만 돌려주고 문장 조립은 프론트가 한다.
-- 테스트: 저장소 루트에서 `docker compose run --rm --build check` 가 이 패키지의 pytest도 실행한다. 직접 돌릴 때는 `uv run --project apps/trend-api --locked pytest -q apps/trend-api/tests`. 규칙·저장소·보드는 네트워크 없이 인메모리 SQLite 로 테스트한다.
+- 테스트: 저장소 루트에서 `docker compose run --rm --build check` 가 이 패키지의 pytest도 실행한다. 직접 돌릴 때는 PostgreSQL 을 가리키는 `DATABASE_URL` 을 주고 `uv run --project apps/trend-api --locked pytest -q apps/trend-api/tests`. 규칙·저장소·보드는 네트워크 없이 인메모리 SQLite 로 테스트한다.
 
 ## 로컬 인프라
 
@@ -57,7 +58,7 @@ docker start spanner-emu || docker run -d --name spanner-emu -p 9010:9010 -p 902
 ```
 로컬 모델 호출은 `interpreters/local_chat.py` 한 곳. `LOCAL_LLM_BASE_URL` 이 비면 Ollama, OpenAI 호환 서버(vLLM) 주소면 그쪽 — 스키마는 프롬프트에 넣고 응답 JSON 을 꺼내 검증한다(서버 스키마 강제에 기대지 않음, Ollama 0.20 실측·vLLM guided decoding 크래시 전례). ADK 에이전트 자신의 모델은 기본 Gemini, `ADK_MODEL=local` 이면 같은 로컬 모델(LiteLLM, `agents/team.py`).
 
-Spanner 에뮬레이터는 인메모리다. 재시작하면 사전이 비워진다. 지속 데이터는 SQLite(`data/trend.db`) 와 GCP 인스턴스에만.
+Spanner 에뮬레이터는 인메모리다. 재시작하면 사전이 비워진다. 지속 데이터는 PostgreSQL(로컬 Compose `db`, 운영 Cloud SQL)에만.
 
 ## 심사 기준 상시 체크
 

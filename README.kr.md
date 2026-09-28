@@ -20,12 +20,13 @@ docker compose up -d
 
 브라우저에서 **http://localhost:3000**을 엽니다.
 첫 실행은 이미지를 내려받고 의존성을 설치하므로 몇 분 걸릴 수 있습니다.
-`docker compose ps`에서 `api`, `web` 상태를 확인하세요.
+`docker compose ps`에서 `db`, `api`, `web` 상태를 확인하세요.
 
 - **화면 코드 수정** — `apps/trend-web/`의 `app`, `components`, `lib`, `public`을 저장하면 Next.js가 자동 반영합니다.
 - **API 코드 수정** — `apps/trend-api/src/`를 저장하면 API가 자동 재시작됩니다.
 - **개발 도구** — Node 24.21.0(pnpm은 Corepack), Python 3.12(uv)와 의존성이 컨테이너 안에 설치됩니다.
 - **모델** — 기본 개발 환경은 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`라 유료 모델을 호출하지 않습니다.
+- **데이터베이스** — 관계형 데이터는 모두 PostgreSQL(`db` 서비스, `postgres_data` 볼륨)에 저장합니다. 개발용 계정은 고정값이고 포트는 호스트에 공개하지 않습니다.
 - **인증과 설정** — `.env` 없이 시작합니다. 호스트의 `.env`나 클라우드 인증정보를 읽지 않습니다.
 
 첫 화면은 **예시 데이터 모드**입니다. 지구본, 사전, 메시지 해석 화면이 내장 예시로 열립니다.
@@ -42,7 +43,7 @@ API 문서는 http://localhost:8000/docs, 상태 확인은 http://localhost:8000
 | 개발 환경 켜기 | `docker compose up -d` |
 | 실행 상태 확인 | `docker compose ps` |
 | 로그 보기 | `docker compose logs -f` |
-| 개발 환경 끄기 | `docker compose down` |
+| 개발 환경 끄기 (DB 볼륨은 유지) | `docker compose down` |
 | 의존성·이미지 설정 변경 반영 | `docker compose up -d --build` |
 | API 테스트·릴리스 테스트·웹 lint·웹 빌드 | `docker compose run --rm --build check` |
 | 서비스 lockfile 취약점 검사 | `docker compose run --rm security-check` |
@@ -51,7 +52,7 @@ API 문서는 http://localhost:8000/docs, 상태 확인은 http://localhost:8000
 | Python 패키지 추가 | `docker compose run --rm --build uv add 패키지명` |
 | 웹 패키지 추가 | `docker compose run --rm --build pnpm add 패키지명` |
 
-`up -d`는 `api`와 `web`만 켭니다. 검사·브라우저 테스트·도구는 명령으로 지정할 때만 실행됩니다.
+`up -d`는 `db`, `api`, `web`을 켭니다. 검사·브라우저 테스트·도구는 명령으로 지정할 때만 실행되며, `check`는 API 테스트를 위해 `db`를 함께 켭니다.
 E2E는 필요한 개발 서버를 자동으로 시작하며, 첫 E2E 빌드에서는 테스트용 Chromium도 컨테이너에 설치합니다.
 검사 통과는 코드 계약과 빌드를 확인한 것이지 AI 답변 품질을 평가한 것은 아닙니다.
 
@@ -92,7 +93,7 @@ Cloud Run 런타임 서비스 계정으로 Vertex AI에 접속합니다. 저장�
 compose.yaml                 개발 실행과 검사 명령
 Dockerfile.dev               개발 도구와 브라우저 테스트 이미지
 apps/trend-web/              Next.js 화면, 브라우저 테스트, 배포용 Dockerfile
-apps/trend-api/              FastAPI API, 수집·사전 파이프라인, 배포용 Dockerfile
+apps/trend-api/              FastAPI API, PostgreSQL 기반 수집·사전 파이프라인, 배포용 Dockerfile
 apps/alert-relay/            Pub/Sub 알림을 Discord로 보내는 비공개 Cloud Run 중계기
 models/vllm/                 별도 GPU 서버용 Gemma 설정
 infra/gcp/                   GCP 인프라 설정
@@ -108,7 +109,7 @@ docs/                        설치, 운영, 트렌드 설계 기록, 계획 문
 공통 개발 브랜치는 `develop`이며 이 브랜치의 push는 GitHub Actions를 실행하지 않습니다.
 `release/gcp` push는 변경 범위를 판정해 전체 검증을 한 번 실행하고, 알림 중계기가 바뀌었을 때만 중계기를 배포합니다.
 
-**Trend 앱의 배포 job은 일부러 꺼 두었습니다.** 영속 저장소와 비공개 API 경로를 정한 뒤
+**Trend 앱의 배포 job은 일부러 꺼 두었습니다.** Cloud SQL PostgreSQL 인스턴스와 비공개 API 경로를 준비한 뒤
 [Plan 03](docs/plans/03-trend-cloud-run-deployment.md)에 따라 다시 켭니다. 그전까지는 이전에 배포한
 `builder-cup` Cloud Run 서비스가 그대로 운영됩니다. `.env`, 인증정보, 모델 파일, Terraform 상태,
 수집 데이터는 Git에 올리지 않습니다.

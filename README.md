@@ -18,12 +18,14 @@ cd 2026-google-ai-builder-cup
 docker compose up -d
 ```
 
-Open **http://localhost:3000**. Compose builds the development images on the first run, starts the
-API and then the Next.js dev server. The API is available at http://localhost:8000/docs.
+Open **http://localhost:3000**. Compose builds the development images on the first run, starts
+PostgreSQL, the API and then the Next.js dev server. The API is available at http://localhost:8000/docs.
 Use `docker compose ps` to check readiness; initial image downloads may take several minutes.
 
 - The web starts in **sample mode** with built-in example data. `DATA_MODE=api docker compose up -d`
-  switches it to the local API, which reads the SQLite database in the `trend_data` volume.
+  switches it to the local API, which reads the PostgreSQL database in the `postgres_data` volume.
+- All relational data lives in PostgreSQL (`DATABASE_URL`). The development database is loopback-only
+  with fixed local credentials and no published port.
 - Changes in `apps/trend-web/` (app, components, lib, public) reload through Next.js Fast Refresh.
 - Changes in `apps/trend-api/src/` restart the API through Uvicorn reload.
 - Dependencies stay inside the images, separate from host `.venv` and `node_modules`.
@@ -49,7 +51,7 @@ extra task runner to install. See the [Korean command reference](docs/개발환�
 | `docker compose up -d` | Start the API and the web dev server |
 | `docker compose ps` | Check service status |
 | `docker compose logs -f` | Follow logs; Ctrl-C stops following, not the services |
-| `docker compose down` | Stop and remove the development containers |
+| `docker compose down` | Stop and remove the development containers; the database volume stays |
 | `docker compose up -d --build` | Rebuild after dependency or configuration changes |
 | `docker compose run --rm --build check` | API tests, release and relay tests, web lint and production build |
 | `docker compose run --rm security-check` | Scan the three service lockfiles with OSV-Scanner |
@@ -59,7 +61,8 @@ extra task runner to install. See the [Korean command reference](docs/개발환�
 | `docker compose run --rm --build pnpm add zod` | Edit `apps/trend-web` dependencies and lockfile |
 
 `check`, `security-check`, `e2e`, `infra-check`, `uv` and `pnpm` are opt-in services; plain `up -d`
-starts only `api` and `web`. E2E starts its dependent development services if necessary. Its first
+starts only `db`, `api` and `web`. `check` starts `db` for the API tests, which isolate themselves in
+temporary schemas. E2E starts its dependent development services if necessary. Its first
 build also installs Chromium inside the test image.
 
 Passing checks confirm the code contract and the build, **not** AI quality. Real Gemini access,
@@ -99,7 +102,7 @@ Local Gemma runs through Ollama or an OpenAI-compatible server (`LOCAL_LLM_BASE_
 compose.yaml                 Development services and opt-in validation tools
 Dockerfile.dev               Development toolchain and browser-test image
 apps/trend-web/              Next.js web app, browser tests, production Dockerfile
-apps/trend-api/              FastAPI API, collection and dictionary pipeline, production Dockerfile
+apps/trend-api/              FastAPI API, collection and dictionary pipeline on PostgreSQL, production Dockerfile
 apps/alert-relay/            Private Cloud Run relay from Pub/Sub alerts to Discord
 models/vllm/                 Separate GPU-host Gemma runtime
 infra/gcp/                   Terraform infrastructure
@@ -115,8 +118,8 @@ docs/                        Korean documentation: setup, operations, Trend desi
 Develop on `develop`; pushes there do not start GitHub Actions. Pushing `release/gcp` classifies the
 change, runs the full checks once, and deploys the alert relay when it changed.
 
-The **Trend application deployment job is intentionally disabled** until durable storage and a
-private API path are decided; see [Plan 03](docs/plans/03-trend-cloud-run-deployment.md). The
+The **Trend application deployment job is intentionally disabled** until the Cloud SQL PostgreSQL
+instance and a private API path are provisioned; see [Plan 03](docs/plans/03-trend-cloud-run-deployment.md). The
 previously deployed `builder-cup` Cloud Run service keeps serving until the Trend release replaces it.
 Never commit credentials, `.env`, model weights, Terraform state or collected data.
 

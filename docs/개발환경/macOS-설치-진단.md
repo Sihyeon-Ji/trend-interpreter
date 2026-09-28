@@ -81,8 +81,9 @@ curl --fail --silent --output /dev/null --write-out '%{http_code}\n' http://loca
 
 | 출력 또는 증상 | 의미와 다음 행동 |
 | --- | --- |
-| `api`·`web`이 `healthy` | 정상. 브라우저에서 http://localhost:3000 을 엽니다 |
-| health 응답에 `"ok":true` | API 생존. `terms`는 SQLite에 있는 사전 항목 수이며 0이어도 예시 데이터 모드 화면은 열림 |
+| `db`·`api`·`web`이 `healthy` | 정상. 브라우저에서 http://localhost:3000 을 엽니다 |
+| `api`가 `db` 연결 오류로 재시작 | `docker compose logs --tail 30 db`로 PostgreSQL 초기화가 끝났는지 확인 |
+| health 응답에 `"ok":true` | API 생존. `terms`는 PostgreSQL에 있는 사전 항목 수이며 0이어도 예시 데이터 모드 화면은 열림 |
 | `web`이 `starting`에서 오래 머묾 | 첫 Next.js 컴파일 중. `docker compose logs -f web`으로 진행 확인 |
 | `api`가 반복 재시작 | `docker compose logs --tail 50 api`에서 Python 오류 확인 |
 | 기동 시 포트 사용 중 오류 | 아래 `lsof`로 현재 소유 프로세스를 확인하고 종료하거나 포트를 바꿀지 판단 |

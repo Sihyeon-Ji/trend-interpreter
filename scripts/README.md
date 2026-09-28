@@ -8,7 +8,7 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 
 | File | Caller | Responsibility |
 | --- | --- | --- |
-| `container-smoke.sh` | CI | Start the production API and web images, verify API health and the web landing page |
+| `container-smoke.sh` | CI | Start a throwaway PostgreSQL, the production API and web images, verify API health and the web landing page |
 | `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |
 | `release_scope.py` | `Release GCP` workflow | Classify release changes into shared checks, infrastructure, application and relay |
 | `verify_alert_delivery.py` | relay deploy script | Confirm a uniquely identified synthetic alert reached Discord from the new revision |

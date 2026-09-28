@@ -8,7 +8,7 @@
 
 | ID | 상태 | 작업 | 완료 기준 |
 | --- | --- | --- | --- |
-| [03](03-trend-cloud-run-deployment.md) | 설계 대기 | Trend 앱 Cloud Run 배포 | 영속 저장소를 정한 뒤 `release/gcp` 한 번으로 API·웹·파이프라인 Job이 검증 후 배포 |
+| [03](03-trend-cloud-run-deployment.md) | 설계 대기 | Trend 앱 Cloud Run 배포 | Cloud SQL PostgreSQL을 준비한 뒤 `release/gcp` 한 번으로 API·웹·파이프라인 Job이 검증 후 배포 |
 | [02](02-public-repository-release-protection.md) | 제출 전 대기 | 공개 저장소와 GCP 배포 승인 | 외부 사용자는 push할 수 없고 collaborator의 배포는 Environment 승인 후 진행 |
 
 2026-09-28에 `prototype/trend`를 메인 앱(`apps/trend-api`, `apps/trend-web`)으로 승격했습니다. Plan 03은 그 배포 계획이며, 이전 실습 앱의 배포 job은 제거했습니다. 운영 Plan 03~06은 구현과 운영 검증을 마쳤습니다.
