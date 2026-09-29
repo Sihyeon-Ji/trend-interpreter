@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from ..collectors.community import is_community_post
 from ..lifecycle import recheck_interval_days
-from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
-                       Segment, ShortScript, SocialCopy, Term, Text2, ThumbnailPlan)
+from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningDraft, MeaningText, ProductBrief,
+                       RiskLevel, Segment, ShortScript, SocialCopy, Term, Text2, ThumbnailPlan)
 from ..storage import dictionary_store as ds
 from .match import evidence_mentions
 from ..storage.db import Connection
@@ -68,10 +68,33 @@ class PipelineStage(BaseModel):
     last_finished_at: str | None = None
 
 
+ReviewKind = Literal["new", "correction", "conflict", "retire"]
+
+
+class ReviewDoc(BaseModel):
+    """제안의 근거가 된 참고 문서 한 쪽(Plan 12). 위키끼리 다를 때(conflict)는 사람이 고르는 설명이다 — proposal 이 있는 것만 고를 수 있고,
+    고르면 고칠 안과 같은 길(새 판)로 간다. summary 는 짧은 발췌나 요약뿐, 문서 본문은 두지 않는다."""
+
+    wiki: str
+    url: str
+    summary: str = ""
+    proposal: MeaningDraft | None = None
+
+
 class ReviewItem(BaseModel):
+    """검수 한 건. kind 마다 보이는 것이 다르다(Plan 12 §3).
+    new         조사 결과 — proposed 가 확인 전인 지금 판, current 는 그 앞의 확인된 판(없으면 새 말)
+    correction  고칠 안 — current 가 공개 중인 지금 뜻, draft 가 고칠 안(승인하면 새 판)
+    conflict    위키끼리 다름 — current 와 docs(문서마다의 설명)
+    retire      사전에서 뺄지 — current 와 사유·docs
+    meaning_id 는 결정과 함께 되돌려 보낼 뜻(new 는 proposed, 나머지는 current) — 그사이 바뀌었으면 서버가 409 로 막는다."""
+
     term_id: str
     canonical: str
-    proposed: Meaning
+    kind: ReviewKind = "new"
+    meaning_id: str | None = None
+    proposed: Meaning | None = None
+    draft: MeaningDraft | None = None
     reasons: list[str]
     evidence_count: int
     queued_at: str
@@ -80,12 +103,13 @@ class ReviewItem(BaseModel):
     current: Meaning | None = None
     evidences: list[Evidence] = []
     weekly: list[WeeklyPoint] = []
+    docs: list[ReviewDoc] = []
 
 
 STAGE_LABELS = {
     "collect.youtube": "영상 수집", "collect.news": "뉴스 수집", "collect.trends_rss": "검색 트렌드(지금)", "collect.trends_bq": "검색 트렌드(일별)",
     "collect.wikipedia": "위키 조회 상위", "collect.mentions": "용어 언급 추적", "collect.retention": "30일 보존 정리", "classify": "검색어 분류", "spikes": "급증 원인 조사", "candidates": "후보 추출", "spot": "새 표현 발굴", "namu": "나무위키 발굴·재조사", "hunt": "못 답한 질문 조사",
-    "interpret": "쇼츠 해석", "research": "조사·확인", "track": "추세 갱신", "risk": "쓸 때 주의 판정", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성", "dashboard": "키워드 대시보드", "fit": "추천용 쓰임 낱말",
+    "interpret": "쇼츠 해석", "research": "조사·확인", "crosscheck": "문서 대조", "track": "추세 갱신", "risk": "쓸 때 주의 판정", "naver": "한국 세대 신호(네이버)", "translate": "언어판", "topics": "나라별 차이 서술", "board": "보드 생성", "dashboard": "키워드 대시보드", "fit": "추천용 쓰임 낱말",
 }
 
 
@@ -137,14 +161,28 @@ def review_items(con: Connection) -> list[ReviewItem]:
     for q in ds.review_queue(con):
         t = ds.get_term(con, q["term_id"])
         m = ds.current_meaning(con, q["term_id"])
-        if not t or not m:
+        kind = q["kind"] if q["kind"] in ds.REVIEW_KINDS else "new"
+        if not t or (not m and kind != "retire"):
             continue
-        # 지금 실린 뜻: 제안보다 앞 판 가운데 확인된 마지막 것. 없으면 새 뜻이다
-        cur = [x for x in ds.list_meanings(con, t.term_id) if x.version < m.version and x.verification in ("verified_auto", "verified_human")]
         evs = [e for e in shown_evidences(con, t) if e.kind != "datalab"][:5]
         weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
-        out.append(ReviewItem(term_id=t.term_id, canonical=t.canonical, proposed=m, reasons=q["reasons"], evidence_count=q["evidence_count"], queued_at=q["queued_at"],
-                              lang=t.lang, current=cur[-1] if cur else None, evidences=evs, weekly=weekly))
+        base = dict(term_id=t.term_id, canonical=t.canonical, kind=kind, reasons=q["reasons"], evidence_count=q["evidence_count"],
+                    queued_at=q["queued_at"], lang=t.lang, evidences=evs, weekly=weekly)
+        if kind == "new":
+            # 지금 실린 뜻: 제안보다 앞 판 가운데 확인된 마지막 것. 없으면 새 뜻이다
+            cur = [x for x in ds.list_meanings(con, t.term_id) if x.version < m.version and x.verification in ("verified_auto", "verified_human")]
+            out.append(ReviewItem(**base, meaning_id=m.meaning_id, proposed=m, current=cur[-1] if cur else None))
+            continue
+        # 문서 대조의 제안(Plan 12 §3): 지금 뜻은 닫지 않고 공개된 그대로다 — 지금 뜻을 current 로, 고칠 안(또는 문서들의 설명)을 제안으로 보인다.
+        # 예전에는 지금 뜻을 제안처럼 보여 주었고, 그러려면 제안을 올리는 순간 항목이 공개 사전에서 빠져야 했다.
+        docs = []
+        for d in q["docs"]:
+            try:
+                docs.append(ReviewDoc.model_validate(d))
+            except ValueError:
+                continue
+        out.append(ReviewItem(**base, meaning_id=m.meaning_id if m else None, current=m,
+                              draft=q["draft"] if kind == "correction" else None, docs=docs))
     return out
 
 

@@ -38,9 +38,14 @@ CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TE
 -- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
 CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
+-- 검수 큐. 표제어마다 한 줄. kind(Plan 12, 마이그레이션 007): new(조사 결과 — 지금 판이 제안된 뜻) · correction(draft_json 이 고칠 안, 지금 뜻은 그대로 실림)
+-- · conflict(docs_json 이 서로 다른 문서의 설명들) · retire(사전에서 뺄지). docs_json 은 제안의 근거가 된 참고 문서 [{wiki, url, summary, proposal}].
 CREATE TABLE IF NOT EXISTS review_queue (
-  term_id TEXT PRIMARY KEY, draft_json TEXT, reasons_json TEXT, evidence_count BIGINT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT);
+  term_id TEXT PRIMARY KEY, draft_json TEXT, reasons_json TEXT, evidence_count BIGINT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT,
+  kind TEXT, docs_json TEXT);
 CREATE TABLE IF NOT EXISTS research_log (term_id TEXT, researched_at TEXT, model TEXT, notes TEXT, urls_json TEXT, verification TEXT, reasons_json TEXT);
+-- 문서 대조 기록(Plan 12, 마이그레이션 007). 판정·문서 주소·모델만 두고 문서 본문은 두지 않는다.
+CREATE TABLE IF NOT EXISTS crosscheck_log (term_id TEXT, checked_at TEXT, verdict TEXT, doc_urls_json TEXT, model TEXT);
 CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
@@ -272,10 +277,12 @@ def list_meanings(con: Connection, term_id: str) -> list[Meaning]:
     return [Meaning.model_validate_json(r[0]) for r in rows]
 
 
-def add_meaning(con: Connection, term_id: str, draft: MeaningDraft, verification: str, citations: list[str], created_by: str = "research_agent") -> Meaning:
-    """새 version 을 만들고 이전 현행 version 의 valid_to 를 닫는다. 뜻이 같으면(정의·풀이 동일) 새 version 을 만들지 않고 현행을 돌려준다."""
+def add_meaning(con: Connection, term_id: str, draft: MeaningDraft, verification: str, citations: list[str], created_by: str = "research_agent",
+                *, force: bool = False) -> Meaning:
+    """새 version 을 만들고 이전 현행 version 의 valid_to 를 닫는다. 뜻이 같으면(정의·풀이 동일) 새 version 을 만들지 않고 현행을 돌려준다.
+    force=True 면 그 비교 없이 새 version 을 만든다 — 사람이 유래·뉘앙스만 고친 안을 승인할 때(publish_fix)."""
     cur = current_meaning(con, term_id)
-    if cur and cur.definition == draft.definition and cur.expansion == draft.expansion and cur.verification == verification:
+    if not force and cur and cur.definition == draft.definition and cur.expansion == draft.expansion and cur.verification == verification:
         return cur
     t = now()
     if cur:
@@ -290,6 +297,19 @@ def add_meaning(con: Connection, term_id: str, draft: MeaningDraft, verification
     con.execute("DELETE FROM translations WHERE term_id=?", (term_id,))
     con.commit()
     return m
+
+
+def publish_fix(con: Connection, term_id: str, draft: MeaningDraft, by: str, citations: list[str]) -> Meaning:
+    """사람이 승인한 고칠 안을 새 판(verified_human)으로 싣고 이전 판의 valid_to 를 닫는다. 지우지 않는다(Plan 12 §3).
+    add_meaning 의 '같은 뜻' 비교는 정의·풀이만 보므로 유래·뉘앙스만 고친 안이 버려졌다 — 뜻 칸이 하나라도 다르면 새 판이다.
+    칸이 모두 같으면 새 판 없이 지금 판을 사람이 확인한 것으로 둔다."""
+    cur = current_meaning(con, term_id)
+    fields = set(MeaningDraft.model_fields)
+    if cur and cur.model_dump(include=fields) == draft.model_dump(include=fields):
+        if cur.verification != "verified_human":
+            set_verification(con, cur.meaning_id, "verified_human", by)
+        return current_meaning(con, term_id) or cur
+    return add_meaning(con, term_id, draft, "verified_human", citations, created_by=by, force=True)
 
 
 def set_verification(con: Connection, meaning_id: str, verification: str, by: str) -> None:
@@ -397,26 +417,56 @@ def get_translation(con: Connection, term_id: str, lang: str) -> MeaningText | N
 
 # ---------- 검수 큐 · 리서치 로그 ----------
 
-def queue_review(con: Connection, term_id: str, draft: MeaningDraft, reasons: list[str], evidence_count: int) -> None:
+# 검수 큐의 제안 종류(Plan 12). new 는 조사 결과(지금 판이 제안된 뜻), 나머지 셋은 문서 대조의 제안이라 지금 뜻이 그대로 공개돼 있다.
+REVIEW_KINDS = ("new", "correction", "conflict", "retire")
+_REVIEW_COLS = "term_id, draft_json, reasons_json, evidence_count, queued_at, COALESCE(kind, 'new'), docs_json"
+
+
+def queue_review(con: Connection, term_id: str, draft: MeaningDraft | None, reasons: list[str], evidence_count: int, *,
+                 kind: str = "new", docs: list[dict] | None = None) -> None:
+    """검수 큐에 올린다(표제어마다 한 줄 — 같은 표제어의 예전 줄은 덮인다). kind 는 REVIEW_KINDS.
+    correction 은 draft 가 고칠 안, conflict 는 docs 가 고를 수 있는 문서 설명들, retire 는 draft 없이 사유·문서만."""
+    if kind not in REVIEW_KINDS:
+        raise ValueError(f"검수 큐 종류가 아님: {kind}")
     con.execute(
-        "INSERT OR REPLACE INTO review_queue VALUES (?,?,?,?,?,NULL,NULL,NULL)",
-        (term_id, draft.model_dump_json(), json.dumps(reasons, ensure_ascii=False), evidence_count, now_s()),
+        "INSERT OR REPLACE INTO review_queue (term_id, draft_json, reasons_json, evidence_count, queued_at, decision, decided_at, decided_by, kind, docs_json) "
+        "VALUES (?,?,?,?,?,NULL,NULL,NULL,?,?)",
+        (term_id, draft.model_dump_json() if draft is not None else None, json.dumps(reasons, ensure_ascii=False), evidence_count, now_s(),
+         kind, json.dumps(docs, ensure_ascii=False) if docs else None),
     )
     con.commit()
 
 
+def _review_row(r) -> dict:
+    return {"term_id": r[0], "draft": MeaningDraft.model_validate_json(r[1]) if r[1] else None, "reasons": json.loads(r[2] or "[]"),
+            "evidence_count": r[3], "queued_at": r[4], "kind": r[5], "docs": json.loads(r[6]) if r[6] else []}
+
+
 def review_queue(con: Connection) -> list[dict]:
-    rows = con.execute("SELECT term_id, draft_json, reasons_json, evidence_count, queued_at FROM review_queue WHERE decision IS NULL ORDER BY queued_at DESC").fetchall()
-    return [{"term_id": r[0], "draft": MeaningDraft.model_validate_json(r[1]), "reasons": json.loads(r[2]), "evidence_count": r[3], "queued_at": r[4]} for r in rows]
+    rows = con.execute(f"SELECT {_REVIEW_COLS} FROM review_queue WHERE decision IS NULL ORDER BY queued_at DESC").fetchall()
+    return [_review_row(r) for r in rows]
 
 
-def decide_review(con: Connection, term_id: str, decision: str, by: str) -> None:
-    con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=?", (decision, now_s(), by, term_id))
+def pending_review(con: Connection, term_id: str) -> dict | None:
+    """그 표제어의 아직 결정하지 않은 제안 (없으면 None)."""
+    row = con.execute(f"SELECT {_REVIEW_COLS} FROM review_queue WHERE term_id=? AND decision IS NULL", (term_id,)).fetchone()
+    return _review_row(row) if row else None
+
+
+def decide_review(con: Connection, term_id: str, decision: str, by: str, *, kind: str | None = None) -> None:
+    """kind 를 주면 그 종류의 대기 제안만 닫는다 — 조사가 스스로 닫는 것은 조사 결과(new)뿐이고, 문서 대조의 제안은 사람이 닫는다."""
+    if kind:
+        con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=? AND decision IS NULL AND COALESCE(kind, 'new')=?",
+                    (decision, now_s(), by, term_id, kind))
+    else:
+        con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=?", (decision, now_s(), by, term_id))
     con.commit()
 
 
 def gate_reasons(con: Connection, term_id: str) -> list[str]:
-    row = con.execute("SELECT reasons_json FROM review_queue WHERE term_id=? AND decision IS NULL", (term_id,)).fetchone()
+    """게이트가 남긴 사유 — 조사 결과(new) 줄만. 문서 대조의 제안 사유는 게이트의 판단이 아니다."""
+    row = con.execute("SELECT reasons_json FROM review_queue WHERE term_id=? AND decision IS NULL AND COALESCE(kind, 'new')='new'",
+                      (term_id,)).fetchone()
     return json.loads(row[0]) if row else []
 
 
@@ -424,6 +474,21 @@ def log_research(con: Connection, term_id: str, model: str, notes: str, urls: li
     con.execute("INSERT INTO research_log VALUES (?,?,?,?,?,?,?)",
                 (term_id, now_s(), model, notes[:4000], json.dumps(urls), verification, json.dumps(reasons, ensure_ascii=False)))
     con.commit()
+
+
+def log_crosscheck(con: Connection, term_id: str, verdict: str, doc_urls: list[str], model: str) -> None:
+    """문서 대조 한 번의 기록(Plan 12). 문서 본문은 두지 않는다 — 판정·문서 주소·모델만."""
+    con.execute("INSERT INTO crosscheck_log VALUES (?,?,?,?,?)", (term_id, now_s(), verdict, json.dumps(doc_urls, ensure_ascii=False), model))
+    con.commit()
+
+
+def last_crosschecks(con: Connection) -> dict[str, dict]:
+    """표제어마다 마지막 대조 {checked_at, verdict, urls, model}."""
+    out: dict[str, dict] = {}
+    for tid, at, verdict, urls, model in con.execute(
+            "SELECT term_id, checked_at, verdict, doc_urls_json, model FROM crosscheck_log ORDER BY checked_at").fetchall():
+        out[tid] = {"checked_at": datetime.fromisoformat(at), "verdict": verdict, "urls": json.loads(urls or "[]"), "model": model or ""}
+    return out
 
 
 def last_researched(con: Connection, term_id: str, ok_only: bool = False) -> datetime | None:

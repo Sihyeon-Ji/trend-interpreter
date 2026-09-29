@@ -96,6 +96,11 @@ class ReviewIn(BaseModel):
     decision: str  # approve | reject
     by: str = "reviewer"
     meaning_id: str | None = None  # 검수자가 본 뜻. 그사이 조사가 새 판을 만들었으면 409 — 보지 않은 뜻을 싣지 않는다
+    # 검수자가 본 제안의 종류(Plan 12). 서버에 대기 중인 제안과 다르면 409 — '승인' 의 뜻이 종류마다 달라서(retire 의 승인은 제외다)
+    # 새 말(new) 밖의 제안에는 반드시 적는다. 적지 않으면 new 로 본다(예전 화면).
+    kind: str | None = None
+    # 위키끼리 다름(conflict)을 승인할 때 고른 문서 번호(docs 의 순서), 또는 "keep"(지금 뜻 그대로)
+    choice: int | str | None = None
 
 
 @app.get("/health")
@@ -175,24 +180,71 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
         raise HTTPException(401, "검수 권한이 필요합니다")
     t = ds.get_term(_con, term_id)
     m = ds.current_meaning(_con, term_id)
-    if not t or not m:
+    q = ds.pending_review(_con, term_id)
+    kind = q["kind"] if q else "new"
+    if not t or (not m and kind != "retire"):
         raise HTTPException(404, "not found")
-    if body.meaning_id and body.meaning_id != m.meaning_id:
+    if (body.kind or "new") != kind:
         raise HTTPException(409, "그사이 제안이 바뀌었습니다")
+    if body.meaning_id and body.meaning_id != (m.meaning_id if m else None):
+        raise HTTPException(409, "그사이 제안이 바뀌었습니다")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision must be approve|reject")
+    if kind != "new":
+        return _decide_proposal(t, m, q, body)
     if body.decision == "approve":
         ds.set_verification(_con, m.meaning_id, "verified_human", body.by)
         t.status = "verified"
-    elif body.decision == "reject":
+    else:
         ds.set_verification(_con, m.meaning_id, "rejected", body.by)
         t.status = "retired"
-    else:
-        raise HTTPException(400, "decision must be approve|reject")
     ds.upsert_term(_con, t, human=True)     # 사람의 결정 — 제외를 되돌리는 승인도 여기서만 한다
     ds.decide_review(_con, term_id, body.decision, body.by)
     if t.status == "verified":
         risk.apply(_con, t)                 # 승인한 말도 리스크 규칙을 거친 뒤에 대시보드에 오른다(표제어 욕설 등)
     dashboard.refresh_card(_con, term_id)   # 승인한 말은 대시보드에 바로 오르고, 제외한 말은 바로 빠진다
     return {"ok": True, "term_id": term_id, "status": t.status}
+
+
+def _decide_proposal(t, m, q: dict, body: ReviewIn) -> dict:
+    """문서 대조의 제안(Plan 12 §3). 제안이 올라와 있는 동안 지금 뜻은 공개된 그대로이고, 사람의 결정으로만 바뀐다.
+    correction 승인 → 고칠 안을 새 판(verified_human)으로, 이전 판은 valid_to 를 닫는다. 거절 → 제안만 닫는다.
+    conflict   승인 → 고른 문서의 설명(choice)을 고칠 안과 같은 길로. choice="keep" 이면 지금 뜻 그대로 두고 닫는다. 거절 → 제안만 닫는다.
+    retire     승인 → 사람이 사전에서 뺀다(retired, 뜻은 rejected — 새 말의 '제외' 와 같다). 거절 → 아무것도 바꾸지 않는다."""
+    term_id, kind = t.term_id, q["kind"]
+    if body.decision == "reject":
+        ds.decide_review(_con, term_id, "reject", body.by)
+        return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
+    if kind == "retire":
+        if m:
+            ds.set_verification(_con, m.meaning_id, "rejected", body.by)
+        t.status = "retired"
+        ds.upsert_term(_con, t, human=True)          # 제외는 사람만 한다
+        ds.decide_review(_con, term_id, "approve", body.by)
+        dashboard.refresh_card(_con, term_id)
+        return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
+    docs = q["docs"]
+    if kind == "conflict":
+        if body.choice == "keep":
+            ds.decide_review(_con, term_id, "keep", body.by)
+            return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
+        if isinstance(body.choice, bool) or not isinstance(body.choice, int) or not 0 <= body.choice < len(docs):
+            raise HTTPException(400, "고른 설명이 없습니다 (choice: 문서 번호 또는 keep)")
+        picked = docs[body.choice]
+        if not picked.get("proposal"):
+            raise HTTPException(400, "이 문서에는 고칠 안이 없어 고를 수 없습니다")
+        draft, cites = views.ReviewDoc.model_validate(picked).proposal, [picked.get("url", "")]
+    else:
+        draft, cites = q["draft"], [d.get("url", "") for d in docs]
+    if draft is None:
+        raise HTTPException(400, "고칠 안이 없습니다")
+    new = ds.publish_fix(_con, term_id, draft, body.by, [c for c in cites if c])
+    t.status = "verified"
+    ds.upsert_term(_con, t, human=True)
+    ds.decide_review(_con, term_id, "approve", body.by)
+    risk.apply(_con, t)                              # 뜻이 바뀌었으니 뜻풀이의 주의점으로 리스크를 다시 본다
+    dashboard.refresh_card(_con, term_id)            # 대시보드 카드의 뜻도 바로 바뀐다
+    return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind, "meaning_id": new.meaning_id, "version": new.version}
 
 
 class RiskIn(BaseModel):
