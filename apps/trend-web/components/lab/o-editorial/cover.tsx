@@ -3,9 +3,9 @@ import type { Locale } from "@/lib/i18n";
 import { textFor } from "@/lib/explain";
 import { langTag } from "@/lib/lang";
 import {
-  ageName, copy, curvePaths, daysBetween, editionHref, editionName, entryHref, fmtDay, glossOf, hottestAge, regionName,
+  ageName, copy, coverReason, curvePaths, daysBetween, editionHref, editionName, entryHref, fmtDay, glossOf, hottestAge, regionName,
   riskKind, riskNotes, riskTone, riskWhy, riskWord, stageSentence, stageTapes, xOf,
-  type AgeTrend, type EditionKey, type SearchSummary,
+  type AgeTrend, type CoverPick, type EditionKey, type SearchSummary,
 } from "@/lib/lab/o-editorial";
 import { ledeFor } from "@/lib/lab/o-editorial-server";
 import type { KeywordCard, TermRecord } from "@/lib/types";
@@ -34,10 +34,10 @@ function CoverCurve({ locale, age }: { locale: Locale; age: AgeTrend }) {
           <path d={line} fill="none" stroke="#fff" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         </svg>
         {peakX !== null && peakY !== null && (
-          <span aria-hidden className="oe-curve-peak" style={{ position: "absolute", left: `${(peakX / W) * 100}%`, top: `${(peakY / H) * 100}%`, width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 2px var(--oe-blue)" }} />
+          <span aria-hidden className="oe-curve-peak oe-curve-dot" style={{ left: `${(peakX / W) * 100}%`, top: `${(peakY / H) * 100}%` }} />
         )}
         {peakX !== null && (
-          <span className="oe-meta oe-curve-peak" style={{ position: "absolute", left: `${(peakX / W) * 100}%`, top: -22, transform: peakX / W > 0.8 ? "translateX(-100%)" : "translateX(-50%)", whiteSpace: "nowrap", color: "#fff", fontWeight: 600 }}>
+          <span className="oe-meta oe-curve-peak oe-curve-label" style={{ left: `${(peakX / W) * 100}%`, transform: peakX / W > 0.8 ? "translateX(-100%)" : peakX / W < 0.15 ? "none" : "translateX(-50%)" }}>
             {c.curvePeak(fmtDay(locale, age.peak))}
           </span>
         )}
@@ -51,22 +51,28 @@ function CoverCurve({ locale, age }: { locale: Locale; age: AgeTrend }) {
   );
 }
 
-/** '왜 지금' — 데이터가 말하는 것만 두 문장 안에서. 마지막 쓰임, 그리고 한국어로 검색된 말이면 가장 뜨거운 나이대의 정점·4주 변화. */
-function whyNow(locale: Locale, card: KeywordCard, ref: string, hot: AgeTrend | null): string {
+/** '왜 지금' — 데이터가 말하는 것만. 커버로 고른 규칙(검색이 넓게 늘었나·최근에 정점을 찍었나)의 근거를 먼저, 마지막 쓰임을 뒤에. */
+function whyNow(locale: Locale, pick: CoverPick, ref: string, s: SearchSummary | null, hot: AgeTrend | null): string {
   const c = copy(locale);
   const out: string[] = [];
-  const used = card.last_used ?? card.last_seen;
+  const peakRecent = !!hot?.peak && !!hot.end && daysBetween(hot.peak, hot.end) <= 21;
+  if (pick.rule === "broad" && s) {
+    out.push(c.broadNow(s.valid, s.up));
+    if (peakRecent) out.push(c.peakAfter(ageName(locale, hot!.gen), fmtDay(locale, hot!.peak, ref)));
+  } else {
+    if (peakRecent) out.push(c.peakNow(ageName(locale, hot!.gen), fmtDay(locale, hot!.peak, ref)));
+    if (hot && hot.change !== null && hot.change >= 0.15) out.push(c.riseNow(ageName(locale, hot.gen), `${Math.round(hot.change * 100)}%`));
+  }
+  const used = pick.card.last_used ?? pick.card.last_seen;
   if (used) out.push(Math.abs(daysBetween(used, ref)) <= 14 ? c.usedRecently(fmtDay(locale, used, ref)) : c.usedLast(fmtDay(locale, used, ref)));
-  if (hot?.peak && hot.end && daysBetween(hot.peak, hot.end) <= 21) out.push(c.peakNow(ageName(locale, hot.gen), fmtDay(locale, hot.peak, ref)));
-  if (hot && hot.change !== null && hot.change >= 0.15) out.push(c.riseNow(ageName(locale, hot.gen), `${Math.round(hot.change * 100)}%`));
   return out.join(" ");
 }
 
-export function Cover({ locale, edition, card, record, search, fallback, generatedAt }: {
-  locale: Locale; edition: EditionKey; card: KeywordCard; record: TermRecord | null; search: SearchSummary | null;
-  fallback: boolean; generatedAt: string;
+export function Cover({ locale, edition, pick, record, search, generatedAt }: {
+  locale: Locale; edition: EditionKey; pick: CoverPick; record: TermRecord | null; search: SearchSummary | null; generatedAt: string;
 }) {
   const c = copy(locale);
+  const card: KeywordCard = pick.card;
   const tx = record ? textFor(record, locale) : null;
   const txLang = locale === "en" && record && !record.en ? "ko" : undefined;
   const g = glossOf(locale, card);
@@ -75,14 +81,18 @@ export function Cover({ locale, edition, card, record, search, fallback, generat
   const risk = riskKind(card);
   const notes = riskNotes(locale, card.risk_reasons).slice(0, 2);
   const hot = hottestAge(search);
-  const why = whyNow(locale, card, generatedAt, hot);
+  const why = whyNow(locale, pick, generatedAt, search, hot);
   const canMake = risk !== "avoid";
   const lang = langTag(card.lang);
   const tone = riskTone(risk);
 
   return (
-    <section className="oe-cover" aria-labelledby="oe-cover-name">
+    <section className="oe-cover" id="cover" aria-labelledby="oe-cover-name">
       <div className="oe-wrap oe-cover-inner">
+        {/* 주의 밈을 커버에 세울 수밖에 없을 때는 이름보다 먼저 그렇다고 말한다 */}
+        {pick.safety === "caution" && (
+          <p className="oe-cover-lead"><Tape tone="caution">{riskWord(locale, "caution")}</Tape><span>{c.coverCautionLead[pick.pool]}</span></p>
+        )}
         <div className="oe-cover-grid">
           <div className="oe-cover-main">
             <h2 id="oe-cover-name" className="oe-fit oe-cover-name" style={{ margin: 0 }}>
@@ -90,9 +100,7 @@ export function Cover({ locale, edition, card, record, search, fallback, generat
             </h2>
             <p className="oe-cover-lede" lang={ledeLang}>{lede}</p>
             {why && <p className="oe-cover-why">{why}</p>}
-            <p className="oe-meta" style={{ marginTop: 16, fontSize: 14, maxWidth: "40em" }}>
-              {fallback ? c.coverWhyFading(editionName(locale, edition)) : c.coverWhy}
-            </p>
+            <p className="oe-cover-rule">{coverReason(locale, pick)}</p>
           </div>
           <div className="oe-cover-facts">
             <dl style={{ display: "grid", gap: 18 }}>
@@ -100,7 +108,7 @@ export function Cover({ locale, edition, card, record, search, fallback, generat
                 <dt>{c.stageLabel}</dt>
                 <dd>
                   <span className="oe-tapes">{stageTapes(locale, card).map((s) => <Tape key={s.text} tone={s.tone}>{s.text}</Tape>)}</span>
-                  <span style={{ display: "block", marginTop: 8 }}>{stageSentence(locale, card)}</span>
+                  <span className="oe-cover-stage-note">{stageSentence(locale, card)}</span>
                 </dd>
               </div>
               <div className="oe-cover-fact">
@@ -111,7 +119,8 @@ export function Cover({ locale, edition, card, record, search, fallback, generat
                   {notes.map((n) => <span key={n} style={{ display: "block", marginTop: 4, color: "var(--oe-on-blue-2)" }}>{n}</span>)}
                 </dd>
               </div>
-              {card.regions.length > 0 && (
+              {/* 한 시장 판에서 그 시장에서만 쓰이면 되풀이일 뿐이라 싣지 않는다 */}
+              {card.regions.length > 0 && !(card.regions.length === 1 && card.regions[0] === edition) && (
                 <div className="oe-cover-fact">
                   <dt>{c.whereLabel}</dt>
                   <dd>{card.regions.map((r) => regionName(locale, r)).join(", ")}</dd>

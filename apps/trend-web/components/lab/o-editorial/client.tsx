@@ -2,9 +2,9 @@
 
 import { Bookmark, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LOCALE_NAME, setLocaleCookie, type Locale } from "@/lib/i18n";
-import { BASE, copy } from "@/lib/lab/o-editorial";
+import { BASE, copy, type SinceItem } from "@/lib/lab/o-editorial";
 import { isScrapped, lastVisit, readScraps, subscribeNothing, subscribeScraps, toggleScrap, type Scrap } from "./store";
 
 /** 스크랩 단추. 이름표는 바뀌지 않고 눌림 상태(aria-pressed)와 채운 아이콘으로 보인다. */
@@ -69,4 +69,42 @@ export function SinceBadge({ locale, at, kind }: { locale: Locale; at: string; k
   if (prev && Date.parse(at) <= Date.parse(prev)) return null;
   const c = copy(locale);
   return <span className="oe-tape" data-tone="new">{kind === "verified" ? c.newTape : c.changedTape}</span>;
+}
+
+/** 판 머리의 한 줄 — '지난번 방문 이후 새로 실린 밈 3개, 뜻이 바뀐 밈 1개'. 누르면 아래 '지난번 방문 이후' 로.
+ *  서버는 빈 줄(같은 높이)만 그리고, 브라우저가 지난번 방문 시각을 읽은 뒤 채운다 — 다시 온 사람에게 틀린 글이 번쩍이지 않게. */
+export function SinceLine({ locale, items }: { locale: Locale; items: SinceItem[] }) {
+  const c = copy(locale);
+  const prev = useSyncExternalStore(subscribeNothing, () => lastVisit() ?? "", () => null);
+  if (prev === null) return <p className="oe-since-line" aria-hidden="true">&nbsp;</p>;
+  const list = prev ? items.filter((i) => Date.parse(i.at) > Date.parse(prev)) : items;
+  const added = list.filter((i) => i.kind === "verified").length;
+  const changed = list.filter((i) => i.kind === "meaning_changed").length;
+  if (!added && !changed) return <p className="oe-since-line" data-quiet="true">{prev ? c.sinceLineNone : c.sinceLineQuiet}</p>;
+  return (
+    <p className="oe-since-line">
+      <a href="#since">{prev ? c.sinceLineAfter(added, changed) : c.sinceLineWeek(added, changed)}</a>
+    </p>
+  );
+}
+
+/** 판 줄 — 좁은 화면에서는 옆으로 미는 줄. 지금 판(또는 묶은 판의 첫 시장)이 보이도록 처음 한 번 가로로만 옮긴다(세로로는 움직이지 않는다). */
+export function EditionScroller({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const ul = ref.current;
+    if (!ul) return;
+    // 넘칠 때만 끝을 흐리게(CSS) — 폭이 바뀌면 다시 잰다
+    const measure = () => { ul.dataset.overflow = String(ul.scrollWidth > ul.clientWidth + 1); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(ul);
+    if (ul.scrollWidth > ul.clientWidth) {
+      const el = ul.querySelector<HTMLElement>('[aria-current="page"], [data-member="true"]');
+      const li = el?.closest("li");
+      if (li) ul.scrollLeft = Math.max(0, li.offsetLeft - (ul.clientWidth - li.offsetWidth) / 2);
+    }
+    return () => ro.disconnect();
+  }, []);
+  return <ul ref={ref} className="oe-edition-list">{children}</ul>;
 }

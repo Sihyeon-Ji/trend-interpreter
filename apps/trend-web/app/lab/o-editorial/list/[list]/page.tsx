@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { IndexItem, LedgerItem, Poster, RubricHead } from "@/components/lab/o-editorial/rubrics";
-import { BASE, copy, editionHref, editionName, parseEdition } from "@/lib/lab/o-editorial";
-import { getListPage } from "@/lib/lab/o-editorial-data";
+import { copy, editionHref, editionName, listHref, parseEdition } from "@/lib/lab/o-editorial";
+import { getListPage, getSearches } from "@/lib/lab/o-editorial-data";
 import { getLocale } from "@/lib/locale";
 import type { KeywordList } from "@/lib/types";
 
@@ -29,26 +29,26 @@ export default async function ListPage({ params, searchParams }: Props) {
   const l = LISTS.find((x) => x === list);
   if (!l) notFound();
   const c = copy(locale);
-  const edition = parseEdition(first(sp.regions));
+  const edition = parseEdition(sp.regions);
   const page = Math.max(1, Number.parseInt(first(sp.page) ?? "1", 10) || 1);
   const board = await getListPage(edition, page);
-  const q = (p: number) => `${BASE}/list/${l}?regions=${edition === "ALL" ? "all" : edition}${p > 1 ? `&page=${p}` : ""}`;
 
   if (!board) {
     return (
       <div className="oe-wrap" style={{ paddingBlock: 48 }}>
         <div className="oe-state" role="alert">
           <p>{c.loadFailed}</p>
-          <p style={{ marginTop: 16 }}><Link href={q(page)} className="oe-btn oe-btn-line">{c.retry}</Link></p>
+          <p style={{ marginTop: 16 }}><Link href={listHref(l, edition, page)} className="oe-btn oe-btn-line">{c.retry}</Link></p>
         </div>
       </div>
     );
   }
   const total = board.totals[l] ?? 0;
   const last = Math.max(1, Math.ceil(total / (board.page_size || 30)));
-  if (page > last) redirect(q(last));
+  if (page > last) redirect(listHref(l, edition, last));
   const items = board[l];
   const at = board.generated_at;
+  const searches = l === "rising" ? await getSearches(items) : {};
 
   return (
     <div className="oe-wrap" style={{ paddingTop: 28, paddingBottom: 72 }}>
@@ -56,14 +56,14 @@ export default async function ListPage({ params, searchParams }: Props) {
       <div style={{ marginTop: 20 }}>
         <RubricHead id={`${l}-title`} title={title(c, l)} count={c.countLine(items.length, total)} note={note(c, l)} />
       </div>
-      {l === "rising" && <div className="oe-posters">{items.map((card) => <Poster key={card.term_id} locale={locale} edition={edition} card={card} generatedAt={at} />)}</div>}
+      {l === "rising" && <div className="oe-posters">{items.map((card) => <Poster key={card.term_id} locale={locale} edition={edition} card={card} search={searches[card.term_id]} asOf={at} />)}</div>}
       {l === "fading" && <ul className="oe-index">{items.map((card) => <IndexItem key={card.term_id} locale={locale} edition={edition} card={card} generatedAt={at} />)}</ul>}
       {l === "caution" && <ul className="oe-ledger">{items.map((card) => <LedgerItem key={card.term_id} locale={locale} edition={edition} card={card} generatedAt={at} />)}</ul>}
       {last > 1 && (
         <nav className="oe-pager" aria-label={c.pageOf(page, last)}>
-          {page > 1 ? <Link href={q(page - 1)} className="oe-btn oe-btn-line oe-btn-small">{c.pagePrev}</Link> : null}
+          {page > 1 ? <Link href={listHref(l, edition, page - 1)} className="oe-btn oe-btn-line oe-btn-small">{c.pagePrev}</Link> : null}
           <span className="oe-meta oe-num" aria-current="page">{c.pageOf(page, last)}</span>
-          {page < last ? <Link href={q(page + 1)} className="oe-btn oe-btn-line oe-btn-small">{c.pageNext}</Link> : null}
+          {page < last ? <Link href={listHref(l, edition, page + 1)} className="oe-btn oe-btn-line oe-btn-small">{c.pageNext}</Link> : null}
         </nav>
       )}
     </div>

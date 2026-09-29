@@ -22,7 +22,6 @@ import { getLocale } from "@/lib/locale";
 
 type Params = { params: Promise<{ termId: string }> };
 type Props = Params & { searchParams: Promise<Record<string, string | string[] | undefined>> };
-const first = (v: string | string[] | undefined) => [v].flat()[0];
 const SOURCES_SHOWN = 8;   // 나머지는 '더 보기' 안에 — 기사 수십 건이 본문보다 길어지지 않게
 
 function SourceRow({ s, locale }: { s: SourceItem; locale: Locale }) {
@@ -45,7 +44,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function EntryPage({ params, searchParams }: Props) {
   const [{ termId }, sp, locale] = await Promise.all([params, searchParams, getLocale()]);
   const c = copy(locale);
-  const edition = parseEdition(first(sp.regions));
+  const edition = parseEdition(sp.regions);
   const [record, curves, signals] = await Promise.all([
     getTermRecord(termId), getGenerationCurves(termId), getTermSignals(termId, editionRegions(edition)),
   ]);
@@ -63,6 +62,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
   const notes = riskNotes(locale, (signals ?? term).risk_reasons);
   const tone = riskTone(risk);
   const canMake = verified && risk !== "avoid";
+  const flagged = risk === "caution" || risk === "avoid";
   const regions = signals?.regions?.length ? signals.regions : termRegions(record);
   const lastUsed = signals ? signals.last_used ?? signals.last_seen ?? null : lastUsedOf(record);
   const search = searchSummary(curves);
@@ -128,7 +128,10 @@ export default async function EntryPage({ params, searchParams }: Props) {
               <dd>
                 {tone ? <Tape tone={tone}>{riskWord(locale, risk)}</Tape> : <strong>{riskWord(locale, risk)}</strong>}
                 <span style={{ display: "block", marginTop: 8 }}>{riskWhy(locale, risk)}</span>
-                {notes.slice(0, 3).map((n) => <span key={n} className="oe-meta" style={{ display: "block", marginTop: 4, fontSize: 14 }}>{n}</span>)}
+                {/* 주의·사용 자제면 이유는 본문 '조심할 점' 한 곳에만 — 같은 문장이 한 화면에 두 번 나오지 않게 */}
+                {flagged
+                  ? <a href="#caution" className="oe-link" style={{ display: "inline-block", marginTop: 8, fontSize: 14, fontWeight: 600 }}>{c.factCautionMore}</a>
+                  : notes.slice(0, 3).map((n) => <span key={n} className="oe-meta" style={{ display: "block", marginTop: 4, fontSize: 14 }}>{n}</span>)}
               </dd>
             </div>
             <div>
@@ -202,7 +205,7 @@ export default async function EntryPage({ params, searchParams }: Props) {
             </section>
           )}
 
-          {(risk === "caution" || risk === "avoid") && (
+          {flagged && (
             <section>
               <h2 id="caution">{c.secCaution}</h2>
               <div className="oe-caution-box" data-level={risk}>

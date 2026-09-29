@@ -5,25 +5,24 @@ import { EditionBar } from "@/components/lab/o-editorial/frame";
 import { MyScraps, SinceLastVisit } from "@/components/lab/o-editorial/return-band";
 import { IndexItem, LedgerItem, Poster, RankRow, Rubric, RubricHead, type SinceMark } from "@/components/lab/o-editorial/rubrics";
 import { getLocale } from "@/lib/locale";
-import { BASE, copy, editionHref, editionName, parseEdition, searchedMore, type EditionKey } from "@/lib/lab/o-editorial";
+import { copy, editionHref, editionName, listHref, parseEdition, searchedMore, type EditionKey } from "@/lib/lab/o-editorial";
 import { getIssue } from "@/lib/lab/o-editorial-data";
 import type { Locale } from "@/lib/i18n";
 
-/* 이번 주 호 — 판(지역)을 고르면 그 시장의 커버 밈, 지난번 방문 이후 달라진 것, 꼭지 넷(지금 쓰이는·요즘 더 찾는·식어 가는·브랜드는 조심).
-   목록 나누기와 단계·리스크는 백엔드 규칙(pipeline/dashboard.py) 그대로다. 이 화면이 새로 세는 것은 네이버 곡선의 4주 변화뿐이다. */
+/* 이번 주 호 — 판(시장 한 곳이나 여럿)을 고르면 그 시장의 커버 밈, 지난번 방문 이후 달라진 것, 꼭지 넷(지금 쓰이는·요즘 더 찾는·식어 가는·브랜드는 조심).
+   목록 나누기와 단계·리스크는 백엔드 규칙(pipeline/dashboard.py) 그대로다. 이 화면이 새로 세는 것은 네이버 곡선의 4주 변화와 커버 고르기뿐이다. */
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
-const first = (v: string | string[] | undefined) => [v].flat()[0];
 
-const RISING_ON_HOME = 10;     // 특집 2 + 넷씩 두 줄
-const FADING_ON_HOME = 12;
-const CAUTION_ON_HOME = 8;
+const RISING_ON_HOME = 10;     // 특집 2 + 넷씩 두 줄 (휴대폰은 CSS 가 넷만 보인다)
+const FADING_ON_HOME = 6;
+const CAUTION_ON_HOME = 6;
 const SEARCHED_ON_HOME = 8;
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const [sp, locale] = await Promise.all([searchParams, getLocale()]);
   const c = copy(locale);
-  return { title: `${c.thisWeek(editionName(locale, parseEdition(first(sp.regions))))} | ${c.site}` };
+  return { title: `${c.thisWeek(editionName(locale, parseEdition(sp.regions)))} | ${c.site}` };
 }
 
 function Contents({ locale, parts }: { locale: Locale; parts: { id: string; n: number }[] }) {
@@ -53,7 +52,7 @@ function FailState({ locale, edition }: { locale: Locale; edition: EditionKey })
 export default async function EditorialHome({ searchParams }: Props) {
   const [sp, locale] = await Promise.all([searchParams, getLocale()]);
   const c = copy(locale);
-  const edition = parseEdition(first(sp.regions));
+  const edition = parseEdition(sp.regions);
   const issue = await getIssue(edition);
 
   if (!issue) {
@@ -67,20 +66,20 @@ export default async function EditorialHome({ searchParams }: Props) {
 
   const { board, cover } = issue;
   const at = board.generated_at;
-  const rising = board.rising.filter((x) => x.term_id !== cover?.term_id);
+  const coverId = cover?.card.term_id;
+  const rising = board.rising.filter((x) => x.term_id !== coverId);
   const searched = issue.searched
     .map((card) => ({ card, s: issue.searches[card.term_id] }))
     .filter((x) => searchedMore(x.s))
     .sort((a, b) => (b.s.median ?? 0) - (a.s.median ?? 0))
     .slice(0, SEARCHED_ON_HOME);
-  const fading = board.fading.filter((x) => x.term_id !== cover?.term_id);
+  const fading = board.fading.filter((x) => x.term_id !== coverId);
   const marks: Record<string, SinceMark> = {};
   for (const i of issue.since) {
     if (i.termId && i.kind !== "spike" && !marks[i.termId]) marks[i.termId] = { at: i.at, kind: i.kind };
   }
-  const list = (name: string) => `${BASE}/list/${name}?regions=${edition === "ALL" ? "all" : edition}`;
 
-  const coverInRising = !!cover && !issue.coverFallback;
+  const coverInRising = !!cover && cover.pool === "rising";
   const parts = [
     { id: "rising", n: rising.length ? board.totals.rising ?? 0 : 0 },
     { id: "searched", n: searched.length },
@@ -94,10 +93,10 @@ export default async function EditorialHome({ searchParams }: Props) {
 
   return (
     <>
-      <EditionBar locale={locale} edition={edition} counts={board.counts} generatedAt={at} />
+      <EditionBar locale={locale} edition={edition} counts={board.counts} generatedAt={at} since={issue.since} />
 
       {cover
-        ? <Cover locale={locale} edition={edition} card={cover} record={issue.coverRecord} search={issue.searches[cover.term_id] ?? null} fallback={issue.coverFallback} generatedAt={at} />
+        ? <Cover locale={locale} edition={edition} pick={cover} record={issue.coverRecord} search={issue.searches[cover.card.term_id] ?? null} generatedAt={at} />
         : <EmptyCover locale={locale} edition={edition} counts={board.counts} avoidOnly={board.totals.caution ? board.caution.filter((x) => x.risk_level === "avoid").length : 0} spikes={issue.since.filter((i) => i.kind === "spike").length} />}
 
       <div className="oe-wrap oe-return">
@@ -110,12 +109,12 @@ export default async function EditorialHome({ searchParams }: Props) {
       {rising.length > 0 && (
         <Rubric id="rising">
           <RubricHead id="rising-title" title={c.rubricRising} count={risingCount} note={c.rubricRisingNote} />
-          <div className="oe-posters">
+          <div className="oe-posters" data-home="true">
             {rising.slice(0, RISING_ON_HOME).map((card, i) => (
-              <Poster key={card.term_id} locale={locale} edition={edition} card={card} feature={i < 2 && rising.length > 3} since={marks[card.term_id]} generatedAt={at} />
+              <Poster key={card.term_id} locale={locale} edition={edition} card={card} feature={i < 2 && rising.length > 3} since={marks[card.term_id]} search={issue.searches[card.term_id]} asOf={at} />
             ))}
           </div>
-          {rising.length > RISING_ON_HOME && <Link href={list("rising")} className="oe-link oe-rubric-more">{c.seeAll(board.totals.rising)}</Link>}
+          {rising.length > 4 && <Link href={listHref("rising", edition)} className="oe-link oe-rubric-more" data-more={rising.length > RISING_ON_HOME ? "all" : "phone"}>{c.seeAll(board.totals.rising)}</Link>}
         </Rubric>
       )}
 
@@ -124,7 +123,7 @@ export default async function EditorialHome({ searchParams }: Props) {
           <RubricHead id="searched-title" title={c.rubricSearch} count={c.countLine(searched.length, searched.length)} note={c.rubricSearchNote} />
           <ol className="oe-ranks">
             {searched.map(({ card, s }, i) => (
-              <RankRow key={card.term_id} locale={locale} edition={edition} card={card} search={s} rank={i + 1} generatedAt={at} />
+              <RankRow key={card.term_id} locale={locale} edition={edition} card={card} search={s} rank={i + 1} generatedAt={at} isCover={card.term_id === coverId} />
             ))}
           </ol>
         </Rubric>
@@ -136,7 +135,7 @@ export default async function EditorialHome({ searchParams }: Props) {
           <ul className="oe-index">
             {fading.slice(0, FADING_ON_HOME).map((card) => <IndexItem key={card.term_id} locale={locale} edition={edition} card={card} generatedAt={at} />)}
           </ul>
-          {board.totals.fading > FADING_ON_HOME && <Link href={list("fading")} className="oe-link oe-rubric-more">{c.seeAll(board.totals.fading)}</Link>}
+          {board.totals.fading > FADING_ON_HOME && <Link href={listHref("fading", edition)} className="oe-link oe-rubric-more">{c.seeAll(board.totals.fading)}</Link>}
         </Rubric>
       )}
 
@@ -146,7 +145,7 @@ export default async function EditorialHome({ searchParams }: Props) {
           <ul className="oe-ledger">
             {board.caution.slice(0, CAUTION_ON_HOME).map((card) => <LedgerItem key={card.term_id} locale={locale} edition={edition} card={card} generatedAt={at} />)}
           </ul>
-          {board.totals.caution > CAUTION_ON_HOME && <Link href={list("caution")} className="oe-link oe-rubric-more">{c.seeAll(board.totals.caution)}</Link>}
+          {board.totals.caution > CAUTION_ON_HOME && <Link href={listHref("caution", edition)} className="oe-link oe-rubric-more">{c.seeAll(board.totals.caution)}</Link>}
         </Rubric>
       )}
 

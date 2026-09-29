@@ -15,13 +15,18 @@ export interface Scrap {
   risk?: string | null;
 }
 
-const hasStorage = () => typeof window !== "undefined" && !!window.localStorage;
+/** 사이트 데이터가 막힌 브라우저(개인 창·차단 설정)에서는 window.localStorage 를 읽기만 해도 던진다 — 그때는 저장 없이 동작한다 */
+const hasStorage = () => {
+  if (typeof window === "undefined") return false;
+  try { return !!window.localStorage; } catch { return false; }
+};
 
 let cacheRaw: string | null | undefined;
 let cacheList: Scrap[] = [];
+let memoryOnly = false;          // 저장이 한 번이라도 실패하면 이 탭의 기억만 쓴다
 
 export function readScraps(): Scrap[] {
-  if (!hasStorage()) return cacheList;
+  if (memoryOnly || !hasStorage()) return cacheList;
   let raw: string | null = null;
   try { raw = window.localStorage.getItem(SCRAPS_KEY); } catch { raw = null; }
   if (raw === cacheRaw) return cacheList;
@@ -36,7 +41,13 @@ export function readScraps(): Scrap[] {
 }
 
 function writeScraps(list: Scrap[]) {
-  try { window.localStorage.setItem(SCRAPS_KEY, JSON.stringify(list.slice(0, 60))); } catch { /* 저장 공간이 막혀 있으면 조용히 넘긴다 */ }
+  try {
+    window.localStorage.setItem(SCRAPS_KEY, JSON.stringify(list.slice(0, 60)));
+  } catch {
+    // 저장 공간이 막혀 있으면 이 탭에서만 기억한다(다음 방문에는 없다)
+    memoryOnly = true;
+    cacheList = list.slice(0, 60);
+  }
   window.dispatchEvent(new Event(EVENT));
 }
 

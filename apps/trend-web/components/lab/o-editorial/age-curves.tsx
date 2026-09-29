@@ -67,7 +67,7 @@ export function AgeCurves({ locale, ages }: { locale: Locale; ages: AgeTrend[] }
         className="oe-multiples"
         role="group"
         tabIndex={0}
-        aria-label={`${c.secSearch}. ${locale === "ko" ? "화살표 키로 날짜를 옮기면 그날의 값을 읽습니다." : "Use the arrow keys to move through the days and read each value."}`}
+        aria-label={`${c.secSearch}. ${c.searchKeys}`}
         aria-describedby={`${id}-read`}
         onPointerMove={(e) => pick(e.clientX)}
         onPointerLeave={() => setAt(null)}
@@ -93,7 +93,7 @@ export function AgeCurves({ locale, ages }: { locale: Locale; ages: AgeTrend[] }
                   {x !== null && <line x1={(x / 100) * W} x2={(x / 100) * W} y1={0} y2={H} stroke="var(--oe-ink)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
                 </svg>
               </div>
-              <span className="oe-multiple-val">{a.change === null ? <span className="oe-strip-thin">{c.thin}</span> : pct(a.change)}</span>
+              <span className="oe-multiple-val">{a.change === null ? <span className="oe-strip-thin">{a.state === "low" ? c.lowBase : c.thin}</span> : pct(a.change)}</span>
             </div>
           );
         })}
@@ -153,7 +153,7 @@ export function AgeCurves({ locale, ages }: { locale: Locale; ages: AgeTrend[] }
               </tr>
               <tr>
                 <th scope="row" style={{ fontWeight: 600, color: "var(--oe-ink)" }}>{c.changeLabel}</th>
-                {ages.map((a) => <td key={a.gen} className="oe-num" style={{ textAlign: "right" }}>{a.change === null ? c.thin : pct(a.change)}</td>)}
+                {ages.map((a) => <td key={a.gen} className="oe-num" style={{ textAlign: "right" }}>{a.change === null ? (a.state === "low" ? c.lowBase : c.thin) : pct(a.change)}</td>)}
               </tr>
             </tbody>
           </table>

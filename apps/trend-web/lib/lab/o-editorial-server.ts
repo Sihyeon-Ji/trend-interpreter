@@ -7,13 +7,13 @@ import type { Locale } from "@/lib/i18n";
 import { scriptLang } from "@/lib/lang";
 import { cleanSource } from "@/lib/sources";
 import type { Evidence, MeaningText } from "@/lib/types";
-import { visibleSource } from "./o-editorial";
+import { tidyGloss, visibleSource } from "./o-editorial";
 
 /** 뜻 첫 줄 — 줄임말 풀이가 동음이의 문서 제목처럼 망가진 것이면('Point of view (disambiguation) — …') 뜻만 쓴다. 새 글을 짓지 않는다. */
 export function ledeFor(tx: MeaningText, l: Locale): string {
   const ex = (tx.expansion ?? "").trim();
   const broken = !ex || /disambiguation|동음이의|曖昧さ回避/i.test(ex) || ex === tx.definition.trim();
-  return broken ? tx.definition : headlineFor(tx, l);
+  return tidyGloss(broken ? tx.definition : headlineFor(tx, l));
 }
 
 export interface SourceItem {
@@ -65,6 +65,14 @@ function referenceName(l: Locale, e: Evidence): string {
   return host.replace(/^www\./, "");
 }
 
+/** 구글 뉴스가 '기사' 로 넘긴 유튜브 영상 — 출처 이름을 영상 사이트로, 종류를 영상으로 적는다 */
+const VIDEO_SITE: [RegExp, string][] = [[/^(youtube|youtu\.be|youtube\.com)$/i, "YouTube"], [/^(tiktok|tiktok\.com)$/i, "TikTok"], [/^(instagram|instagram\.com)$/i, "Instagram"]];
+function videoSite(e: Evidence): string | null {
+  const dom = (e.source_domain ?? "").trim();
+  for (const [re, name] of VIDEO_SITE) if (re.test(dom)) return name;
+  return e.kind === "short" ? dom.replace(/^www\./, "") : null;
+}
+
 /** naver:news 는 네이버 뉴스 검색 API 로 받은 기사 — 주소의 언론사 도메인을 적는다 */
 function publisher(e: Evidence, fallback: string): string {
   if (e.source_domain !== "naver:news") return fallback;
@@ -94,13 +102,14 @@ export function sourceList(evidences: Evidence[], names: string[], l: Locale): S
     const page = titleKey(pageName(e.url));
     const named = ref && keys.some((k) => titleKey(title).includes(k) || (page.length > 0 && page.includes(k)));
     const base = clean.source.replace(/\s(기사|영상|문서|웹 문서|article|video|web page)$/, "");
+    const video = ref ? null : videoSite(e);
     rows.push({
       rank: named ? 0 : ref ? 1 : 2,
       item: {
         id: e.evidence_id,
         group: ref ? "reference" : "report",
         named,
-        source: ref ? referenceName(l, e) : `${publisher(e, base)} ${e.kind === "short" ? noun.short : noun.news}`,
+        source: ref ? referenceName(l, e) : video ? `${video} ${noun.short}` : `${publisher(e, base)} ${noun.news}`,
         title,
         titleLang: scriptLang(title),
         url: e.url,

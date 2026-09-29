@@ -10,7 +10,7 @@ import type { Lifecycle } from "@/lib/types";
 import { lastVisit, readScraps, subscribeNothing, subscribeScraps, type Scrap } from "./store";
 import { Tape } from "./type";
 
-const SHOW = 6;
+const SHOW = 4;          // 칸마다 넷 — 나머지는 더 보기(휴대폰에서 세 칸이 위아래로 쌓이면 길다)
 
 function Column({ locale, title, items, render, note, show = SHOW }: {
   locale: Locale; title: string; items: SinceItem[]; render: (i: SinceItem) => React.ReactNode; note?: string; show?: number;
@@ -53,7 +53,7 @@ export function SinceLastVisit({ locale, edition, items }: { locale: Locale; edi
   );
 
   return (
-    <section aria-labelledby="oe-since">
+    <section id="since" aria-labelledby="oe-since" style={{ scrollMarginTop: 16 }}>
       <h2 id="oe-since">{prev ? c.sinceTitle : c.sinceFirstTitle}</h2>
       <p className="oe-meta" style={{ marginTop: 6, fontSize: 15 }}>
         {prev ? c.sinceWhen(fmtStamp(locale, prev, zone)) : c.sinceFirst}
