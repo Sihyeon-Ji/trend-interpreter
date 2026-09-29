@@ -2,6 +2,7 @@
 모든 파이프라인 단계는 이 함수로만 호출한다."""
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -13,8 +14,12 @@ from zoneinfo import ZoneInfo
 from ..config import (GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_LIMITS, GEMINI_MODEL, GEMINI_MODELS,
                       GEMINI_PER_MODEL_DAILY, GEMINI_SEARCH_GROUNDING, REQUEST_GEMINI_DAILY, USE_LOCAL_GEMMA)
 from .. import model_client
+from ..logging_setup import event
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
+
+log = logging.getLogger("trend.gemini")
+
 
 class BudgetExhausted(RuntimeError):
     pass
@@ -109,6 +114,15 @@ def configured() -> bool:
     return model_client.requests_enabled()
 
 
+def _called(model: str, ledger: str, outcome: str, code: int | None = None) -> None:
+    """Vertex 에 요청을 보낼 때마다 한 줄(event=gemini_call): 모델·장부·결과(ok·rejected·error)·HTTP 코드. 로그 기반 지표가 이것을 세면
+    MODEL_REQUESTS_ENABLED=false 로 배포한 뒤 호출이 0회인지 볼 수 있다(Plan 05). 거절(429·503)도 보낸 요청이다. 프롬프트·응답은 넣지 않는다."""
+    fields: dict = {"model": model, "ledger": "request" if ledger else "pipeline", "outcome": outcome}
+    if code is not None:
+        fields["code"] = code
+    event(log, "gemini_call", logging.INFO if outcome == "ok" else logging.WARNING, **fields)
+
+
 def local_ok() -> bool:
     """텍스트 작업을 로컬 Gemma 로 보낼 수 있는가 (USE_LOCAL_GEMMA=1 + Ollama 에 모델 있음)."""
     if not USE_LOCAL_GEMMA:
@@ -137,18 +151,21 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
     if not chain:
         raise BudgetExhausted("오늘 쓸 수 있는 Gemini 모델(또는 검색 grounding) 몫이 끝났다")
     ledger = REQUEST_LEDGER if request else ""
+    c = client()  # 호출이 꺼져 있으면 여기서 끝난다 — 보내지 않은 요청으로 장부를 깎거나 이벤트를 남기지 않는다
     last: Exception | None = None
     for m in chain:
         for attempt in range(1 if request else tries):
+            if not request:
+                _pace(m)
+            ds.gemini_spend(con, 1, ledger)
+            note_call(con, m)
             try:
-                if not request:
-                    _pace(m)
-                ds.gemini_spend(con, 1, ledger)
-                note_call(con, m)
-                return client().models.generate_content(model=m, contents=contents, config=config), m
+                resp = c.models.generate_content(model=m, contents=contents, config=config)
             except errors.APIError as e:  # 503 용량 / 429 쿼터 → 잠시 후 재시도, 그날 끝난 모델이면 바로 다음 모델
                 last = e
-                if e.code in (429, 503):
+                retry = e.code in (429, 503)
+                _called(m, ledger, "rejected" if retry else "error", e.code)
+                if retry:
                     if request:
                         ds.gemini_spend(con, -1, ledger)   # 거절된 시도는 부른 것이 아니다
                     if e.code == 503:
@@ -169,6 +186,11 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                     note_call(con, m, -1)
                     break
                 raise
+            except Exception:
+                _called(m, ledger, "error")
+                raise
+            _called(m, ledger, "ok")
+            return resp, m
     assert last is not None
     raise last
 

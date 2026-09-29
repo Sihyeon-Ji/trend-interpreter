@@ -23,6 +23,15 @@ Trend API(`apps/trend-api`)는 환경변수 두 개가 **모두** 켜져야 Gemi
 Cloud Run 서비스에서 `USE_LOCAL_GEMMA=1`을 켜도 개발자 PC의 Ollama에 연결되지는 않습니다. 운영 요청의 신규 서술은
 [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)에 따라 게시된 데이터·규칙 또는 Gemini 경로로 구현·검증해야 합니다.
 
+### 호출 기록
+
+Gemini에 요청을 한 번 보낼 때마다 `pipeline/gemini.py`가 로그 한 줄을 남깁니다. `event=gemini_call`과 `model`, `ledger`(`pipeline`·`request`),
+`outcome`(`ok`·`rejected`(429·503)·`error`), HTTP `code`만 담고 프롬프트·응답은 넣지 않습니다. Cloud Run 서비스와 Job의 로그는 JSON이라
+`jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있습니다. `MODEL_REQUESTS_ENABLED=false`면 클라이언트를 만들기 전에 끝나
+이 줄도 `gemini_calls` 장부 차감도 없으므로, 그 설정으로 배포한 뒤 지표가 0인지로 호출 중지를 확인합니다.
+운영 API의 Gemini 요청은 모두 이 함수를 거칩니다. 개발자 PC 파이프라인의 조사(Search grounding)와 쇼츠 해석은 `interpreters/`에서
+직접 부르므로 이 줄에 들지 않습니다.
+
 ## 로컬에서 확인하기
 
 기본 개발 스택은 `compose.yaml`에서 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`를 고정합니다.
@@ -33,7 +42,8 @@ docker compose run --rm --build check
 ```
 
 `apps/trend-api/tests/test_model_client.py`가 mock 모드에서 클라이언트를 만들지 않는 것과, vertex 모드에서
-API key 없이 프로젝트·위치만으로 클라이언트를 만드는 것을 검사합니다.
+API key 없이 프로젝트·위치만으로 클라이언트를 만드는 것을 검사합니다. `test_ops_signals.py`는 요청마다 `gemini_call`이
+한 줄씩 남는 것과, 호출이 꺼져 있으면 그 줄도 장부 차감도 없는 것을 검사합니다.
 
 ## 운영 배포 뒤 조정 방법
 
