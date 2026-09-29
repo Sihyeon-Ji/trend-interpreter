@@ -39,8 +39,17 @@ async function apiOr<T>(path: string, fallback: T, revalidate = 60): Promise<T> 
   }
 }
 
-export async function getTermRecords(): Promise<TermRecord[]> {
-  return isSampleMode ? SHOWN_RECORDS : apiOr<TermRecord[]>("/terms", SHOWN_RECORDS);
+/** 2MB 가 넘어 Next 데이터 캐시에 넣지 못하는 응답(사전 전체 /terms 2.7MB)은 서버 메모리에 잠깐 둔다 — 사전 화면을 열 때마다
+ *  API 에서 통째로 다시 받았다(2026-09-29 운영 로그 'items over 2MB can not be cached'). */
+const bigCache = new Map<string, { at: number; value: unknown }>();
+async function apiBig<T>(path: string, ttlMs = 60_000): Promise<T> {
+  const hit = bigCache.get(path);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
+  const res = await fetch(`${API}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new ApiError(path, res.status);
+  const value = (await res.json()) as T;
+  bigCache.set(path, { at: Date.now(), value });
+  return value;
 }
 
 /** 사전 색인용. 서버가 실패하면 예시 데이터로 바꿔 넣지 않고 실패를 알린다 — 운영 사용자가 예시 52개를 실제 사전으로
@@ -48,7 +57,7 @@ export async function getTermRecords(): Promise<TermRecord[]> {
 export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: boolean }> {
   if (isSampleMode) return { records: SHOWN_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
   try {
-    return { records: await api<TermRecord[]>("/terms"), ok: true };
+    return { records: await apiBig<TermRecord[]>("/terms"), ok: true };
   } catch {
     return { records: [], ok: false };
   }
@@ -109,7 +118,7 @@ export async function getReviewQueue(): Promise<ReviewItem[]> {
   return isSampleMode ? sampleQueue() : apiNoStore<ReviewItem[]>("/review/queue");
 }
 
-/** 관리 '리스크' 탭 — 사전에 오른 말 전부. getTermRecords 와 달리 예시로 내려가지 않는다. */
+/** 관리 '리스크' 탭 — 사전에 오른 말 전부. 예시로 내려가지 않고 캐시하지 않는다(결정 뒤 바로 보여야 한다). */
 export async function getRiskRecords(): Promise<TermRecord[]> {
   return isSampleMode ? SHOWN_RECORDS : apiNoStore<TermRecord[]>("/terms");
 }
@@ -126,19 +135,14 @@ export async function explain(text: string, locale: Locale, reader: Reader = {})
     const res = await fetch(`${API}/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: locale, reader: { gen: reader.gen, region: reader.region } }) });
     if (!res.ok) throw new Error(`/explain → ${res.status}`);
     const { term_ids, plain } = (await res.json()) as { term_ids: string[]; plain: string | null };
-    // 서버 매칭은 확인 중(needs_review)인 용어도 돌려준다 → 공개 목록(/terms 는 verified 만)이 아니라 전체로 풀어야 '뜻을 확인하는 중' 안내가 나온다
-    const records = await apiOr<TermRecord[]>("/terms?status=all", await getTermRecords());
-    const picked = term_ids.map((id) => records.find((r) => r.term.term_id === id)).filter((r): r is TermRecord => !!r);
+    // 서버 매칭은 확인 중(needs_review)인 용어도 돌려준다 — 공개 목록(/terms 는 verified 만)이 아니라 id 마다 받는다(/terms/{id} 는 확인 중도 준다).
+    // 해석 한 번마다 사전 전체(/terms?status=all 8MB + /terms 2.7MB)를 받던 것을 찾은 표현만 받게 했다. 못 받은 표현은 뺀다.
+    const got = await Promise.all(term_ids.slice(0, 20).map((id) => api<TermRecord | null>(`/terms/${encodeURIComponent(id)}`, 300).catch(() => null)));
+    const picked = got.filter((r): r is TermRecord => !!r);
     return explainMessage(text, picked, locale, plain, reader);
   }
   const plain = SAMPLE_REWRITES[locale][text.trim()] ?? null;
   return explainMessage(text, SHOWN_RECORDS, locale, plain, reader);
-}
-
-export async function getTrendBoard(): Promise<TrendBoard> {
-  if (isSampleMode) return SAMPLE_BOARD;
-  const b = await apiOr<TrendBoard>("/trends/board", SAMPLE_BOARD, 30);
-  return { ...b, why: b.why ?? [] };
 }
 
 export async function getMeta(): Promise<Meta | null> {
@@ -256,7 +260,11 @@ export async function getTermSignals(termId: string, regions: string[] = []): Pr
 /** 세계 지도 — 지역 층은 대시보드와 같은 키워드 보드(밈 수·주의·대표 밈, 갱신 시각도 하나), 나라를 건너간 밈은 트렌드 보드의 주제.
  *  api 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다 → app/map/error.tsx. 실데이터처럼 보이는 2021년 예시가 뜨던 문제(개편 검토). */
 export async function getMapData(): Promise<{ keywords: KeywordBoard; board: TrendBoard }> {
-  if (isSampleMode) return { keywords: sampleKeywordBoard([], 1, true), board: SAMPLE_BOARD };
-  const [keywords, board] = await Promise.all([apiNoStore<KeywordBoard>("/dashboard?summary=1"), api<TrendBoard>("/trends/board", 30)]);
-  return { keywords, board: { ...board, why: board.why ?? [] } };
+  const [keywords, board] = isSampleMode ? [sampleKeywordBoard([], 1, true), SAMPLE_BOARD]
+    : await Promise.all([apiNoStore<KeywordBoard>("/dashboard?summary=1"), api<TrendBoard>("/trends/board", 30)]);
+  // 지도는 지역 요약과 나라를 건너간 밈(topics)만 쓴다 — 급증 이유(why 737KB)·검색어·목록 셋까지 브라우저로 보내 화면이 1MB 였다
+  return {
+    keywords: keywords.summary ? { ...keywords, rising: [], fading: [], caution: [] } : keywords,
+    board: { ...board, items: [], why: [] },
+  };
 }
