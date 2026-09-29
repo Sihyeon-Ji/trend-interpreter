@@ -101,3 +101,12 @@ def test_draw_does_not_replace_a_sample_under_review(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["risk_sample.py", "draw", "--sqlite", str(copy), "--sample", str(path), "--force"])
     rs.main()
     assert [(r["term_id"], r["규칙 수준"], r["검수자가 정한 수준"]) for r in rs.load(path)] == [(f"t{i}", "없음", "") for i in range(3)]
+
+
+def test_draw_reads_postgres_read_only(monkeypatch):
+    """--sqlite 가 없으면 스키마를 맞추는 connect() 가 아니라 읽기 전용 연결로 붙는다."""
+    from trend_agents.storage import db as pg
+
+    monkeypatch.setattr(pg, "connect", lambda *a, **k: pytest.fail("스키마·마이그레이션을 맞추는 연결을 쓰면 안 된다"))
+    monkeypatch.setattr(pg, "connect_read_only", lambda *a, **k: "read-only")
+    assert rs._connect(None) == ("read-only", "DATABASE_URL")

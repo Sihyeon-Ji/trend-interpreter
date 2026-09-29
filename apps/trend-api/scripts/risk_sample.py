@@ -2,7 +2,7 @@
 
   uv run scripts/risk_sample.py draw --sqlite <DB 사본>   # 층을 나눠 뽑아 docs/plans/03-term-risk-sample.csv 에 쓴다(파일이 있으면 --force 없이는 쓰지 않는다)
   uv run scripts/risk_sample.py agree                     # 그 파일에 검수자가 적은 수준을 뽑을 때의 규칙 수준과 견준다 — DB 를 보지 않는다
-  (draw 는 --sqlite 가 없으면 DATABASE_URL 의 PostgreSQL)
+  (draw 는 --sqlite 가 없으면 DATABASE_URL 의 PostgreSQL 에 읽기 전용으로 붙는다 — 스키마·마이그레이션을 건드리지 않는다)
 
 뽑는 법: 확인된(verified) 말 가운데 리스크 단계가 판정한 것(risk_checked_at 있음)을 규칙의 수준(risk_rule_level)으로 나눠
 사용 자제 5 · 주의 7 · 없음 5 · 판단 보류 3. 1차 검토에서 어긋났거나 논의된 말(REQUIRED)은 제 층에 꼭 넣고(어긋난 넷을 모두 넣어
@@ -123,15 +123,15 @@ def _connect(path: str | None):
         if not p.exists():
             raise SystemExit(f"DB 사본이 없습니다: {p}")
         return sqlite3.connect(f"file:{p}?mode=ro", uri=True), p.name
-    from trend_agents.storage import store as db
+    from trend_agents.storage import db
 
-    return db.connect(), "DATABASE_URL"
+    return db.connect_read_only(), "DATABASE_URL"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("action", choices=("draw", "agree"))
-    ap.add_argument("--sqlite", help="draw: 원작자 서버 DB 사본(.db). 읽기 전용으로 연다. 없으면 DATABASE_URL 의 PostgreSQL")
+    ap.add_argument("--sqlite", help="draw: 원작자 서버 DB 사본(.db). 읽기 전용으로 연다. 없으면 DATABASE_URL 의 PostgreSQL(읽기 전용)")
     ap.add_argument("--sample", default=str(SAMPLE), help="표본 파일(저장소에 커밋한다)")
     ap.add_argument("--seed", type=int, default=20260929)
     ap.add_argument("--force", action="store_true", help="draw: 있는 표본 파일을 덮어쓴다(검수자가 적은 수준도 지워진다)")

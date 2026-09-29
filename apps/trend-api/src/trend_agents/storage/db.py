@@ -225,6 +225,18 @@ def connect(path: str | None = None, *, url: str | None = None) -> Connection:
     return con
 
 
+def connect_read_only(url: str | None = None) -> Connection:
+    """읽기만 하는 연결(평가·표본 스크립트). 스키마 준비(DDL·마이그레이션)를 하지 않고, 쓰기는 서버가 거부한다 —
+    connect() 로 붙으면 병합 전 가지의 마이그레이션이 운영 DB 에 적용되고 checksum 이 남아, 그 파일이 병합 전에 고쳐지면
+    그 DB 의 모든 연결(API 포함)이 거부된다."""
+    url = url or DATABASE_URL
+    try:
+        raw = psycopg.connect(url, application_name="trend-eval", options="-c default_transaction_read_only=on")
+    except psycopg.OperationalError as e:
+        raise RuntimeError(f"PostgreSQL 에 연결할 수 없습니다 ({redacted(url)}). DATABASE_URL 이 맞는지 확인하세요.") from e
+    return Connection(raw)
+
+
 def apply_migrations(con: Connection, directory: Path = MIGRATIONS_DIR) -> list[str]:
     """번호가 붙은 SQL 파일을 순서대로 한 번씩 적용한다. 적용 기록은 schema_migrations 에 남고, 적용된 파일이 바뀌면 거부한다.
 

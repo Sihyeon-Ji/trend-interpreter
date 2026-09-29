@@ -11,7 +11,7 @@
   처리 시간                    그 단계 실행 시간 ÷ 그 실행에서 만든 건수(수집·저장 포함). 결과의 저장 시각이 든 실행(pipeline_runs)으로 묶는다
 
   uv run scripts/eval_editing.py --sqlite /path/to/trend-copy.db    # 원작자 서버 DB 사본 (sqlite3 원본.db ".backup 사본.db")
-  uv run scripts/eval_editing.py                                    # DATABASE_URL 의 PostgreSQL
+  uv run scripts/eval_editing.py                                    # DATABASE_URL 의 PostgreSQL — 읽기 전용(스키마·마이그레이션을 건드리지 않는다)
 
 표준 출력에 docs/트렌드/평가.md 에 붙일 표를 내고, 저장소 루트의 artifacts/eval/ 에 JSON 과 사람이 채울 -judge.csv 를 남긴다(artifacts/ 는 커밋하지 않는다).
 """
@@ -284,22 +284,24 @@ def judge_rows(con, per_model: int, seed: int) -> list[dict]:
     return out
 
 
+def _connect(path: str | None):
+    if path:
+        p = Path(path)
+        if not p.exists():
+            raise SystemExit(f"DB 사본이 없습니다: {p}")
+        return sqlite3.connect(f"file:{p}?mode=ro", uri=True), p.name
+    from trend_agents.storage import db
+
+    return db.connect_read_only(), "DATABASE_URL"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--sqlite", help="원작자 서버 DB 사본(.db). 읽기 전용으로 연다. 없으면 DATABASE_URL 의 PostgreSQL")
+    ap.add_argument("--sqlite", help="원작자 서버 DB 사본(.db). 읽기 전용으로 연다. 없으면 DATABASE_URL 의 PostgreSQL(읽기 전용)")
     ap.add_argument("--sample", type=int, default=10, help="사람이 채울 표본 — 산출물·모델마다 몇 개")
     ap.add_argument("--seed", type=int, default=20260929)
     a = ap.parse_args()
-    if a.sqlite:
-        path = Path(a.sqlite)
-        if not path.exists():
-            raise SystemExit(f"DB 사본이 없습니다: {path}")
-        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-        source = path.name
-    else:
-        from trend_agents.storage import store as db
-
-        con, source = db.connect(), "DATABASE_URL"
+    con, source = _connect(a.sqlite)
     result = measure(con)
     rows = judge_rows(con, a.sample, a.seed)
     OUT.mkdir(parents=True, exist_ok=True)

@@ -59,3 +59,18 @@ def test_pooled_sessions_share_the_migrated_schema():
     with db.session() as con:
         assert con.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] >= 1
         assert isinstance(store.top_videos(con, 1), list)
+
+
+def test_read_only_connection_skips_schema_setup_and_refuses_writes(monkeypatch):
+    """평가·표본 스크립트의 연결 — DDL·마이그레이션을 보내지 않고 쓰기는 서버가 거부한다. connect() 로 붙던 때는 병합 전 가지의
+    스크립트를 운영 DB 에 돌리면 그 가지의 마이그레이션이 적용되고 checksum 이 남았다(검토)."""
+    import psycopg
+
+    monkeypatch.setattr(db, "apply_migrations", lambda *a, **k: pytest.fail("마이그레이션을 적용하면 안 된다"))
+    monkeypatch.setattr(db.Connection, "executescript", lambda *a, **k: pytest.fail("DDL 을 보내면 안 된다"))
+    con = db.connect_read_only()
+    assert con.execute("SELECT 1").fetchone()[0] == 1
+    with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
+        con.execute("CREATE TABLE read_only_probe (x TEXT)")
+    assert con.execute("SELECT 2").fetchone()[0] == 2          # 거부된 뒤에도 읽는다
+    con.close()

@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from trend_agents.schemas import Evidence, MeaningDraft, MeaningText, MemeFit, Term
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
@@ -85,3 +87,12 @@ def test_editing_metrics_follow_the_rules():
     rows = ee.judge_rows(con, per_model=5, seed=1)
     assert {r["산출물"] for r in rows} == {"번역", "국가별 해석"} and all(r["근거에 없는 주장(개수)"] == "" for r in rows)
     con.close()
+
+
+def test_eval_reads_postgres_read_only(monkeypatch):
+    """--sqlite 가 없으면 스키마를 맞추는 connect() 가 아니라 읽기 전용 연결로 붙는다."""
+    from trend_agents.storage import db as pg
+
+    monkeypatch.setattr(pg, "connect", lambda *a, **k: pytest.fail("스키마·마이그레이션을 맞추는 연결을 쓰면 안 된다"))
+    monkeypatch.setattr(pg, "connect_read_only", lambda *a, **k: "read-only")
+    assert ee._connect(None) == ("read-only", "DATABASE_URL")
