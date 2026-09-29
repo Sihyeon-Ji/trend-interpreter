@@ -1,7 +1,7 @@
 /* 예시 데이터 모드의 키워드 대시보드. 실제 지역 판정·목록 나누기는 백엔드 pipeline/dashboard.py 의 규칙이고,
    여기는 그 규칙을 예시 사전(SAMPLE_RECORDS)에 그대로 옮겨 모델·서버 없이 화면을 열어 보게 할 뿐이다. */
 import { TARGET_REGIONS } from "../reader";
-import type { KeywordBoard, KeywordCard, SourceCount, TermRecord } from "../types";
+import type { KeywordBoard, KeywordCard, KeywordList, SourceCount, TermRecord } from "../types";
 import { SAMPLE_RECORDS } from "./dictionary";
 
 const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
@@ -58,26 +58,35 @@ const stale = (c: KeywordCard) => {
 const fading = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
 const flagged = (c: KeywordCard) => c.risk_level === "caution" || c.risk_level === "avoid";
 
-/** 백엔드 dashboard.board 와 같다: 주의 밈은 쓰이는·식는 목록에도 남고 사용 자제는 주의 목록에만(Plan 04), 목록마다 전체 건수와 page 쪽만 싣는다. */
-export function sampleKeywordBoard(regions: string[], page = 1): KeywordBoard {
-  const cards = SAMPLE_RECORDS.filter((r) => r.term.status === "verified").map(toCard).filter((c) => c.regions.length);
-  const known = [...TARGET_REGIONS, "GLOBAL"];
-  const chosen = known.filter((r) => regions.includes(r));
-  const picked = chosen.length ? chosen : TARGET_REGIONS;
-  const inView = cards.filter((c) => c.regions.some((r) => picked.includes(r)));
+type Lists = Record<KeywordList, KeywordCard[]>;
+
+// 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
+function split(inView: KeywordCard[]): Lists {
   const byMentions = (a: KeywordCard, b: KeywordCard) => b.mentions_4w - a.mentions_4w;
-  // 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
   const recent = (c: KeywordCard) => [c.last_used, c.last_seen].filter(Boolean).sort().at(-1) ?? "";
   const byRecent = (a: KeywordCard, b: KeywordCard) => recent(b).localeCompare(recent(a));
   const usable = inView.filter((c) => c.risk_level !== "avoid");
-  const lists = {
+  return {
     rising: usable.filter((c) => !fading(c))
       .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b)),
     fading: usable.filter(fading).sort(byRecent),
     caution: inView.filter(flagged).sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b) || byRecent(a, b)),
   };
+}
+
+const sampleCards = () => SAMPLE_RECORDS.filter((r) => r.term.status === "verified").map(toCard).filter((c) => c.regions.length);
+
+/** 백엔드 dashboard.board 와 같다: 주의 밈은 쓰이는·식는 목록에도 남고 사용 자제는 주의 목록에만(Plan 04), 목록마다 전체 건수와 page 쪽만 싣는다.
+ *  summary 면 지역마다 주의 수·대표 밈(세계 지도). */
+export function sampleKeywordBoard(regions: string[], page = 1, summary = false): KeywordBoard {
+  const cards = sampleCards();
+  const known = [...TARGET_REGIONS, "GLOBAL"];
+  const chosen = known.filter((r) => regions.includes(r));
+  const picked = chosen.length ? chosen : TARGET_REGIONS;
+  const lists = split(cards.filter((c) => c.regions.some((r) => picked.includes(r))));
   const p = Math.max(1, page);
   const cut = (l: KeywordCard[]) => l.slice((p - 1) * LIST_MAX, p * LIST_MAX);
+  const top = (l: Lists) => { const c = l.rising[0] ?? l.fading[0]; return c ? { term_id: c.term_id, canonical: c.canonical, lang: c.lang } : null; };
   return {
     generated_at: GENERATED_AT,
     regions: picked,
@@ -86,7 +95,17 @@ export function sampleKeywordBoard(regions: string[], page = 1): KeywordBoard {
     totals: { rising: lists.rising.length, fading: lists.fading.length, caution: lists.caution.length },
     page: p, page_size: LIST_MAX,
     rising: cut(lists.rising), fading: cut(lists.fading), caution: cut(lists.caution),
+    ...(summary && { summary: Object.fromEntries(known.map((r) => {
+      const l = split(cards.filter((c) => c.regions.includes(r)));
+      return [r, { caution: l.caution.length, top: top(l) }];
+    })) }),
   };
+}
+
+/** 백엔드 dashboard.cards_by_id 와 같다 — 최근 변화 행에 단계·쓸 때 조심을 붙인다. */
+export function sampleCardsById(ids: string[]): KeywordCard[] {
+  const want = new Set(ids);
+  return sampleCards().filter((c) => want.has(c.term_id));
 }
 
 export function sampleSignals(termId: string): KeywordCard | null {

@@ -17,7 +17,9 @@ const MORE: Item[] = [
   { href: "/updates", key: "updates_title" },
 ];
 
-const active = (path: string, href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+// 나라 화면(/country/*)은 세계 지도의 아래 화면이다(그 화면의 경로 줄도 '세계 지도 › 나라')
+const active = (path: string, href: string) => (href === "/" ? path === "/"
+  : path === href || path.startsWith(`${href}/`) || (href === "/map" && path.startsWith("/country/")));
 
 function NavLinks({ locale, reviewer, onNavigate }: { locale: Locale; reviewer: boolean; onNavigate?: () => void }) {
   const path = usePathname();
@@ -44,11 +46,12 @@ function NavLinks({ locale, reviewer, onNavigate }: { locale: Locale; reviewer: 
 
 function Account({ locale, signedIn, nick, onNavigate }: { locale: Locale; signedIn: boolean; nick: string | null; onNavigate?: () => void }) {
   const path = usePathname();
-  const href = signedIn ? "/me" : "/login";
+  // 로그인하면 보던 화면으로 돌아온다(검수자가 아닌 계정이 매번 /admin 에 떨어지던 것). next 는 로그인 화면이 safeNext 로 거른다
+  const href = signedIn ? "/me" : path === "/" || path.startsWith("/login") ? "/login" : `/login?next=${encodeURIComponent(path)}`;
   return (
     <div className="space-y-3 text-[14px]">
-      <Link href={href} onClick={onNavigate} aria-current={path === href ? "page" : undefined}
-        className={cn("block truncate hover:text-ink", path === href ? "font-medium text-ink" : "text-charcoal")}>
+      <Link href={href} onClick={onNavigate} aria-current={path === (signedIn ? "/me" : "/login") ? "page" : undefined}
+        className={cn("block truncate hover:text-ink", path === (signedIn ? "/me" : "/login") ? "font-medium text-ink" : "text-charcoal")}>
         {signedIn ? nick ?? t(locale, "nav_me") : t(locale, "nav_sign_in")}
       </Link>
       <LocaleSwitch locale={locale} />

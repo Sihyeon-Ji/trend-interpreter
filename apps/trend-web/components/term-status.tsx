@@ -5,7 +5,8 @@ import { L } from "@/lib/labels";
 import type { Diffusion, Lifecycle, RiskLevel } from "@/lib/contract/types";
 
 /* 단계·쓸 때 조심 칸 — 대시보드 표, 사전 항목 요약, 나라 화면이 같은 말을 쓰게 한 곳에 둔다(검토: 같은 밈을 화면마다 다르게 불렀다). */
-const DIFF_TONE = { spreading: "good", underground: "good", mainstream: "neutral", fading: "muted" } as const;
+// 확산만 오름 색 — 태동은 아직 오르는 중이 아니고, 주류는 중립, 식상은 흐리게(개편 종합 09-29)
+const DIFF_TONE = { spreading: "good", underground: "neutral", mainstream: "neutral", fading: "muted" } as const;
 
 export function StageCell({ diffusion, lifecycle, locale }: { diffusion?: Diffusion | null; lifecycle: Lifecycle; locale: Locale }) {
   return (
@@ -26,7 +27,7 @@ export function RiskCell({ item, locale, why = false }: { item: RiskInput; local
   if (r) {
     return (
       <span>
-        <StatusBadge tone={r === "avoid" ? "avoid" : r === "caution" ? "caution" : "muted"}>{t(locale, `risk_${r}`)}</StatusBadge>
+        <StatusBadge tone={r === "avoid" ? "avoid" : r === "caution" ? "caution" : "neutral"}>{t(locale, `risk_${r}`)}</StatusBadge>
         {reason(`risk_${r}_why`)}
       </span>
     );

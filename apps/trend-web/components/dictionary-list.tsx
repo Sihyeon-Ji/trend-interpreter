@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChipMark } from "@/components/chip-mark";
 import { RiskCell, StageCell } from "@/components/term-status";
 import {
   PAGE_SIZE, aliasHit, inRegions, matchesExceptRegion, sortRows, type DictionaryRow, type Filters, type RiskFilter, type SortKey,
@@ -132,13 +133,13 @@ export function DictionaryList({ rows, locale, readerGen = null, initial }: { ro
       {/* 지역 칩 — 대시보드와 같은 지역 규칙, 여러 개를 고를 수 있다. 휴대폰에서는 한 줄로 옆으로 밀어 본다 */}
       <div role="group" aria-label={t(locale, "dash_regions")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
         <button type="button" onClick={() => set({ regions: [] })} aria-pressed={!s.regions.length} className={chipClass(!s.regions.length)}>
-          {t(locale, "dict_all")} <span className="tabular-nums opacity-75">{base.length}</span>
+          <ChipMark on={!s.regions.length} />{t(locale, "dict_all")} <span className="tabular-nums opacity-75">{base.length}</span>
         </button>
         {REGION_CHIPS.map((r) => {
           const on = s.regions.includes(r);
           return (
             <button key={r} type="button" onClick={() => toggleRegion(r)} aria-pressed={on} className={chipClass(on)}>
-              {regionLabel(locale, r)} <span className="tabular-nums opacity-75">{regionCount(r)}</span>
+              <ChipMark on={on} />{regionLabel(locale, r)} <span className="tabular-nums opacity-75">{regionCount(r)}</span>
             </button>
           );
         })}

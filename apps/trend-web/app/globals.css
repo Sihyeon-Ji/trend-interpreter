@@ -203,7 +203,7 @@
   --avoid: #b3261e;
   --avoid-line: #edb2ad;
   --good: #16734d;
-  --good-line: #a9d8c2;
+  --good-line: #cbd0d6;   /* 오름 배지도 진한 선 — 토큰 밖 색을 쓰지 않는다(개편 종합 09-29) */
 }
 
 @layer base {

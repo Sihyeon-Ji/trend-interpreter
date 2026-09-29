@@ -89,7 +89,7 @@ export default async function CountryPage({ params, searchParams }: {
             return (
               <>
                 <p className="text-[13px] text-steel">{t(locale, `dash_${tab}_note`)}</p>
-                <KeywordTable cards={cards.slice(0, MEMES_SHOWN)} locale={locale} />
+                <KeywordTable cards={cards.slice(0, MEMES_SHOWN)} locale={locale} linkRegions={[region]} />
                 <div className="flex flex-col gap-1.5 pt-1">
                   {cards.length > MEMES_SHOWN && (
                     <Link href={`/?regions=${region}${tab === "caution" ? "&list=caution" : ""}`} className={link}>

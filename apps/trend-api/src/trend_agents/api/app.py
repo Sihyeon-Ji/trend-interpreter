@@ -459,10 +459,17 @@ def generate(body: GenerateIn):
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)
-def keyword_dashboard(regions: str = "", page: int = Query(1, ge=1, le=10_000)):
+def keyword_dashboard(regions: str = "", page: int = Query(1, ge=1, le=10_000), summary: bool = False):
     """키워드 대시보드 (Plan 04). regions 는 쉼표로 (KR,JP,GLOBAL). 없거나 모르는 값뿐이면 목표 지역 전체.
-    page 는 목록마다 몇째 쪽(30개씩)인지 — 건수는 totals 에 있다."""
-    return dashboard.board(_con, [r.strip().upper() for r in regions.split(",") if r.strip()], page)
+    page 는 목록마다 몇째 쪽(30개씩)인지 — 건수는 totals 에 있다. summary=1 이면 지역마다 주의 수·대표 밈(세계 지도)."""
+    return dashboard.board(_con, [r.strip().upper() for r in regions.split(",") if r.strip()], page, summary)
+
+
+@app.get("/dashboard/cards", response_model=list[views.KeywordCard])
+def keyword_cards(ids: str = Query("", max_length=8_000)):
+    """용어 id(쉼표, 200개까지)의 대시보드 카드 — 최근 변화 행에 단계·쓸 때 조심을 붙인다. 둘러보는 목록에 없는 말은 빠진다."""
+    want = [i.strip() for i in ids.split(",") if i.strip()][:200]
+    return dashboard.cards_by_id(_con, want) if want else []
 
 
 @app.get("/terms/{term_id}/signals", response_model=views.KeywordCard | None)

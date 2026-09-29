@@ -2,29 +2,36 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { ChipMark } from "@/components/chip-mark";
 import { t, type Locale } from "@/lib/i18n";
 import { regionLabel } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { chipClass } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
-/** 지역 고르기 — 하나만 고른다(누르면 바뀐다). 고른 값은 주소(?regions=)에만 둔다 — 익명은 설정을 갖지 않는다(AGENTS.md).
- *  여러 나라 비교는 세계 지도의 비교표가 맡는다. current 가 null 이면 '전체'. counts 가 없으면(불러오기 실패) 건수를 내지 않는다.
+const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
+
+/** 지역 고르기 — 여러 곳을 고른다. 대시보드·사전·최근 변화·추천·세계 지도가 같은 규칙이다(개편 종합 09-29): '전체' 에서 한 곳을
+ *  누르면 그곳만, 다른 곳을 누르면 더하고, 고른 곳을 누르면 빼고, 다 빼면 '전체'. 고른 값은 주소(?regions=KR,JP)에만 둔다 —
+ *  익명은 설정을 갖지 않는다(AGENTS.md). picked 가 비면 '전체'. counts 가 없으면(불러오기 실패) 건수를 내지 않는다.
  *  순서: 전체 → 목표 지역 → 세로 선 → 글로벌(목표 지역 밖에서도 널리 쓰이는 말). */
-export function RegionChips({ current, counts, locale, list }: { current: string | null; counts?: Record<string, number>; locale: Locale; list?: string }) {
+export function RegionChips({ picked, counts, locale, list }: { picked: string[]; counts?: Record<string, number>; locale: Locale; list?: string }) {
   // 지역을 바꿔도 보던 탭(목록)은 그대로, 쪽은 처음으로
-  const href = (r: string | null) => `/?regions=${r ?? "all"}${list ? `&list=${list}` : ""}`;
+  const href = (next: string[]) => `/?regions=${next.length ? next.join(",") : "all"}${list ? `&list=${list}` : ""}`;
+  const toggled = (r: string) => (picked.includes(r) ? picked.filter((x) => x !== r) : KNOWN.filter((x) => x === r || picked.includes(x)));
   const nav = useRef<HTMLElement>(null);
-  // 휴대폰은 한 줄 가로 밀기 — 고른 칩이 화면 밖에 있으면 보이게 민다(세로로는 움직이지 않는다)
+  const key = picked.join(",");
+  // 휴대폰은 한 줄 가로 밀기 — 처음 고른 칩이 화면 밖에 있으면 보이게 민다(세로로는 움직이지 않는다)
   useEffect(() => {
-    const el = nav.current, on = el?.querySelector<HTMLElement>("[aria-current='true']");
+    const el = nav.current, on = el?.querySelector<HTMLElement>("[data-on]");
     if (el && on && el.scrollWidth > el.clientWidth) el.scrollLeft = Math.max(0, on.offsetLeft - el.offsetLeft - 16);
-  }, [current]);
+  }, [key]);
   const chip = (r: string | null, label: string) => {
-    const on = r === current, n = counts?.[r ?? "ALL"];
+    const on = r === null ? !picked.length : picked.includes(r), n = counts?.[r ?? "ALL"];
     return (
-      <Link key={r ?? "ALL"} href={href(r)} className={cn(chipClass(on), !on && n === 0 && "text-steel")} aria-current={on ? "true" : undefined}>
-        {label}{n != null && <> <span className="tabular-nums">{n}</span></>}
+      <Link key={r ?? "ALL"} href={href(r === null ? [] : toggled(r))} data-on={on || undefined} className={cn(chipClass(on), !on && n === 0 && "text-steel")}>
+        <ChipMark on={on} />{label}{n != null && <> <span className="tabular-nums">{n}</span></>}
+        {on && <span className="sr-only"> {t(locale, "chip_selected")}</span>}
       </Link>
     );
   };

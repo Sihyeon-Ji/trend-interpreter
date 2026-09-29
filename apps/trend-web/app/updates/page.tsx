@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChipMark } from "@/components/chip-mark";
 import { ListTabs } from "@/components/list-tabs";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
@@ -67,12 +68,15 @@ export default async function UpdatesPage({ searchParams }: { searchParams: Prom
       <div className="space-y-6">
         {header(
         <nav aria-label={t(locale, "dash_regions")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-          <Link href={href({ regions: [] })} className={chipClass(!regions.length)} aria-current={!regions.length ? "true" : undefined}>{t(locale, "updates_regions_all")}</Link>
+          <Link href={href({ regions: [] })} className={chipClass(!regions.length)}>
+            <ChipMark on={!regions.length} />{t(locale, "updates_regions_all")}{!regions.length && <span className="sr-only"> {t(locale, "chip_selected")}</span>}
+          </Link>
           {TARGET_REGIONS.map((r) => {
             const on = regions.includes(r);
             return (
-              <Link key={r} href={href({ regions: toggle(r) })} className={chipClass(on)} aria-current={on ? "true" : undefined}>
-                {regionLabel(locale, r)} <span className="tabular-nums opacity-75">{perRegion(r)}</span>
+              <Link key={r} href={href({ regions: toggle(r) })} className={chipClass(on)}>
+                <ChipMark on={on} />{regionLabel(locale, r)} <span className="tabular-nums opacity-75">{perRegion(r)}</span>
+                {on && <span className="sr-only"> {t(locale, "chip_selected")}</span>}
               </Link>
             );
           })}

@@ -205,10 +205,13 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
     return `/?${q}`;
   })();
 
-  // 지역 층: 대시보드와 같은 수 — 밈 수는 counts, 주의는 주의 목록 가운데 그 지역, 대표 밈은 지금 쓰이는 밈 1위(없으면 식어 가는 밈 1위)
+  // 지역 층: 대시보드와 같은 수 — 밈 수는 counts, 주의 수와 대표 밈(지금 쓰이는 밈 1위, 없으면 식어 가는 밈 1위)은 백엔드가 지역마다
+  // 전체에서 센 summary. 대시보드 첫 쪽(30개)만 보고 세면 작은 지역의 대표 밈이 빠진다(개편 통합 09-29)
   const regions = useMemo(() => KNOWN.map((code) => {
     const has = (c: KeywordCard) => c.regions.includes(code);
-    return { code, count: keywords.counts[code] ?? 0, caution: keywords.caution.filter(has).length, top: keywords.rising.find(has) ?? keywords.fading.find(has) ?? null };
+    const s = keywords.summary?.[code];
+    return { code, count: keywords.counts[code] ?? 0, caution: s ? s.caution : keywords.caution.filter(has).length,
+      top: s ? s.top : keywords.rising.find(has) ?? keywords.fading.find(has) ?? null };
   }), [keywords]);
   const empty = regions.every((r) => r.count === 0);
 

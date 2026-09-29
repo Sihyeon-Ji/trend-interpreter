@@ -21,7 +21,7 @@ from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from .match import mentions, unsafe
 from .runs import stage
-from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, SearchHit, SourceCount, Tone, WeeklyPoint
+from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, SourceCount, Tone, WeeklyPoint
 
 GLOBAL = "GLOBAL"
 CACHE_KEY = "dashboard"
@@ -361,10 +361,25 @@ def cards(con: Connection, regions: list[str] | None = None) -> list[KeywordCard
     return [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
 
 
-def board(con: Connection, regions: list[str] | None = None, page: int = 1) -> KeywordBoard:
+def cards_by_id(con: Connection, term_ids: list[str]) -> list[KeywordCard]:
+    """용어 id 로 대시보드 카드를 한 번에 (최근 변화 행에 단계·쓸 때 조심을 붙인다). 모든 지역을 더한 값이고, 둘러보는 목록에 없는 말은 빠진다.
+    대시보드 첫 쪽에서 찾으면 30개 밖의 밈이 빈칸이 됐다(개편 통합 09-29)."""
+    want = set(term_ids)
+    stored, _ = _loaded(con)
+    return [view(s, [*REGIONS_FOCUS, GLOBAL]) for s in stored if s.card.term_id in want]
+
+
+def _summary(cards: list[KeywordCard], now: datetime) -> RegionSummary:
+    rising, fading, caution = split(cards, now)
+    top = (rising or fading or [None])[0]
+    return RegionSummary(caution=len(caution), top=RegionTop(term_id=top.term_id, canonical=top.canonical, lang=top.lang) if top else None)
+
+
+def board(con: Connection, regions: list[str] | None = None, page: int = 1, summary: bool = False) -> KeywordBoard:
     """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고).
     표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙).
-    목록마다 전체 건수(totals)를 주고, page 쪽(LIST_MAX 개씩)만 싣는다 — 30개에서 말없이 잘리던 것(디자인 개편 검토 09-29)."""
+    목록마다 전체 건수(totals)를 주고, page 쪽(LIST_MAX 개씩)만 싣는다 — 30개에서 말없이 잘리던 것(디자인 개편 검토 09-29).
+    summary 면 지역마다 주의 수와 대표 밈도 준다(세계 지도)."""
     stored, generated_at = _loaded(con)
     known = [*REGIONS_FOCUS, GLOBAL]
     chosen = chosen_regions(regions)
@@ -374,9 +389,12 @@ def board(con: Connection, regions: list[str] | None = None, page: int = 1) -> K
     cut = slice((page - 1) * LIST_MAX, page * LIST_MAX)
     counts = {r: sum(1 for s in stored if r in s.card.regions) for r in known}
     counts["ALL"] = sum(1 for s in stored if set(s.card.regions) & set(REGIONS_FOCUS))   # '전체' 칩 — 목표 지역 어디든(전 세계만인 것은 빼고)
-    return KeywordBoard(generated_at=generated_at, regions=chosen, counts=counts,
-                        totals={"rising": len(rising), "fading": len(fading), "caution": len(caution)}, page=page, page_size=LIST_MAX,
-                        rising=rising[cut], fading=fading[cut], caution=caution[cut])
+    out = KeywordBoard(generated_at=generated_at, regions=chosen, counts=counts,
+                       totals={"rising": len(rising), "fading": len(fading), "caution": len(caution)}, page=page, page_size=LIST_MAX,
+                       rising=rising[cut], fading=fading[cut], caution=caution[cut])
+    if summary:   # 지역마다 그 지역만의 수로 다시 나눈다 — 대시보드에서 그 지역을 골랐을 때와 같은 1위
+        out.summary = {r: _summary([view(s, [r]) for s in stored if r in s.card.regions], generated_at) for r in known}
+    return out
 
 
 def card(con: Connection, term_id: str, regions: list[str] | None = None) -> KeywordCard | None:

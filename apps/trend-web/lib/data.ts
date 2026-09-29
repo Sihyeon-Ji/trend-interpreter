@@ -7,7 +7,7 @@ import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
 import { explainMessage, type ExplainResult } from "./explain";
-import { sampleKeywordBoard, sampleSignals } from "./sample/keyword-board";
+import { sampleCardsById, sampleKeywordBoard, sampleSignals } from "./sample/keyword-board";
 import { SAMPLE_WHY, sampleUpdateFeed } from "./sample/updates";
 import { TARGET_REGIONS } from "./reader";
 
@@ -161,22 +161,22 @@ export async function getUpdates(hours = 48): Promise<UpdateItem[]> {
 export type UpdateRow = UpdateItem & { card?: KeywordCard };
 export interface UpdatePage { items: UpdateRow[]; counts: Record<string, number>; total: number; updated_at: string | null }
 
-const cardIndex = (b: KeywordBoard | null) => new Map((b ? [...b.rising, ...b.fading, ...b.caution] : []).map((c) => [c.term_id, c]));
+const cardIndex = (cards: KeywordCard[] | null) => new Map((cards ?? []).map((c) => [c.term_id, c]));
+const feedIds = (items: UpdateItem[]) => [...new Set(items.map((i) => i.term_id).filter((id): id is string => !!id))];
 
-/** '최근 변화' 화면. 서버가 목록을 못 주면 null(화면이 '불러오지 못했습니다'). 대시보드 카드는 붙이기만 하므로 없어도 목록은 보인다. */
+/** '최근 변화' 화면. 서버가 목록을 못 주면 null(화면이 '불러오지 못했습니다'). 대시보드 카드는 붙이기만 하므로 없어도 목록은 보인다.
+ *  카드는 행에 나온 표현 id 로 한 번에 받는다 — 대시보드 첫 쪽(30개)에서 찾으면 그 밖의 밈이 빈칸이 됐다(개편 통합 09-29). */
 export async function getUpdateFeed(hours = 48): Promise<UpdatePage | null> {
   if (isSampleMode) {
     const feed = sampleUpdateFeed();
-    const cards = cardIndex(sampleKeywordBoard([]));
+    const cards = cardIndex(sampleCardsById(feedIds(feed.items)));
     return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: SAMPLE_BOARD.generated_at };
   }
-  const [feed, board, meta] = await Promise.all([
-    apiOrNull<UpdateFeed>(`/updates?hours=${hours}&limit=300`, 30),
-    apiOrNull<KeywordBoard>("/dashboard", false),   // getKeywordBoard 와 같은 이유로 Next 데이터 캐시에 넣지 않는다
-    getMeta(),
-  ]);
+  const [feed, meta] = await Promise.all([apiOrNull<UpdateFeed>(`/updates?hours=${hours}&limit=300`, 30), getMeta()]);
   if (!feed || !Array.isArray(feed.items)) return null;   // 예전 백엔드(목록만 주던 /updates)도 '불러오지 못했습니다' 로
-  const cards = cardIndex(board);
+  const ids = feedIds(feed.items).slice(0, 200);
+  // getKeywordBoard 와 같은 이유로 Next 데이터 캐시에 넣지 않는다
+  const cards = cardIndex(ids.length ? await apiOrNull<KeywordCard[]>(`/dashboard/cards?ids=${ids.map(encodeURIComponent).join(",")}`, false) : []);
   return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: meta?.last_run ?? null };
 }
 
@@ -252,7 +252,7 @@ export async function getTermSignals(termId: string, regions: string[] = []): Pr
 /** 세계 지도 — 지역 층은 대시보드와 같은 키워드 보드(밈 수·주의·대표 밈, 갱신 시각도 하나), 나라를 건너간 밈은 트렌드 보드의 주제.
  *  api 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다 → app/map/error.tsx. 실데이터처럼 보이는 2021년 예시가 뜨던 문제(개편 검토). */
 export async function getMapData(): Promise<{ keywords: KeywordBoard; board: TrendBoard }> {
-  if (isSampleMode) return { keywords: sampleKeywordBoard([]), board: SAMPLE_BOARD };
-  const [keywords, board] = await Promise.all([apiNoStore<KeywordBoard>("/dashboard"), api<TrendBoard>("/trends/board", 30)]);
+  if (isSampleMode) return { keywords: sampleKeywordBoard([], 1, true), board: SAMPLE_BOARD };
+  const [keywords, board] = await Promise.all([apiNoStore<KeywordBoard>("/dashboard?summary=1"), api<TrendBoard>("/trends/board", 30)]);
   return { keywords, board: { ...board, why: board.why ?? [] } };
 }

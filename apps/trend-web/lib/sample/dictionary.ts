@@ -1,5 +1,6 @@
 /* 예시 데이터 — 제품이 완성됐을 때의 사전 상태를 가정. 전부 계약 타입(lib/contract/types.ts)을 따른다.
    실데이터가 붙으면 lib/data.ts 의 분기만 바뀌고 이 파일은 데모·테스트용으로 남는다. */
+import type { Diffusion } from "../contract/types";
 import type { Locale } from "../i18n";
 import type { Evidence, Meaning, PipelineStage, ReviewItem, TermRecord, TermUsage, WeeklyPoint } from "../types";
 import { KOREAN_2026 } from "./korean-2026";
@@ -299,7 +300,34 @@ const BASE_RECORDS: TermRecord[] = [
   },
 ];
 
-export const SAMPLE_RECORDS: TermRecord[] = [...BASE_RECORDS, ...KOREAN_2026, ...LATEST_2026];
+// 예시에도 쓸 때 조심과 퍼진 정도를 채운다 — 비어 있으면 예시 화면이 모두 '확인 전' 이라 배지도 '주의가 필요한 밈' 목록도 비었다
+// (개편 통합 09-29). 값은 뜻풀이의 뉘앙스를 보고 실데이터 규칙(pipeline/risk.py)이 낼 법한 것으로 골랐다. 목록에 없는 확인된 말은 '특이 사항 없음'.
+const CHECKED = "2026-09-13T21:00:00Z";
+const UNCHECKED = new Set(["t_crumbl", "t_dipstack"]);     // 아직 검사 전 — '확인 전'
+const SIGNALS: Record<string, { risk?: "caution" | "avoid" | null; reasons?: string[]; diffusion?: Diffusion }> = {
+  t_jungti: { risk: "avoid", reasons: ["국적을 빗댄 표현이라 비하로 읽힐 수 있다"] },
+  t_shagal: { risk: "caution", reasons: ["순화형이지만 뿌리는 욕설이다"], diffusion: "mainstream" },
+  t_temuhuman: { risk: "caution", reasons: ["남에게 붙이면 사람을 낮춰 부르는 말이 된다"] },
+  t_wegovy: { risk: "caution", reasons: ["의학적 효과를 단정하는 문구로 쓰면 곤란하다"], diffusion: "spreading" },
+  t_raeulla: { risk: null },                                  // 근거가 모자라 판단 보류 — 화면에는 '근거 부족'
+  t_ptpa: { risk: null },
+  t_pierrot: { diffusion: "spreading" },
+  t_aislop: { diffusion: "mainstream" },
+  t_oshikatsu: { diffusion: "mainstream" },
+  t_ttogago: { diffusion: "mainstream" },
+  t_nanlijabeth: { diffusion: "underground" },
+  t_tungtung: { diffusion: "fading" },
+  t_skibidi: { diffusion: "fading" },
+};
+
+function withSignals(r: TermRecord): TermRecord {
+  if (r.term.status !== "verified" || UNCHECKED.has(r.term.term_id)) return r;
+  const s = SIGNALS[r.term.term_id] ?? {};
+  return { ...r, term: { ...r.term, risk_level: "risk" in s ? s.risk ?? null : "none", risk_reasons: s.reasons ?? [], risk_checked_at: CHECKED,
+    ...(s.diffusion && { diffusion: s.diffusion }) } };
+}
+
+export const SAMPLE_RECORDS: TermRecord[] = [...BASE_RECORDS, ...KOREAN_2026, ...LATEST_2026].map(withSignals);
 
 export const SAMPLE_STAGES: PipelineStage[] = [
   { key: "collect", label: "수집", count_24h: 1284, status: "ok", note: "27개국 · 영상 891 · 기사 393" },

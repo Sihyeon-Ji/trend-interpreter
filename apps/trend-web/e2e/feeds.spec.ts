@@ -28,7 +28,7 @@ test("country page splits memes, searches and reasons into tabs", async ({ page 
   await page.goto("/country/JP");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/일본|Japan/);
   await expect(page.getByRole("link", { name: /일본 밈으로 추천받기|Get meme ideas for Japan/ })).toHaveAttribute("href", "/recommend?regions=JP");
-  await expect(page.getByRole("table").getByRole("link", { name: "推し活" })).toHaveAttribute("href", "/dictionary/t_oshikatsu");
+  await expect(page.getByRole("table").getByRole("link", { name: "推し活" })).toHaveAttribute("href", "/dictionary/t_oshikatsu?regions=JP");
   await expect(page.getByText(/세대 분포|Generations using/)).toHaveCount(0);
 
   const tabs = page.getByRole("navigation", { name: /나라 화면 목록|Country lists/ });

@@ -302,6 +302,18 @@ class KeywordCard(BaseModel):
     last_used: datetime | None = None  # 고른 지역에서 가장 최근에 쓰인 글(커뮤니티·뉴스·쇼츠)의 때 — 원본 언급이 0 인 말의 순서와 표시
 
 
+class RegionTop(BaseModel):
+    term_id: str
+    canonical: str
+    lang: str
+
+
+class RegionSummary(BaseModel):
+    """세계 지도의 지역 한 곳 — 쪽과 상관없이 그 지역 전체에서 센다(대시보드와 같은 목록 규칙)."""
+    caution: int = 0                   # 주의가 필요한 밈(주의·사용 자제) 수
+    top: RegionTop | None = None       # 지금 쓰이는 밈 1위, 없으면 식어 가는 밈 1위
+
+
 class KeywordBoard(BaseModel):
     generated_at: datetime
     regions: list[str]                 # 고른 지역
@@ -312,6 +324,7 @@ class KeywordBoard(BaseModel):
     rising: list[KeywordCard]          # 지금 쓰이는 밈 (그 쪽만)
     fading: list[KeywordCard]          # 식어 가는 밈 (그 쪽만)
     caution: list[KeywordCard]         # 주의가 필요한 밈 (그 쪽만)
+    summary: dict[str, RegionSummary] = {}   # summary=1 로 물을 때만 — 지역마다(세계 지도). 첫 쪽만 보고 세면 작은 지역의 대표 밈이 빠진다
 
 
 # ---------- 밈 추천 (Plan 07) — 값은 pipeline/recommend.py 규칙이 채운다 ----------

@@ -8,6 +8,7 @@ import json
 
 from ..schemas import EvidenceBrief, Text2, Topic, TopicVariant, TopicVariantLink, TrendBoard, TrendItem, TrendWhy
 from ..storage import dictionary_store as ds
+from .match import unsafe
 from .runs import stage
 from ..storage.db import Connection
 
@@ -107,6 +108,9 @@ def build(con: Connection) -> TrendBoard:
         timeline = {row["region"]: row for row in ds.get_timeline(con, t.term_id)}
         regions = sorted({u["region"] for u in usage} | set(timeline))
         if len(regions) < 2:
+            continue
+        # 표제어 자체가 욕설·성적 표현이면 둘러보는 목록(세계 지도 '나라를 건너간 밈')에 내지 않는다 — dashboard._browsable 과 같은 규칙
+        if unsafe(t.canonical) and t.risk_level != "none":
             continue
         m = ds.current_meaning(con, t.term_id)
         en = ds.get_translation(con, t.term_id, "en")

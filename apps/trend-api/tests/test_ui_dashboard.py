@@ -69,3 +69,31 @@ def test_dashboard_api_takes_page(monkeypatch):
     body = c.get("/dashboard", params={"regions": "KR", "page": 2}).json()
     assert body["page"] == 2 and body["rising"] == [] and body["totals"]["rising"] == 1
     assert c.get("/dashboard", params={"page": 0}).status_code == 422
+
+
+def test_region_summary_and_cards_by_id_see_past_the_first_page(monkeypatch):
+    """세계 지도·최근 변화는 대시보드 첫 쪽이 아니라 전체에서 센다 — 작은 지역의 대표 밈이 30개 밖에 있어도 나온다(개편 통합 09-29)."""
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    con = db.connect(":memory:")
+    for i in range(dashboard.LIST_MAX + 3):
+        _term(con, f"k{i:02d}", f"말{i:02d}", mentions=100 - i)
+    _term(con, "th", "เผ่น", lang="th", region="TH")                           # 언급 0 — 전체 목록에서는 첫 쪽 밖
+    _term(con, "thc", "ระวัง", lang="th", region="TH", risk="caution")
+    dashboard.run(con)
+
+    whole = dashboard.board(con, summary=True)
+    assert "th" not in {c.term_id for c in whole.rising}                      # 첫 쪽에는 없다
+    assert whole.summary["TH"].top.term_id in {"th", "thc"} and whole.summary["TH"].caution == 1
+    assert whole.summary["KR"].top.term_id == "k00" and whole.summary["HK"].top is None
+    assert dashboard.board(con).summary == {}                                 # 묻지 않으면 싣지 않는다
+
+    assert {c.term_id for c in dashboard.cards_by_id(con, ["th", "k40", "k00", "missing"])} == {"th", "k00"}
+
+    monkeypatch.setattr(api, "_con", con)
+    c = TestClient(api.app)
+    assert {x["term_id"] for x in c.get("/dashboard/cards", params={"ids": "th,k00"}).json()} == {"th", "k00"}
+    assert c.get("/dashboard/cards").json() == []
+    assert c.get("/dashboard", params={"summary": 1}).json()["summary"]["TH"]["caution"] == 1

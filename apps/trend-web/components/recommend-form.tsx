@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ChipMark } from "@/components/chip-mark";
 import { Button } from "@/components/ui/button";
 import { GenerationView } from "@/components/generation-view";
 import { StatePanel } from "@/components/state-panel";
@@ -26,18 +27,7 @@ export type Pinned = { id: string; name: string; lang?: string };
 type Snapshot = { text: string; file: File | null; regions: string; tone: CampaignTone };
 
 const fieldLabel = "block text-[14px] font-medium text-ink";
-// 칩 안의 고른 표시 — 색만으로 가르지 않게 체크(지역)와 라디오(톤) 모양을 함께 둔다
 const chipInput = "relative cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring";
-function Mark({ on, round }: { on: boolean; round?: boolean }) {
-  return (
-    <span aria-hidden className={cn("inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center border", round ? "rounded-full" : "rounded-[3px]",
-      on ? "border-link-blue" : "border-hairline-strong")}>
-      {on && (round ? <span className="h-1.5 w-1.5 rounded-full bg-link-blue" />
-        : <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5.2l2 2 4-4.4" fill="none" stroke="var(--link-blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>)}
-    </span>
-  );
-}
-
 // 같은 종류의 값 목록은 쉼표로 — 가운뎃점은 서로 다른 사실을 잇는 것처럼 읽혔다(원칙 6)
 const list = (xs: string[]) => xs.join(", ");
 const fmtSize = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -45,10 +35,11 @@ const gloss = (it: RecommendItem, locale: Locale) => (locale === "ko" ? it.gloss
 const hasDetails = (it: RecommendItem) => it.matched_feelings.length > 0 || it.matched_category || it.any_category || !!(it.local_note && it.local_region)
   || riskOf(it) === "caution" || riskOf(it) === "unknown";
 
-/** 새 탭으로 여는 링크 — 사전을 보고 돌아와도 추천 결과가 남는다. 표제어 원문에만 lang 을 붙이고 안내는 화면 언어로 읽힌다. */
+/** 새 탭으로 여는 링크 — 사전을 보고 돌아와도 추천 결과가 남는다. 표제어 원문에만 lang 을 붙이고 안내는 화면 언어로 읽힌다.
+ *  ?from=recommend 면 사전 항목이 '이 밈으로 만들기' 를 내지 않는다(이미 추천 흐름 안이다). */
 function TermLink({ it, locale, className }: { it: RecommendItem; locale: Locale; className?: string }) {
   return (
-    <Link href={`/dictionary/${it.term_id}`} target="_blank" rel="noopener" className={cn("font-semibold break-words text-ink hover:underline", className)}>
+    <Link href={`/dictionary/${it.term_id}?from=recommend`} target="_blank" rel="noopener" className={cn("font-semibold break-words text-ink hover:underline", className)}>
       <span lang={langTag(it.lang)}>{it.canonical}</span><span className="sr-only"> {t(locale, "rec_new_tab")}</span>
     </Link>
   );
@@ -449,14 +440,14 @@ export function RecommendForm({ locale, initialRegions, pinned, sample }: { loca
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <label className={cn(chipClass(all), chipInput)}>
                   <input type="checkbox" className="sr-only" checked={all} onChange={() => setRegions([])} />
-                  <Mark on={all} />{t(locale, "dash_all")}
+                  <ChipMark on={all} />{t(locale, "dash_all")}
                 </label>
                 {TARGET_REGIONS.map((r) => {
                   const on = !all && regions.includes(r);
                   return (
                     <label key={r} className={cn(chipClass(on), chipInput)}>
                       <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleRegion(r)} />
-                      <Mark on={on} />{regionLabel(locale, r)}
+                      <ChipMark on={on} />{regionLabel(locale, r)}
                     </label>
                   );
                 })}
@@ -469,7 +460,7 @@ export function RecommendForm({ locale, initialRegions, pinned, sample }: { loca
                 {TONES.map((x) => (
                   <label key={x} className={cn(chipClass(tone === x), chipInput)}>
                     <input type="radio" name="rec-tone" value={x} className="sr-only" checked={tone === x} onChange={() => setTone(x)} />
-                    <Mark on={tone === x} round />{labels.campaignTone[x]}
+                    <ChipMark on={tone === x} round />{labels.campaignTone[x]}
                   </label>
                 ))}
               </div>

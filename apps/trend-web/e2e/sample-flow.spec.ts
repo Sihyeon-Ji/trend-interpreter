@@ -25,7 +25,7 @@ test("keyword dashboard filters by region and opens an entry", async ({ page }) 
   await expect(table.getByRole("link", { name: "자만추" })).toHaveCount(0);
 
   await table.getByRole("link", { name: "推し活" }).click();
-  await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu$/);
+  await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu\?regions=JP$/);   // 고른 지역을 사전 항목에 넘긴다
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("推し活");
 });
 
@@ -45,7 +45,7 @@ test("recommend suggests memes for a product without a model", async ({ page }) 
     page.waitForEvent("popup"),
     items.filter({ hasText: "럭키비키" }).getByRole("link", { name: /^럭키비키/ }).click(),
   ]);
-  await expect(tab).toHaveURL(/\/dictionary\/t_luckyvicky$/);
+  await expect(tab).toHaveURL(/\/dictionary\/t_luckyvicky\?from=recommend$/);
   await expect(page.getByRole("heading", { name: /추천 밈|suggested memes/i })).toBeVisible();
 });
 

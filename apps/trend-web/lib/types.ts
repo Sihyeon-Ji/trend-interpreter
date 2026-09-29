@@ -122,6 +122,12 @@ export interface KeywordCard {
 
 export type KeywordList = "rising" | "fading" | "caution";
 
+/** 세계 지도의 지역 한 곳 — 쪽과 상관없이 그 지역 전체에서 센다 (views.RegionSummary) */
+export interface RegionSummary {
+  caution: number;                                              // 주의가 필요한 밈 수
+  top: { term_id: string; canonical: string; lang: string } | null;   // 지금 쓰이는 밈 1위, 없으면 식어 가는 밈 1위
+}
+
 export interface KeywordBoard {
   generated_at: string;
   regions: string[];
@@ -132,6 +138,7 @@ export interface KeywordBoard {
   rising: KeywordCard[];                // 그 쪽만
   fading: KeywordCard[];
   caution: KeywordCard[];
+  summary?: Record<string, RegionSummary>;   // summary=1 로 물을 때만 — 지역마다(세계 지도)
 }
 
 /* 밈 추천 (Plan 07) — 백엔드 pipeline/views.py 의 RecommendItem·RecommendResult 와 1:1. 순위는 pipeline/recommend.py 규칙이 매긴다. */

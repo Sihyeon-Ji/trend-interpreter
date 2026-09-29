@@ -27,8 +27,10 @@ function Mentions({ card }: { card: KeywordCard }) {
 
 /* 대시보드 목록. 1024px 이상은 표, 그 아래는 선으로만 나눈 목록 행 — 카드 모자이크를 쓰지 않는다. 행을 누르면 사전 항목(뜻·근거·신호).
    표는 최소 폭·가로 스크롤 없이 칸 우선순위로 줄인다: 1280px 미만에서는 '주로 보인 곳' 칸과 스파크라인을 숨긴다.
-   showRegions: 전체·글로벌을 볼 때만 표현 아래에 쓰이는 나라를 쓴다(한 나라를 보면 모든 행이 같은 나라라 뺀다). */
-export function KeywordTable({ cards, locale, showRegions = false }: { cards: KeywordCard[]; locale: Locale; showRegions?: boolean }) {
+   showRegions: 한 나라만 볼 때가 아니면 표현 아래에 쓰이는 나라를 쓴다(한 나라를 보면 모든 행이 같은 나라라 뺀다). */
+export function KeywordTable({ cards, locale, showRegions = false, linkRegions = [] }: { cards: KeywordCard[]; locale: Locale; showRegions?: boolean; linkRegions?: string[] }) {
+  // 고른 지역을 사전 항목에 넘긴다 — 항목의 수가 이 표와 같은 지역 기준이 된다
+  const entry = (c: KeywordCard) => `/dictionary/${c.term_id}${linkRegions.length ? `?regions=${linkRegions.join(",")}` : ""}`;
   const where = (c: KeywordCard) => c.communities.slice(0, 2).map((s) => sourceName(locale, s.domain));
   const regions = (c: KeywordCard) => (showRegions && c.regions.length
     ? <p className="mt-0.5 text-[12px] text-steel">{c.regions.map((r) => (r === "GLOBAL" ? t(locale, "dash_global") : regionLabel(locale, r))).join(", ")}</p> : null);
@@ -51,7 +53,7 @@ export function KeywordTable({ cards, locale, showRegions = false }: { cards: Ke
           {cards.map((c) => (
             <tr key={c.term_id} className="relative border-b border-hairline align-top hover:bg-surface-soft">
               <td className="py-3 pr-4 pl-3">
-                <Link href={`/dictionary/${c.term_id}`} lang={langTag(c.lang)} className={cn("text-[15px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
+                <Link href={entry(c)} lang={langTag(c.lang)} className={cn("text-[15px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
                 <p className="mt-0.5 truncate text-[13px] text-charcoal" title={gloss(c, locale)}>{gloss(c, locale)}</p>
                 {regions(c)}
               </td>
@@ -69,7 +71,7 @@ export function KeywordTable({ cards, locale, showRegions = false }: { cards: Ke
         {cards.map((c) => (
           <li key={c.term_id} className="relative py-3.5 hover:bg-surface-soft">
             <div className="flex items-start justify-between gap-3">
-              <Link href={`/dictionary/${c.term_id}`} lang={langTag(c.lang)} className={cn("min-w-0 text-[16px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
+              <Link href={entry(c)} lang={langTag(c.lang)} className={cn("min-w-0 text-[16px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
               {/* 휴대폰에서는 '특이 사항 없음' 만 생략한다 — 주의·사용 자제·근거 부족·확인 전은 그대로 */}
               {c.risk_level !== "none" && <RiskCell item={c} locale={locale} />}
             </div>
