@@ -3,40 +3,29 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
 import { fe } from "@/lib/lab/f-editorial-copy";
-import { entryHref } from "@/lib/lab/f-editorial";
+import { entryHref, type ChangeRow } from "@/lib/lab/f-editorial";
 import { fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
-import { scriptLang } from "@/lib/lang";
-import { TARGET_REGIONS } from "@/lib/reader";
-import type { UpdateItem } from "@/lib/trends/types";
+import { langTag } from "@/lib/lang";
+import { lifecycleWord, riskClass, riskLabel } from "./stickers";
 import { useLastVisit } from "./store";
-import type { WatchCardInfo } from "./watchlist";
 
-/* 지난 방문 이후 달라진 것 — 백엔드의 최근 변화(7일)를 브라우저에 남은 지난 방문 시각과 견준다.
+/* 지난 호 이후 달라진 것 — 서버가 이 판에 맞게 거른 최근 변화(7일)를 브라우저에 남은 지난 방문 시각과 견준다.
    띠(band)는 지난 방문 이후의 건수만, 절(section)은 이번 주 전체를 싣고 지난 방문 뒤의 것에 '새로' 를 붙인다. */
-const inScope = (i: UpdateItem, edition: string) => {
-  if (i.kind !== "spike") return true;
-  if (!i.region) return false;
-  if (edition === "ALL") return TARGET_REGIONS.includes(i.region);
-  if (edition === "GLOBAL") return true;
-  return i.region === edition;
-};
-
-function useChanges(items: UpdateItem[], edition: string) {
+function useChanges(rows: ChangeRow[]) {
   const prev = useLastVisit();
   const since = prev ? Date.parse(prev) : NaN;
-  const week = items.filter((i) => inScope(i, edition) && (i.kind !== "spike" || !!i.reason));
-  const isNew = (i: UpdateItem) => !Number.isNaN(since) && Date.parse(i.at) > since;
+  const isNew = (r: ChangeRow) => !Number.isNaN(since) && Date.parse(r.at) > since;
   const groups = {
-    verified: week.filter((i) => i.kind === "verified"),
-    changed: week.filter((i) => i.kind === "meaning_changed"),
-    spike: week.filter((i) => i.kind === "spike"),
+    verified: rows.filter((r) => r.kind === "verified"),
+    changed: rows.filter((r) => r.kind === "meaning_changed"),
+    spike: rows.filter((r) => r.kind === "spike"),
   };
-  return { prev, week, isNew, groups };
+  return { prev, isNew, groups };
 }
 
-export function ChangesBand({ items, locale, edition }: { items: UpdateItem[]; locale: Locale; edition: string }) {
-  const { prev, week, isNew, groups } = useChanges(items, edition);
-  const scoped = prev ? week.filter(isNew) : week;
+export function ChangesBand({ rows, locale }: { rows: ChangeRow[]; locale: Locale }) {
+  const { prev, isNew, groups } = useChanges(rows);
+  const scoped = prev ? rows.filter(isNew) : rows;
   const count = (k: keyof typeof groups) => (prev ? groups[k].filter(isNew) : groups[k]).length;
   const title = prev ? fe(locale, "ch_since", { date: fmtDate(prev) }) : fe(locale, "ch_week");
   const parts = [
@@ -52,36 +41,42 @@ export function ChangesBand({ items, locale, edition }: { items: UpdateItem[]; l
             fe(locale, prev ? "ch_none" : "ch_none_week")
           ) : (
             <>
-              {title}: <span className="fe-band__count">{fe(locale, "ch_count", { n: scoped.length })}</span>
-              {" — "}
+              {title} <span className="fe-band__count">{fe(locale, "ch_count", { n: scoped.length })}</span>
+              {": "}
               {parts.map(([n, label], i) => <span key={label}>{i > 0 && ", "}{label} {n}</span>)}
             </>
           )}
         </p>
-        {week.length > 0 && <a href="#fe-changes" className="fe-link">{fe(locale, "ch_jump")}</a>}
+        {rows.length > 0 && <a href="#fe-changes" className="fe-link">{fe(locale, "ch_jump")}</a>}
       </div>
     </div>
   );
 }
 
-const MAX = 6;
+const MAX = 5;   // 열마다 다섯 건을 펼치고 나머지는 접는다
 
-export function ChangesSection({ items, locale, edition, known = [] }: { items: UpdateItem[]; locale: Locale; edition: string; known?: WatchCardInfo[] }) {
-  const { prev, week, isNew, groups } = useChanges(items, edition);
-  const byId = new Map(known.map((c) => [c.id, c]));
-  if (week.length === 0) return null;
-  const tag = (i: UpdateItem) => isNew(i) && <span className="fe-new">{fe(locale, "ch_new")}</span>;
-  // 이번 호에 실린 밈이면 단계·조심을 같이(시각보다 쓸모 있다), 아니면 실린 때
-  const stageOf = (i: UpdateItem) => {
-    const c = i.term_id ? byId.get(i.term_id) : undefined;
-    if (!c) return <span className="fe-changes__sub">{fmtDateTime(i.at, locale)}</span>;
-    return (
-      <span className="fe-stickers" style={{ marginTop: 4 }}>
-        <span className="fe-sticker">{c.stage}</span>
-        {c.risk && <span className={`fe-sticker fe-sticker--${c.riskKey === "unknown" ? "muted" : c.riskKey}`}>{c.risk}</span>}
+export function ChangesSection({ rows, locale, edition }: { rows: ChangeRow[]; locale: Locale; edition: string }) {
+  const { prev, isNew, groups } = useChanges(rows);
+  if (rows.length === 0) return null;
+  const tag = (r: ChangeRow) => isNew(r) && <span className="fe-new">{fe(locale, "ch_new")}</span>;
+  const stickers = (r: ChangeRow) => (
+    <span className="fe-stickers">
+      {r.lifecycle && <span className="fe-sticker">{lifecycleWord(locale, r.lifecycle)}</span>}
+      {r.risk && <span className={riskClass(r.risk)}>{riskLabel(locale, r.risk)}</span>}
+    </span>
+  );
+  const item = (r: ChangeRow, n: number) => (
+    <li key={`${r.kind}-${r.id ?? r.label}-${n}`} className="fe-changes__item">
+      <span className="fe-changes__name">
+        {r.id ? <Link href={entryHref(r.id, edition)} lang={langTag(r.lang)}>{r.label}</Link> : <span lang={r.lang}>{r.label}</span>}
+        {tag(r)}
       </span>
-    );
-  };
+      {r.kind === "verified" && r.gloss && <span className="fe-changes__sub" lang={r.glossLang}>{r.gloss}</span>}
+      {r.kind === "meaning_changed" && r.previous && <span className="fe-changes__sub" lang="ko">{fe(locale, "ch_prev")}: {r.previous}</span>}
+      {r.kind === "spike" && r.reason && <span className="fe-changes__sub">{r.region && edition !== r.region ? `${regionLabel(locale, r.region)}. ` : ""}{r.reason}</span>}
+      {(r.kind === "verified" || r.kind === "meaning_changed") && stickers(r)}
+    </li>
+  );
   const col = (key: keyof typeof groups, title: string, note?: string) => {
     const list = groups[key];
     if (!list.length) return null;
@@ -89,20 +84,13 @@ export function ChangesSection({ items, locale, edition, known = [] }: { items: 
       <div className="fe-changes__col">
         <h3 className="fe-h3">{title} <span>{list.length}</span></h3>
         {note && <p className="fe-changes__note">{note}</p>}
-        <ul className="fe-changes__list">
-          {list.slice(0, MAX).map((i, n) => (
-            <li key={`${i.kind}-${i.term_id ?? i.label}-${n}`} className="fe-changes__item">
-              <span className="fe-changes__name">
-                {i.term_id ? <Link href={entryHref(i.term_id, edition)} lang={scriptLang(i.label, i.region)}>{i.label}</Link> : <span lang={scriptLang(i.label, i.region)}>{i.label}</span>}
-                {tag(i)}
-              </span>
-              {i.kind === "meaning_changed" && i.previous && <span className="fe-changes__sub" lang="ko">{fe(locale, "ch_prev")}: {i.previous}</span>}
-              {i.kind === "spike" && i.reason && <span className="fe-changes__sub">{i.region && edition !== i.region ? `${regionLabel(locale, i.region)} — ` : ""}{i.reason[locale]}</span>}
-              {i.kind === "verified" && stageOf(i)}
-            </li>
-          ))}
-        </ul>
-        {list.length > MAX && <p className="fe-changes__note">{fe(locale, "ch_more", { n: list.length - MAX })}</p>}
+        <ul className="fe-changes__list">{list.slice(0, MAX).map(item)}</ul>
+        {list.length > MAX && (
+          <details className="fe-rest fe-changes__rest">
+            <summary>{fe(locale, "ch_more", { n: list.length - MAX })}</summary>
+            <ul className="fe-changes__list">{list.slice(MAX).map((r, i) => item(r, i + MAX))}</ul>
+          </details>
+        )}
       </div>
     );
   };
@@ -110,7 +98,10 @@ export function ChangesSection({ items, locale, edition, known = [] }: { items: 
     <section id="fe-changes" className="fe-changes" aria-labelledby="fe-changes-title">
       <div className="fe-rubric__head">
         <h2 id="fe-changes-title" className="fe-h2">{fe(locale, "ch_week")}</h2>
-        {prev && <p className="fe-rubric__note">{fe(locale, "ch_since", { date: fmtDateTime(prev, locale) })}: {fe(locale, "ch_count", { n: week.filter(isNew).length })}</p>}
+        <p className="fe-rubric__note">
+          {prev && <>{fe(locale, "ch_since", { date: fmtDateTime(prev, locale) })}: {fe(locale, "ch_count", { n: rows.filter(isNew).length })}. </>}
+          {fe(locale, "ch_scope")}
+        </p>
       </div>
       <div className="fe-changes__cols">
         {col("verified", fe(locale, "ch_verified"))}

@@ -21,7 +21,7 @@ export function Masthead({ locale, edition }: { locale: Locale; edition: string 
   );
 }
 
-/* 판 고르기 — 판마다 실린 밈 수를 같이 보이고, 비어 있는 판은 눌리지 않는다(빈 호로 보내지 않는다). */
+/* 판 고르기 — 판마다 실린 밈 수를 같이 보인다. 비어 있는 판도 열린다(빈 호가 무엇을 뜻하는지 그 화면이 말한다). */
 export function EditionTabs({ locale, edition, counts }: { locale: Locale; edition: string; counts: Record<string, number> }) {
   return (
     <nav className="fe-editions" aria-label={fe(locale, "edition_pick")}>
@@ -29,19 +29,12 @@ export function EditionTabs({ locale, edition, counts }: { locale: Locale; editi
         <ul className="fe-editions__list">
           {EDITIONS.map((code) => {
             const n = counts[code] ?? 0;
-            const name = editionName(locale, code);
             const current = code === edition;
             return (
               <li key={code}>
-                {n > 0 ? (
-                  <Link href={issueHref(code)} className="fe-edition" aria-current={current ? "page" : undefined}>
-                    {name}<span className="fe-edition__n">{n}</span>
-                  </Link>
-                ) : (
-                  <span className="fe-edition is-empty" aria-disabled="true" title={fe(locale, "edition_empty")}>
-                    {name}<span className="fe-edition__n">0</span>
-                  </span>
-                )}
+                <Link href={issueHref(code)} className={n > 0 ? "fe-edition" : "fe-edition is-empty"} aria-current={current ? "page" : undefined} title={n > 0 ? undefined : fe(locale, "edition_empty")}>
+                  {editionName(locale, code)}<span className="fe-edition__n">{n}</span>
+                </Link>
               </li>
             );
           })}

@@ -9,7 +9,7 @@ export default async function NotFound() {
     <div className="fe-wrap fe-state">
       <h1>{fe(locale, "not_found_title")}</h1>
       <p>{fe(locale, "not_found")}</p>
-      <Link href={issueHref("KR")} className="fe-btn fe-btn--primary">{fe(locale, "back_issue")}</Link>
+      <Link href={issueHref("KR")} className="fe-btn fe-btn--primary">{fe(locale, "not_found_back")}</Link>
     </div>
   );
 }
