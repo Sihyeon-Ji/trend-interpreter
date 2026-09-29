@@ -95,7 +95,7 @@ Tralalero Tralala 는 원본 음성의 신성모독 표현이 근거 문장에 �
 
 - 사용 자제 규칙 둘을 판정(`risk.judge`) 수준에서 시험한다: 표제어 자체가 욕설·성적 표현, 영상 해석이 비하·혐오 기원을 지적(`risk_flags`의 '비하 기원' 등).
   정치 깃발만 있는 영상은 이 규칙에 걸리지 않는다(`test_risk_avoids_profane_headwords_and_videos_with_a_bad_origin`). 이로써 규칙표의 줄마다 테스트가 있다.
-- 분포 줄의 모델을 바로잡았다. 09-28의 234초 분류는 12B가 아니라 E4B다(근거 분류 1,237건의 `model`이 모두 `local:gemma4:e4b`).
+- 분포 줄의 모델을 바로잡았다. 09-28의 234초 분류는 12B가 아니라 E4B다(09-29 23:58 사본의 근거 분류 1,258건의 `model`이 모두 `local:gemma4:e4b`).
 - 표본 20개: `apps/trend-api/scripts/risk_sample.py draw`가 규칙 수준으로 층을 나눠 사용 자제 5·주의 7·없음 5·판단 보류 3을 뽑아
   [`03-term-risk-sample.csv`](03-term-risk-sample.csv)에 쓴다(시드 고정). 말의 목록이 파이프라인이 돌 때마다 바뀌어 같은 시드로도 같은 표본이
   다시 나오지 않으므로(09-29 23:04 에 뽑은 것과 23:58 사본에서 다시 뽑은 것은 20개 중 6개가 달랐다) 뽑은 표본을 `term_id` 와 함께 이 파일로 커밋하고,

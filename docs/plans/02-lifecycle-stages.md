@@ -97,6 +97,6 @@ X·인스타그램·틱톡 근거로 단계를 나누지 않습니다. 수집하
   (`test_track_stores_diffusion_in_the_term_and_its_column`: 커뮤니티 글만 → 태동, 뉴스 3건 + 꾸준함 → 주류).
 - 태동에서 빼는 '문서가 있다'(`track.usage_kinds`의 `documented`)를 [ADR 0003](../adr/0003-사전-등재-기준.md)의 참고 문서 규칙
   `verification.reference_doc`과 맞췄다. Know Your Meme·pixiv 백과사전·萌娘百科 문서도 문서이고, 홈페이지 주소는 문서가 아니다(`test_documented_means_a_reference_document_as_in_adr_0003`).
-- 원작자 서버 사본(09-29 23시) 실측: 추적 대상 722개(확인 153·검수 대기 559·조사 중 10) 가운데 문서 여부나 확산 단계가 바뀌는 말은 0개다.
+- 원작자 서버 사본(09-29 23:04) 실측: 추적 대상 722개(확인 153·검수 대기 559·조사 중 10) 가운데 문서 여부나 확산 단계가 바뀌는 말은 0개다.
   확인된 말 중 Know Your Meme 근거가 있는 8개(6-7·skibidi·AI slop·Tung Tung Tung Sahur 등)는 근거 주소가 모두 홈페이지(`https://knowyourmeme.com/`)라
   참고 문서로 세지 않는다 — 조사가 문서 주소를 잃고 저장한 것으로, 등재 게이트에서도 같은 이유로 문서가 아니다.
