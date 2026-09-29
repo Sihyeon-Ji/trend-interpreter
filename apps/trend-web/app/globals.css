@@ -228,6 +228,11 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  /* 일본어·중국어는 낱말 사이에 띄어쓰기가 없어 keep-all 이면 문장이 한 덩어리가 되어 아무 데서나 잘린다 — 금칙 규칙으로 줄을 바꾼다 */
+  :lang(ja), :lang(zh-Hant), :lang(zh) {
+    word-break: normal;
+    line-break: strict;
+  }
 }
 
 

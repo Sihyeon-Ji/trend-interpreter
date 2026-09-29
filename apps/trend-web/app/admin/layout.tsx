@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <PageShell>
     <div className="space-y-6">
-      <PageHeader title="관리"
+      <PageHeader title="관리" divider={false}
         meta={session ? <span>{t(locale, "admin_signed_in_as")} <span className="text-charcoal">{session.user}</span></span> : undefined}
         actions={<SignOut label={t(locale, "admin_sign_out")} />}>
         <AdminNav />

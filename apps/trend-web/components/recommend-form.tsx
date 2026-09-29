@@ -10,6 +10,7 @@ import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, listJoin, regionLabel, sourceName } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
 import type { CampaignTone, GenerationResult, RecommendItem, RecommendResult } from "@/lib/types";
+import { chipClass } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
 const MAX_IMAGE = 5 * 1024 * 1024;
@@ -112,8 +113,7 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   useEffect(() => { if (gen) document.getElementById("gen-title")?.focus(); }, [gen]);
 
   const field = "mt-1.5 block w-full rounded-md border border-hairline-strong bg-white px-3 py-2 text-[15px] text-ink placeholder:text-steel";
-  const chip = (on: boolean) => cn("inline-flex h-8 items-center rounded-md border px-3 text-[13px] whitespace-nowrap",
-    on ? "border-ink bg-ink text-white" : "border-hairline-strong bg-background text-charcoal hover:border-ink hover:text-ink");
+  const chip = chipClass;
   const fieldLabel = "block text-[13px] font-medium text-ink";
   const category = result?.brief ? labels.fitCategory[result.brief.category] : "";
   const step = gen ? 3 : result && result.items.length ? 2 : 1;

@@ -7,6 +7,7 @@ import { groupByInitial } from "@/lib/dictionary/index";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, joinGens, regionLabel, termLangLabel } from "@/lib/labels";
 import type { Generation, TermRecord } from "@/lib/types";
+import { chipClass } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
 const GENS: Generation[] = ["10s", "20s", "30s", "40s", "50s+"];
@@ -53,8 +54,7 @@ export function DictionaryList({ records, locale, readerGen = null, updatedAt = 
     return !!gens.length && !gens.includes("all") && !gens.includes(readerGen as never);
   };
   const groups = groupByInitial(shown, locale);
-  const pill = (on: boolean) => cn("inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] whitespace-nowrap",
-    on ? "border-ink bg-ink text-white" : "border-hairline-strong bg-background text-charcoal hover:border-ink hover:text-ink");
+  const pill = chipClass;
 
   return (
     <div className="space-y-5">
