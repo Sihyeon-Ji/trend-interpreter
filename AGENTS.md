@@ -13,4 +13,4 @@
 - No raw user text, generated output or credentials in operational logs.
 - A health check does not establish real Gemini access or GPU inference readiness.
 - GCP billing is linked and deployment resumed on 2026-09-21. Deploy through `release/gcp` only after checks pass, and verify the resulting service before reporting success.
-- Notion access for this project is limited to page `project page` and its descendants. Verify ancestry before changes; linked pages outside that subtree are out of scope. Do not search or modify unrelated workspace content.
+- Notion access for this project is limited to its project page and descendants. Verify ancestry before changes; linked pages outside that subtree are out of scope. Do not search or modify unrelated workspace content.

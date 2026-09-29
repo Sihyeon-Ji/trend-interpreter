@@ -113,16 +113,6 @@ prototype/                   Earlier candidate projects, not built or scanned
 docs/                        Korean documentation: setup, operations, Trend design records, plans
 ```
 
-## Release and deployment
-
-Develop on `develop`; pushes there do not start GitHub Actions. Pushing `release/gcp` classifies the
-change, runs the full checks once, and deploys the alert relay when it changed.
-
-The **Trend application deployment job is intentionally disabled** until the Cloud SQL PostgreSQL
-instance and a private API path are provisioned; see [Plan 05](docs/plans/05-trend-cloud-run-deployment.md). The
-previously deployed `builder-cup` Cloud Run service keeps serving until the Trend release replaces it.
-Never commit credentials, `.env`, model weights, Terraform state or collected data.
-
 ## Team and documentation
 
 - [Documentation index in Korean](docs/README.md)
@@ -132,8 +122,5 @@ Never commit credentials, `.env`, model weights, Terraform state or collected da
 - [Architecture](docs/운영/시스템-아키텍처.md)
 - [Operations](docs/운영/GCP-운영.md)
 - [Team workflow](docs/개발환경/팀-작업-방식.md)
-
 - [Repository](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup)
 - [Project board](https://github.com/users/Sihyeon-Ji/projects/1)
-
-External workspace links do not automatically authenticate a clone or connect an MCP integration.
