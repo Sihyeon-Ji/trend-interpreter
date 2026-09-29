@@ -188,3 +188,30 @@ def test_dashboard_and_dictionary_share_the_mention_region_rule():
     sg = dashboard.board(con, ["SG"])
     assert [c.term_id for c in sg.rising + sg.fading] == ["t1"] and sg.rising[0].mentions_4w == dashboard.REGION_MIN_MENTIONS
     assert dashboard.card(con, "t1").regions == ["SG"] == views.term_record(con, ds.get_term(con, "t1")).regions
+
+
+def test_research_reserves_slots_for_under_covered_target_regions():
+    """새 표제어 칸 가운데 몇 칸은 사전이 빈 목표 지역(HK·SG·MY·VN·PH·TH·ID) 후보에 먼저 — spot 후보는 출처 순서로 늘 맨 뒤라
+    홍콩에서 네 번 본 行得㗎啦 가 09-28 부터 기다렸다. 그 지역에서 봤어도 그 지역 말이 아니면(인니 쇼츠의 힌디어) 칸을 받지 않는다."""
+    from trend_agents.pipeline import research
+
+    con = db.connect(":memory:")
+    for k in range(12):
+        ds.upsert_candidate(con, f"Wiki meme {k}", "en", "US", "wiki", note="kind=meme wiki=x")       # 위키 후보가 칸을 모두 채울 만큼
+    for _ in range(4):
+        ds.upsert_candidate(con, "行得㗎啦", "zh", "HK", "spot", note="kind=meme; spot")
+        ds.upsert_candidate(con, "Kisme Jda Hoga", "hi", "ID", "spot", note="kind=meme; spot")
+    for _ in range(2):
+        ds.upsert_candidate(con, "หาแดก", "th", "TH", "spot", note="kind=meme; spot")
+        ds.upsert_candidate(con, "WENG-WENG", "en", "PH", "spot", note="kind=meme; spot")
+        ds.upsert_candidate(con, "Bro", "en", "ID", "spot", note="kind=meme; spot")               # 인니에서 본 영어 — 인니 말이 아니다
+    ds.upsert_candidate(con, "TAM THÁI TỬ", "vi", "VN", "spot", note="kind=song; spot")            # 노래는 한 번만 봐도 승격
+    region = {c.text: research.target_region(c) for c in ds.candidates(con, "new", 100)}
+    assert (region["行得㗎啦"], region["หาแดก"], region["WENG-WENG"], region["TAM THÁI TỬ"]) == ("HK", "TH", "PH", "VN")
+    assert region["Kisme Jda Hoga"] is region["Bro"] is region["Wiki meme 0"] is None
+
+    got = [t.canonical for t in research.promote_candidates(con, 8)]
+    assert len(got) == 8 and got[0] == "行得㗎啦" and set(got[:research.REGION_SLOTS]) == {"行得㗎啦", "หาแดก", "WENG-WENG"}   # 많이 본 순
+    assert sum(g.startswith("Wiki meme") for g in got) == 8 - research.REGION_SLOTS                # 나머지 칸은 예전 순서(위키 먼저)
+    assert "Kisme Jda Hoga" not in got and "Bro" not in got
+    assert [t.canonical for t in research.promote_candidates(con, 8)][:1] == ["TAM THÁI TỬ"]      # 다음 실행에는 남은 지역 후보가 먼저

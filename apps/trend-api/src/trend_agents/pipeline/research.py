@@ -26,6 +26,10 @@ from ..storage.db import Connection
 MIN_CANDIDATE_COUNT = 2  # 소스 두 번 이상 등장했거나 쇼츠에서 나온 후보만
 DICT_KINDS = {"slang": "slang", "slang_meme": "slang", "meme": "meme", "dance": "meme", "challenge": "meme", "song": "song"}  # kind → 사전 분류
 STRONG_KINDS = {"slang", "slang_meme", "song", "challenge"}  # 한 번만 보여도 승격. '밈' 이름은 두 번째 등장을 기다린다
+# 목표 지역 가운데 사전이 빈 곳(09-29 대시보드: HK 2 · SG 0 · MY 0 · VN 0 · PH 1 · TH 2 · ID 3). 새 표제어 칸 가운데 REGION_SLOTS 칸은
+# 이 지역 후보에 출처와 상관없이 많이 본 순으로 먼저 준다 — spot 후보는 출처 순서로 늘 맨 뒤라 홍콩에서 네 번 본 行得㗎啦 가 09-28 부터 기다렸다.
+UNDER_COVERED = ("HK", "SG", "MY", "VN", "PH", "TH", "ID")
+REGION_SLOTS = 3
 MAX_WEB_FETCH = 6
 MAX_HOPS = 6      # 그라운딩 주소는 구글의 넘겨주기 주소다 — 넘겨주기를 한 칸씩 따라가며 어디로 가는지 본다
 UA = "Mozilla/5.0 (compatible; trend-agents/0.1)"
@@ -127,28 +131,53 @@ def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) ->
     return out
 
 
+def _kind(c) -> str:
+    m = re.search(r"kind=(\w+)", c.note)
+    return m.group(1) if m else ""
+
+
+def _ready(c) -> bool:
+    """승격할 만큼 봤나. 두 번 이상 봤거나, 한 번으로 되는 종류(유행어·노래·챌린지)이거나 출처(위키·질문·나무위키)일 때.
+    위키백과에 문서가 있다는 것은 편집자가 백과사전 항목으로 쓸 만큼 자리잡은 표현이라는 뜻이다 —
+    트렌드 목록에서 두 번 본 것보다 강한 신호라서 한 번에 승격한다. verified 여부는 여전히 게이트가 정한다.
+    사람이 직접 물어본 말(hunt)은 수요가 곧 근거다. 위키 문서가 있는 것과 같은 급으로 본다."""
+    kind = _kind(c)
+    return kind in DICT_KINDS and (c.count >= MIN_CANDIDATE_COUNT or kind in STRONG_KINDS or bool({"wiki", "hunt", "namu"} & set(c.sources)))
+
+
+def target_region(c) -> str | None:
+    """후보가 사전이 빈 목표 지역(UNDER_COVERED)의 말이면 그 나라. 표제어의 나라(글자·언어, 광동어는 홍콩)가 그 지역이거나,
+    그 지역에서 봤고 그 지역이 그 언어를 쓰는 곳(중국어 → 홍콩, 영어 → 싱가포르·말레이시아·필리핀)일 때만 — 인도네시아·싱가포르
+    쇼츠 제목에서 본 spot 후보는 대부분 힌디어였다(09-29). 본 곳만으로 정하면 그런 말이 칸을 가져간다."""
+    home = home_region(c.text, c.lang)
+    if home in UNDER_COVERED:
+        return home
+    uses = (*region_cycle(c.text, c.lang), *(ENGLISH_EDITIONS if c.lang == "en" else ()))
+    return next((r for r in c.regions if r in UNDER_COVERED and r in uses), None)
+
+
 def promote_candidates(con: Connection, limit: int) -> list[Term]:
-    """후보 → 용어(researching). 쇼츠에서 나온 것 또는 2회 이상 본 것."""
+    """후보 → 용어(researching). 쇼츠에서 나온 것 또는 2회 이상 본 것. REGION_SLOTS 칸은 사전이 빈 목표 지역의 후보에 먼저 준다."""
     terms: list[Term] = []
     # 사람이 물어본 말·위키 문서가 있는 말을 먼저 조사한다. spot 출신이 앞을 막으면 좋은 후보가 대기열 뒤에 묻힌다.
     # 나무위키 분류는 오래된 한국어 말을 채워 넣는 것이라 지금 뜨는 신호(위키·쇼츠) 뒤에 두고, 한 번에 절반까지만 —
     # 앞에 두었더니 나무위키 'ㄱ' 항목 47개가 대만 위키 후보를 모두 막았다(2026-09-29 검토).
     first = {"hunt": 0, "wiki": 1, "shorts": 2, "namu": 3}
     namu_cap, namu_n = max(1, limit // 2), 0
-    pool = sorted(ds.candidates(con, "new", 400), key=lambda c: min((first.get(s, 9) for s in c.sources), default=9))
-    for c in pool:
+    new = ds.candidates(con, "new", 400)          # 많이 본 순
+    pool = sorted(new, key=lambda c: min((first.get(s, 9) for s in c.sources), default=9))
+    # 사전이 빈 목표 지역의 후보는 출처와 상관없이 많이 본 순으로 REGION_SLOTS 개까지 맨 앞에 선다. 나머지 칸은 예전 순서
+    reserved = [c for c in new if target_region(c) and _ready(c) and not ds.find_term(con, c.text)][:min(REGION_SLOTS, limit)]
+    ahead = {c.candidate_id for c in reserved}
+    for c in reserved + [c for c in pool if c.candidate_id not in ahead]:
         only_namu = set(c.sources) <= {"namu"}
         if only_namu and namu_n >= namu_cap:
             continue
-        m = re.search(r"kind=(\w+)", c.note)
-        kind = m.group(1) if m else ""
+        kind = _kind(c)
         if kind not in DICT_KINDS:  # 분류가 유행어·밈·노래·챌린지로 보지 않은 것은 사전에 넣지 않는다 (brics, aqi, iPhone Duo 같은 일반 검색어)
             ds.set_candidate_status(con, c.candidate_id, "rejected")
             continue
-        # 위키백과에 문서가 있다는 것은 편집자가 백과사전 항목으로 쓸 만큼 자리잡은 표현이라는 뜻이다 —
-        # 트렌드 목록에서 두 번 본 것보다 강한 신호라서 한 번에 승격한다. verified 여부는 여전히 게이트가 정한다.
-        # 사람이 직접 물어본 말(hunt)은 수요가 곧 근거다. 위키 문서가 있는 것과 같은 급으로 본다.
-        if c.count < MIN_CANDIDATE_COUNT and kind not in STRONG_KINDS and not ({"wiki", "hunt", "namu"} & set(c.sources)):
+        if not _ready(c):
             continue
         if ds.find_term(con, c.text):
             ds.set_candidate_status(con, c.candidate_id, "promoted")
