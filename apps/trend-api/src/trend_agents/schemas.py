@@ -522,6 +522,38 @@ class SpottedTerm(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
+# ---------- 문서 대조 (Plan 12) — 로컬 Gemma 는 제안만 한다. 상태·뜻은 사람이 검수 큐에서 바꾼다 ----------
+
+class MeaningFix(BaseModel):
+    """참고 문서와 맞춰 본 고칠 안 — 뜻·유래·뉘앙스만. 빈 칸은 지금 실린 뜻을 그대로 둔다(풀이·세대·나라도 그대로)."""
+
+    definition: str = Field(default="", description="고친 뜻 (한국어). 바꿀 필요가 없으면 빈 문자열")
+    origin: str = Field(default="", description="고친 유래 (한국어). 바꿀 필요가 없으면 빈 문자열")
+    nuance: str = Field(default="", description="고친 뉘앙스·주의점 (한국어). 바꿀 필요가 없으면 빈 문자열")
+
+    @field_validator("definition", "origin", "nuance", mode="before")
+    @classmethod
+    def _text(cls, v):
+        return str(v or "").strip()
+
+
+class DocReading(BaseModel):
+    """위키끼리 다를 때 참고 문서 하나가 적은 것."""
+
+    i: int = Field(description="참고 문서 번호")
+    summary: str = Field(description="그 문서가 적은 뜻·유래 한 문장 (한국어)")
+    proposal: MeaningFix | None = Field(default=None, description="그 문서대로 고친 안. 없으면 null")
+
+
+class CrosscheckJudgement(BaseModel):
+    """사전 뜻과 참고 문서 발췌를 나란히 본 로컬 Gemma 의 제안(Plan 12 §2). '문서 없음' 은 규칙(verification.reference_doc)이 정하므로 여기 없다."""
+
+    verdict: Literal["keep", "fix", "conflict", "not_a_meme"]
+    reason: str = Field(default="", description="한국어 한두 문장. 무엇이 맞거나 다른지 문서 번호를 들어 쓴다")
+    proposal: MeaningFix | None = Field(default=None, description="fix 일 때 고칠 안")
+    readings: list[DocReading] = Field(default_factory=list, description="conflict 일 때 문서마다 그 문서가 적은 것")
+
+
 # ---------- 급증 원인 조사 ----------
 
 Trigger = Literal["influencer", "release", "event", "controversy", "meme", "promotion", "holiday", "sports", "unknown"]

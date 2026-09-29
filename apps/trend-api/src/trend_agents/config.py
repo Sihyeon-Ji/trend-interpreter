@@ -31,6 +31,9 @@ GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "36"))
 # 그날 조사·해석이 멈췄다(2026-09-29 검토). 다 쓰면 로컬 Gemma 로, 그것도 없으면 '오늘 한도' 로 알린다.
 REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "12"))  # 하루 Gemini 호출 상한. 무료 등급 실측(09-15): 모델당 하루 20회(GenerateRequestsPerDayPerProjectPerModel-FreeTier) → 3.8+3.5 합쳐 약 40. 결제(Tier 1) 연결 시 400 정도로
 USE_LOCAL_GEMMA = os.getenv("USE_LOCAL_GEMMA", "0") == "1"  # 번역·재작성에 로컬 Gemma 를 쓸지 (꺼져 있으면 Gemini)
+# Know Your Meme 수집기(Plan 12). 기본 꺼짐 — 이용 약관(자동 접근은 사람 수준의 속도만, 내용은 개인적 정보 이용만·동의 없는 복제·게시 금지,
+# 서면 허락 없는 상업적 이용 금지) 때문에 제품에 쓸지는 사용자가 정한다. 켜도 문서 주소와 제목만 근거로 둔다.
+KNOWYOURMEME_ENABLED = os.getenv("KNOWYOURMEME_ENABLED", "false").lower() in ("1", "true")
 PIPELINE_INTERVAL_HOURS = float(os.getenv("PIPELINE_INTERVAL_HOURS", "6"))
 API_PORT = int(os.getenv("API_PORT", "8080"))
 # 계정. 비밀번호는 해시만 저장한다 — scripts/set_account.py 로 만든다. 자세한 형식은 auth.py.

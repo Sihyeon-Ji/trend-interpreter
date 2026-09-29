@@ -149,6 +149,8 @@ def due_for_recheck(con: Connection, limit: int) -> list[Term]:
         cm = ds.current_meaning(con, t.term_id)
         if cm and cm.verification == "verified_human":
             continue
+        if under_review(con, t.term_id):
+            continue
         last = ds.last_researched(con, t.term_id)
         if last is None or (now - last).days >= recheck_interval_days(t.lifecycle):
             out.append((order.get(t.status, 2), last.isoformat() if last else "", t))
@@ -200,30 +202,36 @@ def _wikipedia_evidence(term: str, lang: str) -> list[Evidence]:
     개별 밈은 대개 독립 문서가 아니라 상위 문서로 넘어간다("Bombardiro Crocodilo" → "Italian brainrot").
     요약 앞 600자에는 이름이 없고 본문 중간 목록에 있어서, 본문을 받아 그 이름이 나오는 문장을 쓴다(실측 09-16).
     """
-    from ..collectors import wikipedia_search
-
     out: list[Evidence] = []
     for lg in dict.fromkeys([lang, "en"]):
-        try:
-            sm = wikipedia_search.summary(lg, term)
-            if not sm:
-                titles = wikipedia_search.search(lg, term, limit=1)
-                sm = wikipedia_search.summary(lg, titles[0]) if titles else None
-            if not sm:
-                continue
-            sents = _term_sentences(sm.get("extract") or "", term) or _term_sentences(
-                wikipedia_search.article_text(lg, sm["title"]), term)
-        except Exception:
-            continue
-        if not sents:                  # 그 문서에 이름이 없으면 근거가 아니다
-            continue
-        excerpt = sents[0]
-        WIKI_CONTEXT[term] = (WIKI_CONTEXT.get(term, []) + sents)[:6]
-        url = sm.get("url") or f"https://{lg}.wikipedia.org/wiki/{sm['title']}"
-        out.append(Evidence(evidence_id=ds.new_id("e", f"{url}|{term}"), kind="wiki", url=url,
-                            title=sm["title"][:200], source_domain="wikipedia.org",
-                            observed_at=datetime.now(timezone.utc), excerpt=excerpt[:240]))
+        e, sents = wikipedia_doc(term, lg)
+        if e:
+            WIKI_CONTEXT[term] = (WIKI_CONTEXT.get(term, []) + sents)[:6]
+            out.append(e)
     return out
+
+
+def wikipedia_doc(term: str, lg: str) -> tuple[Evidence | None, list[str]]:
+    """위키백과 한 언어판에서 그 이름이 나온 문서 한 쪽(근거)과 그 문장들. 없으면 (None, []). 문서 대조(Plan 12)도 이것으로 찾는다."""
+    from ..collectors import wikipedia_search
+
+    try:
+        sm = wikipedia_search.summary(lg, term)
+        if not sm:
+            titles = wikipedia_search.search(lg, term, limit=1)
+            sm = wikipedia_search.summary(lg, titles[0]) if titles else None
+        if not sm:
+            return None, []
+        sents = _term_sentences(sm.get("extract") or "", term) or _term_sentences(
+            wikipedia_search.article_text(lg, sm["title"]), term)
+    except Exception:
+        return None, []
+    if not sents:                      # 그 문서에 이름이 없으면 근거가 아니다
+        return None, []
+    url = sm.get("url") or f"https://{lg}.wikipedia.org/wiki/{sm['title']}"
+    return Evidence(evidence_id=ds.new_id("e", f"{url}|{term}"), kind="wiki", url=url,
+                    title=sm["title"][:200], source_domain="wikipedia.org",
+                    observed_at=datetime.now(timezone.utc), excerpt=sents[0][:240]), sents
 
 
 _YT_ID = re.compile(r"(?:shorts/|watch\?v=|youtu\.be/)([A-Za-z0-9_-]{6,20})")
@@ -323,6 +331,13 @@ def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
     return "\n".join(lines) or "- (근거 없음)"
 
 
+def under_review(con: Connection, term_id: str) -> bool:
+    """문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지)을 사람이 보고 있는가. 그 결정 전에는 조사가 지금 뜻을 바꾸지 않는다 —
+    바꾸면 검수자가 본 뜻과 달라지고, 조사 결과(new) 줄이 그 제안을 덮는다(Plan 12)."""
+    q = ds.pending_review(con, term_id)
+    return bool(q and q["kind"] != "new")
+
+
 MECHANICAL = ("표현이 아니라", "뜻이 비었", "모델 자기확신")
 MODEL_ONLY = ("표현이 아니라", "모델 자기확신")   # 모델이 스스로 한 판단(is_expression·self_confidence)
 
@@ -348,6 +363,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     stored = ds.get_term(con, term.term_id)
     if (stored and stored.status == "retired") or (cur and cur.verification == "rejected"):
         return "rejected", []            # 단계가 대상을 고른 뒤 사람이 제외했다(검토 2차)
+    if under_review(con, term.term_id):
+        return "under_review", []        # 문서 대조의 제안을 사람이 보는 중 — 결정 뒤에 다시 조사한다
     entry_meaning = cur.meaning_id if cur else None
     method = GEMINI_MODEL
     urls: list[str] = []
@@ -382,6 +399,14 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
                 if got:
                     first_party += got
                     break
+        # 한국어가 아닌 밈(영어·일본어 …)은 Know Your Meme 문서가 유래를 적는다 — 한국어 표제어도 로마자 별칭이 있으면 찾는다(Plan 12 §4).
+        # Search grounding 이 없는 오프라인 조사가 위키백과·나무위키만 찾아 영어·일본어 밈이 문서가 있어도 검수 대기로 가던 것.
+        # 이용 약관 때문에 기본은 꺼져 있다(KNOWYOURMEME_ENABLED) — 꺼져 있으면 부르지 않고, 그런 말은 사람 검수(ADR 0003 예외 길)로 간다.
+        # 켜도 문서 주소와 제목만 근거로 둔다(collectors/knowyourmeme.py).
+        from ..collectors import knowyourmeme
+
+        if knowyourmeme.enabled() and (term.lang != "ko" or any(knowyourmeme.latin(a) for a in term.aliases)):
+            first_party += knowyourmeme.lookup(term.canonical, term.aliases)
         # 뉴스에서 실제로 쓰인 문장(GDELT Context, 최근 72시간). 이미 아는 말이 언론까지 번졌는지 보여 준다.
         from ..collectors import gdelt_context
 
@@ -417,6 +442,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     if (now_term and now_term.status == "retired") or (current and current.verification == "rejected"):
         # 그 사이 검수자가 제외했다 — 새 판을 올리지 않는다(검토 2차: 승인만 지키고 제외는 덮었다)
         return "rejected", []
+    if under_review(con, term.term_id):
+        return "under_review", []        # 조사하는 사이 문서 대조가 제안을 올렸다 — 사람이 결정하기 전에는 덮지 않는다
     if (current.meaning_id if current else None) != entry_meaning:
         return "changed", []             # 조사하는 사이 뜻이 바뀌었다(사람이 고쳤거나 다른 단계가 먼저) — 덮지 않고 다음 주기에
     verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases)
@@ -434,7 +461,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     if verification == "verified_auto":
         term.status = "verified"
         if ds.gate_reasons(con, term.term_id):
-            ds.decide_review(con, term.term_id, "auto_verified", "gate")
+            ds.decide_review(con, term.term_id, "auto_verified", "gate", kind="new")   # 조사 결과 줄만 — 문서 대조의 제안은 사람이 닫는다
     else:
         term.status = "needs_review"
         ds.queue_review(con, term.term_id, draft, reasons, len(evidences))
