@@ -16,7 +16,8 @@ def _models(con, name: str):
 
 def test_local_translation_records_the_exact_model(monkeypatch):
     """로컬 Gemma 번역은 'gemma-local' 이 아니라 실제 모델 ID 로 남는다 — gemini.generate 의 local:<모델> 과 같은 꼴.
-    원작자 서버의 'gemma-local' 278건은 어느 모델이 썼는지 알 수 없었다(같은 시기 다른 표에는 12b·e4b·gpt-oss 가 섞여 있다)."""
+    원작자 서버의 'gemma-local' 286건(09-29 23:58 사본)은 어느 모델이 썼는지 알 수 없었다(같은 시기 다른 표에는 12b·e4b·gpt-oss 가 섞여 있다).
+    남긴 이름은 실제로 넘긴 모델과 같아야 한다 — 호출과 이름이 따로 놀면 기록이 거짓이 된다."""
     from trend_agents.interpreters import gemma_local, gemma_translate
 
     con = db.connect(":memory:")
@@ -26,10 +27,16 @@ def test_local_translation_records_the_exact_model(monkeypatch):
                                            regions=["KR"], self_confidence=0.9), "verified_auto", [])
     monkeypatch.setattr(translate, "USE_LOCAL_GEMMA", True)
     monkeypatch.setattr(gemma_local, "is_available", lambda *a, **k: True)
-    monkeypatch.setattr(gemma_translate, "translate_meaning",
-                        lambda base, term, target, **k: MeaningText(definition=f"{term} ({target})", origin="x", nuance="y"))
+    called = []
+
+    def fake_translate(base, term, target, **k):
+        called.append(k.get("model"))
+        return MeaningText(definition=f"{term} ({target})", origin="x", nuance="y")
+
+    monkeypatch.setattr(gemma_translate, "translate_meaning", fake_translate)
 
     assert translate.run(con)["translate"].count == 2
+    assert called == [config.GEMMA_LOCAL_MODEL] * 2
     want = f"local:{config.GEMMA_LOCAL_MODEL}"
     assert {m for (m,) in con.execute("SELECT model FROM translations").fetchall()} == {want}
     assert _models(con, "translate") == want
@@ -64,3 +71,67 @@ def test_each_run_records_the_models_it_called(monkeypatch):
     gemini.structured(con, "prompt", dict)          # 단계 밖 — 기록할 실행이 없다
     assert [m for (m,) in con.execute("SELECT models FROM pipeline_runs ORDER BY started_at").fetchall()] == [
         f"local:{config.GEMMA_LOCAL_MODEL}", ",".join(sorted({f"local:{config.GEMMA_LOCAL_MODEL}", config.GEMINI_MODEL})), None]
+
+
+def test_video_interpretation_records_the_model_that_answered(monkeypatch):
+    """영상 해석은 gemini.py 를 거치지 않는다 — 기본 모델이 503 이면 실행 기록에는 실제로 답한 폴백 모델만 남는다."""
+    from google.genai import errors
+
+    from trend_agents.pipeline import interpret
+    from trend_agents.schemas import ShortsVideo
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    db.upsert_videos(con, [ShortsVideo(video_id="v1", url="https://www.youtube.com/shorts/v1", title="t", channel="c", published_at=now,
+                                       duration_sec=30, view_count=10, region=config.REGIONS_FOCUS[0], source="most_popular")])
+    tried = []
+
+    def fake_interpret(urls, model):
+        tried.append(model)
+        if model == config.GEMINI_MODEL:
+            raise errors.APIError(503, {"error": {"message": "overloaded"}})
+        return SimpleNamespace(items=[], dropped=0)
+
+    monkeypatch.setattr(interpret, "interpret_shorts", fake_interpret)
+    r = interpret.run(con, max_batches=1)["interpret"]
+    assert r.status != "error", r.note
+    assert tried == [config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL]
+    assert _models(con, "interpret") == config.GEMINI_FALLBACK_MODEL
+
+
+def test_grounded_research_records_the_model_that_answered(monkeypatch):
+    """검색 grounding 조사도 gemini.py 를 거치지 않는다 — 먼저 부른 모델이 503 이면 실행 기록에는 실제로 답한 모델만 남는다."""
+    from google.genai import errors
+
+    from trend_agents.collectors import community, gdelt_context, namuwiki, naver_search, wiktionary
+    from trend_agents.pipeline import research
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    term = Term(term_id="t1", canonical="자만추", lang="ko", status="researching", first_seen=now, last_seen=now)
+    ds.upsert_term(con, term)
+    tried = []
+
+    def fake_research(name, model):
+        tried.append(model)
+        if model == config.GEMINI_FALLBACK_MODEL:
+            raise errors.APIError(503, {"error": {"message": "overloaded"}})
+        return MeaningDraft(definition="자연스러운 만남을 추구한다는 뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                            self_confidence=0.9), [], "grounded notes"
+
+    monkeypatch.setattr(research, "research_term", fake_research)
+    monkeypatch.setattr(research, "promote_candidates", lambda con, n: [term])
+    monkeypatch.setattr(research, "due_for_recheck", lambda con, n: [])
+    for name in ("web_evidence", "first_party_evidence", "_wikipedia_evidence"):      # 네트워크·DB 수집은 비워 둔다
+        monkeypatch.setattr(research, name, lambda *a, **k: [])
+    monkeypatch.setattr(research, "attach_media", lambda *a, **k: 0)
+    monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(namuwiki, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(gdelt_context, "sentences", lambda *a, **k: [])
+    monkeypatch.setattr(community, "gather", lambda *a, **k: ([], []))
+    monkeypatch.setattr(naver_search, "gather", lambda *a, **k: ([], []))
+
+    r = research.run(con)["research"]
+    assert r.count == 1, r.note
+    assert tried == [config.GEMINI_FALLBACK_MODEL, config.GEMINI_MODEL]     # 조사는 3.5 부터(영상 해석과 할당량을 나눈다)
+    assert _models(con, "research") == config.GEMINI_MODEL
