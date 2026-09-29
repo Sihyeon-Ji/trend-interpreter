@@ -37,8 +37,13 @@ test("recommend suggests memes for a product without a model", async ({ page }) 
   await expect(items.filter({ hasText: "럭키비키" })).toHaveCount(1);
   await expect(items.filter({ hasText: "aura farming" })).toHaveCount(0);        // 친근한 톤에는 비꼬는 말투를 넣지 않는다
 
-  await items.filter({ hasText: "럭키비키" }).getByRole("link", { name: /사전에서 보기|Open in dictionary/ }).click();
-  await expect(page).toHaveURL(/\/dictionary\/t_luckyvicky$/);
+  // 사전은 새 탭으로 연다 — 추천 결과가 남아 있어야 한다
+  const [tab] = await Promise.all([
+    page.waitForEvent("popup"),
+    items.filter({ hasText: "럭키비키" }).getByRole("link", { name: /사전에서 보기|Open in dictionary/ }).click(),
+  ]);
+  await expect(tab).toHaveURL(/\/dictionary\/t_luckyvicky$/);
+  await expect(page.getByRole("heading", { name: /추천 밈|Suggested memes/ })).toBeVisible();
 });
 
 test("drafts copy and a script from a recommended meme without a model", async ({ page }) => {

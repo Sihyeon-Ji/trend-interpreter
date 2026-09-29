@@ -713,3 +713,105 @@ def test_track_keeps_old_shorts_in_their_week_and_clears_stale_last_seen():
     ds.upsert_term(con, Term(term_id="t2", canonical="없는말", lang="ko", status="verified", first_seen=old, last_seen=now))
     track.run(con)
     assert ds.get_term(con, "t2").last_seen is None
+
+
+def test_mention_sampling_rotates_through_all_terms():
+    """뉴스 검색으로 언급을 재는 칸은 한 번도 안 잰 것·오래된 것부터 돌아간다 — 같은 30개만 재던 것(검토 2차)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline.collect import mention_order
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for k in range(5):
+        ds.upsert_term(con, Term(term_id=f"t{k}", canonical=f"말{k}", lang="ko", status="verified", lifecycle="steady", first_seen=now, last_seen=now))
+    terms = ds.list_terms(con, ("verified",))
+    first = [t.term_id for t in mention_order(con, terms)[:3]]
+    for tid in first:
+        ds.mark_mention_sampled(con, tid)
+    second = [t.term_id for t in mention_order(con, terms)[:3]]
+    assert set(second[:2]) == {"t0", "t1", "t2", "t3", "t4"} - set(first)       # 아직 안 잰 두 말이 먼저
+
+def test_research_skips_terms_rejected_after_the_stage_picked_them():
+    """단계가 대상을 고른 뒤 사람이 제외한 말은 조사하지 않는다 — 네트워크에 가기 전에 끝난다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline.research import research_one
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t1", canonical="내린말", lang="ko", status="verified", first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+    stale = ds.get_term(con, "t1")
+    t.status = "retired"
+    ds.upsert_term(con, t, human=True)
+    assert research_one(con, stale) == ("rejected", [])
+
+
+def test_public_lists_hide_profane_headwords_and_single_card_refresh_keeps_time():
+    """나라 페이지·오늘의 변화도 둘러보는 목록이다. 카드 하나를 고쳐도 '갱신' 시각은 그대로."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import dashboard, views
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name in (("ok", "럭키비키"), ("bad", "인실좆")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition="뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"], self_confidence=0.9),
+                       "verified_auto", [])
+        ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
+    assert [r.term.term_id for r in views.country_page(con, "KR").terms] == ["ok"]
+    assert "인실좆" not in {u["label"] for u in ds.recent_updates(con, hours=1)}
+    dashboard.run(con)
+    before = ds.cache_get(con, dashboard.CACHE_KEY)[1]
+    dashboard.refresh_card(con, "ok")
+    assert ds.cache_get(con, dashboard.CACHE_KEY)[1] == before
+
+
+def test_korean_and_nuance_regexes_ignore_words_that_merely_contain_the_letters():
+    from trend_agents.pipeline.match import unsafe
+    from trend_agents.pipeline.risk import nuance_warning
+
+    for w in ("거들떠보지도", "찾아보지도", "지켜보지", "피자지만", "의자지만", "먹어보지도", "감자지옥"):
+        assert not unsafe(w), w
+    for text in ("이성적인 판단", "차별화된 개성", "시험 성적이 좋다", "감성적인 말투"):
+        assert nuance_warning(text) == "", text
+    assert nuance_warning("성적으로 대상화하는 말이다.") and nuance_warning("혐오감을 줄 수 있다.")
+
+
+def test_unsampled_weeks_do_not_read_as_decline():
+    """용어별 뉴스 검색으로만 잡힌 언급 [.., 9, 96, 0, 0] 은 그 뒤로 재지 않았으면 '지는 중' 이 아니다 — 마지막 쓰임으로 본다(검토 2차).
+    최근에 다시 쟀는데도 0 이면 그때는 모양으로 본다."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.pipeline import track
+    from trend_agents.schemas import Evidence, NewsItem, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="推し活", lang="ja", status="verified", first_seen=now - timedelta(days=200), last_seen=now))
+    for k in range(40):
+        when = now - timedelta(days=16 if k < 30 else 23)
+        n = NewsItem(title=f"推し活 特集 {k}", link=f"n{k}", source="x", published_at=when, region="JP", query="推し活")
+        con.execute("INSERT INTO news VALUES (?,?,?,?,?,?)", (n.link, n.region, n.query, when.isoformat(), when.isoformat(), n.model_dump_json()))
+    con.commit()
+    ds.add_evidences(con, "t1", [Evidence(evidence_id="c1", kind="community", url="https://togetter.com/li/1", title="推し活 まとめ",
+                                          source_domain="togetter.com", observed_at=now - timedelta(days=1), excerpt="推し活")])
+    track.run(con)
+    assert ds.get_term(con, "t1").lifecycle == "steady"          # 어제 쓰인 글이 있다 — 재지 않은 두 주를 '0 건' 으로 읽지 않는다
+
+    ds.mark_mention_sampled(con, "t1")                           # 오늘 다시 쟀는데 새 언급이 없다 → 그때는 모양으로
+    track.run(con)
+    assert ds.get_term(con, "t1").lifecycle in ("declining", "dormant", "peak", "steady")

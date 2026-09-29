@@ -35,7 +35,8 @@ CAUTION_NEGATIVE = 0.30
 MIN_LABELED = 5
 _BAD_ORIGIN = re.compile(r"비하|혐오|차별|멸칭|인종|slur|hate|derogat", re.I)
 # 조사 단계가 뜻풀이에 적어 둔 주의점(Plan 03 재료 '뉘앙스'). 예: 샤갈 "순화형이지만 뿌리는 욕설이다" — 근거 문장이 모자라도 사전이 이미 경고한다.
-_NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸칭|혐오|차별|조롱|선정적|성적|음란|저속|모욕|profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)
+_NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸칭|혐오|차별(?!화)|조롱|선정적|(?<![이감개중지인])성적(?:으로|인)|음란|저속|모욕|"
+                          r"profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)   # '이성적'·'차별화'·'시험 성적' 은 경고가 아니다(검토 2차)
 _NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
 _NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'
 

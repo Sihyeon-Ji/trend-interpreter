@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT
 CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
+-- 용어마다 뉴스 검색으로 언급을 마지막으로 잰 때(마이그레이션 006). collect.mentions 가 오래된 것부터 돌아가며 잰다.
+CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT);
 -- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
 CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
@@ -478,8 +480,9 @@ def gemini_spend(con: Connection, n: int = 1, ledger: str = "") -> None:
     con.commit()
 
 
-def cache_set(con: Connection, key: str, payload: str) -> None:
-    con.execute("INSERT OR REPLACE INTO board_cache VALUES (?,?,?)", (key, payload, now_s()))
+def cache_set(con: Connection, key: str, payload: str, generated_at: str | None = None) -> None:
+    """generated_at 을 주면 그 시각을 지킨다 — 카드 하나를 고친 것이 '전체를 새로 만든 때' 로 보이지 않게."""
+    con.execute("INSERT OR REPLACE INTO board_cache VALUES (?,?,?)", (key, payload, generated_at or now_s()))
     con.commit()
 
 
@@ -651,6 +654,9 @@ def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[di
         t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
         if t:
             rows.append({"kind": "reviewed", "at": at, "label": t[0], "term_id": tid, "detail": decision})
+    from ..pipeline.match import unsafe
+
+    rows = [r for r in rows if not unsafe(r.get("label") or "")]   # 공개 '오늘의 변화' 도 둘러보는 목록이다 — 욕설 표제어는 내지 않는다
     rows.sort(key=lambda r: r["at"] or "", reverse=True)
     return rows[:limit]
 
@@ -772,4 +778,15 @@ def set_fit(con: Connection, term_id: str, meaning_id: str, fit: MemeFit, model:
 def all_fits(con: Connection) -> dict[str, tuple[str, MemeFit]]:
     """{term_id: (붙일 때의 meaning_id, MemeFit)}"""
     return {tid: (mid, MemeFit.model_validate_json(j)) for tid, mid, j in con.execute("SELECT term_id, meaning_id, json FROM term_fit").fetchall()}
+
+
+# ---------- 언급 표본 (뉴스 검색을 누구에게 먼저 돌리나) ----------
+
+def mention_sampled(con: Connection) -> dict[str, str]:
+    return dict(con.execute("SELECT term_id, last_at FROM mention_queries").fetchall())
+
+
+def mark_mention_sampled(con: Connection, term_id: str) -> None:
+    con.execute("INSERT OR REPLACE INTO mention_queries VALUES (?,?)", (term_id, now_s()))
+    con.commit()
 

@@ -69,8 +69,9 @@ def newest_usage(con: Connection, term_id: str) -> datetime | None:
 
 
 def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str | None = None,
-                  by_region: dict[str, Counter] | None = None) -> Counter:
-    """원본(뉴스 제목·쇼츠 해석·검색어)에서 주별 언급 수. by_region 을 주면 같은 한 번의 훑기로 나라별로도 센다(Plan 04)."""
+                  by_region: dict[str, Counter] | None = None, queried: Counter | None = None) -> Counter:
+    """원본(뉴스 제목·쇼츠 해석·검색어)에서 주별 언급 수. by_region 을 주면 같은 한 번의 훑기로 나라별로도 센다(Plan 04).
+    queried 를 주면 용어별 뉴스 검색(query 가 있는 뉴스)에서 온 것을 따로 센다 — 잰 주에만 몰리는 몫이다."""
     keys = {_norm(term), *(_norm(a) for a in aliases)}
     c: Counter = Counter()
 
@@ -84,6 +85,8 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
         if mentions(n.title, term, aliases):
             d = (n.published_at or datetime.now(timezone.utc)).date()
             add(_week(d), n.region)
+            if queried is not None and n.query:
+                queried[_week(d)] += 1
     for j, vj, created in con.execute("SELECT i.json, v.json, i.created_at FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall():
         it = ShortsInterpretation.model_validate_json(j)
         if any(same_term(m.name, term, aliases) for m in it.memes):
@@ -105,9 +108,15 @@ def run(con: Connection) -> dict:
         today = date.today()
         weeks = [_week(today - timedelta(weeks=i)) for i in range(WEEKS - 1, -1, -1)]
         n = 0
+        # 뉴스 검색으로 언급을 마지막으로 잰 때. 재지 않은 주의 0 은 '안 쓰임' 이 아니라 '안 봤음' 이다 — 최근 두 주를 재지 않았으면
+        # 모양(life_stage) 대신 마지막으로 쓰인 때(recency_stage)로 본다(검토 2차: 推し活 [...,9,96,0,0] 이 '지는 중' 이 됐다)
+        sampled = {k: datetime.fromisoformat(v) for k, v in ds.mention_sampled(con).items() if v}
+        queried = {q: datetime.fromisoformat(at) for q, at in con.execute(
+            "SELECT query, MAX(first_seen) FROM news WHERE query IS NOT NULL GROUP BY query").fetchall() if q and at}
         for t in ds.list_terms(con, ("verified", "needs_review", "researching")):
             by_region: dict[str, Counter] = {}
-            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region)
+            query_hits: Counter = Counter()
+            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region, queried=query_hits)
             # 주간 언급·마지막 본 때는 원본만. 조사 근거는 조사한 주에 몰려 '최근 조사한 것' 이 '요즘 뜨는 것' 으로
             # 보였다(2026-09-29 검토: 2017년 가즈아·날아다니는 스파게티 괴물이 '10대 유행어' 윗줄). 근거는 처음 본 때와
             # '마지막으로 쓰인 때'(recency_stage) 에만 쓴다.
@@ -121,10 +130,20 @@ def run(con: Connection) -> dict:
             # 몰려서, 그대로 넣으면 '우리가 언제 조사했나' 를 잰다(2026-09-28: 2017년 유행어 가즈아가 '오르는 중').
             # 원본에 언급이 없으면 조사 근거로는 '마지막으로 쓰인 때' 만 본다.
             raw_series = [raw.get(w, 0) for w in weeks]
-            if sum(raw_series):
+            last_sampled = sampled.get(t.term_id) or queried.get(t.canonical)
+            if last_sampled and last_sampled.tzinfo is None:
+                last_sampled = last_sampled.replace(tzinfo=timezone.utc)
+            fresh_sample = bool(last_sampled) and (datetime.now(timezone.utc) - last_sampled).days <= 14
+            newest = newest_usage(con, t.term_id)
+            # 늘 모으는 원본(나라별 뉴스판·쇼츠·검색어)은 매 실행 모든 말을 같이 보므로 0 도 뜻이 있다. 용어별 뉴스 검색은 잰 주에만 몰린다
+            steady_series = [raw.get(w, 0) - query_hits.get(w, 0) for w in weeks]
+            if sum(raw_series) and fresh_sample:
                 t.lifecycle = life_stage(raw_series, weeks_since)
+            elif sum(steady_series):
+                t.lifecycle = life_stage(steady_series, weeks_since)
             else:
-                t.lifecycle = recency_stage(newest_usage(con, t.term_id))
+                last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
+                t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None))
             lifecycle, dif = t.lifecycle, diffusion(usage_kinds(con, t.term_id), t.lifecycle)
             # 다른 필드는 저장된 쪽에서 — 훑는 몇 분 사이 검수자가 승인·제외한 것을 시작 때 읽은 사본이 덮지 않게
             fresh = ds.get_term(con, t.term_id) or t
@@ -132,7 +151,6 @@ def run(con: Connection) -> dict:
             fresh.first_seen = first.replace(tzinfo=timezone.utc)
             # 마지막 본 때 = 원본의 마지막 주와 가장 최근 쓰임 근거 가운데 늦은 것 — 생애주기(recency_stage)와 같은 재료.
             # 둘 다 없으면 비운다(예전 규칙으로 남은 날짜가 그대로 남아 있던 것, 검토 2차)
-            newest = newest_usage(con, t.term_id)
             seen = [d.replace(tzinfo=timezone.utc) for d in observed_raw] + ([newest if newest.tzinfo else newest.replace(tzinfo=timezone.utc)] if newest else [])
             fresh.last_seen = max(seen) if seen else None
             ds.upsert_term(con, fresh)

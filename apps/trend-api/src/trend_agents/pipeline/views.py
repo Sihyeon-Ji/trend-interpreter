@@ -147,7 +147,11 @@ def country_page(con: Connection, region: str) -> CountryPage:
     board = TrendBoard.model_validate_json(cached[0]) if cached else None
     items = [i for i in board.items if i.region == region] if board else []
     why = [w for w in board.why if w.region == region] if board else []
-    recs = [term_record(con, t) for t in ds2.list_terms(con, ("verified", "needs_review")) if any(u["region"] == region for u in ds2.get_usage(con, t.term_id))]
+    from .match import unsafe
+
+    # 둘러보는 목록이다 — 표제어 자체가 욕설·성적 표현인 것은 내지 않는다(검수자가 '문제 없음' 으로 푼 것은 낸다, 대시보드와 같은 규칙)
+    recs = [term_record(con, t) for t in ds2.list_terms(con, ("verified", "needs_review"))
+            if any(u["region"] == region for u in ds2.get_usage(con, t.term_id)) and (not unsafe(t.canonical) or t.risk_level == "none")]
     share: dict[str, float] = {}
     for r in recs:
         for u in r.usage:

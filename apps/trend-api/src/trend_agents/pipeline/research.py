@@ -339,6 +339,10 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         # 사람이 승인한 뜻은 자동 조사가 덮지 않는다. 게이트를 못 넘으면 사람 결정이 닫히고 강등되던 문제
         # (2026-09-28 검토: 6-7 등 4건). 바꾸려면 사람이 검수 화면에서 다시 결정한다.
         return "verified_human", []
+    stored = ds.get_term(con, term.term_id)
+    if (stored and stored.status == "retired") or (cur and cur.verification == "rejected"):
+        return "rejected", []            # 단계가 대상을 고른 뒤 사람이 제외했다(검토 2차)
+    entry_meaning = cur.meaning_id if cur else None
     method = GEMINI_MODEL
     urls: list[str] = []
     draft: MeaningDraft | None = None
@@ -407,6 +411,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     if (now_term and now_term.status == "retired") or (current and current.verification == "rejected"):
         # 그 사이 검수자가 제외했다 — 새 판을 올리지 않는다(검토 2차: 승인만 지키고 제외는 덮었다)
         return "rejected", []
+    if (current.meaning_id if current else None) != entry_meaning:
+        return "changed", []             # 조사하는 사이 뜻이 바뀌었다(사람이 고쳤거나 다른 단계가 먼저) — 덮지 않고 다음 주기에
     verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases)
     # 용어가 원문에 없는 근거는 그 표제어의 근거가 아니다 — 인용으로 보여 주면 거짓말이 된다. 저장하지 않는다.
     # (표시 전용 네이버 결과는 게이트가 보지 않으므로 그대로 둔다.)
@@ -439,8 +445,9 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         rows = []
         # 나라를 비워 두면 표제어 언어의 나라로 (예전 기본값 'KR' 은 일본어 표제어도 한국에 넣었다)
         regions = draft.regions or [LANG_REGION.get(term.lang, "GLOBAL")]
-        share = 1.0 / max(1, len(draft.generations) * len(regions))
-        for g in draft.generations:
+        gens = draft.generations or ["all"]   # 세대를 모르면(연대 '90s' 를 걸러 비면) '모든 세대' 로 — 나라가 저장되지 않던 것(검토 2차)
+        share = 1.0 / max(1, len(gens) * len(regions))
+        for g in gens:
             for r in regions:
                 rows.append((g, r, (term.first_seen or datetime.now(timezone.utc)).isoformat(), round(share, 3)))
         ds.set_usage(con, term.term_id, rows)

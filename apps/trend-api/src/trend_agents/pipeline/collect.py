@@ -22,6 +22,14 @@ def _rotate(items: list[str], k: int) -> list[str]:
     return [items[(start + i) % len(items)] for i in range(k)]
 
 
+def mention_order(con, terms: list) -> list:
+    """뉴스 검색으로 언급을 잴 순서 — 한 번도 안 잰 것·가장 오래전에 잰 것부터. 재검증 주기로만 줄 세우면 같은 30개(주기가 같으면
+    이름순)만 매번 재서, 그 30개만 언급이 쌓이고 나머지는 늘 0 이라 생애주기가 뒤집혔다(2026-09-29 검토 2차)."""
+    sampled = ds.mention_sampled(con)
+    # 사전에 오른 말(verified)이 먼저 — 대시보드·추천이 쓰는 말이다
+    return sorted(terms, key=lambda t: (t.status != "verified", sampled.get(t.term_id, ""), recheck_interval_days(t.lifecycle)))
+
+
 def run(con: Connection, mention_terms: int = 30) -> dict:
     news_rss.reset_breaker()  # 상류 차단기는 수집 한 바퀴 단위 — 이 뒤의 spikes·topics 는 같은 판정을 이어받고, 다음 실행은 다시 시도한다
     out: dict = {}
@@ -80,14 +88,14 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
     # 사전 용어의 언급 추적용 뉴스 검색 (재검증 주기가 짧은 것부터)
     with stage(con, "collect.mentions") as r:
         terms = ds.list_terms(con, ("verified", "needs_review", "researching"))
-        terms.sort(key=lambda t: recheck_interval_days(t.lifecycle))
         n = 0
-        for t in terms[:mention_terms]:
+        for t in mention_order(con, terms)[:mention_terms]:
             region = LANG_REGION.get(t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 중국어 표제어는 대만 뉴스에서
             if region not in news_rss.LOCALES:
                 region = "US"
             try:
                 n += db.upsert_news(con, news_rss.fetch_news(region, query=t.canonical, limit=20))
+                ds.mark_mention_sampled(con, t.term_id)       # 결과가 0건이어도 잰 것이다
             except Exception as e:
                 r.note += f"{t.canonical}:{type(e).__name__} "
         r.count = n

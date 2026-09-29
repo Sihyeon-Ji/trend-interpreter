@@ -142,9 +142,17 @@ class Stored(BaseModel):
 class _Regions:
     """근거 하나가 어느 나라 것인가 — 뉴스는 수집한 나라, 쇼츠는 영상의 나라, 커뮤니티는 도메인. 한 번 읽어 두고 쓴다."""
 
-    def __init__(self, con: Connection):
-        self.news = dict(con.execute("SELECT link, region FROM news").fetchall())
-        self.videos = dict(con.execute("SELECT video_id, region FROM videos").fetchall())
+    def __init__(self, con: Connection, term_id: str | None = None):
+        if term_id is None:
+            self.news = dict(con.execute("SELECT link, region FROM news").fetchall())
+            self.videos = dict(con.execute("SELECT video_id, region FROM videos").fetchall())
+            return
+        # 카드 하나를 고칠 때는 그 용어의 근거 주소만 찾는다 — 뉴스·영상 수만 건을 매번 읽지 않게(검토 2차)
+        evs = ds.list_evidences(con, term_id)
+        links = [e.url for e in evs if e.kind == "news"]
+        vids = [m.group(1) for e in evs if e.kind == "short" and (m := re.search(r"(?:v=|/shorts/)([\w-]{6,})", e.url))]
+        self.news = dict(con.execute(f"SELECT link, region FROM news WHERE link IN ({','.join('?' * len(links))})", links).fetchall()) if links else {}
+        self.videos = dict(con.execute(f"SELECT video_id, region FROM videos WHERE video_id IN ({','.join('?' * len(vids))})", vids).fetchall()) if vids else {}
 
     def of(self, e: Evidence) -> str:
         if e.kind == "news":
@@ -249,8 +257,8 @@ def build(con: Connection) -> list[Stored]:
     return [s for t in ds.list_terms(con, ("verified",)) if (s := build_card(con, t, queries, regions_of, weeks))]
 
 
-def _save(con: Connection, stored: list[Stored]) -> None:
-    ds.cache_set(con, CACHE_KEY, "[" + ",".join(s.model_dump_json() for s in stored) + "]")
+def _save(con: Connection, stored: list[Stored], generated_at: str | None = None) -> None:
+    ds.cache_set(con, CACHE_KEY, "[" + ",".join(s.model_dump_json() for s in stored) + "]", generated_at)
 
 
 def _load(con: Connection) -> tuple[list[Stored], datetime] | None:
@@ -270,9 +278,9 @@ def refresh_card(con: Connection, term_id: str) -> None:
         return
     stored = [s for s in loaded[0] if s.card.term_id != term_id]
     t = ds.get_term(con, term_id)
-    if t and t.status == "verified" and (s := build_card(con, t, _recent_queries(con), _Regions(con), _weeks())):
+    if t and t.status == "verified" and (s := build_card(con, t, _recent_queries(con), _Regions(con, term_id), _weeks())):
         stored.append(s)
-    _save(con, stored)
+    _save(con, stored, loaded[1].isoformat())       # 카드 하나를 고쳤다고 '갱신' 시각이 바뀌지 않게
 
 
 def _live(con: Connection, stored: list[Stored]) -> list[Stored]:
@@ -336,7 +344,7 @@ def card(con: Connection, term_id: str) -> KeywordCard | None:
     t = ds.get_term(con, term_id)
     if not t or t.status != "verified":
         return None
-    s = build_card(con, t, _recent_queries(con), _Regions(con), _weeks(), outside=True)
+    s = build_card(con, t, _recent_queries(con), _Regions(con, term_id), _weeks(), outside=True)
     return view(s, everywhere) if s else None
 
 

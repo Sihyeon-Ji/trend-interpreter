@@ -67,7 +67,7 @@ def run(con: Connection) -> dict:
                 tried += 1
                 try:
                     v, _ = research_one(con, t)
-                    if v != "verified_human":
+                    if v in ("verified_auto", "unverified"):   # 실제로 다시 조사한 것만 (사람의 결정·그 사이 바뀐 것은 건너뛴다)
                         rechecked.append(t.canonical)
                 except BudgetExhausted:
                     break                               # 오늘 몫이 끝났다 — 기록하지 않고 다음 실행에 다시
