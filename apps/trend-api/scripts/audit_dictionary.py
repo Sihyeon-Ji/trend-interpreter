@@ -7,7 +7,8 @@
 
 사람이 확인한(verified_human) 뜻은 '풀이가 근거 원문에 없음' 사유를 막지 않는다 — 풀이는 사람이 앵커다. 출처 수·1차 근거 부족은 그대로 막는다.
 참고 문서가 없다는 사유(ADR 0003)도 사람이 확인한 뜻은 막지 않는다 — 사람의 승인이 문서가 드문 지역의 예외 길이다.
-그 밖의 항목에는 참고 문서 규칙이 적용되므로, 문서 없는 말의 --apply 는 사용자가 목록을 확인한 뒤에만 쓴다(Plan 12).
+그 밖의 항목에는 참고 문서 규칙이 적용되므로, 문서 없는 말의 --apply 는 쓰지 않는다(Plan 12) — 사용자가 확인한 '문서 없음' 목록만
+--downgrade "이름|이름" 으로 내린다. 문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지)을 사람이 보고 있는 말은 내리지 않고 따로 보고한다.
 """
 from __future__ import annotations
 
@@ -94,12 +95,15 @@ def main() -> None:
         m = ds.current_meaning(con, t.term_id) if t else None
         if not t or not m:
             print(f"강등 실패(없음): {name}"); continue
+        if ds.under_review(con, t.term_id):   # 검수 대기의 새 말(new) 줄이 사람이 보고 있는 제안을 덮지 않게
+            print(f"강등 건너뜀(문서 대조 제안 검수 중): {name}"); continue
         ds.set_verification(con, m.meaning_id, "unverified", BY)
         t.status = "needs_review"; ds.upsert_term(con, t, human=True)
         ds.queue_review(con, t.term_id, MeaningDraft(**m.model_dump(include=set(MeaningDraft.model_fields))), ["표현인지 불확실 — 사람이 판단"], ds_count(con, t.term_id))
         print(f"강등: {name} → needs_review")
 
     weak = []
+    busy = []              # 문서 대조의 제안을 사람이 보고 있어 내리지 않은 말
     verified = ds.list_terms(con, ("verified",))
     for t in verified:
         m = ds.current_meaning(con, t.term_id)
@@ -118,7 +122,9 @@ def main() -> None:
             print(f"  보강 {t.canonical}: +{len(new)}건 → {'통과' if not bl else '아직 부족'}")
         if bl:
             weak.append((t, bl))
-            if a.apply:
+            if a.apply and ds.under_review(con, t.term_id):
+                busy.append(t)
+            elif a.apply:
                 if not human:  # 상태와 검증이 어긋나지 않게. 사람이 확인한 뜻은 기록을 지우지 않는다 — 아래 재승격 경로가 그 표시를 본다
                     ds.set_verification(con, m.meaning_id, "unverified", BY)
                 t.status = "needs_review"; ds.upsert_term(con, t, human=True)
@@ -133,11 +139,15 @@ def main() -> None:
         v, reasons = gate(t.canonical, draft, for_model(evs), None, aliases=t.aliases)
         if not blocking(reasons, True):
             if a.apply:
-                t.status = "verified"; ds.upsert_term(con, t, human=True); ds.decide_review(con, t.term_id, "approve", BY)
+                t.status = "verified"; ds.upsert_term(con, t, human=True); ds.decide_review(con, t.term_id, "approve", BY, kind="new")
             print(f"  복귀 {t.canonical}: 근거 통과{' → verified' if a.apply else ''}")
     print(f"\n확인된 항목 {len(verified)}개 중 근거가 약한 것 {len(weak)}개{' → needs_review 로 강등' if a.apply else ''}")
     for t, bl in weak:
         print(f"  - {t.canonical}: {'; '.join(bl)}")
+    if busy:
+        print(f"\n문서 대조 제안을 검수 중이라 내리지 않은 것 {len(busy)}개 — 검수를 마친 뒤 다시 본다:")
+        for t in busy:
+            print(f"  - {t.canonical}")
 
 
 def _evidences(con: Connection, term_id: str) -> list[Evidence]:

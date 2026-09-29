@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -27,6 +27,7 @@ MIN_CANDIDATE_COUNT = 2  # 소스 두 번 이상 등장했거나 쇼츠에서 �
 DICT_KINDS = {"slang": "slang", "slang_meme": "slang", "meme": "meme", "dance": "meme", "challenge": "meme", "song": "song"}  # kind → 사전 분류
 STRONG_KINDS = {"slang", "slang_meme", "song", "challenge"}  # 한 번만 보여도 승격. '밈' 이름은 두 번째 등장을 기다린다
 MAX_WEB_FETCH = 6
+MAX_HOPS = 6      # 그라운딩 주소는 구글의 넘겨주기 주소다 — 넘겨주기를 한 칸씩 따라가며 어디로 가는지 본다
 UA = "Mozilla/5.0 (compatible; trend-agents/0.1)"
 
 
@@ -53,12 +54,35 @@ def _excerpt(text: str, term: str, width: int = 240) -> str:
     return ""
 
 
-def web_evidence(term: str, urls: list[str]) -> list[Evidence]:
+def _kym_host(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "knowyourmeme.com" or host.endswith(".knowyourmeme.com")
+
+
+def web_evidence(term: str, urls: list[str], aliases: list[str] | tuple[str, ...] = ()) -> list[Evidence]:
+    """모델이 든 웹 주소의 제목과 용어가 든 문장. 넘겨주기는 한 칸씩 따라가며, Know Your Meme 으로 가면 여기서 받지 않는다 —
+    이용 약관 때문에 꺼져 있으면(KNOWYOURMEME_ENABLED) 버리고, 켜져 있으면 수집기(knowyourmeme.from_url: /memes/ 문서만, 2초 간격,
+    정직한 User-Agent, 주소와 제목만)로 넘긴다. 그라운딩 주소는 구글의 넘겨주기라 처음 주소만 보고는 어디로 가는지 모른다."""
+    from ..collectors import knowyourmeme
+
     out: list[Evidence] = []
-    with httpx.Client(follow_redirects=True, timeout=8.0, headers={"User-Agent": UA}) as c:
+    with httpx.Client(follow_redirects=False, timeout=8.0, headers={"User-Agent": UA}) as c:
         for u in urls[:MAX_WEB_FETCH]:
             try:
-                r = c.get(u)
+                r, final = None, u
+                for _ in range(MAX_HOPS):
+                    if _kym_host(final):
+                        break
+                    r = c.get(final)
+                    if not r.is_redirect:
+                        break
+                    final, r = urljoin(final, r.headers.get("location", "")), None
+                if _kym_host(final):
+                    if knowyourmeme.enabled():
+                        out += knowyourmeme.from_url(final, term, aliases) or []
+                    continue
+                if r is None:              # 넘겨주기가 끝나지 않았다
+                    continue
                 final = str(r.url)
                 body = r.text[:400_000]
             except Exception:
@@ -211,20 +235,23 @@ def _wikipedia_evidence(term: str, lang: str) -> list[Evidence]:
     return out
 
 
-def wikipedia_doc(term: str, lg: str) -> tuple[Evidence | None, list[str]]:
-    """위키백과 한 언어판에서 그 이름이 나온 문서 한 쪽(근거)과 그 문장들. 없으면 (None, []). 문서 대조(Plan 12)도 이것으로 찾는다."""
+def wikipedia_doc(term: str, lg: str, *, strict: bool = False) -> tuple[Evidence | None, list[str]]:
+    """위키백과 한 언어판에서 그 이름이 나온 문서 한 쪽(근거)과 그 문장들. 없으면 (None, []). 문서 대조(Plan 12)도 이것으로 찾는다.
+    strict 면 닿지 못했을 때(429·5xx·네트워크) wikipedia_search.Unreachable 을 던진다 — '문서 없음' 과 가르려고."""
     from ..collectors import wikipedia_search
 
     try:
-        sm = wikipedia_search.summary(lg, term)
+        sm = wikipedia_search.summary(lg, term, strict=strict)
         if not sm:
             titles = wikipedia_search.search(lg, term, limit=1)
-            sm = wikipedia_search.summary(lg, titles[0]) if titles else None
+            sm = wikipedia_search.summary(lg, titles[0], strict=strict) if titles else None
         if not sm:
             return None, []
         sents = _term_sentences(sm.get("extract") or "", term) or _term_sentences(
-            wikipedia_search.article_text(lg, sm["title"]), term)
-    except Exception:
+            wikipedia_search.article_text(lg, sm["title"], strict=strict), term)
+    except Exception as e:
+        if strict:
+            raise wikipedia_search.Unreachable(f"{lg}: {type(e).__name__}") from e
         return None, []
     if not sents:                      # 그 문서에 이름이 없으면 근거가 아니다
         return None, []
@@ -333,9 +360,8 @@ def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
 
 def under_review(con: Connection, term_id: str) -> bool:
     """문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지)을 사람이 보고 있는가. 그 결정 전에는 조사가 지금 뜻을 바꾸지 않는다 —
-    바꾸면 검수자가 본 뜻과 달라지고, 조사 결과(new) 줄이 그 제안을 덮는다(Plan 12)."""
-    q = ds.pending_review(con, term_id)
-    return bool(q and q["kind"] != "new")
+    바꾸면 검수자가 본 뜻과 달라지고, 조사 결과(new) 줄이 그 제안을 덮는다(Plan 12). 판정은 ds.under_review 한 곳."""
+    return ds.under_review(con, term_id)
 
 
 MECHANICAL = ("표현이 아니라", "뜻이 비었", "모델 자기확신")
@@ -433,7 +459,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     # 화면 뜻 앞에 붙어 나왔다(사용자 지적 09-16). 풀이 길이를 넘어서면 뜻이지 풀이가 아니다.
     if draft.expansion and (len(draft.expansion) > 40 or len(draft.expansion.split()) > 8 or "." in draft.expansion[:-1]):
         draft.expansion = None
-    evidences = (web_evidence(term.canonical, urls) if not method.startswith("offline") else []) + first_party
+    evidences = (web_evidence(term.canonical, urls, term.aliases) if not method.startswith("offline") else []) + first_party
     current = ds.current_meaning(con, term.term_id)
     if current and current.verification == "verified_human":
         # 조사하는 몇 분(그라운딩·GDELT 16초 간격·나무위키) 사이 검수자가 승인했다 — 그 결정을 덮지 않는다
@@ -470,7 +496,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         if not needs_human(reasons, documented=documented):
             # 게이트가 '표현이 아니다' 로 보았거나 뜻이 비었다 — 사람이 봐도 할 일이 없다. 사람 큐에서만 빼고
             # 표제어는 그대로 둔다(재조사 주기가 오면 다시 본다). 큐가 이런 것으로 500건 넘게 막혀 있었다(2026-09-28).
-            ds.decide_review(con, term.term_id, "auto_rejected", "gate")
+            ds.decide_review(con, term.term_id, "auto_rejected", "gate", kind="new")   # 방금 올린 조사 결과 줄만 — 문서 대조의 제안은 사람이 닫는다
     existing = ds.get_usage(con, term.term_id)
     if (draft.regions or draft.generations) and not any(u["region"] for u in existing):
         # 나라가 빈 줄만 있던 것(예전 조사가 '' 를 나라로 저장, 146개)은 새 조사로 고친다 — 처음 한 번만 쓰면 영영 못 고쳤다

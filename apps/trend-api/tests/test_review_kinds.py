@@ -27,6 +27,11 @@ def fix_of(m, **update):
     return MeaningDraft.model_validate(m.model_dump(include=set(MeaningDraft.model_fields))).model_copy(update=update)
 
 
+def token(con, tid):
+    """화면이 본 제안의 표(ReviewItem.token)."""
+    return ds.pending_review(con, tid)["token"]
+
+
 def client(monkeypatch, con):
     from fastapi.testclient import TestClient
 
@@ -68,9 +73,12 @@ def test_correction_keeps_the_entry_public_until_a_person_publishes_it_as_a_new_
     assert item.reasons[0] == "문서 대조: 고칠 것" and f"참고 문서: {KYM_URL}" in item.reasons and item.docs[0].url == KYM_URL
 
     c, h = client(monkeypatch, con)
-    body = {"decision": "approve", "by": "kim", "meaning_id": m1.meaning_id}
+    body = {"decision": "approve", "by": "kim", "meaning_id": m1.meaning_id, "token": token(con, "t_af")}
     assert c.post("/review/t_af", json=body, headers=h).status_code == 409                   # 종류를 적지 않으면(예전 화면) 새 말로 보고 막는다
     assert c.post("/review/t_af", json={**body, "kind": "correction", "meaning_id": "m_old"}, headers=h).status_code == 409
+    assert c.post("/review/t_af", json={**body, "kind": "correction", "token": "0" * 16}, headers=h).status_code == 409   # 보지 않은 제안
+    for missing in ("meaning_id", "token"):                                                  # 문서 대조의 제안은 둘 다 적어야 한다
+        assert c.post("/review/t_af", json={k: v for k, v in {**body, "kind": "correction"}.items() if k != missing}, headers=h).status_code == 400
     r = c.post("/review/t_af", json={**body, "kind": "correction"}, headers=h)
     assert r.status_code == 200 and r.json()["version"] == 2
     old, new = ds.list_meanings(con, "t_af")
@@ -79,6 +87,7 @@ def test_correction_keeps_the_entry_public_until_a_person_publishes_it_as_a_new_
     assert (new.definition, new.regions, new.generations) == (m1.definition, m1.regions, m1.generations)   # 유래만 고친 안도 새 판이 된다
     assert ds.pending_review(con, "t_af") is None and ds.get_term(con, "t_af").status == "verified"
     assert c.post("/review/t_af", json={**body, "kind": "correction", "meaning_id": new.meaning_id}, headers=h).status_code == 409  # 이미 결정됨
+    assert [h["decision"] for h in ds.review_history(con, "t_af")] == ["approve"]              # 결정은 기록에 남는다
 
 
 def test_rejecting_a_correction_only_closes_the_proposal(monkeypatch):
@@ -86,7 +95,8 @@ def test_rejecting_a_correction_only_closes_the_proposal(monkeypatch):
     m1 = listed(con, "t_af", "aura farming")
     ds.queue_review(con, "t_af", fix_of(m1, definition="다른 뜻"), ["문서 대조: 고칠 것"], 1, kind="correction")
     c, h = client(monkeypatch, con)
-    r = c.post("/review/t_af", json={"decision": "reject", "by": "kim", "meaning_id": m1.meaning_id, "kind": "correction"}, headers=h)
+    r = c.post("/review/t_af", json={"decision": "reject", "by": "kim", "meaning_id": m1.meaning_id, "kind": "correction", "token": token(con, "t_af")},
+               headers=h)
     assert r.status_code == 200
     assert [m.meaning_id for m in ds.list_meanings(con, "t_af")] == [m1.meaning_id] and ds.current_meaning(con, "t_af").verification == "verified_auto"
     assert ds.pending_review(con, "t_af") is None and ds.get_term(con, "t_af").status == "verified"
@@ -106,17 +116,18 @@ def test_conflict_needs_a_choice_and_the_chosen_description_becomes_the_new_vers
     assert item.docs[1].proposal.definition.startswith("주로")
 
     c, h = client(monkeypatch, con)
-    body = {"decision": "approve", "by": "lee", "meaning_id": m1.meaning_id, "kind": "conflict"}
-    for bad in (None, 0, 5, "1", "all"):                                                     # 고르지 않았거나, 고칠 안이 없는 문서, 없는 번호
+    body = {"decision": "approve", "by": "lee", "meaning_id": m1.meaning_id, "kind": "conflict", "token": token(con, "t_sk")}
+    for bad in (None, docs[0]["url"], "https://en.wikipedia.org/wiki/Other", "all"):          # 고르지 않았거나, 고칠 안이 없는 문서, 없는 문서
         assert c.post("/review/t_sk", json={**body, "choice": bad}, headers=h).status_code == 400, bad
+    assert c.post("/review/t_sk", json={**body, "choice": 1}, headers=h).status_code == 422    # 번호로는 고르지 않는다(주소로)
     assert len(ds.list_meanings(con, "t_sk")) == 1 and ds.pending_review(con, "t_sk")
-    r = c.post("/review/t_sk", json={**body, "choice": 1}, headers=h)
+    r = c.post("/review/t_sk", json={**body, "choice": "https://en.wikipedia.org/wiki/Skibidi%5FToilet"}, headers=h)   # 같은 문서의 다른 꼴 주소
     assert r.status_code == 200
     new = ds.current_meaning(con, "t_sk")
     assert new.version == 2 and new.verification == "verified_human" and new.definition.startswith("주로") and new.citations == [wiki]
 
     ds.queue_review(con, "t_sk", None, ["문서 대조: 위키끼리 다름"], 2, kind="conflict", docs=docs)
-    r = c.post("/review/t_sk", json={**body, "meaning_id": new.meaning_id, "choice": "keep"}, headers=h)   # 지금 뜻 그대로
+    r = c.post("/review/t_sk", json={**body, "meaning_id": new.meaning_id, "choice": "keep", "token": token(con, "t_sk")}, headers=h)   # 지금 뜻 그대로
     assert r.status_code == 200 and ds.current_meaning(con, "t_sk").meaning_id == new.meaning_id and ds.pending_review(con, "t_sk") is None
     assert con.execute("SELECT decision FROM review_queue WHERE term_id='t_sk'").fetchone()[0] == "keep"
 
@@ -132,9 +143,9 @@ def test_retire_is_proposed_by_rules_but_only_a_person_retires(monkeypatch):
 
     c, h = client(monkeypatch, con)
     body = {"by": "kim", "meaning_id": m1.meaning_id, "kind": "retire"}
-    assert c.post("/review/t_cookie", json={**body, "decision": "reject"}, headers=h).status_code == 200      # 그대로 둔다
+    assert c.post("/review/t_cookie", json={**body, "decision": "reject", "token": token(con, "t_cookie")}, headers=h).status_code == 200   # 그대로 둔다
     assert ds.get_term(con, "t_cookie").status == "verified" and ds.current_meaning(con, "t_cookie").verification == "verified_auto"
     ds.queue_review(con, "t_cookie", None, ["문서 대조: 밈이 아님"], 1, kind="retire")
-    assert c.post("/review/t_cookie", json={**body, "decision": "approve"}, headers=h).status_code == 200
+    assert c.post("/review/t_cookie", json={**body, "decision": "approve", "token": token(con, "t_cookie")}, headers=h).status_code == 200
     assert ds.get_term(con, "t_cookie").status == "retired" and ds.current_meaning(con, "t_cookie").verification == "rejected"
     assert views.term_records(con) == []

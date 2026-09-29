@@ -75,8 +75,10 @@ def _text(page: str) -> str:
     return html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", page)))
 
 
-def lookup(term: str) -> list[Evidence]:
-    """그 말이 유행어 단서와 함께 나오는 문장이 있으면 근거 한 건. 없으면 빈 목록."""
+def lookup(term: str) -> list[Evidence] | None:
+    """그 말이 유행어 단서와 함께 나오는 문장이 있으면 근거 한 건. 없다고 확인되면(문서가 없거나 그런 문장이 없음) 빈 목록,
+    닿지 못했으면(막힘·429·서버 오류·네트워크) None — '문서 없음' 과 가른다(Plan 12 검토). 닿지 못한 결과는 캐시하지 않는다
+    (하루 동안 '문서 없음' 으로 남지 않게)."""
     from ..pipeline.match import mentions
 
     term = term.strip()
@@ -86,8 +88,10 @@ def lookup(term: str) -> list[Evidence]:
     hit = cache.get(term)
     if not hit or time.time() - hit.get("at", 0) > CACHE_TTL_S:
         r = _get("/w/" + quote(term))
+        if r is None or r.status_code not in (200, 404, 410):
+            return None
         hit = {"at": time.time(), "ok": False}
-        if r is not None and r.status_code == 200:
+        if r.status_code == 200:
             page = r.text
             title = unquote(str(r.url).split("/w/", 1)[-1].split("?")[0])
             mod = re.search(r"(20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d)", page)
@@ -112,6 +116,19 @@ def lookup(term: str) -> list[Evidence]:
     return [Evidence(evidence_id=ds.new_id("e", f"{hit['url']}|{term}"), kind="wiki", url=hit["url"],
                      title=f"나무위키: {hit['title']} (CC BY-NC-SA 2.0 KR)"[:200], source_domain="namu.wiki", observed_at=when,
                      excerpt=around(hit["sentence"], term))]
+
+
+def page_text(title: str) -> str | None:
+    """문서 한 쪽의 본문 평문 — 전수조사가 준 발췌가 그 문서에 실제로 있는지 볼 때만 그 자리에서 쓴다. **저장하지도 캐시하지도 않는다.**
+    문서가 없으면 빈 문자열, 닿지 못했으면 None."""
+    r = _get("/w/" + quote(title.strip()))
+    if r is None or r.status_code not in (200, 404, 410):
+        return None
+    if r.status_code != 200:
+        return ""
+    body = _text(r.text)
+    cut = body.find("최근 수정 시각")
+    return body[cut + 40:] if cut >= 0 else body
 
 
 def ranking() -> list[str]:

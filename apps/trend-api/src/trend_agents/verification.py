@@ -10,7 +10,7 @@ pixiv 백과사전·萌娘百科)에 표제어가 든 문서가 있어야 한다
 """
 from __future__ import annotations
 
-from urllib.parse import urlsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 from .schemas import Evidence, Meaning, MeaningDraft, Verification
 
@@ -22,6 +22,22 @@ FIRST_PARTY = {"short", "news", "datalab", "wiki"}
 # 참고 문서가 있는 곳(하위 도메인 포함 — ko.wikipedia.org 등). 니코니코 대백과는 이 서버를 막고, pixiv 백과사전은 대부분 봇 확인 뒤에 있다.
 REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixiv.net", "zh.moegirl.org.cn")
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
+
+
+def normalize_url(url: str) -> str:
+    """문서 주소를 한 꼴로 — 스킴·호스트는 소문자, 경로·질의는 퍼센트 인코딩한 꼴, 조각(#)은 뺀다. 한글을 그대로 쓴 주소와
+    인코딩한 주소가 같은 문서로 보이게 한다(같은 문서가 근거·문서 목록에 두 번 들어가지 않게). 스킴이 없으면 그대로 돌려준다."""
+    raw = (url or "").strip()
+    u = urlsplit(raw)
+    if not u.scheme or not u.netloc:
+        return raw
+    path = unquote(u.path)
+    host = (u.hostname or "").lower()
+    if (host == "wikipedia.org" or host.endswith(".wikipedia.org")) and path.startswith("/wiki/"):
+        path = path.replace(" ", "_")                # 위키백과(MediaWiki)는 문서 이름의 띄어쓰기를 밑줄로 쓴다 — Aura farming = Aura_farming
+    path = quote(path, safe="/:@!$&'()*+,;=~") or "/"
+    query = quote(unquote(u.query), safe="/:@!$&'()*+,;=?~") if u.query else ""
+    return urlunsplit((u.scheme.lower(), u.netloc.lower(), path, query, ""))
 
 
 def reference_doc(e: Evidence) -> bool:

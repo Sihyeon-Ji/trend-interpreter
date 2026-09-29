@@ -151,6 +151,9 @@ def main() -> None:
             if not t or t.status not in ("verified", "needs_review"):
                 print(f"  건너뜀: {name} ({'없음' if not t else t.status})")
                 continue
+            if not a.reject and ds.under_review(con, t.term_id):   # 문서 대조의 제안을 사람이 보는 중 — 그 줄을 덮거나 닫지 않는다
+                print(f"  건너뜀: {name} (문서 대조 제안 검수 중)")
+                continue
             m = ds.current_meaning(con, t.term_id)
             if a.reject:
                 # 화면 검수의 '거부' 와 같은 경로. retired 는 재조사 대상에서 빠지므로 자동으로 되살아나지 않는다.
@@ -170,7 +173,7 @@ def main() -> None:
         return
 
     if a.demote:
-        down = [(t, m, f) for t, m, f in hit if any(x.split("(")[0] in DEMOTE for x in f)]
+        down = [(t, m, f) for t, m, f in hit if any(x.split("(")[0] in DEMOTE for x in f) and not ds.under_review(con, t.term_id)]
         for t, m, f in down:
             t.status = "needs_review"
             ds.upsert_term(con, t, human=True)

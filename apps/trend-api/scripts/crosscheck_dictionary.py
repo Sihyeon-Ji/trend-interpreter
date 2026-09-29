@@ -19,7 +19,10 @@ import 파일은 판정 목록(JSON 배열)이다. 한 줄:
 Know Your Meme 은 KNOWYOURMEME_ENABLED=true 일 때만 찾고(이용 약관 검토 전까지 기본 꺼짐), 켜도 문서 주소와 제목만 근거로 둔다 —
 가져온 판정의 Know Your Meme 발췌도 같다(꺼져 있으면 받지 않는다).
 어느 모드도 확인 상태·뜻을 바꾸지 않는다. 모든 제안은 검수 큐로 가고 사람이 승인해야 새 판이 생기거나 빠진다.
-'문서 없음' 은 아무것도 바꾸지 않고 목록만 보인다 — 사용자가 확인한 뒤에만 scripts/audit_dictionary.py 로 검수 대기로 돌린다.
+참고 문서 주소는 참고 문서 도메인의 문서 주소만 남기고(나머지는 보고), 한 꼴로 고친다(퍼센트 인코딩). 고칠 것·위키끼리 다름·밈이 아님은
+참고 문서 주소가 하나는 있어야 한다. --store-evidence 의 발췌는 나무위키·위키백과 문서를 그 자리에서 읽어 그 문장이 실제로 있을 때만 받는다.
+'문서 없음' 은 아무것도 바꾸지 않고 목록만 보인다 — 사용자가 확인한 이름만 scripts/audit_dictionary.py --downgrade "이름|이름" 으로
+검수 대기로 돌린다(--apply 는 쓰지 않는다). 참고 위키에 닿지 못한 말은 '문서 없음' 이 아니라 '닿지 못함' 으로 따로 보인다.
 다시 돌려도 근거·대기 제안이 겹치지 않는다. 이미 검수 대기 중인 제안이 있는 말은 건너뛰고 보고한다.
 """
 from __future__ import annotations
@@ -57,24 +60,35 @@ def _kym_note() -> None:
 def collect(con: Connection, a: argparse.Namespace) -> None:
     _kym_note()
     terms = _terms(con, a.terms, a.limit)
-    missing, added = [], 0
+    missing, unreached, added = [], [], 0
     for t in terms:
-        found = cc.gather(t)
+        found, unreachable = cc.gather(t)
         docs = cc.documents(t, ds.list_evidences(con, t.term_id) + found)
         if a.store:
             added += ds.add_evidences(con, t.term_id, [e for e in found if e in docs])
         if docs:
             print(f"  {t.canonical} ({t.lang}) — " + " · ".join(f"{cc.wiki_name(e.url)} {e.url}" for e in docs))
+        elif unreachable:
+            unreached.append((t.canonical, unreachable))
         else:
             missing.append(t)
-    print(f"\n확인된 항목 {len(terms)}개 중 참고 문서가 있는 것 {len(terms) - len(missing)}개, 없는 것 {len(missing)}개"
-          + (f" · 근거로 더한 문서 {added}건" if a.store else ""))
+    print(f"\n확인된 항목 {len(terms)}개 중 참고 문서가 있는 것 {len(terms) - len(missing) - len(unreached)}개, 없는 것 {len(missing)}개,"
+          f" 닿지 못한 것 {len(unreached)}개" + (f" · 근거로 더한 문서 {added}건" if a.store else ""))
+    _print_unreachable(unreached)
     _print_no_doc([t.canonical for t in missing])
+
+
+def _print_unreachable(rows: list[tuple[str, list[str]]]) -> None:
+    if rows:
+        print("\n닿지 못함 — '문서 없음' 이 아니다(429·서버 오류·네트워크). 다음에 다시 찾는다:")
+        for name, where in rows:
+            print(f"  - {name}: {', '.join(where)}")
 
 
 def _print_no_doc(names: list[str]) -> None:
     if names:
         print("\n문서 없음 — 아무것도 바꾸지 않았다. 사용자가 이 목록을 확인한 뒤에만 검수 대기로 돌린다(Plan 12 §3):")
+        print('  (확인한 이름만 scripts/audit_dictionary.py --downgrade "이름|이름" 으로 내린다. --apply 는 쓰지 않는다)')
         for n in names:
             print(f"  - {n}")
 
@@ -100,6 +114,10 @@ def import_(con: Connection, a: argparse.Namespace) -> None:
         print(f"  - [{kind}] {name}: {why}")
     for name, why in rep["skipped"]:
         print(f"  건너뜀 {name}: {why}")
+    if rep["dropped_urls"]:
+        print(f"\n참고 문서의 문서 주소가 아니라 뺀 주소 {len(rep['dropped_urls'])}개(사유·문서·출처에 쓰지 않는다):")
+        for name, url in rep["dropped_urls"]:
+            print(f"  - {name}: {url}")
     if a.store_evidence:
         print(f"\n근거로 더한 발췌 {len(rep['evidence'])}건, 받지 않은 발췌 {len(rep['evidence_skipped'])}건")
         for name, url, why in rep["evidence_skipped"]:
@@ -115,7 +133,7 @@ def judge(con: Connection, a: argparse.Namespace) -> None:
     _kym_note()
     terms = _terms(con, a.terms, a.limit)
     counts: Counter = Counter()
-    missing = []
+    missing, unreached = [], []
     for t in terms:
         if ds.pending_review(con, t.term_id):
             print(f"  건너뜀 {t.canonical}: 이미 검수 대기 중인 제안이 있음")
@@ -130,11 +148,15 @@ def judge(con: Connection, a: argparse.Namespace) -> None:
         if res["verdict"] == "no_doc":
             missing.append(t.canonical)
             continue
+        if res["verdict"] == cc.UNREACHABLE:
+            unreached.append((t.canonical, res["unreachable"]))
+            continue
         extra = f" → {res['queued']}" if res["queued"] else ""
         print(f"  [{cc.LABEL.get(res['verdict'], res['verdict'])}] {t.canonical}: {res['reason']}{extra}")
         if res["draft"] is not None and not a.queue:
             print(f"      고칠 안 — 뜻: {res['draft'].definition} / 유래: {res['draft'].origin}")
     print("\n" + " · ".join(f"{cc.LABEL.get(k, k)} {v}" for k, v in counts.items()) + ("" if a.queue else "  (--queue 로 검수 큐에 올린다)"))
+    _print_unreachable(unreached)
     _print_no_doc(missing)
 
 

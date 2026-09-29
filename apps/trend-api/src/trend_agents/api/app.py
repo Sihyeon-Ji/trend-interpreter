@@ -99,8 +99,12 @@ class ReviewIn(BaseModel):
     # 검수자가 본 제안의 종류(Plan 12). 서버에 대기 중인 제안과 다르면 409 — '승인' 의 뜻이 종류마다 달라서(retire 의 승인은 제외다)
     # 새 말(new) 밖의 제안에는 반드시 적는다. 적지 않으면 new 로 본다(예전 화면).
     kind: str | None = None
-    # 위키끼리 다름(conflict)을 승인할 때 고른 문서 번호(docs 의 순서), 또는 "keep"(지금 뜻 그대로)
-    choice: int | str | None = None
+    # 검수자가 본 제안의 표(ReviewItem.token). 대기 중인 제안과 다르면 409 — 그사이 같은 종류의 다른 제안이 올라왔을 때 보지 않은 안을 싣지 않게.
+    # 새 말 밖의 제안에는 반드시 적는다.
+    token: str | None = None
+    # 위키끼리 다름(conflict)을 승인할 때 고른 문서의 주소(docs[].url), 또는 "keep"(지금 뜻 그대로). 번호로 고르지 않는다 —
+    # 화면은 모양이 틀린 문서를 빼고 보이므로 번호가 밀린다.
+    choice: str | None = None
 
 
 @app.get("/health")
@@ -184,12 +188,16 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
     kind = q["kind"] if q else "new"
     if not t or (not m and kind != "retire"):
         raise HTTPException(404, "not found")
+    if body.decision not in ("approve", "reject"):
+        raise HTTPException(400, "decision must be approve|reject")
+    if kind != "new" and ((m is not None and not body.meaning_id) or not body.token):
+        raise HTTPException(400, "문서 대조의 제안은 본 뜻(meaning_id)과 제안의 표(token)를 함께 보내야 합니다")
     if (body.kind or "new") != kind:
         raise HTTPException(409, "그사이 제안이 바뀌었습니다")
     if body.meaning_id and body.meaning_id != (m.meaning_id if m else None):
         raise HTTPException(409, "그사이 제안이 바뀌었습니다")
-    if body.decision not in ("approve", "reject"):
-        raise HTTPException(400, "decision must be approve|reject")
+    if body.token and (q is None or body.token != q["token"]):
+        raise HTTPException(409, "그사이 제안이 바뀌었습니다")
     if kind != "new":
         return _decide_proposal(t, m, q, body)
     if body.decision == "approve":
@@ -209,28 +217,36 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
 def _decide_proposal(t, m, q: dict, body: ReviewIn) -> dict:
     """문서 대조의 제안(Plan 12 §3). 제안이 올라와 있는 동안 지금 뜻은 공개된 그대로이고, 사람의 결정으로만 바뀐다.
     correction 승인 → 고칠 안을 새 판(verified_human)으로, 이전 판은 valid_to 를 닫는다. 거절 → 제안만 닫는다.
-    conflict   승인 → 고른 문서의 설명(choice)을 고칠 안과 같은 길로. choice="keep" 이면 지금 뜻 그대로 두고 닫는다. 거절 → 제안만 닫는다.
-    retire     승인 → 사람이 사전에서 뺀다(retired, 뜻은 rejected — 새 말의 '제외' 와 같다). 거절 → 아무것도 바꾸지 않는다."""
-    term_id, kind = t.term_id, q["kind"]
+    conflict   승인 → 고른 문서(choice = 문서 주소)의 고칠 안을 correction 과 같은 길로. choice="keep" 이면 지금 뜻 그대로 두고 닫는다. 거절 → 제안만 닫는다.
+    retire     승인 → 사람이 사전에서 뺀다(retired, 뜻은 rejected — 새 말의 '제외' 와 같다). 거절 → 아무것도 바꾸지 않는다.
+    결정은 검수자가 본 그 제안(올린 때가 같은 대기 줄)을 먼저 붙잡은 뒤에만 적용한다 — 동시에 두 결정이 오면 하나만 된다(409)."""
+    from ..verification import normalize_url
+
+    term_id, kind, when = t.term_id, q["kind"], q["queued_at"]
+
+    def claim(decision: str, *, commit: bool = True) -> None:
+        if not ds.claim_review(_con, term_id, when, decision, body.by, commit=commit):
+            raise HTTPException(409, "그사이 제안이 바뀌었습니다")
+
     if body.decision == "reject":
-        ds.decide_review(_con, term_id, "reject", body.by)
+        claim("reject")
         return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
     if kind == "retire":
+        claim("approve", commit=False)
         if m:
             ds.set_verification(_con, m.meaning_id, "rejected", body.by)
         t.status = "retired"
         ds.upsert_term(_con, t, human=True)          # 제외는 사람만 한다
-        ds.decide_review(_con, term_id, "approve", body.by)
         dashboard.refresh_card(_con, term_id)
         return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
     docs = q["docs"]
     if kind == "conflict":
         if body.choice == "keep":
-            ds.decide_review(_con, term_id, "keep", body.by)
+            claim("keep")
             return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind}
-        if isinstance(body.choice, bool) or not isinstance(body.choice, int) or not 0 <= body.choice < len(docs):
-            raise HTTPException(400, "고른 설명이 없습니다 (choice: 문서 번호 또는 keep)")
-        picked = docs[body.choice]
+        picked = next((d for d in docs if body.choice and normalize_url(d.get("url", "")) == normalize_url(body.choice)), None)
+        if picked is None:
+            raise HTTPException(400, "고른 설명이 없습니다 (choice: 문서 주소 또는 keep)")
         if not picked.get("proposal"):
             raise HTTPException(400, "이 문서에는 고칠 안이 없어 고를 수 없습니다")
         draft, cites = views.ReviewDoc.model_validate(picked).proposal, [picked.get("url", "")]
@@ -238,10 +254,10 @@ def _decide_proposal(t, m, q: dict, body: ReviewIn) -> dict:
         draft, cites = q["draft"], [d.get("url", "") for d in docs]
     if draft is None:
         raise HTTPException(400, "고칠 안이 없습니다")
+    claim("approve", commit=False)                    # 새 판 싣기와 한 트랜잭션 — 싣다가 실패하면 붙잡은 것도 풀린다
     new = ds.publish_fix(_con, term_id, draft, body.by, [c for c in cites if c])
     t.status = "verified"
     ds.upsert_term(_con, t, human=True)
-    ds.decide_review(_con, term_id, "approve", body.by)
     risk.apply(_con, t)                              # 뜻이 바뀌었으니 뜻풀이의 주의점으로 리스크를 다시 본다
     dashboard.refresh_card(_con, term_id)            # 대시보드 카드의 뜻도 바로 바뀐다
     return {"ok": True, "term_id": term_id, "status": t.status, "kind": kind, "meaning_id": new.meaning_id, "version": new.version}

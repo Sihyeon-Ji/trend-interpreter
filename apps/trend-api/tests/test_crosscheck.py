@@ -142,7 +142,10 @@ def test_kym_page_not_found_is_nothing_and_network_failures_are_not_cached(kym, 
     assert knowyourmeme.lookup("soft 404") == []
     down = []
     monkeypatch.setattr(knowyourmeme, "_get", lambda path, timeout=15.0: down.append(path))    # 네트워크 실패(None)
-    assert knowyourmeme.lookup("aura farming") == []
+    assert knowyourmeme.lookup("aura farming") is None                                      # '없음' 이 아니라 '닿지 못함'
+    kym.pages["busy"] = (429, "")
+    monkeypatch.setattr(knowyourmeme, "_get", lambda path, timeout=15.0: SimpleNamespace(status_code=429, text="", url=knowyourmeme.BASE + path))
+    assert knowyourmeme.lookup("busy") is None
     assert "aura farming" not in json.loads(knowyourmeme.CACHE.read_text(encoding="utf-8"))   # 실패는 캐시하지 않는다 — 다음에 다시 본다
 
 
@@ -168,20 +171,33 @@ def test_crosscheck_looks_in_know_your_meme_only_when_enabled(monkeypatch):
     assert crosscheck.sources(Term(term_id="t", canonical="럭키비키", lang="ko")) == ["namu", "wiki:ko"]
 
 
-def test_import_excerpts_are_clipped_and_kym_keeps_only_address_and_title(monkeypatch):
+def test_import_excerpts_are_confirmed_on_the_page_and_kym_keeps_only_address_and_title(monkeypatch):
+    """전수조사 파일의 발췌는 그 문서에 실제로 있어야 근거가 된다 — 나무위키·위키백과는 그 자리에서 읽어 확인한다(본문은 두지 않는다)."""
     from trend_agents import config
+    from trend_agents.collectors import namuwiki, wikipedia_search
 
     t = Term(term_id="t", canonical="aura farming", lang="en")
     filler = "word " * 60
-    e, why = crosscheck.excerpt_evidence(t, "https://en.wikipedia.org/wiki/Aura_farming", "Aura farming",
-                                         f"A very long sentence where {filler}and finally aura farming shows up {filler}")
+    long = f"A very long sentence where {filler}and finally aura farming shows up {filler}"
+    pages = {"Aura farming": f"Intro. {long} More text."}
+    monkeypatch.setattr(wikipedia_search, "article_text", lambda lang, title, timeout=15.0, strict=False: pages.get(title, ""))
+    e, why = crosscheck.confirmed_evidence(t, WIKI_URL, "Aura farming", long)
     assert why == "" and e.source_domain == "wikipedia.org" and len(e.excerpt) <= 200 and "aura farming" in e.excerpt and e.excerpt.startswith("…")
-    assert crosscheck.excerpt_evidence(t, "https://www.reddit.com/r/x/1", "x", "aura farming")[1] == "참고 문서가 아님"
-    assert crosscheck.excerpt_evidence(t, "https://en.wikipedia.org/wiki/X", "X", "nothing here")[1] == "발췌에 표제어가 없음"
-    assert crosscheck.excerpt_evidence(t, KYM_URL, "Aura Farming", "Aura Farming is acting cool.")[0] is None   # 꺼져 있으면 받지 않는다
+    assert crosscheck.confirmed_evidence(t, WIKI_URL, "x", "aura farming is a line that is not on the page")[1] == "문서에 그 발췌가 없음"
+    assert crosscheck.confirmed_evidence(t, "https://www.reddit.com/r/x/1", "x", "aura farming")[1] == "참고 문서의 문서 주소가 아님"
+    assert crosscheck.confirmed_evidence(t, "https://en.wikipedia.org/", "x", "aura farming")[1] == "참고 문서의 문서 주소가 아님"
+    assert crosscheck.confirmed_evidence(t, "https://en.wikipedia.org/wiki/X", "X", "nothing here")[1] == "발췌에 표제어가 없음"
+    assert crosscheck.confirmed_evidence(t, "https://dic.pixiv.net/a/aura", "x", "aura farming")[1] == "확인할 수집기가 없는 문서"
+    ko = Term(term_id="k", canonical="럭키비키", lang="ko")
+    monkeypatch.setattr(namuwiki, "page_text", lambda title: "… 럭키비키는 장원영의 말에서 나온 밈이다. …" if title == "럭키비키" else None)
+    e, why = crosscheck.confirmed_evidence(ko, "https://namu.wiki/w/럭키비키", "럭키비키", "럭키비키는  장원영의 말에서 나온 밈이다.")
+    assert why == "" and e.url == "https://namu.wiki/w/%EB%9F%AD%ED%82%A4%EB%B9%84%ED%82%A4" and e.title.startswith("나무위키: 럭키비키")
+    assert crosscheck.confirmed_evidence(ko, "https://namu.wiki/w/다른문서", "x", "럭키비키는 장원영의 말에서 나온 밈이다.")[1] == "문서에 닿지 못함"
+    assert crosscheck.confirmed_evidence(t, KYM_URL, "Aura Farming", "Aura Farming is acting cool.")[1] == "Know Your Meme 은 꺼져 있음(KNOWYOURMEME_ENABLED)"
     monkeypatch.setattr(config, "KNOWYOURMEME_ENABLED", True)
-    e, _ = crosscheck.excerpt_evidence(t, KYM_URL, "Aura Farming", "Aura Farming is acting cool.")
-    assert e.url == KYM_URL and e.title == "Know Your Meme: Aura Farming" and e.excerpt == ""
+    monkeypatch.setattr(knowyourmeme, "from_url", lambda url, term, aliases=(): [ev("wiki", "knowyourmeme.com", "Know Your Meme: Aura Farming", url=url)])
+    e, _ = crosscheck.confirmed_evidence(t, KYM_URL, "Aura Farming", "Aura Farming is acting cool.")
+    assert e.url == KYM_URL and e.title == "Know Your Meme: Aura Farming" and e.excerpt == ""                   # 켜져 있어도 주소·제목만
 
 
 # ---------- 조사 단계가 Know Your Meme 을 찾는다 (켜져 있을 때만) ----------
@@ -288,8 +304,9 @@ def _audit(con):
          "excerpt": {"url": "https://namu.wiki/w/%EB%9D%BC%EC%9D%84%EB%9D%BC", "title": "라을라", "text": "라을라는 문서가 없다고 한 말이다"}},
         {"term_id": "t_keep", "verdict": "keep", "problems": [], "sources": ["https://en.wikipedia.org/wiki/6-7_(meme)"],
          "excerpt": {"url": "https://knowyourmeme.com/memes/6-7", "title": "6-7", "text": "6-7 is a meme shouted by students."}},   # Know Your Meme 은 꺼짐
-        {"term_id": "t_busy", "verdict": "fix", "problems": ["유래가 다름"], "sources": [], "proposal": {"origin": "다른 유래"}},
-        {"term_id": "t_new", "verdict": "not_a_meme", "problems": ["일반 낱말"], "sources": []},
+        {"term_id": "t_busy", "verdict": "fix", "problems": ["유래가 다름"], "sources": ["https://en.wikipedia.org/wiki/Brat_summer"],
+         "proposal": {"origin": "다른 유래"}},
+        {"term_id": "t_new", "verdict": "not_a_meme", "problems": ["일반 낱말"], "sources": ["https://id.wikipedia.org/wiki/Galau"]},
         {"term_id": "t_gone", "verdict": "keep"},
     ]
     return [crosscheck.AuditRecord.model_validate(r) for r in rows]
@@ -300,7 +317,11 @@ def _state(con):
             con.execute("SELECT meaning_id, verification, valid_to FROM meanings ORDER BY meaning_id").fetchall())
 
 
-def test_import_reports_by_default_then_queues_once_and_never_touches_the_entries():
+def test_import_reports_by_default_then_queues_once_and_never_touches_the_entries(monkeypatch):
+    from trend_agents.collectors import wikipedia_search
+
+    page = "Aura farming refers to acting cool on purpose to build aura. It spread in 2024."
+    monkeypatch.setattr(wikipedia_search, "article_text", lambda lang, title, timeout=15.0, strict=False: page if title == "Aura farming" else "")
     con = db.connect(":memory:")
     records = _audit(con)
     before = _state(con)
@@ -329,7 +350,7 @@ def test_import_reports_by_default_then_queues_once_and_never_touches_the_entrie
     assert skipped["t_gone"] == "사전에 없는 항목"
     assert [(n, u) for n, u in rep["evidence"]] == [("aura farming", WIKI_URL)]               # 참고 문서이고 표제어가 든 발췌만
     assert {u: why for _, u, why in rep["evidence_skipped"]} == {
-        "https://www.reddit.com/r/x/1": "참고 문서가 아님", "https://en.wikipedia.org/wiki/Skibidi_Toilet": "발췌에 표제어가 없음",
+        "https://www.reddit.com/r/x/1": "참고 문서의 문서 주소가 아님", "https://en.wikipedia.org/wiki/Skibidi_Toilet": "발췌에 표제어가 없음",
         "https://knowyourmeme.com/memes/6-7": "Know Your Meme 은 꺼져 있음(KNOWYOURMEME_ENABLED)"}
     [wiki_ev] = [e for e in ds.list_evidences(con, "t_af") if e.url == WIKI_URL]
     assert wiki_ev.kind == "wiki" and wiki_ev.source_domain == "wikipedia.org" and len(wiki_ev.excerpt) <= 200
@@ -396,7 +417,7 @@ def test_stage_decides_no_doc_by_rule_and_calls_no_model_by_default(monkeypatch)
     from trend_agents.collectors import namuwiki
 
     _no_model(monkeypatch)
-    monkeypatch.setattr(crosscheck, "gather", lambda term: [])                                # 네트워크 없이
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([], []))                          # 네트워크 없이
     monkeypatch.setattr(namuwiki, "lookup", lambda name: [])                                  # '문서가 고쳐졌나' 확인도
     con = db.connect(":memory:")
     listed(con, "t_af", "aura farming")
@@ -422,7 +443,7 @@ def test_stage_waits_before_retrying_a_model_failure(monkeypatch):
     from trend_agents.pipeline import gemini
 
     monkeypatch.setattr(gemini, "local_ok", lambda: True)
-    monkeypatch.setattr(crosscheck, "gather", lambda term: [ev("wiki", "wikipedia.org", "Aura farming", "Aura farming is acting cool.", url=WIKI_URL)])
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([ev("wiki", "wikipedia.org", "Aura farming", "Aura farming is acting cool.", url=WIKI_URL)], []))
 
     def broken(*a, **k):
         raise ValueError("로컬 LLM 구조화 출력 실패")
@@ -456,7 +477,7 @@ def test_stage_sends_model_proposals_to_the_queue_without_touching_the_entry(mon
         asked.append((term.canonical, [e.url for e in docs]))
         return verdicts[term.canonical], "local:test"
 
-    monkeypatch.setattr(crosscheck, "gather", lambda term: [found[term.canonical]])
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([found[term.canonical]], []))
     monkeypatch.setattr(crosscheck, "judge", fake_judge)
     con = db.connect(":memory:")
     listed(con, "t_af", "aura farming")
@@ -479,7 +500,7 @@ def test_stage_rechecks_only_when_a_reference_document_changed(monkeypatch):
     from trend_agents.pipeline import gemini
 
     monkeypatch.setattr(gemini, "local_ok", lambda: False)
-    monkeypatch.setattr(crosscheck, "gather", lambda term: [])
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([], []))
     namu_mod = {"when": NOW - timedelta(days=30)}
     namu_url = "https://namu.wiki/w/%EB%9F%AD%ED%82%A4%EB%B9%84%ED%82%A4"
     monkeypatch.setattr(namuwiki, "lookup", lambda name: [ev("wiki", "namu.wiki", f"나무위키: {name}", f"{name}는 긍정 밈이다", url=namu_url,

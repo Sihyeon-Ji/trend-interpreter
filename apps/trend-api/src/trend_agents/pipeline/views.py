@@ -87,12 +87,14 @@ class ReviewItem(BaseModel):
     correction  고칠 안 — current 가 공개 중인 지금 뜻, draft 가 고칠 안(승인하면 새 판)
     conflict    위키끼리 다름 — current 와 docs(문서마다의 설명)
     retire      사전에서 뺄지 — current 와 사유·docs
-    meaning_id 는 결정과 함께 되돌려 보낼 뜻(new 는 proposed, 나머지는 current) — 그사이 바뀌었으면 서버가 409 로 막는다."""
+    meaning_id 는 결정과 함께 되돌려 보낼 뜻(new 는 proposed, 나머지는 current), token 은 이 제안의 표(올린 때·내용) —
+    둘 가운데 하나라도 그사이 바뀌었으면 서버가 409 로 막는다. 새 말 밖의 제안은 둘 다 보내야 한다."""
 
     term_id: str
     canonical: str
     kind: ReviewKind = "new"
     meaning_id: str | None = None
+    token: str = ""
     proposed: Meaning | None = None
     draft: MeaningDraft | None = None
     reasons: list[str]
@@ -166,7 +168,7 @@ def review_items(con: Connection) -> list[ReviewItem]:
             continue
         evs = [e for e in shown_evidences(con, t) if e.kind != "datalab"][:5]
         weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
-        base = dict(term_id=t.term_id, canonical=t.canonical, kind=kind, reasons=q["reasons"], evidence_count=q["evidence_count"],
+        base = dict(term_id=t.term_id, canonical=t.canonical, kind=kind, token=q["token"], reasons=q["reasons"], evidence_count=q["evidence_count"],
                     queued_at=q["queued_at"], lang=t.lang, evidences=evs, weekly=weekly)
         if kind == "new":
             # 지금 실린 뜻: 제안보다 앞 판 가운데 확인된 마지막 것. 없으면 새 뜻이다
@@ -189,14 +191,17 @@ def review_items(con: Connection) -> list[ReviewItem]:
 class ReviewStats(BaseModel):
     verified_auto: int
     verified_human: int
-    needs_review: int
+    needs_review: int          # 새 말(조사 결과) 검수 대기 — 자동으로 실린 비율의 분모에 든다
     rejected: int
+    proposals: int = 0         # 문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지). 이미 실린 말이라 비율에 넣지 않는다(두 번 세지 않게)
 
 
 def review_stats(con: Connection) -> ReviewStats:
     rows = dict(con.execute("SELECT verification, COUNT(*) FROM meanings WHERE valid_to IS NULL GROUP BY verification").fetchall())
+    pending = ds.pending_counts(con)
     return ReviewStats(verified_auto=rows.get("verified_auto", 0), verified_human=rows.get("verified_human", 0),
-                       needs_review=len(ds.review_queue(con)), rejected=rows.get("rejected", 0))
+                       needs_review=pending.get("new", 0), rejected=rows.get("rejected", 0),
+                       proposals=sum(n for k, n in pending.items() if k != "new"))
 
 
 class CountryPage(BaseModel):

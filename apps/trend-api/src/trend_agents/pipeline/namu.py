@@ -56,6 +56,8 @@ def run(con: Connection) -> dict:
             cm = ds.current_meaning(con, t.term_id)
             if cm and cm.verification == "verified_human":   # 사람이 승인한 뜻은 다시 조사하지 않는다 — 칸만 차지했다
                 continue
+            if ds.under_review(con, t.term_id):               # 문서 대조의 제안을 사람이 보는 중 — 조사가 곧바로 돌아가므로 칸만 차지했다
+                continue
             # 비교는 마지막 '성공한' 조사와 — 실패 기록과 비교하면 문서가 고쳐진 것을 놓쳤다(검토 2차)
             last = ds.last_researched(con, t.term_id, ok_only=True)
             if not last:

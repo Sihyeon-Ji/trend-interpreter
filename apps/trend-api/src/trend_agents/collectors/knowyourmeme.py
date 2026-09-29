@@ -20,7 +20,7 @@ import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -32,6 +32,8 @@ UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype; research)"
 BASE = "https://knowyourmeme.com"
 MIN_GAP_S = 2.0
 MAX_FETCHES = 3
+MAX_HOPS = 3
+REDIRECTS = (301, 302, 303, 307, 308)
 CACHE = Path("data/cache/knowyourmeme.json")
 CACHE_TTL_S = 24 * 3600
 _last = 0.0
@@ -61,16 +63,33 @@ def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
 
 
+def _memes_page(url: str) -> bool:
+    u = urlsplit(url)
+    host = (u.hostname or "").lower()
+    return (host == "knowyourmeme.com" or host.endswith(".knowyourmeme.com")) and u.path.startswith("/memes/")
+
+
 def _get(path: str, timeout: float = 15.0) -> httpx.Response | None:
+    """문서 주소 하나를 연다. 넘겨주기(3xx)는 스스로 따라가지 않고, 같은 사이트의 /memes/ 문서로 갈 때만 한 칸씩 따라간다(최대 세 번) —
+    /search 같은 금지된 곳으로 넘기면 따라가지 않고 그 넘겨주기 응답을 돌려준다. 요청마다 2초 넘게 쉰다."""
     global _last
-    wait = MIN_GAP_S - (time.time() - _last)
-    if wait > 0:
-        time.sleep(wait)
-    _last = time.time()
-    try:
-        return httpx.get(BASE + path, headers={"User-Agent": UA}, timeout=timeout, follow_redirects=True)
-    except httpx.HTTPError:
-        return None
+    url = BASE + path
+    for _ in range(MAX_HOPS + 1):
+        wait = MIN_GAP_S - (time.time() - _last)
+        if wait > 0:
+            time.sleep(wait)
+        _last = time.time()
+        try:
+            r = httpx.get(url, headers={"User-Agent": UA}, timeout=timeout, follow_redirects=False)
+        except httpx.HTTPError:
+            return None
+        if r.status_code not in REDIRECTS:
+            return r
+        nxt = urljoin(url, r.headers.get("location", ""))
+        if not _memes_page(nxt):
+            return r
+        url = nxt
+    return None
 
 
 def _load() -> dict:
@@ -118,9 +137,10 @@ def covers(page: str, term: str, aliases: list[str] | tuple[str, ...] = ()) -> b
     return mentions(title_of(page), term, aliases) and mentions(about_of(page), term, aliases)
 
 
-def lookup(term: str, aliases: list[str] | tuple[str, ...] = ()) -> list[Evidence]:
+def lookup(term: str, aliases: list[str] | tuple[str, ...] = ()) -> list[Evidence] | None:
     """꺼져 있으면 요청 없이 빈 목록. 켜져 있으면 표제어·로마자 별칭으로 만든 문서 주소를 차례로(최대 세 번) 열어,
-    그 말을 다루는 문서가 있으면 **주소와 제목만** 근거 한 건으로(발췌 없음). 네트워크 실패는 캐시하지 않는다(하루 동안 '없음' 으로 남지 않게)."""
+    그 말을 다루는 문서가 있으면 **주소와 제목만** 근거 한 건으로(발췌 없음). 없다고 확인되면 빈 목록, 닿지 못했으면(막힘·서버 오류·네트워크)
+    None — '문서 없음' 과 가른다. 닿지 못한 결과는 캐시하지 않는다(하루 동안 '없음' 으로 남지 않게)."""
     if not enabled():
         return []
     term = (term or "").strip()
@@ -129,26 +149,42 @@ def lookup(term: str, aliases: list[str] | tuple[str, ...] = ()) -> list[Evidenc
     if not term or not slugs:
         return []
     rest = [n for n in names if n != term]
-    key = "|".join([term, *sorted(rest)])
+    return _find("|".join([term, *sorted(rest)]), term, rest, slugs)
+
+
+def from_url(url: str, term: str, aliases: list[str] | tuple[str, ...] = ()) -> list[Evidence] | None:
+    """모델(그라운딩)이나 전수조사가 든 문서 주소 하나를 lookup 과 같은 규칙으로 — /memes/<slug> 문서일 때만 열고, 주소와 제목만 남긴다.
+    꺼져 있거나 문서 주소가 아니면 요청 없이 빈 목록."""
+    if not enabled() or not _memes_page(url or ""):
+        return []
+    s = urlsplit(url).path[len("/memes/"):].strip("/")
+    if not s or "/" in s:                            # /memes/<slug>/photos 같은 곳은 문서가 아니다
+        return []
+    term = (term or "").strip()
+    rest = [n.strip() for n in aliases if n and n.strip() and n.strip() != term]
+    return _find(f"url:{s}|" + "|".join([term, *sorted(rest)]), term, rest, [s])
+
+
+def _find(key: str, term: str, rest: list[str], slugs: list[str]) -> list[Evidence] | None:
     cache = _load()
     hit = cache.get(key)
     if not hit or time.time() - hit.get("at", 0) > CACHE_TTL_S:
         hit, definite = {"at": time.time(), "ok": False}, True
         for s in slugs:
             r = _get(f"/memes/{s}")
-            if r is None or r.status_code not in (200, 404, 410):
+            if r is None or r.status_code not in (200, 404, 410, *REDIRECTS):
                 definite = False                     # 막혔거나 서버 오류 — 다음에 다시 본다
                 continue
             final = str(r.url).split("#")[0].split("?")[0]
-            u = urlsplit(final)
-            if r.status_code != 200 or not ((u.hostname or "").endswith("knowyourmeme.com") and u.path.startswith("/memes/")) or not_found(r.text):
-                continue
+            if r.status_code != 200 or not _memes_page(final) or not_found(r.text):
+                continue                             # 없음·금지된 곳으로 넘기는 주소 — 문서가 아니다
             if covers(r.text, term, rest):
                 hit = {"at": time.time(), "ok": True, "url": final, "title": title_of(r.text)}
                 break
-        if hit["ok"] or definite:
-            cache[key] = hit
-            _save(cache)
+        if not hit["ok"] and not definite:
+            return None
+        cache[key] = hit
+        _save(cache)
     if not hit.get("ok"):
         return []
     return [Evidence(evidence_id=ds.new_id("e", f"{hit['url']}|{term}"), kind="wiki", url=hit["url"],

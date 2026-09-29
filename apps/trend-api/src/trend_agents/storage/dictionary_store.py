@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS review_queue (
 CREATE TABLE IF NOT EXISTS research_log (term_id TEXT, researched_at TEXT, model TEXT, notes TEXT, urls_json TEXT, verification TEXT, reasons_json TEXT);
 -- 문서 대조 기록(Plan 12, 마이그레이션 007). 판정·문서 주소·모델만 두고 문서 본문은 두지 않는다.
 CREATE TABLE IF NOT EXISTS crosscheck_log (term_id TEXT, checked_at TEXT, verdict TEXT, doc_urls_json TEXT, model TEXT);
+-- 검수 결정 기록(마이그레이션 008). 사람이 결정한 줄은 검수 큐가 덮기 전에 남는다 — 같은 제안을 다시 올리지 않는 데에도 쓴다.
+CREATE TABLE IF NOT EXISTS review_history (
+  term_id TEXT, kind TEXT, draft_json TEXT, reasons_json TEXT, docs_json TEXT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT,
+  PRIMARY KEY(term_id, queued_at, decided_at));
 CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
@@ -419,15 +423,61 @@ def get_translation(con: Connection, term_id: str, lang: str) -> MeaningText | N
 
 # 검수 큐의 제안 종류(Plan 12). new 는 조사 결과(지금 판이 제안된 뜻), 나머지 셋은 문서 대조의 제안이라 지금 뜻이 그대로 공개돼 있다.
 REVIEW_KINDS = ("new", "correction", "conflict", "retire")
-_REVIEW_COLS = "term_id, draft_json, reasons_json, evidence_count, queued_at, COALESCE(kind, 'new'), docs_json"
+_REVIEW_COLS = "term_id, draft_json, reasons_json, evidence_count, queued_at, COALESCE(kind, 'new'), docs_json, decision, decided_at, decided_by"
+
+
+def review_token(kind: str, queued_at: str, draft_json: str | None, docs_json: str | None) -> str:
+    """제안 한 건의 표 — 올린 때와 내용이 같을 때만 같다. 결정은 화면이 본 표와 함께 오고, 다르면 409(오래된 화면이 다른 제안을 싣지 않게)."""
+    return hashlib.sha1(f"{kind}|{queued_at}|{draft_json or ''}|{docs_json or ''}".encode()).hexdigest()[:16]
+
+
+def proposal_fingerprint(kind: str, draft, docs: list[dict] | None) -> str:
+    """제안의 내용 — 사람이 같은 내용을 이미 결정했는지 볼 때 쓴다. 올린 때·사유·요약은 빼고, 종류마다 검수자가 판단한 것만 본다:
+    new·correction 은 고칠 안(뜻), conflict 는 문서마다의 주소와 고칠 안, retire 는 문서 주소(새 문서가 생기면 다시 볼 만하다)."""
+    from ..verification import normalize_url
+
+    def meaning(x):
+        if x is None:
+            return None
+        data = x if isinstance(x, dict) else x.model_dump()
+        return MeaningDraft.model_validate(data).model_dump()
+
+    body: dict = {"kind": kind}
+    if kind in ("new", "correction"):
+        body["draft"] = meaning(draft)
+    elif kind == "conflict":
+        body["docs"] = sorted(({"url": normalize_url(d.get("url", "")), "proposal": meaning(d.get("proposal"))} for d in docs or []),
+                              key=lambda d: d["url"])
+    else:
+        body["docs"] = sorted({normalize_url(d.get("url", "")) for d in docs or []})
+    return hashlib.sha1(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def _review_row(r) -> dict:
+    return {"term_id": r[0], "draft": MeaningDraft.model_validate_json(r[1]) if r[1] else None, "reasons": json.loads(r[2] or "[]"),
+            "evidence_count": r[3], "queued_at": r[4], "kind": r[5], "docs": json.loads(r[6]) if r[6] else [],
+            "decision": r[7], "decided_at": r[8], "decided_by": r[9], "token": review_token(r[5], r[4], r[1], r[6])}
+
+
+def _archive(con: Connection, r) -> None:
+    """사람이 결정한 줄을 결정 기록에 남긴다(같은 결정은 한 번만). 게이트가 스스로 닫은 줄은 두지 않는다."""
+    if r[7] is None or (r[9] or "") == "gate" or not r[4] or not r[8]:
+        return
+    con.execute("INSERT OR IGNORE INTO review_history VALUES (?,?,?,?,?,?,?,?,?)", (r[0], r[5], r[1], r[2], r[6], r[4], r[7], r[8], r[9]))
 
 
 def queue_review(con: Connection, term_id: str, draft: MeaningDraft | None, reasons: list[str], evidence_count: int, *,
-                 kind: str = "new", docs: list[dict] | None = None) -> None:
-    """검수 큐에 올린다(표제어마다 한 줄 — 같은 표제어의 예전 줄은 덮인다). kind 는 REVIEW_KINDS.
-    correction 은 draft 가 고칠 안, conflict 는 docs 가 고를 수 있는 문서 설명들, retire 는 draft 없이 사유·문서만."""
+                 kind: str = "new", docs: list[dict] | None = None) -> bool:
+    """검수 큐에 올린다(표제어마다 한 줄). kind 는 REVIEW_KINDS. correction 은 draft 가 고칠 안, conflict 는 docs 가 고를 수 있는 문서 설명들,
+    retire 는 draft 없이 사유·문서만. 아직 결정하지 않은 **다른 종류**의 제안이 있으면 덮지 않고 False — 조사·점검 스크립트의 새 말(new)이
+    사람이 보고 있는 고칠 안을 지우던 것(Plan 12 검토). 사람이 결정한 예전 줄은 덮기 전에 결정 기록(review_history)에 남긴다."""
     if kind not in REVIEW_KINDS:
         raise ValueError(f"검수 큐 종류가 아님: {kind}")
+    row = con.execute(f"SELECT {_REVIEW_COLS} FROM review_queue WHERE term_id=?", (term_id,)).fetchone()
+    if row is not None:
+        if row[7] is None and row[5] != kind:
+            return False
+        _archive(con, row)
     con.execute(
         "INSERT OR REPLACE INTO review_queue (term_id, draft_json, reasons_json, evidence_count, queued_at, decision, decided_at, decided_by, kind, docs_json) "
         "VALUES (?,?,?,?,?,NULL,NULL,NULL,?,?)",
@@ -435,11 +485,7 @@ def queue_review(con: Connection, term_id: str, draft: MeaningDraft | None, reas
          kind, json.dumps(docs, ensure_ascii=False) if docs else None),
     )
     con.commit()
-
-
-def _review_row(r) -> dict:
-    return {"term_id": r[0], "draft": MeaningDraft.model_validate_json(r[1]) if r[1] else None, "reasons": json.loads(r[2] or "[]"),
-            "evidence_count": r[3], "queued_at": r[4], "kind": r[5], "docs": json.loads(r[6]) if r[6] else []}
+    return True
 
 
 def review_queue(con: Connection) -> list[dict]:
@@ -453,14 +499,61 @@ def pending_review(con: Connection, term_id: str) -> dict | None:
     return _review_row(row) if row else None
 
 
+def under_review(con: Connection, term_id: str) -> bool:
+    """문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지)을 사람이 보고 있는가. 그 결정 전에는 조사·점검 스크립트가 지금 뜻을 바꾸지 않는다."""
+    q = pending_review(con, term_id)
+    return bool(q and q["kind"] != "new")
+
+
+def pending_counts(con: Connection) -> dict[str, int]:
+    """아직 결정하지 않은 제안 수 — 종류마다."""
+    return dict(con.execute("SELECT COALESCE(kind, 'new'), COUNT(*) FROM review_queue WHERE decision IS NULL GROUP BY COALESCE(kind, 'new')").fetchall())
+
+
 def decide_review(con: Connection, term_id: str, decision: str, by: str, *, kind: str | None = None) -> None:
-    """kind 를 주면 그 종류의 대기 제안만 닫는다 — 조사가 스스로 닫는 것은 조사 결과(new)뿐이고, 문서 대조의 제안은 사람이 닫는다."""
+    """kind 를 주면 그 종류의 대기 제안만 닫는다 — 조사가 스스로 닫는 것은 조사 결과(new)뿐이고, 문서 대조의 제안은 사람이 닫는다.
+    사람의 결정(by 가 gate 가 아님)은 결정 기록에도 남긴다."""
     if kind:
         con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=? AND decision IS NULL AND COALESCE(kind, 'new')=?",
                     (decision, now_s(), by, term_id, kind))
     else:
         con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=?", (decision, now_s(), by, term_id))
+    if by != "gate":
+        row = con.execute(f"SELECT {_REVIEW_COLS} FROM review_queue WHERE term_id=?", (term_id,)).fetchone()
+        if row is not None:
+            _archive(con, row)
     con.commit()
+
+
+def claim_review(con: Connection, term_id: str, queued_at: str, decision: str, by: str, *, commit: bool = True) -> bool:
+    """검수자가 본 그 제안(올린 때가 같은 대기 줄)만 결정으로 닫는다 — 줄이 하나 바뀌어야 True. 두 사람이 같은 제안을 동시에 결정하거나
+    그사이 새 제안이 올라왔으면 False(→ 409). commit=False 면 뒤따르는 쓰기(새 판 싣기)와 한 트랜잭션으로 묶인다."""
+    n = con.execute("UPDATE review_queue SET decision=?, decided_at=?, decided_by=? WHERE term_id=? AND decision IS NULL AND queued_at=?",
+                    (decision, now_s(), by, term_id, queued_at)).rowcount
+    if n != 1:
+        return False
+    row = con.execute(f"SELECT {_REVIEW_COLS} FROM review_queue WHERE term_id=?", (term_id,)).fetchone()
+    if row is not None:
+        _archive(con, row)
+    if commit:
+        con.commit()
+    return True
+
+
+def human_decided(con: Connection, term_id: str, kind: str, draft, docs: list[dict] | None) -> bool:
+    """사람이 같은 종류·같은 내용의 제안을 이미 결정했는가(승인·거절·지금 뜻 그대로). 다시 가져오기·문서 대조 재검사가 그 제안을 되살리지 않게."""
+    want = proposal_fingerprint(kind, draft, docs)
+    rows = con.execute("SELECT kind, draft_json, docs_json FROM review_history WHERE term_id=? AND kind=?", (term_id, kind)).fetchall()
+    cur = con.execute("SELECT COALESCE(kind, 'new'), draft_json, docs_json, decision, decided_by FROM review_queue WHERE term_id=?", (term_id,)).fetchone()
+    if cur is not None and cur[3] is not None and (cur[4] or "") != "gate" and cur[0] == kind:
+        rows.append(cur[:3])
+    return any(proposal_fingerprint(k, json.loads(d) if d else None, json.loads(c) if c else []) == want for k, d, c in rows)
+
+
+def review_history(con: Connection, term_id: str) -> list[dict]:
+    """그 표제어에 사람이 내린 검수 결정들, 오래된 것부터."""
+    rows = con.execute("SELECT kind, queued_at, decision, decided_at, decided_by FROM review_history WHERE term_id=? ORDER BY decided_at", (term_id,)).fetchall()
+    return [dict(zip(("kind", "queued_at", "decision", "decided_at", "decided_by"), r)) for r in rows]
 
 
 def gate_reasons(con: Connection, term_id: str) -> list[str]:

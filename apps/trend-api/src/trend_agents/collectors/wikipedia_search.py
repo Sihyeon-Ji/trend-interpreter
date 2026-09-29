@@ -20,8 +20,13 @@ def lang_for(region: str) -> str:
     return REGION_LANG.get(region, "en")
 
 
-def _get(url: str, params: dict | None, timeout: float) -> httpx.Response | None:
-    """429·5xx 는 기다렸다 다시. 여러 표제어를 연달아 조사하면 위키백과가 429 를 낸다 (실측 09-16)."""
+class Unreachable(RuntimeError):
+    """위키백과에 닿지 못했다(429·5xx·네트워크 — 다시 해도 안 됨). '문서 없음'(404)과 다르다. strict=True 로 부를 때만 던진다."""
+
+
+def _get(url: str, params: dict | None, timeout: float, strict: bool = False) -> httpx.Response | None:
+    """429·5xx 는 기다렸다 다시. 여러 표제어를 연달아 조사하면 위키백과가 429 를 낸다 (실측 09-16).
+    404 는 None(문서 없음). 끝내 닿지 못하면 None — strict 면 Unreachable 을 던져 '문서 없음' 과 가른다(문서 대조, Plan 12 검토)."""
     for wait in (0, 3, 10):
         if wait:
             time.sleep(wait)
@@ -35,6 +40,8 @@ def _get(url: str, params: dict | None, timeout: float) -> httpx.Response | None
             return r
         except httpx.HTTPError:
             continue
+    if strict:
+        raise Unreachable(url)
     return None
 
 
@@ -45,8 +52,8 @@ def search(lang: str, query: str, limit: int = 3, timeout: float = 10.0) -> list
     return [h["title"] for h in r.json().get("query", {}).get("search", [])]
 
 
-def summary(lang: str, title: str, timeout: float = 10.0) -> dict | None:
-    r = _get(f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{quote(title.replace(' ', '_'))}", None, timeout)
+def summary(lang: str, title: str, timeout: float = 10.0, strict: bool = False) -> dict | None:
+    r = _get(f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{quote(title.replace(' ', '_'))}", None, timeout, strict)
     if r is None or r.status_code != 200:
         return None
     j = r.json()
@@ -114,12 +121,12 @@ def free_image(lang: str, title: str, term: str = "") -> dict | None:
     return None
 
 
-def article_text(lang: str, title: str, timeout: float = 15.0) -> str:
+def article_text(lang: str, title: str, timeout: float = 15.0, strict: bool = False) -> str:
     """문서 본문 평문. 요약(앞 600자)에 없는 이름을 찾을 때 쓴다 —
-    개별 밈 문서는 대개 상위 문서로 넘어가고, 이름은 본문 중간 목록에 있다."""
+    개별 밈 문서는 대개 상위 문서로 넘어가고, 이름은 본문 중간 목록에 있다. 그 자리에서만 쓰고 저장하지 않는다."""
     r = _get(f"https://{lang}.wikipedia.org/w/api.php",
              {"action": "query", "prop": "extracts", "explaintext": "1", "redirects": "1",
-              "titles": title, "format": "json", "formatversion": "2"}, timeout)
+              "titles": title, "format": "json", "formatversion": "2"}, timeout, strict)
     if r is None:
         return ""
     pages = r.json().get("query", {}).get("pages", [])
