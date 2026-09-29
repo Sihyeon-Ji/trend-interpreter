@@ -94,3 +94,58 @@ def test_mention_rotation_column_upgrades_an_existing_table():
     assert ds.mention_rotation(con) == {} and set(ds.mention_sampled(con)) == {"old"}
     ds.mark_mention_sampled(con, "old", "HK")
     assert ds.mention_rotation(con) == {"old": "HK"}
+
+
+def test_english_terms_are_also_counted_in_sg_my_ph_editions():
+    """영어 표제어는 미국판에 더해 싱가포르·말레이시아·필리핀 영어판을 하나씩 돌아가며 잰다 — 미국 뉴스에서만 쟀다(US 195 · SG 2 · MY 3 · PH 2)."""
+    from trend_agents.pipeline.collect import mention_regions
+
+    con = db.connect(":memory:")
+    en = _term("en", "aura farming", "en")
+    seen = []
+    for _ in range(4):
+        got = mention_regions(en, ds.mention_rotation(con).get("en"))
+        ds.mark_mention_sampled(con, "en", got[-1])
+        seen.append(got)
+    assert seen == [["US", "SG"], ["US", "MY"], ["US", "PH"], ["US", "SG"]]
+    assert mention_regions(_term("ms", "LENGKET SEMUA", "ms"), None) == ["MY"]      # 말레이어는 말레이시아판 하나(근거가 되는 판)
+
+
+def test_sg_my_ph_edition_hits_are_usage_counters_not_evidence():
+    """지표용 영어판 결과는 나라별 원본 언급으로 세지만 근거로 만들지 않는다(보이지 않고 게이트에도 세지 않는다).
+    같은 판이라도 그 나라 말(말레이어)을 잰 것, 키워드 없이 받은 머리기사는 그대로 근거다."""
+    from trend_agents.pipeline import track
+    from trend_agents.pipeline.research import first_party_evidence
+    from trend_agents.schemas import NewsItem
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, _term("en", "aura farming", "en"))
+    ds.upsert_term(con, _term("ms", "lengket semua", "ms"))
+    db.upsert_news(con, [
+        NewsItem(title="What is aura farming?", link="us1", source="CNN", published_at=now, region="US", query="aura farming"),
+        NewsItem(title="Aura farming hits Singapore schools", link="sg1", source="Mothership", published_at=now, region="SG", query="aura farming"),
+        NewsItem(title="Aura farming, explained", link="sg2", source="BBC", published_at=now, region="SG", query="aura farming"),
+        NewsItem(title="Aura farming at the MRT", link="sg3", source="CNA", published_at=now, region="SG", query=None),
+        NewsItem(title="Lengket semua trend viral", link="my1", source="Harian Metro", published_at=now, region="MY", query="lengket semua"),
+    ])
+    assert {e.url for e in first_party_evidence(con, "aura farming")} == {"us1", "sg3"}
+    assert {e.url for e in first_party_evidence(con, "lengket semua")} == {"my1"}
+    by_region: dict = {}
+    track.weekly_counts(con, "aura farming", [], by_region=by_region)
+    assert sum(by_region["SG"].values()) == 3 and sum(by_region["US"].values()) == 1
+
+
+def test_english_community_research_rotates_sg_my_ph_sites():
+    """영어 표제어의 커뮤니티 조사는 싱가포르·말레이시아·필리핀 사이트를 돌아간다(각 목록에 reddit 이 있어 미국 몫도 그대로)."""
+    from trend_agents.collectors.community import COMMUNITY_SITES
+    from trend_agents.pipeline.research import community_region
+
+    con = db.connect(":memory:")
+    en = _term("en", "aura farming", "en")
+    got = []
+    for _ in range(4):
+        got.append(community_region(con, en))
+        ds.log_research(con, "en", "test", "", [], "unverified", [])
+    assert got == ["SG", "MY", "PH", "SG"]
+    assert all("reddit.com" in COMMUNITY_SITES[r] for r in ("SG", "MY", "PH"))

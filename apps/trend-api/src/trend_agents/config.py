@@ -74,6 +74,10 @@ def home_region(text: str, lang: str | None) -> str | None:
 # 여러 목표 지역이 같이 쓰는 말은 언급(뉴스 검색)과 커뮤니티 조사를 이 나라들로 번갈아 한다(Plan 04). 광동어는 홍콩만 —
 # 중국어를 대만 뉴스판에서만 재서 홍콩 키워드 검색이 0건이었다(2026-09-29).
 ALTERNATE_REGIONS = {"zh": ("TW", "HK")}
+# 영어 표제어는 미국 뉴스판에 더해 이 나라 영어판을 하나씩 돌아가며 재고, 커뮤니티도 이 나라 사이트를 돌아가며 뒤진다 — 영어 표제어를
+# 미국 뉴스에서만 쟀다(키워드 검색 US 195 · SG 2 · MY 3 · PH 2, 2026-09-29). 이 영어판 결과는 나라별 원본 언급 수(지표)로만 쓰고 근거로
+# 만들지 않는다: 미국판에 없던 기사에도 BBC·Bloomberg 같은 전 세계 매체가 섞여 그 나라 기사라는 보장이 없다(Plan 04 실측).
+ENGLISH_EDITIONS = ("SG", "MY", "PH")
 
 
 def region_cycle(text: str, lang: str | None) -> tuple[str, ...]:

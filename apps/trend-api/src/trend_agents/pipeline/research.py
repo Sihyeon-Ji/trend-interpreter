@@ -11,7 +11,7 @@ import httpx
 
 from google.genai import errors
 
-from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, home_region, region_cycle
+from ..config import ENGLISH_EDITIONS, GEMINI_FALLBACK_MODEL, GEMINI_MODEL, home_region, region_cycle
 from ..interpreters.gemini_research import research_term
 from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo, Term
@@ -97,10 +97,14 @@ def web_evidence(term: str, urls: list[str], aliases: list[str] | tuple[str, ...
 def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) -> list[Evidence]:
     key = _norm(term)
     out: list[Evidence] = []
+    # 영어 표제어를 싱가포르·말레이시아·필리핀 영어판에서 잰 결과는 나라별 원본 언급 수(지표)로만 쓴다 — 근거로 보이거나 게이트에 세지 않는다(Plan 04)
+    english = {n for (n,) in con.execute("SELECT norm FROM terms WHERE lang='en'").fetchall()}
     for (j,) in con.execute("SELECT json FROM news").fetchall():
         from ..schemas import NewsItem
 
         n = NewsItem.model_validate_json(j)
+        if n.query and n.region in ENGLISH_EDITIONS and _norm(n.query) in english:
+            continue
         if mentions(n.title, term, aliases):
             out.append(Evidence(evidence_id=ds.new_id("e", n.link), kind="news", url=n.link, title=n.title[:200], source_domain=news_domain(n),
                                 observed_at=n.published_at or datetime.now(timezone.utc), excerpt=n.title))
@@ -424,8 +428,9 @@ def needs_human(reasons: list[str], documented: bool = False) -> bool:
 
 def community_region(con: Connection, term: Term) -> str:
     """커뮤니티를 뒤질 나라. 표제어의 나라(광동어는 홍콩)이고, 여러 나라가 같이 쓰는 말(중국어)은 조사할 때마다 번갈아 —
-    중국어는 대만 사이트(PTT·Dcard)만 뒤져 홍콩(LIHKG·香港討論區) 글을 한 번도 보지 않았다(Plan 04)."""
-    cycle = region_cycle(term.canonical, term.lang)
+    중국어는 대만 사이트(PTT·Dcard)만 뒤져 홍콩(LIHKG·香港討論區) 글을 한 번도 보지 않았다(Plan 04). 영어는 싱가포르·말레이시아·필리핀
+    사이트를 돌아간다(나라마다 reddit 도 함께 찾아 미국 몫은 그대로). 커뮤니티 글은 전처럼 지표로만 쓴다(ADR 0003)."""
+    cycle = region_cycle(term.canonical, term.lang) or (ENGLISH_EDITIONS if term.lang == "en" else ())
     return cycle[ds.research_count(con, term.term_id) % len(cycle)] if cycle else home_region(term.canonical, term.lang) or "US"
 
 
