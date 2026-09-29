@@ -14,7 +14,7 @@ from ..config import USE_LOCAL_GEMMA
 from ..schemas import ContentDraft, ProductBrief, ScriptScene, ShortScript, SocialCopy, ThumbnailPlan
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from .dashboard import term_regions
+from .dashboard import regions_for
 from .gemini import BudgetExhausted, configured, structured
 from .match import mentions, unsafe
 from .risk import RISK_KO, nuance_warning
@@ -84,11 +84,12 @@ _SCRIPT = {"ko": r"[가-힣]", "ja": r"[぀-ヿ一-鿿]", "zh-Hant": r"[一-鿿]
 _NON_LATIN = re.compile(r"[^\x00-\x7fÀ-ɏḀ-ỿ]")
 
 
-def writable(t, region: str, usage_regions: set[str]) -> bool:
-    """이 밈으로 그 지역의 결과물을 쓸 수 있나 — 그 지역에서 쓰이고(dashboard.term_regions), 그 말로 쓴 글에 그대로 넣을 표기(표제어·별칭)가 있다.
-    한국 밈을 일본 카피에 넣으면 가타카나로 옮겨 적어(オサルヒム) 읽히지도, '밈이 글에 없음' 검사를 통과하지도 않았다(2026-09-29 실측).
-    일본에서도 쓴다고 조사된 한글 표기 밈(럭키비키·건어물녀)도 마찬가지다(검토 3차)."""
-    if region not in term_regions(t, usage_regions):
+def writable(t, region: str, regions) -> bool:
+    """이 밈으로 그 지역의 결과물을 쓸 수 있나 — 그 지역에서 쓰이고(regions: 그 말의 지역, dashboard.regions_for — 대시보드 카드·사전 항목과 같은 값),
+    그 말로 쓴 글에 그대로 넣을 표기(표제어·별칭)가 있다. 조사가 정한 나라만 보던 때는 매체 수로 싱가포르에 든 말이 추천은 되는데 결과물 지역이
+    비었다(검토 09-30). 한국 밈을 일본 카피에 넣으면 가타카나로 옮겨 적어(オサルヒム) 읽히지도, '밈이 글에 없음' 검사를 통과하지도 않았다
+    (2026-09-29 실측). 일본에서도 쓴다고 조사된 한글 표기 밈(럭키비키·건어물녀)도 마찬가지다(검토 3차)."""
+    if region not in regions:
         return False
     script = _SCRIPT.get(REGION_LANG.get(region, "en"))
     return any(not _NON_LATIN.search(n) or (script and re.search(script, n)) for n in (t.canonical, *t.aliases) if n)
@@ -195,7 +196,7 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     terms = [t for tid in dict.fromkeys(term_ids) if (t := ds.get_term(con, tid)) and t.status == "verified" and t.risk_level != "avoid"][:MAX_MEMES]
     if not terms:
         raise ValueError("쓸 수 있는 밈이 없습니다")
-    terms = [t for t in terms if writable(t, region, {u["region"] for u in ds.get_usage(con, t.term_id)})]
+    terms = [t for t in terms if writable(t, region, regions_for(con, t))]
     if not terms:
         raise ValueError("고른 밈 가운데 이 지역에서 쓰이고 그 말로 쓸 수 있는 것이 없습니다")
     lang = REGION_LANG.get(region, "en")

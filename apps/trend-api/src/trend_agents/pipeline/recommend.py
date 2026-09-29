@@ -152,13 +152,14 @@ def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: 
     items = []
     for s, c, cat, feel in picked:
         ctx = local_context(con, c.term_id, chosen)
-        term, usage = ds.get_term(con, c.term_id), {u["region"] for u in ds.get_usage(con, c.term_id)}
+        term = ds.get_term(con, c.term_id)
+        regions = dashboard.regions_for(con, term) if term else []     # 만들기(generate.run)와 같은 값 — 대시보드·사전 항목과 같은 규칙
         items.append(RecommendItem(term_id=c.term_id, canonical=c.canonical, lang=c.lang, gloss_ko=c.gloss_ko, gloss_en=c.gloss_en, regions=c.regions,
                                    diffusion=c.diffusion, lifecycle=c.lifecycle, risk_level=c.risk_level, risk_reasons=c.risk_reasons,
                                    risk_checked_at=c.risk_checked_at, matched_category=cat,
                                    any_category=bool(fits.get(c.term_id) and fits[c.term_id].any_category),
                                    matched_feelings=feel, local_region=ctx[0] if ctx else None, local_note=ctx[1] if ctx else None,
-                                   write_regions=[r for r in chosen if r in REGION_LANG and term and writable(term, r, usage)],
+                                   write_regions=[r for r in chosen if r in REGION_LANG and term and writable(term, r, regions)],
                                    score=round(s, 2), evidences=_links(con, c), pinned=c.term_id == pin))
     return RecommendResult(brief=brief, brief_source=brief_source, regions=chosen, tone=tone, items=items,
                            considered=len(scored), untagged=len(cards) - comparable)

@@ -295,6 +295,37 @@ def test_dashboard_and_dictionary_share_the_region_rule():
     assert [c.term_id for c in glob.rising + glob.fading] == ["t1"]
 
 
+def test_recommend_and_generate_use_the_dashboard_regions(monkeypatch):
+    """추천의 결과물 지역·만들기도 대시보드와 같은 지역(regions_for)으로 — 매체 수로 싱가포르에 든 말이 추천은 되는데 결과물 지역이 비어
+    만들기 단추가 꺼졌고, 만들기를 직접 불러도 400 이었다(검토 09-30)."""
+    from trend_agents.pipeline import dashboard, generate, recommend
+    from trend_agents.schemas import ContentDraft, Evidence, MemeFit, ProductBrief, ScriptScene, ShortScript, SocialCopy, ThumbnailPlan
+
+    monkeypatch.setattr(recommend, "configured", lambda: False)
+    monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)
+    monkeypatch.setattr(generate, "USE_LOCAL_GEMMA", False)
+    con = db.connect(":memory:")
+    _verified(con, "t1", "aura farming", "en", ["US"])
+    ds.add_evidences(con, "t1", [Evidence(evidence_id="e1", kind="news", url="https://news.example/af", title="Aura farming explained",
+                                          source_domain="news.example", observed_at=NOW, excerpt="aura farming")])
+    ds.set_fit(con, "t1", ds.current_meaning(con, "t1").meaning_id,
+               MemeFit(feelings=["joy", "comfort"], uses=["reaction"], fits=["food_drink"], any_category=True, voice="wholesome"), "test")
+    sg = ["The Straits Times", "CNA", "AsiaOne"]
+    ds.add_mention_samples(con, "t1", [_news(f"sg{i}", f"Aura farming story {i}", s, "SG", "aura farming") for i, s in enumerate(sg)], dict.fromkeys(sg, "SG"))
+    dashboard.run(con)
+    brief = ProductBrief(product="아이스 라떼", category="food_drink", feelings=["joy", "comfort"], values=["시원함"], scene="카페")
+    [item] = recommend.recommend(con, brief, "sample", ["SG"], "friendly").items
+    assert item.regions == ["SG", "GLOBAL"] and item.write_regions == ["SG"]
+
+    draft = ContentDraft(copies=[SocialCopy(platform="instagram", text="aura farming with an iced latte")] * 2
+                         + [SocialCopy(platform="x", text="aura farming hours")] * 2,
+                         script=ShortScript(title="aura farming", duration_s=15, scenes=[ScriptScene(start_s=0, end_s=15, visual="latte", caption="aura farming")]),
+                         thumbnail=ThumbnailPlan(headline="aura farming", layout="left", colors=["brown"]))
+    monkeypatch.setattr(generate, "structured", lambda *a, **k: (draft, "gemini-test"))
+    monkeypatch.setattr(generate, "configured", lambda: True)
+    assert generate.run(con, ["t1"], brief, "SG", "friendly").memes == ["aura farming"]
+
+
 def test_research_reserves_slots_for_under_covered_target_regions():
     """새 표제어 칸 가운데 몇 칸은 사전이 빈 목표 지역(HK·SG·MY·VN·PH·TH·ID) 후보에 먼저 — spot 후보는 출처 순서로 늘 맨 뒤라
     홍콩에서 네 번 본 行得㗎啦 가 09-28 부터 기다렸다. 그 지역에서 봤어도 그 지역 말이 아니면(인니 쇼츠의 힌디어) 칸을 받지 않는다."""
