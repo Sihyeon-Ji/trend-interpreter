@@ -2,7 +2,7 @@
 
 작성일 **2026-09-28** · 변경일 **2026-09-29** · 상태 **Cloud SQL 체험 인스턴스 생성 완료, 앱 배포 구현 대기** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
-[계획 목록](README.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
+[계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
 > **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 개발자 PC에서 실행한다.
 
