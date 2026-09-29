@@ -98,9 +98,17 @@ def strip_particle(s: str) -> list[str]:
 # 목표 지역(대만·홍콩)의 중국어도 거른다. 뜻이 하나뿐인 말만 — '穴'·'エロ' 처럼 흔히 다른 뜻으로 쓰이는 글자는 넣지 않는다.
 # 다른 낱말 안에 든 글자는 걸지 않는다: 'Koshitantan'(shit)·'시발점'·'쳐다보지 마'·'남자지만'·'자지러지게' 가 욕설로 걸려
 # 증거와 상관없이 '사용 자제' 가 됐다(2026-09-29 검토). 'fuck' 은 낱말 안에 있어도(motherfucker) 욕이라 그대로 둔다.
-UNSAFE = re.compile(r"시발(?![점역])|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|(?<![다쳐봐돌알해])보지(?!\s*(?:마|않|못|말))|(?<![남여])자지(?!러)|"
-                    r"fuck|\b(?:bull|dog|horse)?shit(?:s|ty|post\w*)?\b|\bporn|hentai|ahegao|nsfw|goatse|"
-                    r"性侵|強姦|强奸|色情|做愛|做爱|幹你娘|干你娘|肏|屄", re.I)
+UNSAFE = re.compile(
+    # 한국어: 다른 낱말 안의 글자('먹어보지도'·'감자지옥'·'남자지만')는 낱말 앞머리일 때만, 동사로 이어지면 빼고
+    r"시발(?![점역])|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|(?<![가-힣])보지(?![가-힣]*\s*(?:마|않|못|말))|(?<![가-힣])자지(?!러)|"
+    # 영어: 낱말 경계. 'fuck' 은 낱말 안에 있어도(motherfucker) 욕이다
+    r"fuck|\b(?:bull|dog|horse)?shit(?:s|ty|post\w*)?\b|\bporn|hentai|ahegao|nsfw|goatse|"
+    r"\b(?:bitch(?:es|y)?|cunts?|pussy|nigg(?:a|er)s?|retard(?:ed|s)?|whores?|sluts?)\b|"
+    # 목표 지역(검토 2차): 일본어·태국어·베트남어·인도네시아어·타갈로그어·말레이어 — 뜻이 하나뿐인 말만
+    r"セックス|ちんこ|まんこ|ちんぽ|ควย|เย็ด|เหี้ย|หี(?![บ])|\bđịt\b|\blồn\b|\bcặc\b|\bđụ\b|"
+    r"\b(?:kontol|ngentot|memek|jancok|pukimak|putangina|tangina|pakyu)\b|"
+    # 대만·홍콩의 중국어
+    r"性侵|強姦|强奸|色情|做愛|做爱|幹你娘|干你娘|肏|屄", re.I)
 
 
 def unsafe(text: str) -> bool:

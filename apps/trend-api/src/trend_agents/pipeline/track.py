@@ -84,11 +84,14 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
         if mentions(n.title, term, aliases):
             d = (n.published_at or datetime.now(timezone.utc)).date()
             add(_week(d), n.region)
-    for j, vj in con.execute("SELECT i.json, v.json FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall():
+    for j, vj, created in con.execute("SELECT i.json, v.json, i.created_at FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall():
         it = ShortsInterpretation.model_validate_json(j)
         if any(same_term(m.name, term, aliases) for m in it.memes):
             v = ShortsVideo.model_validate_json(vj) if vj else None
-            add(_week(v.published_at.date() if v else date.today()), v.region if v else None)
+            # 영상 행은 30일 보존 뒤 지워진다 — 그때는 해석한 날로 둔다(오늘로 두면 옛 쇼츠가 매번 '이번 주' 언급이 됐다, 검토 2차). 나라는 모른다
+            when = v.published_at.date() if v else (datetime.fromisoformat(created).date() if created else None)
+            if when:
+                add(_week(when), v.region if v else None)
     for t, d, region in con.execute("SELECT term, date, region FROM trend_queries").fetchall():
         if _norm(t) in keys:
             add(_week(date.fromisoformat(d)), region)
@@ -127,8 +130,11 @@ def run(con: Connection) -> dict:
             fresh = ds.get_term(con, t.term_id) or t
             fresh.lifecycle, fresh.diffusion = lifecycle, dif
             fresh.first_seen = first.replace(tzinfo=timezone.utc)
-            if observed_raw:
-                fresh.last_seen = max(observed_raw).replace(tzinfo=timezone.utc)
+            # 마지막 본 때 = 원본의 마지막 주와 가장 최근 쓰임 근거 가운데 늦은 것 — 생애주기(recency_stage)와 같은 재료.
+            # 둘 다 없으면 비운다(예전 규칙으로 남은 날짜가 그대로 남아 있던 것, 검토 2차)
+            newest = newest_usage(con, t.term_id)
+            seen = [d.replace(tzinfo=timezone.utc) for d in observed_raw] + ([newest if newest.tzinfo else newest.replace(tzinfo=timezone.utc)] if newest else [])
+            fresh.last_seen = max(seen) if seen else None
             ds.upsert_term(con, fresh)
             n += 1
         r.count = n

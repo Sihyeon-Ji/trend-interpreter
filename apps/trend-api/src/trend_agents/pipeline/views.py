@@ -290,6 +290,7 @@ class RecommendItem(BaseModel):
     lifecycle: Lifecycle
     risk_level: RiskLevel | None = None
     risk_reasons: list[str] = []
+    risk_checked_at: datetime | None = None   # 리스크 규칙을 돌린 때 — 화면이 '근거 부족' 을 보일지 가른다
     matched_category: bool             # 제품 분야가 이 밈이 어울리는 분야에 있다
     any_category: bool                 # 분야를 가리지 않는 반응·감탄 표현
     matched_feelings: list[Feeling]
@@ -299,8 +300,8 @@ class RecommendItem(BaseModel):
 
 
 class RecommendResult(BaseModel):
-    brief: ProductBrief
-    brief_source: Literal["gemini", "local", "sample"]   # sample 이면 화면이 '예시 설명' 이라고 알린다
+    brief: ProductBrief | None = None                    # 고른 지역에 비교할 후보가 없으면 사진·문구를 읽지 않는다(None)
+    brief_source: Literal["gemini", "local", "sample", "none"]   # sample 이면 화면이 '예시 설명', none 이면 '아직 준비 안 됨' 이라고 알린다
     regions: list[str]
     tone: CampaignTone
     items: list[RecommendItem]

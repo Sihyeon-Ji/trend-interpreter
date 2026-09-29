@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from trend_agents.pipeline import dashboard, recommend
-from trend_agents.schemas import MeaningDraft, MemeFit, ProductBrief, Term
+from trend_agents.schemas import Evidence, MeaningDraft, MemeFit, ProductBrief, Term
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
 
@@ -18,6 +18,9 @@ def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=Tru
     m = ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 은 기분 좋은 하루를 뜻하는 말", origin="x", nuance="y", generations=["20s"],
                                               regions=["KR"], self_confidence=0.9), "verified_auto", [])
     ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
+    # 추천은 근거 링크가 있어야 나간다(ADR 0001) — 쓰임 글 하나씩
+    ds.add_evidences(con, tid, [Evidence(evidence_id=f"e_{tid}", kind="community", url=f"https://theqoo.net/{tid}", title=f"{name} 글",
+                                         source_domain="theqoo.net", observed_at=now, excerpt=f"{name} 진짜")])
     cur = ds.current_meaning(con, tid)
     ds.set_fit(con, tid, cur.meaning_id, MemeFit(feelings=list(feelings), uses=["reaction"], fits=list(fits), any_category=any_category, voice=voice), "test")
     return m
@@ -59,9 +62,9 @@ def test_top_five_and_explained_matches():
 
 def test_reason_must_lean_on_the_dictionary_meaning():
     meaning = "나쁜 상황에서도 좋게 보는 긍정적인 태도"
-    assert recommend.anchored("럭키비키처럼 더위도 좋게 넘기게 해 줍니다", meaning, "럭키비키")          # 이름이 들어 있다
-    assert recommend.anchored("더운 날에도 긍정적인 기분을 줍니다", meaning, "럭키비키")                 # 뜻풀이 낱말(긍정)
-    assert not recommend.anchored("달리기 선수들이 경기 전에 외치는 구호입니다", meaning, "럭키비키")     # 뜻을 새로 지어냄
+    assert recommend.anchored("럭키비키처럼 나쁜 더위도 좋게 넘기게 해 줍니다", meaning, "럭키비키")     # 이름 + 뜻풀이 낱말
+    assert not recommend.anchored("더운 날에도 긍정적인 기분을 줍니다", meaning, "럭키비키")             # 이름이 없다 — 어떤 밈 이야기인지 모른다
+    assert not recommend.anchored("럭키비키는 달리기 선수들이 경기 전에 외치는 구호입니다", meaning, "럭키비키")   # 뜻을 새로 지어냄
     assert not recommend.anchored("", meaning, "럭키비키")
 
 
@@ -138,3 +141,81 @@ def test_fit_stage_tags_only_new_or_changed_meanings(monkeypatch):
     monkeypatch.setattr(fit, "local_ok", lambda: True)
     monkeypatch.setattr(fit, "structured", lambda con, prompt, schema: ([FitLabel(i=0, feelings=["joy"], uses=["praise"], voice="wholesome")], "test"))
     assert fit.run(con)["fit"].count == 1 and fit.todo(con) == []
+
+
+# ---------- 검토 2차 ----------
+
+def test_pool_is_not_cut_to_the_display_lists():
+    """추천 후보는 대시보드 표시 목록(30개씩)이 아니라 고른 지역의 모든 카드 — 알맞은 밈이 잘려 나갔다."""
+    con = db.connect(":memory:")
+    for k in range(35):
+        _term(con, f"t{k:02d}", f"말{k:02d}", ["tired"], any_category=False)      # 안 맞는 말 35개가 목록을 채운다
+    _term(con, "best", "딱맞는말", ["joy", "comfort"], fits=["food_drink"])
+    dashboard.run(con)
+    got = [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items]
+    assert got == ["best"]
+
+
+def test_reason_needs_the_name_and_a_meaning_word():
+    meaning = "나쁜 상황에서도 좋게 보는 긍정적인 태도"
+    assert not recommend.anchored("럭키비키라서 이 라떼는 달리기 선수의 구호입니다", meaning, "럭키비키")   # 이름만, 뜻과 겹침 없음
+    assert recommend.anchored("럭키비키처럼 더위도 긍정적으로 넘기게 해 줍니다", meaning, "럭키비키")
+    assert not recommend.anchored("It is used by people", "a term used by people online", "lol")       # 흔한 말만 겹친다
+
+
+def test_unknown_voice_fails_closed():
+    assert MemeFit.model_validate({"feelings": ["joy"], "uses": ["reaction"], "voice": "???"}).voice == "edgy"
+    assert MemeFit.model_validate({"feelings": ["joy"], "uses": ["reaction"], "voice": ""}).voice == "edgy"
+
+
+def test_sample_only_when_nothing_is_configured(monkeypatch):
+    """로컬 모델이 설정돼 있는데 꺼져 있으면 예시로 대신하지 않는다. 빈 구조화 응답도 오류로."""
+    con = db.connect(":memory:")
+    monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", True)
+    monkeypatch.setattr(recommend, "configured", lambda: False)
+
+    def down(*a, **k):
+        raise ConnectionError("ollama down")
+
+    monkeypatch.setattr(recommend, "structured", down)
+    with pytest.raises(recommend.Unavailable):
+        recommend.understand(con, "문구")
+    monkeypatch.setattr(recommend, "structured", lambda *a, **k: (None, "gemini-x"))
+    with pytest.raises(recommend.Unavailable):
+        recommend.understand(con, "문구")
+
+
+def test_region_without_candidates_skips_the_model(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    monkeypatch.setattr(api, "_con", _con())
+    called = []
+    monkeypatch.setattr(recommend, "structured", lambda *a, **k: called.append(1) or (None, "x"))
+    c = TestClient(api.app)
+    r = c.post("/recommend", data={"text": "라떼", "regions": "VN"})
+    assert r.status_code == 200 and r.json()["brief_source"] == "none" and r.json()["items"] == [] and not called
+
+
+def test_chunked_upload_without_length_is_refused(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    c = TestClient(api.app)
+
+    def body():
+        yield b"--x\r\n"
+
+    r = c.post("/recommend", content=body(), headers={"content-type": "multipart/form-data; boundary=x"})
+    assert r.status_code == 411
+
+
+def test_request_ledger_is_separate_from_the_pipeline_budget():
+    from trend_agents.pipeline import gemini
+
+    con = db.connect(":memory:")
+    before = gemini.budget_left(con)
+    ds.gemini_spend(con, 3, gemini.REQUEST_LEDGER)
+    assert gemini.budget_left(con) == before and gemini.budget_left(con, request=True) == gemini.REQUEST_GEMINI_DAILY - 3

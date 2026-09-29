@@ -97,7 +97,7 @@ def check(con: Connection, draft: ContentDraft, terms) -> tuple[dict[str, str], 
         return problems, 0
     drafts = "\n".join(f"[{k}] {_text(v)[:500]}" for k, v in rest.items())
     try:
-        parsed, _ = structured(con, CHECK_PROMPT.format(memes=_meme_lines(con, terms), drafts=drafts), list[DraftCheck])
+        parsed, _ = structured(con, CHECK_PROMPT.format(memes=_meme_lines(con, terms), drafts=drafts), list[DraftCheck], request=True)
     except Exception:
         return problems, 1           # 검사를 못 하면 규칙 검사만으로 둔다 — 모델 판단 없이 막지는 않는다
     for c in (parsed or []):
@@ -112,7 +112,9 @@ def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: st
                                values=", ".join(brief.values) or "-", avoid=", ".join(brief.avoid) or "-", memes=_meme_lines(con, terms),
                                lang=LANG_NAME.get(lang, lang), explain="한국어" if ui == "ko" else "영어", feedback=feedback)
     try:
-        parsed, model = structured(con, prompt, ContentDraft, temperature=0.7, prefer_gemini=True)
+        parsed, model = structured(con, prompt, ContentDraft, temperature=0.7, prefer_gemini=True, request=True)
+        if parsed is None:
+            raise ValueError("빈 구조화 응답")
     except BudgetExhausted as e:
         raise Unavailable("오늘 만들기 한도를 다 썼습니다") from e
     except Exception as e:

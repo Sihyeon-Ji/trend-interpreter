@@ -45,6 +45,8 @@ def run(con: Connection) -> dict:
                 added += 1
 
         rechecked = []
+        tried = 0
+        from .gemini import BudgetExhausted, budget_left, local_ok
         from .research import research_one
 
         for t in ds.list_terms(con, ("verified",)):
@@ -53,19 +55,29 @@ def run(con: Connection) -> dict:
             cm = ds.current_meaning(con, t.term_id)
             if cm and cm.verification == "verified_human":   # 사람이 승인한 뜻은 다시 조사하지 않는다 — 칸만 차지했다
                 continue
-            last = ds.last_researched(con, t.term_id)
+            # 비교는 마지막 '성공한' 조사와 — 실패 기록과 비교하면 문서가 고쳐진 것을 놓쳤다(검토 2차)
+            last = ds.last_researched(con, t.term_id, ok_only=True)
             if not last:
                 continue
             ev = namuwiki.lookup(t.canonical)          # 하루 캐시 — 문서를 매번 받지 않는다
             if ev and ev[0].observed_at > last.replace(tzinfo=last.tzinfo or timezone.utc):
+                if budget_left(con) < 2 and not local_ok():   # research.run 과 같은 예산 확인
+                    r.note += "예산 부족 "
+                    break
+                tried += 1
                 try:
                     v, _ = research_one(con, t)
                     if v != "verified_human":
                         rechecked.append(t.canonical)
+                except BudgetExhausted:
+                    break                               # 오늘 몫이 끝났다 — 기록하지 않고 다음 실행에 다시
                 except Exception as e:
                     r.note += f"{t.canonical}:{type(e).__name__} "
-                    # 실패도 조사 기록으로 남겨, 다음 실행에 같은 용어가 다시 칸을 차지하지 않게 한다(research.run 과 같은 규칙)
-                    ds.log_research(con, t.term_id, "error", f"{type(e).__name__}: {e}"[:500], [], "error", [])
+                    # 형식 실패 같은 것은 기록해 다음 실행에 같은 용어가 칸을 차지하지 않게 한다. 일시적 네트워크 실패는 기록하지 않는다
+                    if not isinstance(e, (OSError, TimeoutError)):
+                        ds.log_research(con, t.term_id, "error", f"{type(e).__name__}: {e}"[:500], [], "error", [])
+                if tried >= MAX_RECHECK:                # 실패도 칸을 센다
+                    break
         r.count = len(rank) + added + len(rechecked)
         r.detail = {"실시간 검색어": rank[:10], "새 후보": added, "문서가 고쳐져 다시 조사": rechecked}
     return {"namu": r}

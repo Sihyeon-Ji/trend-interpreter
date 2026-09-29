@@ -10,6 +10,7 @@ import json
 import re
 from collections import Counter
 from datetime import date, datetime, timedelta
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 
@@ -32,8 +33,12 @@ LIFECYCLE_ORDER = {"emerging": 0, "rising": 0, "peak": 1, "steady": 2}
 USAGE_KINDS = ("community", "news", "short")
 
 # 표제어 언어의 나라로 둘 때는 그 나라 글자로 쓴 말만. 위키 언어판(ja)에서 받은 영어 제목 'The cake is a lie' 가 일본 카드가 됐다(2026-09-29 검토).
-_SCRIPT = {"ko": r"[가-힣]", "ja": r"[぀-ヿ一-鿿]", "zh": r"[一-鿿]", "th": r"[฀-๿]"}
-_LATIN_ONLY = re.compile(r"^[\x00-\x7fÀ-ɏ\s]+$")
+_SCRIPT = {"ko": r"[가-힣]", "ja": r"[\u3040-\u30ff\u4e00-\u9fff]", "zh": r"[\u4e00-\u9fff]", "th": r"[\u0e00-\u0e7f]",
+           "vi": r"[ăâđêôơưĂÂĐÊÔƠƯ\u1ea0-\u1ef9]"}
+# 로마자로 쓰는 목표 지역 말(인도네시아어·타갈로그어·말레이어)은 글자로 가를 수 없어 표제어 언어를 믿는다 — '전 세계' 로 보내면
+# 그 나라 목록에서 빠졌다(2026-09-29 검토 2차).
+_LATIN_LANGS = ("id", "tl", "fil", "ms")
+_LATIN_ONLY = re.compile(r"^[\x00-\x7f\u00c0-\u024f\u1e00-\u1eff\s]+$")
 
 # 커뮤니티 도메인의 나라. 수집기(COMMUNITY_SITES)에서 오고, 구글 뉴스가 한국어 이름으로 준 것과 나라 도메인을 더한다.
 # 나라를 가를 수 없는 전 세계 플랫폼(Reddit·Bluesky·Lemmy·Hacker News·유튜브 댓글…)은 GLOBAL.
@@ -60,7 +65,7 @@ def term_regions(term: Term, usage_regions: set[str]) -> list[str]:
     regions = [r for r in REGIONS_FOCUS if r in known]
     if not known:
         home, script = LANG_REGION.get(term.lang), _SCRIPT.get(term.lang)
-        if home in REGIONS_FOCUS and script and re.search(script, term.canonical):
+        if home in REGIONS_FOCUS and ((script and re.search(script, term.canonical)) or term.lang in _LATIN_LANGS):
             regions = [home]
         elif _LATIN_ONLY.match(term.canonical):
             return [GLOBAL]
@@ -154,6 +159,11 @@ class _Regions:
         return ""
 
 
+def _has_path(url: str) -> bool:
+    """'https://namu.wiki/' 같은 홈페이지 주소는 근거가 아니다 — 나무위키 실시간 검색어·예전 시드에 118건 있었다(검토 2차)."""
+    return urlsplit(url or "").path not in ("", "/")
+
+
 def _usage_ok(e: Evidence, t: Term) -> bool:
     """쓰임으로 셀 근거 — 네이버 검색 결과는 약관상 표시 전용이고 느슨하게 맞은 글이 많아(바이킹 로우의 지식iN 글이 노르웨이 축구)
     빼고, 표제어가 실제로 든 글만(mentions)."""
@@ -170,7 +180,9 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
     m = ds.current_meaning(con, t.term_id)
     ko, en = ds.get_translation(con, t.term_id, "ko"), ds.get_translation(con, t.term_id, "en")
     base = m.definition if m else ""
-    evs = [e for e in ds.list_evidences(con, t.term_id) if _usage_ok(e, t) or e.kind in ("wiki", "web")]   # 최근 것부터
+    # 쓰임 근거 + 설명 문서(위키·웹). 네이버 블로그 결과는 'web' 으로 들어와도 표시 전용이라 뺀다(검토 2차). 주소가 홈페이지뿐인 것도 뺀다
+    evs = [e for e in ds.list_evidences(con, t.term_id)
+           if (_usage_ok(e, t) or (e.kind in ("wiki", "web") and not e.source_domain.startswith("naver"))) and _has_path(e.url)]
     labels = ds.evidence_labels(con, t.term_id)
     weekly: dict[str, list[int]] = {}
     for r, cnt in ds.get_weekly_region(con, t.term_id).items():
@@ -222,6 +234,7 @@ def view(s: Stored, chosen: list[str]) -> KeywordCard:
         "tone": Tone(positive=tone["positive"], neutral=tone["neutral"], negative=tone["negative"]),
         "evidences": evs,
         "last_used": max((s.last_used[r] for r in chosen if r in s.last_used), default=None),
+        "gen_peaks": s.card.gen_peaks if "KR" in chosen else [],   # 네이버 데이터랩은 한국만 — 다른 지역 보기에 한국 연령대를 내지 않는다
     })
 
 
@@ -262,17 +275,51 @@ def refresh_card(con: Connection, term_id: str) -> None:
     _save(con, stored)
 
 
-def board(con: Connection, regions: list[str] | None = None) -> KeywordBoard:
-    """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고).
-    표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙)."""
+def _live(con: Connection, stored: list[Stored]) -> list[Stored]:
+    """캐시 카드에 지금의 상태·리스크를 덮어쓴다. 단계가 카드를 만드는 몇 초 사이의 검수 결정이 캐시 저장 경쟁에서 지워져도
+    화면·추천은 사람의 결정을 따른다(검토 2차). 확인된 용어가 아니게 된 것은 뺀다."""
+    now = {t.term_id: t for t in ds.list_terms(con, ("verified",))}
+    out = []
+    for s in stored:
+        t = now.get(s.card.term_id)
+        if t:
+            out.append(s.model_copy(update={"card": s.card.model_copy(update={"risk_level": t.risk_level, "risk_reasons": t.risk_reasons,
+                                                                              "risk_checked_at": t.risk_checked_at})}))
+    return out
+
+
+def _browsable(c: KeywordCard) -> bool:
+    """둘러보는 목록에 낼 수 있나. 표제어 자체가 욕설·성적 표현이면 내지 않는다 — 검수자가 '문제 없음' 으로 정한 것은 낸다(오탐을 사람이 풀 수 있게)."""
+    return not unsafe(c.canonical) or c.risk_level == "none"
+
+
+def _loaded(con: Connection) -> tuple[list[Stored], datetime]:
     loaded = _load(con)
     if loaded is None:                # 첫 실행 전이거나 예전 캐시 — 바로 만들어 둔다
         _save(con, build(con))
         loaded = _load(con) or ([], datetime.now())
     stored, generated_at = loaded
-    stored = [s for s in stored if not unsafe(s.card.canonical)]
+    return [s for s in _live(con, stored) if _browsable(s.card)], generated_at
+
+
+def chosen_regions(regions: list[str] | None) -> list[str]:
     known = [*REGIONS_FOCUS, GLOBAL]
-    chosen = [r for r in known if r in (regions or [])] or list(REGIONS_FOCUS)
+    return [r for r in known if r in (regions or [])] or list(REGIONS_FOCUS)
+
+
+def cards(con: Connection, regions: list[str] | None = None) -> list[KeywordCard]:
+    """고른 지역의 모든 카드 — 목록 셋의 30개 자르기 없이. 추천이 후보로 쓴다(표시 목록에서 가져오면 알맞은 밈이 잘려 나갔다, 검토 2차)."""
+    stored, _ = _loaded(con)
+    chosen = chosen_regions(regions)
+    return [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
+
+
+def board(con: Connection, regions: list[str] | None = None) -> KeywordBoard:
+    """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고).
+    표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙)."""
+    stored, generated_at = _loaded(con)
+    known = [*REGIONS_FOCUS, GLOBAL]
+    chosen = chosen_regions(regions)
     picked = [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
     rising, fading, caution = split(picked)
     return KeywordBoard(generated_at=generated_at, regions=chosen,
@@ -283,7 +330,7 @@ def board(con: Connection, regions: list[str] | None = None) -> KeywordBoard:
 def card(con: Connection, term_id: str) -> KeywordCard | None:
     """용어 하나의 신호 (사전 화면의 '어디서 얼마나 쓰이나'). 모든 나라를 더한다. 목표 지역 밖 용어도 만들어 준다."""
     everywhere = [*REGIONS_FOCUS, GLOBAL]
-    for s in (_load(con) or ([], None))[0]:
+    for s in _live(con, (_load(con) or ([], None))[0]):
         if s.card.term_id == term_id:
             return view(s, everywhere)
     t = ds.get_term(con, term_id)

@@ -650,3 +650,66 @@ def test_rising_orders_by_recent_use_when_raw_mentions_are_zero():
     rising = dashboard.board(con, ["KR"]).rising
     assert [c.term_id for c in rising] == ["b", "a"] and rising[0].last_used is not None
     assert dashboard.board(con, ["JP"]).rising == []           # 한국 글은 일본 순서에 쓰이지 않는다(카드도 없다)
+
+
+def test_dashboard_follows_live_decisions_and_regions_round2():
+    """캐시가 옛것이어도 화면은 지금의 결정을 따른다(제외·리스크), 검수자가 '문제 없음' 으로 푼 욕설 오탐은 보인다,
+    베트남어는 글자로·인도네시아어는 언어로 나라를 정한다, 한국 연령대 정점은 한국을 고를 때만."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import dashboard
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+
+    def term(tid, name, lang, usage=()):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang=lang, status="verified", lifecycle="steady", first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=list(usage),
+                                              self_confidence=0.9), "verified_auto", [])
+        if usage:
+            ds.set_usage(con, tid, [("20s", r, now.isoformat(), 1.0) for r in usage])
+
+    term("vn", "u là trời", "vi")
+    term("idn", "anjay", "id")
+    term("kr", "럭키비키", "ko", ("KR", "JP"))
+    term("oops", "Koshitantan shit", "en", ("US",))
+    dashboard.run(con)
+    assert dashboard.card(con, "vn").regions == ["VN"] and dashboard.card(con, "idn").regions == ["ID"]
+
+    ds.set_risk(con, "kr", "avoid", ["사전 뜻풀이에 적힌 주의점"], "avoid", now)       # 캐시를 만든 뒤의 결정
+    assert "kr" in {c.term_id for c in dashboard.board(con, ["KR"]).caution}
+    t = ds.get_term(con, "kr")
+    t.status = "retired"
+    ds.upsert_term(con, t, human=True)
+    assert "kr" not in {c.term_id for c in dashboard.cards(con, ["KR"])}
+
+    assert "oops" not in {c.term_id for c in dashboard.cards(con, ["GLOBAL"])}
+    ds.set_risk(con, "oops", "none", ["검수자가 정한 수준"], "avoid", now)            # 검수자가 오탐을 풀었다
+    assert "oops" in {c.term_id for c in dashboard.cards(con, ["GLOBAL"])}
+
+
+def test_track_keeps_old_shorts_in_their_week_and_clears_stale_last_seen():
+    """영상 행이 지워진 쇼츠는 해석한 날의 주로 센다(오늘이 아니라). 원본도 쓰임 근거도 없으면 마지막 본 때를 비운다."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.pipeline import track
+    from trend_agents.schemas import MemeRef, ShortsInterpretation, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    old = now - timedelta(days=45)
+    ds.upsert_term(con, Term(term_id="t1", canonical="skibidi", lang="en", status="verified", first_seen=old, last_seen=now))
+    it = ShortsInterpretation(url="https://www.youtube.com/watch?v=v1", language="en", summary="s", target_generation=["10s"], why_viral="w",
+                              explain_for_outsider="e", memes=[MemeRef(name="skibidi", kind="meme", origin_hypothesis="x", confidence=0.9)])
+    con.execute("INSERT INTO interpretations VALUES (?,?,?,?)", ("v1", "test", old.isoformat(), it.model_dump_json()))
+    con.commit()
+    counts = track.weekly_counts(con, "skibidi", [])
+    assert track._week(now.date()) not in counts and sum(counts.values()) == 1
+    ds.upsert_term(con, Term(term_id="t2", canonical="없는말", lang="ko", status="verified", first_seen=old, last_seen=now))
+    track.run(con)
+    assert ds.get_term(con, "t2").last_seen is None

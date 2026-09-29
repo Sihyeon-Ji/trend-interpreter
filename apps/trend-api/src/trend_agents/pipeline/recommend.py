@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import re
+import threading
 
+from ..config import USE_LOCAL_GEMMA
 from ..schemas import MemeFit, MemeReason, ProductBrief
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
@@ -37,7 +39,7 @@ SAMPLE_BRIEF = ProductBrief(product="여름 한정 아이스 흑당 라떼", cat
 BRIEF_PROMPT = """너는 광고 기획자다. 아래 {what}을 보고 제품을 설명하라. 추측이 필요하면 흔한 쪽으로 하되, 보이지 않는 성분·효능을 지어내지 마라.
 category 는 food_drink · fashion_beauty · tech · game · entertainment · travel · finance · health_fitness · education · lifestyle 가운데 하나.
 feelings 는 이 홍보가 전하고 싶은 느낌 1~3개를 joy · hype · cute · funny · relatable · comfort · pride · surprise · sarcasm · frustration · tired ·
-romance · nostalgia · cool 가운데서. 브랜드가 피해야 할 표현·주제가 보이면 avoid 에. 글은 한국어로.
+romance · nostalgia · cool 가운데서. 브랜드가 피해야 할 표현·주제가 보이면 avoid 에. 글(product·values·scene·colors·avoid)은 {lang}로.
 {text}"""
 
 REASON_PROMPT = {
@@ -92,15 +94,24 @@ def rank(brief: ProductBrief, cards: list[KeywordCard], fits: dict[str, MemeFit]
 _TOKEN = re.compile(r"[가-힣]{2,}|[A-Za-z]{3,}|[぀-ヿ一-鿿]{2,}")
 
 
+# 뜻풀이에 흔히 나오지만 뜻을 가르지 못하는 말 — 이것만 겹쳐서는 '뜻에 기댄 이유' 가 아니다(검토 2차: 'the'·'used' 로 통과했다)
+_STOP = {"the", "and", "for", "with", "that", "this", "from", "used", "use", "using", "when", "who", "what", "your", "you", "are", "was", "can",
+         "like", "its", "just", "into", "about", "more", "most", "very", "also", "meme", "slang", "term", "word", "expression", "phrase",
+         "internet", "online", "people", "someone", "something", "사용", "표현", "의미", "말이", "뜻이", "경우", "사람", "인터넷", "유행어", "쓰이", "쓰는"}
+
+
+def _words(text: str) -> set[str]:
+    """두 글자 이상 낱말의 앞 세 글자('귀여운'·'귀여움' 같은 활용을 한 낱말로), 흔한 말 제외."""
+    return {w.lower()[:3] for w in _TOKEN.findall(text) if w.lower() not in _STOP and w.lower()[:3] not in _STOP}
+
+
 def anchored(reason: str, meaning: str, canonical: str) -> bool:
-    """이유가 사전 뜻에 기대고 있나 — 표제어 이름이나 뜻풀이의 낱말(두 글자 이상) 하나는 들어 있어야 한다.
-    뜻과 겹치는 말이 하나도 없는 이유는 모델이 뜻을 새로 지어냈을 가능성이 크다(Plan 07 5번 '사전 뜻을 벗어난 이유는 버린다')."""
-    if not reason.strip():
+    """이유가 사전 뜻에 기대고 있나 — 표제어 이름이 들어 있고, 뜻풀이의 낱말(흔한 말·표제어 자체는 빼고) 하나는 겹쳐야 한다.
+    이름만 넣으면 통과하던 것을 막는다(검토 2차: 이름 + 지어낸 뜻이 그대로 나갔다). Plan 07 5번 '사전 뜻을 벗어난 이유는 버린다'."""
+    if not reason.strip() or canonical.lower() not in reason.lower():
         return False
-    if canonical.lower() in reason.lower():
-        return True
-    words = {w[:3] for w in _TOKEN.findall(meaning)}    # 앞 세 글자 — '귀여운'·'귀여움' 같은 활용을 한 낱말로
-    return any(w[:3] in words for w in _TOKEN.findall(reason))
+    body = reason.lower().replace(canonical.lower(), " ")
+    return bool(_words(body) & (_words(meaning) - _words(canonical)))
 
 
 class Unavailable(RuntimeError):
@@ -115,18 +126,21 @@ def wrong_language(text: str, lang: str, canonical: str) -> bool:
     return hangul > latin if lang == "en" else latin > 3 * max(1, hangul)
 
 
-def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None = None) -> tuple[ProductBrief, str]:
-    """(제품 설명, 어디서 만들었나: gemini·local·sample). 모델이 아예 없는 개발 환경만 고정 예시를 쓴다."""
-    if not (local_ok() or configured()):
+def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None = None, lang: str = "ko") -> tuple[ProductBrief, str]:
+    """(제품 설명, 어디서 만들었나: gemini·local·sample). 모델이 아예 **설정되지 않은** 개발 환경만 고정 예시를 쓴다 —
+    로컬 모델이 설정돼 있는데 꺼져 있으면 예시로 대신하지 않고 오류로 알린다(남의 제품으로 추천하지 않게, 검토 2차)."""
+    if not (USE_LOCAL_GEMMA or configured()):
         return SAMPLE_BRIEF, "sample"
     what = ("제품 사진" + (" 과 홍보 문구" if text else "")) if image else "홍보 문구"
-    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "")
+    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang="한국어" if lang == "ko" else "영어")
     try:
-        parsed, model = structured(con, prompt, ProductBrief, image=image)
+        parsed, model = structured(con, prompt, ProductBrief, image=image, request=True)
     except BudgetExhausted as e:
         raise Unavailable("오늘 사진·문구 읽기 한도를 다 썼습니다") from e
     except Exception as e:
         raise Unavailable("지금은 사진·문구를 읽지 못했습니다") from e
+    if parsed is None:                 # Gemini 가 형식을 못 맞추면 parsed 가 비어 온다
+        raise Unavailable("지금은 사진·문구를 읽지 못했습니다")
     brief = parsed if isinstance(parsed, ProductBrief) else ProductBrief.model_validate(parsed)
     return brief, "local" if model.startswith("local:") else "gemini"
 
@@ -148,7 +162,7 @@ def write_reasons(con: Connection, brief: ProductBrief, picked: list[tuple], lan
     try:
         parsed, _ = structured(con, REASON_PROMPT["en" if lang == "en" else "ko"].format(
             region=", ".join(regions), product=brief.product, scene=brief.scene or "-", values=", ".join(brief.values) or "-",
-            items="\n".join(lines)), list[MemeReason])
+            items="\n".join(lines)), list[MemeReason], request=True)
     except Exception:
         return {}
     avoid = [a for a in brief.avoid if a]
@@ -165,20 +179,34 @@ def write_reasons(con: Connection, brief: ProductBrief, picked: list[tuple], lan
     return out
 
 
+def ready(con: Connection, regions: list[str]) -> int:
+    """고른 지역에서 비교할 수 있는(쓰임 낱말이 붙은) 후보 수. 0 이면 사진·문구를 읽기 전에 알린다 — 모델 호출을 아낀다(검토 2차)."""
+    fits = ds.all_fits(con)
+    return sum(1 for c in dashboard.cards(con, regions) if c.term_id in fits)
+
+
+def _links(con: Connection, c: KeywordCard) -> list:
+    """추천마다 근거 링크 두 건. 고른 지역의 쓰임 근거가 없으면 모든 지역 것으로 — 링크 없는 추천을 내지 않는다(ADR 0001 근거 규칙)."""
+    evs = [e for e in c.evidences if e.kind != "datalab"]
+    if not evs and (everywhere := dashboard.card(con, c.term_id)):
+        evs = [e for e in everywhere.evidences if e.kind != "datalab"]
+    return evs[:2]
+
+
 def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: list[str], tone: str, lang: str = "ko") -> RecommendResult:
-    board = dashboard.board(con, regions)
-    cards = {c.term_id: c for c in board.rising + board.fading + board.caution}.values()   # 목록 셋은 겹친다
+    chosen = dashboard.chosen_regions(regions)
+    cards = dashboard.cards(con, chosen)             # 표시 목록(30개씩)이 아니라 고른 지역의 모든 카드
     fits = {tid: f for tid, (_, f) in ds.all_fits(con).items()}
-    scored, comparable = rank(brief, list(cards), fits, tone)
-    picked = scored[:TOP]
-    reasons = write_reasons(con, brief, picked, lang, board.regions)
+    scored, comparable = rank(brief, cards, fits, tone)
+    picked = [p for p in scored if _links(con, p[1])][:TOP]      # 근거 링크가 없는 것은 추천하지 않는다
+    reasons = write_reasons(con, brief, picked, lang, chosen)
     items = [RecommendItem(term_id=c.term_id, canonical=c.canonical, gloss_ko=c.gloss_ko, gloss_en=c.gloss_en, regions=c.regions,
                            diffusion=c.diffusion, lifecycle=c.lifecycle, risk_level=c.risk_level, risk_reasons=c.risk_reasons,
-                           matched_category=cat, any_category=fits[c.term_id].any_category, matched_feelings=feel,
-                           reason=reasons.get(c.term_id), score=round(s, 2), evidences=c.evidences[:2])
+                           risk_checked_at=c.risk_checked_at, matched_category=cat, any_category=fits[c.term_id].any_category,
+                           matched_feelings=feel, reason=reasons.get(c.term_id), score=round(s, 2), evidences=_links(con, c))
              for s, c, cat, feel in picked]
-    return RecommendResult(brief=brief, brief_source=brief_source, regions=board.regions, tone=tone, items=items,
-                           considered=len(scored), untagged=len(list(cards)) - comparable)
+    return RecommendResult(brief=brief, brief_source=brief_source, regions=chosen, tone=tone, items=items,
+                           considered=len(scored), untagged=len(cards) - comparable)
 
 
 # 사진 입력 검사 — MIME 은 바이트 머리로 판단한다(업로드가 주장하는 Content-Type 은 믿지 않는다)
@@ -201,11 +229,13 @@ class RateLimit:
     def __init__(self, per_minute: int = 20):
         self.per_minute = per_minute
         self.hits: list[float] = []
+        self.lock = threading.Lock()   # 동기 엔드포인트는 작업 스레드 여럿에서 동시에 돈다
 
     def allow(self, now: float) -> bool:
-        self.hits = [t for t in self.hits if now - t < 60]
-        if len(self.hits) >= self.per_minute:
-            return False
-        self.hits.append(now)
-        return True
+        with self.lock:
+            self.hits = [t for t in self.hits if now - t < 60]
+            if len(self.hits) >= self.per_minute:
+                return False
+            self.hits.append(now)
+            return True
 

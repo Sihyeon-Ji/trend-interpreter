@@ -421,8 +421,10 @@ def log_research(con: Connection, term_id: str, model: str, notes: str, urls: li
     con.commit()
 
 
-def last_researched(con: Connection, term_id: str) -> datetime | None:
-    row = con.execute("SELECT MAX(researched_at) FROM research_log WHERE term_id=?", (term_id,)).fetchone()
+def last_researched(con: Connection, term_id: str, ok_only: bool = False) -> datetime | None:
+    """마지막 조사 시각. ok_only 면 실패('error') 기록을 뺀다."""
+    q = "SELECT MAX(researched_at) FROM research_log WHERE term_id=?" + (" AND verification != 'error'" if ok_only else "")
+    row = con.execute(q, (term_id,)).fetchone()
     return datetime.fromisoformat(row[0]) if row and row[0] else None
 
 
@@ -464,13 +466,15 @@ def stage_counts_24h(con: Connection) -> dict[str, tuple[int, str, str]]:
     return out
 
 
-def gemini_budget_left(con: Connection, daily_budget: int) -> int:
-    row = con.execute("SELECT count FROM gemini_calls WHERE day=?", (date.today().isoformat(),)).fetchone()
+def gemini_budget_left(con: Connection, daily_budget: int, ledger: str = "") -> int:
+    """ledger: '' 는 파이프라인, 'req:' 는 이용자 요청 — 같은 표에 날짜 앞에 붙여 따로 센다."""
+    row = con.execute("SELECT count FROM gemini_calls WHERE day=?", (ledger + date.today().isoformat(),)).fetchone()
     return max(0, daily_budget - (row[0] if row else 0))
 
 
-def gemini_spend(con: Connection, n: int = 1) -> None:
-    con.execute("INSERT INTO gemini_calls VALUES (?,?) ON CONFLICT(day) DO UPDATE SET count=gemini_calls.count+excluded.count", (date.today().isoformat(), n))
+def gemini_spend(con: Connection, n: int = 1, ledger: str = "") -> None:
+    con.execute("INSERT INTO gemini_calls VALUES (?,?) ON CONFLICT(day) DO UPDATE SET count=gemini_calls.count+excluded.count",
+                (ledger + date.today().isoformat(), n))
     con.commit()
 
 

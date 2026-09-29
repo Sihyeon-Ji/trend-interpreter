@@ -318,7 +318,8 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                       <dt className="text-steel">{t(locale, "term_info_risk")}</dt>
                       <dd className="text-charcoal">
                         {t(locale, `risk_${risk}`)}
-                        <span className="block text-[12px] leading-[1.5] text-steel">{locale === "ko" && risk !== "unknown" && reason ? reason : t(locale, `risk_${risk}_why`)}</span>
+                        {/* 검수자가 정한 수준이면 규칙의 이유를 붙이지 않는다 — 규칙이 반대로 보았을 수 있다(검토 2차) */}
+                        <span className="block text-[12px] leading-[1.5] text-steel">{record.term.risk_human ? t(locale, "risk_by_reviewer") : locale === "ko" && risk !== "unknown" && reason ? reason : t(locale, `risk_${risk}_why`)}</span>
                       </dd>
                     </>
                   );

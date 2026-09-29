@@ -352,8 +352,12 @@ MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
 
 @app.middleware("http")
 async def _upload_cap(request, call_next):
-    if request.url.path == "/recommend" and int(request.headers.get("content-length") or 0) > recommend_stage.MAX_IMAGE + 64 * 1024:
-        return JSONResponse({"detail": "사진은 5MB까지입니다"}, status_code=413)
+    if request.url.path == "/recommend" and request.method == "POST":
+        length = request.headers.get("content-length")
+        if length is None:          # 길이를 밝히지 않는 조각 전송(chunked)은 크기를 미리 막을 수 없다 — 받지 않는다(검토 2차)
+            return JSONResponse({"detail": "요청 길이가 필요합니다"}, status_code=411)
+        if int(length or 0) > recommend_stage.MAX_IMAGE + 64 * 1024:
+            return JSONResponse({"detail": "사진은 5MB까지입니다"}, status_code=413)
     return await call_next(request)
 
 
@@ -380,12 +384,16 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
         raise HTTPException(400, "사진이나 홍보 문구 가운데 하나는 넣어 주세요")
     if not _recommend_limit.allow(time.monotonic()):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    wanted = [r.strip().upper() for r in regions.split(",") if r.strip()]
+    ui = "en" if lang == "en" else "ko"
+    if not recommend_stage.ready(_con, wanted):      # 비교할 후보가 없는 지역 — 모델을 부르지 않고 알린다
+        return views.RecommendResult(brief=None, brief_source="none", regions=dashboard.chosen_regions(wanted), tone=tone,  # type: ignore[arg-type]
+                                     items=[], considered=0, untagged=len(dashboard.cards(_con, wanted)))
     try:
-        brief, source = recommend_stage.understand(_con, text, picture)
+        brief, source = recommend_stage.understand(_con, text, picture, ui)
     except recommend_stage.Unavailable as e:
         raise HTTPException(503, str(e)) from None
-    wanted = [r.strip().upper() for r in regions.split(",") if r.strip()]
-    return recommend_stage.recommend(_con, brief, source, wanted, tone, "en" if lang == "en" else "ko")
+    return recommend_stage.recommend(_con, brief, source, wanted, tone, ui)
 
 
 class GenerateIn(BaseModel):

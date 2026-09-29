@@ -11,6 +11,10 @@ const TONES: CampaignTone[] = ["friendly", "witty", "premium"];
 /** 밈 추천 (Plan 07). 브라우저는 백엔드를 직접 부르지 않는다 — 여기서 입력을 한 번 거르고 넘긴다.
  *  사진은 메모리에서만 다루고 저장·기록하지 않는다(요청 로그에도 남기지 않는다). */
 export async function POST(req: Request) {
+  // 본문을 읽기 전에 크기부터 — 길이를 밝히지 않거나 한도를 넘으면 받지 않는다(검토 2차)
+  const length = Number(req.headers.get("content-length") ?? NaN);
+  if (!Number.isFinite(length)) return NextResponse.json({ error: "bad_request" }, { status: 411 });
+  if (length > MAX_IMAGE + 64 * 1024) return NextResponse.json({ error: "too_big" }, { status: 413 });
   let form: FormData;
   try {
     form = await req.formData();

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GenerationView } from "@/components/generation-view";
+import { riskOf, stageLine } from "@/components/keyword-card";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, listJoin, regionLabel, sourceName } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
@@ -29,6 +30,7 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   const labels = L(locale);
   const [text, setText] = useState("");
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const [inputKey, setInputKey] = useState(0);   // 사진을 빼면 파일 입력칸도 비운다 — 그대로 두면 같은 파일을 다시 고를 수 없었다
   const [regions, setRegions] = useState<string[]>(initialRegions);
   const [tone, setTone] = useState<CampaignTone>("friendly");
   const [busy, setBusy] = useState(false);
@@ -46,8 +48,9 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
 
   const pick = (f: File | null) => {
     setError(null);
-    if (f && f.size > MAX_IMAGE) { setError("rec_too_big"); return; }
-    if (f && !["image/jpeg", "image/png", "image/webp"].includes(f.type)) { setError("rec_bad_type"); return; }
+    if (f && f.size > MAX_IMAGE) { setError("rec_too_big"); setInputKey((k) => k + 1); return; }
+    if (f && !["image/jpeg", "image/png", "image/webp"].includes(f.type)) { setError("rec_bad_type"); setInputKey((k) => k + 1); return; }
+    if (!f) setInputKey((k) => k + 1);
     setPhoto(f ? { file: f, url: URL.createObjectURL(f) } : null);
   };
   const toggleRegion = (r: string) => setRegions((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
@@ -97,14 +100,14 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   const field = "mt-1 block w-full rounded-[4px] border border-hairline bg-white px-3 py-2 text-[15px] text-ink";
   const chip = (on: boolean) => cn("rounded-full border px-3 py-1 text-[13px] whitespace-nowrap",
     on ? "border-primary bg-primary text-primary-foreground" : "border-hairline-strong text-charcoal hover:border-ink hover:text-ink");
-  const category = result ? labels.fitCategory[result.brief.category] : "";
+  const category = result?.brief ? labels.fitCategory[result.brief.category] : "";
 
   return (
     <div className="space-y-10">
       <form className="max-w-[640px] space-y-5" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         <div>
           <label htmlFor="rec-photo" className="block text-[13px] text-steel">{t(locale, "rec_photo")}</label>
-          <input id="rec-photo" type="file" accept="image/jpeg,image/png,image/webp" className="mt-1 block text-[14px] text-charcoal"
+          <input key={inputKey} id="rec-photo" type="file" accept="image/jpeg,image/png,image/webp" className="mt-1 block text-[14px] text-charcoal"
             onChange={(e) => pick(e.target.files?.[0] ?? null)} />
           <p className="mt-1 text-[12px] text-steel">{t(locale, "rec_photo_hint")}</p>
           {photo && (
@@ -142,41 +145,50 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
         </div>
       </form>
 
+      {/* 화면 읽기 프로그램에 진행과 결과를 알린다 */}
+      <p aria-live="polite" className="sr-only">{busy ? t(locale, "rec_busy") : result ? `${t(locale, "rec_results")} ${result.items.length}` : ""}</p>
       {result && (
         <section aria-labelledby="rec-results" className="space-y-5">
-          <div className="rounded-lg border border-hairline p-4">
-            <h2 className="text-[14px] font-semibold text-ink">{t(locale, "rec_brief")}</h2>
-            <p className="mt-1 text-[15px] text-ink">{result.brief.product} <span className="text-[13px] text-steel">· {category}</span></p>
-            <p className="mt-1 text-[13px] text-charcoal">{listJoin(locale, result.brief.feelings.map((f) => labels.feeling[f]))}{result.brief.values?.length ? ` · ${result.brief.values.join(", ")}` : ""}</p>
-            {result.brief_source === "sample" && <p className="mt-2 text-[13px] text-steel">{t(locale, "rec_brief_sample")}</p>}
-          </div>
+          {result.brief && (
+            <div className="rounded-lg border border-hairline p-4">
+              <h2 className="text-[14px] font-semibold text-ink">{t(locale, "rec_brief")}</h2>
+              <p className="mt-1 text-[15px] text-ink">{result.brief.product} <span className="text-[13px] text-steel">· {category}</span></p>
+              <p className="mt-1 text-[13px] text-charcoal">{listJoin(locale, result.brief.feelings.map((f) => labels.feeling[f]))}{result.brief.values?.length ? ` · ${result.brief.values.join(", ")}` : ""}</p>
+              {result.brief_source === "sample" && <p className="mt-2 text-[13px] text-steel">{t(locale, "rec_brief_sample")}</p>}
+            </div>
+          )}
           <div>
             <h2 id="rec-results" className="text-[18px] font-semibold text-ink">{t(locale, "rec_results")} <span className="ml-1 text-[14px] font-normal text-steel">{result.items.length}</span></h2>
             <p className="mt-0.5 text-[13px] text-steel">{listJoin(locale, result.regions.map((r) => regionLabel(locale, r)))} · {labels.campaignTone[result.tone]}</p>
           </div>
-          {result.items.length === 0 ? <p className="text-[14px] text-steel">{t(locale, "rec_none")}</p> : (
+          {result.items.length === 0 ? <p className="text-[14px] text-steel">{t(locale, result.brief_source === "none" ? "rec_not_ready" : "rec_none")}</p> : (
             <ol className="space-y-3">
               {result.items.map((it, n) => (
                 <li key={it.term_id}>
                   <article className="rounded-lg border border-hairline p-4">
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="min-w-0 break-words text-[16px] font-semibold text-ink"><span className="mr-2 text-steel tabular-nums">{n + 1}</span>{it.canonical}</h3>
-                      {(it.risk_level === "caution") && <span className="shrink-0 rounded border border-hairline-strong px-1.5 text-[12px] leading-[20px] text-charcoal">{t(locale, "risk_caution")}</span>}
+                      {(() => {
+                        // 대시보드 카드와 같은 표시 — 주의와 '근거 부족'(검사했지만 문장이 모자람)
+                        const risk = riskOf(it);
+                        return risk && risk !== "avoid" && <span className="shrink-0 rounded border border-hairline-strong px-1.5 text-[12px] leading-[20px] text-charcoal">{t(locale, `risk_${risk}`)}</span>;
+                      })()}
                     </div>
                     <p className="mt-1 text-[14px] leading-[1.55] text-charcoal">{locale === "ko" ? it.gloss_ko : it.gloss_en}</p>
-                    <p className="mt-1 text-[12px] text-steel">{[it.diffusion ? t(locale, `diffusion_${it.diffusion}`) : null, labels.lifecycle[it.lifecycle]].filter(Boolean).join(" · ")}</p>
+                    <p className="mt-1 text-[12px] text-steel">{stageLine(locale, it)}</p>
                     <p className="mt-2 text-[14px] text-ink">
                       <span className="text-steel">{it.reason ? t(locale, "rec_why") : t(locale, "rec_match")}: </span>
                       {it.reason ?? matchLine(locale, it, category)}
                     </p>
-                    {it.risk_level === "caution" && <p className="mt-1 text-[12px] text-charcoal">{t(locale, "risk_caution_why")}</p>}
+                    {(riskOf(it) === "caution" || riskOf(it) === "unknown") && <p className="mt-1 text-[12px] text-charcoal">{t(locale, `risk_${riskOf(it) as "caution" | "unknown"}_why`)}</p>}
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
                       <label className="flex items-center gap-1.5 text-charcoal">
                         <input type="checkbox" checked={picked.includes(it.term_id)} disabled={!picked.includes(it.term_id) && picked.length >= 3}
                           onChange={() => togglePick(it.term_id)} />
                         {t(locale, "gen_pick")}
                       </label>
-                      <Link href={`/dictionary/${it.term_id}`} className="text-link-blue hover:underline">{t(locale, "rec_open_term")}</Link>
+                      {/* 새 탭으로 — 사전을 보고 돌아와도 추천 결과가 남는다 */}
+                      <Link href={`/dictionary/${it.term_id}`} target="_blank" rel="noopener" className="text-link-blue hover:underline">{t(locale, "rec_open_term")}</Link>
                       {it.evidences.map((e) => (
                         <a key={e.url} href={e.url} target="_blank" rel="noreferrer" className="text-steel hover:text-ink hover:underline">
                           {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}

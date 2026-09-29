@@ -26,7 +26,10 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMMA_LOCAL_MODEL = os.getenv("GEMMA_LOCAL_MODEL", "gemma4:12b")
 LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "").rstrip("/")  # 비우면 Ollama(localhost:11434). OpenAI 호환 서버(vLLM 등)면 예: http://127.0.0.1:11437/v1 — 모델 이름은 GEMMA_LOCAL_MODEL(served-model-name)
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash")  # 3.8 이 503(무료 등급 용량)일 때만
-GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "36"))  # 하루 Gemini 호출 상한. 무료 등급 실측(09-15): 모델당 하루 20회(GenerateRequestsPerDayPerProjectPerModel-FreeTier) → 3.8+3.5 합쳐 약 40. 결제(Tier 1) 연결 시 400 정도로
+GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "36"))
+# 이용자 요청(추천의 사진·문구 읽기, 만들기)이 쓰는 하루 Gemini 호출 — 파이프라인 예산과 장부를 따로 둔다. 익명 요청이 파이프라인 몫을 다 쓰면
+# 그날 조사·해석이 멈췄다(2026-09-29 검토). 다 쓰면 로컬 Gemma 로, 그것도 없으면 '오늘 한도' 로 알린다.
+REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "12"))  # 하루 Gemini 호출 상한. 무료 등급 실측(09-15): 모델당 하루 20회(GenerateRequestsPerDayPerProjectPerModel-FreeTier) → 3.8+3.5 합쳐 약 40. 결제(Tier 1) 연결 시 400 정도로
 USE_LOCAL_GEMMA = os.getenv("USE_LOCAL_GEMMA", "0") == "1"  # 번역·재작성에 로컬 Gemma 를 쓸지 (꺼져 있으면 Gemini)
 PIPELINE_INTERVAL_HOURS = float(os.getenv("PIPELINE_INTERVAL_HOURS", "6"))
 API_PORT = int(os.getenv("API_PORT", "8080"))

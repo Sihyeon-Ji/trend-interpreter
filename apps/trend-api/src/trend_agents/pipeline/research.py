@@ -325,6 +325,8 @@ def needs_human(reasons: list[str], documented: bool = False) -> bool:
     """사람이 볼 가치가 있는 보류인가. 뜻은 멀쩡한데 근거가 모자란 애매한 경우만 사람에게 보낸다.
     백과사전(나무위키·위키백과) 문서가 있는 말은 모델의 자기 판단만으로 닫지 않는다 — 나무위키 '분류:유행어' 에서 온
     말 12개 중 7개가 is_expression=false 하나로 닫혀 사람이 보지 못했다(2026-09-29 검토)."""
+    if any("뜻이 비었" in r for r in reasons):        # 뜻이 빈 것은 규칙 판정 — 문서가 있어도 사람이 볼 것이 없다(검토 2차)
+        return False
     if documented and any(m in r for r in reasons for m in MODEL_ONLY):
         return True
     return not any(m in r for r in reasons for m in MECHANICAL)
@@ -401,6 +403,10 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     if current and current.verification == "verified_human":
         # 조사하는 몇 분(그라운딩·GDELT 16초 간격·나무위키) 사이 검수자가 승인했다 — 그 결정을 덮지 않는다
         return "verified_human", []
+    now_term = ds.get_term(con, term.term_id)
+    if (now_term and now_term.status == "retired") or (current and current.verification == "rejected"):
+        # 그 사이 검수자가 제외했다 — 새 판을 올리지 않는다(검토 2차: 승인만 지키고 제외는 덮었다)
+        return "rejected", []
     verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases)
     # 용어가 원문에 없는 근거는 그 표제어의 근거가 아니다 — 인용으로 보여 주면 거짓말이 된다. 저장하지 않는다.
     # (표시 전용 네이버 결과는 게이트가 보지 않으므로 그대로 둔다.)
@@ -420,7 +426,9 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     else:
         term.status = "needs_review"
         ds.queue_review(con, term.term_id, draft, reasons, len(evidences))
-        if not needs_human(reasons, documented=any(e.kind == "wiki" for e in keep)):
+        # '문서가 있다' 는 나무위키 문서이거나, 제목에 표제어가 든 위키백과 문서일 때만 — 본문에 낱말이 스친 문서(소설 제목의 เผ่น)는 아니다
+        documented = any(e.kind == "wiki" and (e.source_domain == "namu.wiki" or _norm(term.canonical) in _norm(e.title)) for e in keep)
+        if not needs_human(reasons, documented=documented):
             # 게이트가 '표현이 아니다' 로 보았거나 뜻이 비었다 — 사람이 봐도 할 일이 없다. 사람 큐에서만 빼고
             # 표제어는 그대로 둔다(재조사 주기가 오면 다시 본다). 큐가 이런 것으로 500건 넘게 막혀 있었다(2026-09-28).
             ds.decide_review(con, term.term_id, "auto_rejected", "gate")

@@ -158,8 +158,9 @@ class MemeFit(BaseModel):
     @field_validator("voice", mode="before")
     @classmethod
     def _voice(cls, v):
+        # 모르는 값·빈 값은 'edgy' — 친근함·고급스러움 톤에서 빠진다. 'playful' 로 두면 저속한 말이 형식 실수 하나로 문을 통과했다(검토 2차)
         v = str(v or "").strip().lower()
-        return v if v in get_args(Voice) else "playful"
+        return v if v in get_args(Voice) else "edgy"
 
 
 class FitLabel(MemeFit):

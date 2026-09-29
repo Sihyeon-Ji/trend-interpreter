@@ -135,6 +135,7 @@ export interface RecommendItem {
   lifecycle: Lifecycle;
   risk_level?: RiskLevel;
   risk_reasons: string[];
+  risk_checked_at?: string | null; // 리스크 규칙을 돌린 때 — '근거 부족' 표시 여부
   matched_category: boolean;      // 제품 분야가 이 밈이 어울리는 분야에 있다
   any_category: boolean;          // 분야를 가리지 않는 반응·감탄 표현
   matched_feelings: Feeling[];
@@ -144,8 +145,8 @@ export interface RecommendItem {
 }
 
 export interface RecommendResult {
-  brief: ProductBrief;
-  brief_source: "gemini" | "local" | "sample";
+  brief?: ProductBrief | null;    // 고른 지역에 비교할 후보가 없으면 읽지 않는다
+  brief_source: "gemini" | "local" | "sample" | "none";
   regions: string[];
   tone: CampaignTone;
   items: RecommendItem[];
