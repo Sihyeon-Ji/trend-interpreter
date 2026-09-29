@@ -94,6 +94,10 @@ def test_meta_freshness_comes_from_publication_not_from_collectors(monkeypatch):
     _ran(con, "dashboard", "ok", 2)
     body = c.get("/meta").json()
     assert body["last_run"] == board2 and body["stale"] is False
+    _ran(con, "board", "error", 0.5)       # 09-28 그대로: 지도는 실패하고 대시보드만 성공했다 — 게시본의 지도는 앞의 것이다
+    _ran(con, "dashboard", "ok", 0.5)
+    body = c.get("/meta").json()
+    assert body["last_run"] == board2 and body["stale"] is False
 
 
 def test_nothing_published_is_stale():
@@ -164,6 +168,38 @@ def test_maintenance_exit_code_separates_stale_from_failure(monkeypatch, capsys)
     out = capsys.readouterr().out
     e = _one_event(out)
     assert e["status"] == "error" and e["error"] == "OperationalError" and "secret-host" not in out   # 오류는 종류만
+
+
+def test_maintenance_failure_after_connecting_is_1_with_the_error_type_only(monkeypatch, capsys):
+    """연결은 됐는데 권한·SQL 오류로 정리나 점검이 실패하면 1. 오류 메시지에는 표·역할 이름이 들어 종류만 남긴다.
+    정리를 마친 뒤 점검이 실패하면 지운 건수는 남긴다."""
+    m = _maintenance()
+    monkeypatch.setenv("LOG_FORMAT", "json")
+    con = db.connect(":memory:")
+    monkeypatch.setattr(m, "connect", lambda: con)
+    monkeypatch.setattr(con, "close", lambda: None)
+
+    def denied(table: str):
+        def fail(*_args):
+            raise psycopg.errors.InsufficientPrivilege(f'permission denied for table {table} (role "trend-maintenance")')
+        return fail
+
+    monkeypatch.setattr(ds, "prune_user_text", denied("explain_cache"))
+    with _logging_restored():
+        assert m.main() == 1
+    out = capsys.readouterr().out
+    e = _one_event(out)
+    assert (e["status"], e["error"], e["severity"]) == ("error", "InsufficientPrivilege", "ERROR") and "explain_cache_deleted" not in e
+    assert "permission denied" not in out and "trend-maintenance" not in out
+
+    monkeypatch.setattr(ds, "prune_user_text", lambda _con: (3, 1))
+    monkeypatch.setattr(ds, "last_published", denied("pipeline_runs"))
+    with _logging_restored():
+        assert m.main() == 1
+    out = capsys.readouterr().out
+    e = _one_event(out)
+    assert (e["status"], e["error"], e["explain_cache_deleted"], e["lookups_deleted"]) == ("error", "InsufficientPrivilege", 3, 1)
+    assert "permission denied" not in out
 
 
 def test_cloud_run_jobs_log_json_by_default(monkeypatch, capsys):
