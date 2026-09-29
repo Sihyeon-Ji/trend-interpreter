@@ -1,7 +1,7 @@
 /* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
-import type { GenerationCurve, Meta, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
+import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
 import type { KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
@@ -50,16 +50,34 @@ export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: bo
   }
 }
 
+/** 사전 항목 하나. 서버가 "없다/제외됐다"(404)고 하면 null → 없는 말 화면.
+ *  api 모드에서 서버가 답하지 않으면 예시 데이터로 바꾸지 않고 던진다 → app/dictionary/[termId]/error.tsx 가 '다시 불러오기' 를 낸다
+ *  (예시 수치가 실제처럼 보이던 것, 개편 검토 2차). */
 export async function getTermRecord(termId: string): Promise<TermRecord | null> {
-  const sample = SAMPLE_RECORDS.find((r) => r.term.term_id === termId) ?? null;
-  if (isSampleMode) return sample;
+  if (isSampleMode) return SAMPLE_RECORDS.find((r) => r.term.term_id === termId) ?? null;
   try {
     return await api<TermRecord | null>(`/terms/${encodeURIComponent(termId)}`);
   } catch (e) {
-    // 서버가 "없다/제외됐다"(404)고 하면 예시 데이터로 되살리지 않는다 → 404 페이지. 서버가 죽었을 때만 예시로 내려간다
     if (e instanceof ApiError && e.status === 404) return null;
-    return sample;
+    throw e;
   }
+}
+
+/** 사전 항목이 속한 주제(나라별 차이·관련 표현). 보드를 못 받으면 그 절을 내지 않는다 — 예시 주제로 바꾸지 않는다. */
+export async function getTermTopic(termId: string, canonical: string): Promise<Topic | null> {
+  const find = (b: TrendBoard) => b.topics.find((x) => x.variants.some((v) => v.term_id === termId) || x.name.ko === canonical || x.name.en === canonical) ?? null;
+  if (isSampleMode) return find(SAMPLE_BOARD);
+  try {
+    return find(await api<TrendBoard>("/trends/board", 30));
+  } catch {
+    return null;
+  }
+}
+
+/** 사전 항목 머리의 '갱신' 시각 — 마지막 정상 갱신(ADR 0001). 예시 모드는 예시 대시보드와 같은 값. */
+export async function getUpdatedAt(): Promise<string | null> {
+  if (isSampleMode) return sampleKeywordBoard([]).generated_at;
+  return (await getMeta())?.last_run ?? null;
 }
 
 export async function getPipelineStages(): Promise<PipelineStage[]> {
@@ -201,7 +219,10 @@ export async function getKeywordBoard(regions: string[], page = 1): Promise<Keyw
   return (await res.json()) as KeywordBoard;
 }
 
-/** 용어 하나의 쓰임 신호 (사전 화면). 서버가 없으면 신호 칸을 내지 않는다. */
-export async function getTermSignals(termId: string): Promise<KeywordCard | null> {
-  return isSampleMode ? sampleSignals(termId) : apiOr<KeywordCard | null>(`/terms/${encodeURIComponent(termId)}/signals`, null, 300);
+/** 용어 하나의 쓰임 신호 (사전 화면). regions 를 주면 대시보드 행과 같은 지역만 더한다(없으면 모든 지역).
+ *  서버가 없거나 확인 전인 말이면 null — 화면은 사전 항목의 주간 수로 대신한다. */
+export async function getTermSignals(termId: string, regions: string[] = []): Promise<KeywordCard | null> {
+  if (isSampleMode) return sampleSignals(termId);
+  const q = regions.length ? `?regions=${regions.map(encodeURIComponent).join(",")}` : "";
+  return apiOr<KeywordCard | null>(`/terms/${encodeURIComponent(termId)}/signals${q}`, null, 300);
 }

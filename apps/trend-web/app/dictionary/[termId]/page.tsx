@@ -1,336 +1,324 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { TermMediaBlock } from "@/components/term-media";
 import { notFound } from "next/navigation";
-import { PageShell } from "@/components/page-shell";
-import { StatusBadge } from "@/components/status-badge";
-import { ChangeHistory } from "@/components/history";
-import { Sparkline } from "@/components/sparkline";
-import { TermTimeline } from "@/components/term-timeline";
+import { EntryHistory, historyRows } from "@/components/entry-history";
 import { GenerationCurves } from "@/components/generation-curves";
-import { currentMeaning, textFor } from "@/lib/explain";
-import { getGenerationCurves, getTermRecord, getTermRecords, getTermSignals, getTrendBoard } from "@/lib/data";
-import { riskOf, searchLine } from "@/lib/keyword";
+import { PageHeader } from "@/components/page-header";
+import { PageShell } from "@/components/page-shell";
+import { SourceTable } from "@/components/source-table";
+import { StatusBadge } from "@/components/status-badge";
+import { TermMediaBlock } from "@/components/term-media";
+import { StageCell } from "@/components/term-status";
+import { TermSummary } from "@/components/term-summary";
+import { TrendChart, isPartialWeek } from "@/components/trend-chart";
+import { VariantTable } from "@/components/variant-table";
+import { Button } from "@/components/ui/button";
+import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic, getUpdatedAt } from "@/lib/data";
+import { currentMeaning, headlineFor, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
-import { L, fmtDate, joinGens, joinRegions, regionLabel, sourceName, termLangLabel } from "@/lib/labels";
+import { riskOf } from "@/lib/keyword";
+import { langTag, scriptLang } from "@/lib/lang";
+import { L, fmtDate, fmtDateTime, fmtInt, joinGens, joinRegions, listJoin, regionLabel, sourceName } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
-import type { Evidence, TermRecord } from "@/lib/types";
+import { TARGET_REGIONS } from "@/lib/reader";
+import { cleanSource, kindCounts } from "@/lib/sources";
+import type { KeywordCard, SearchHit, TermRecord } from "@/lib/types";
 
-function trendSentence(locale: Locale, lifecycle: string, last4: number, prev4: number) {
-  const pct = prev4 === 0 ? null : Math.abs(Math.round(((last4 - prev4) / prev4) * 100));
-  if (locale === "ko") {
-    const cmp = pct === null ? "" : last4 === prev4 ? " 이전 4주와 같습니다." : ` 이전 4주보다 ${pct}% ${last4 > prev4 ? "많습니다" : "적습니다"}.`;
-    return cmp ? `${lifecycle}. 최근 4주 동안 ${last4}번 언급됐고,${cmp}` : `${lifecycle}. 최근 4주 동안 ${last4}번 언급됐습니다.`;
-  }
-  const cmp = pct === null ? "" : last4 === prev4 ? ", the same as the previous four weeks." : `, ${pct}% ${last4 > prev4 ? "more" : "fewer"} than the previous four weeks.`;
-  return `${lifecycle[0].toUpperCase()}${lifecycle.slice(1)}. Mentioned ${last4} times in the last four weeks${cmp || "."}`;
+/* 사전 항목 — "이 밈을, 이 나라에서, 지금 써도 되나" 를 머리와 요약에서 답하고, 본문은 그 근거(쓰임·유래·나라별 차이·언급·출처·기록).
+   요약은 DOM 에서도 머리 바로 다음이라 휴대폰·화면 읽기 순서가 보이는 순서와 같다. 1280px 이상에서만 오른쪽 칸으로 옮긴다.
+   절에는 번호를 붙이지 않는다(docs/트렌드/디자인-개편.md 원칙 5). */
+
+type Params = { params: Promise<{ termId: string }> };
+type Props = Params & { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
+
+/** 대시보드에서 넘어온 ?regions=KR,JP — 같은 지역의 수를 보이려고. 모르는 값은 버린다. */
+function askedRegions(sp: Record<string, string | string[] | undefined>): string[] {
+  const raw = [sp.regions].flat().filter(Boolean).join(",");
+  const asked = raw.split(",").map((s) => s.trim().toUpperCase());
+  return KNOWN.filter((r) => asked.includes(r));
 }
 
-/* 절 제목 — 번호를 붙이지 않는다(절들은 순서가 아니다, docs/트렌드/디자인-개편.md 원칙 5) */
-function SectionHeading({ id, title }: { id: string; title: string }) {
-  return <h2 id={id} className="scroll-mt-20 border-b border-hairline pb-2 text-[18px] font-semibold text-ink lg:scroll-mt-6">{title}</h2>;
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const [{ termId }, locale] = await Promise.all([params, getLocale()]);
+  const record = await getTermRecord(termId).catch(() => null);   // 실패는 화면(error.tsx)이 알린다
+  const tail = `${t(locale, "dict_title")} · ${t(locale, "site")}`;
+  return { title: record ? `${record.term.canonical} · ${tail}` : tail };
 }
 
-function RefLink({ n }: { n: number }) {
-  return <a href={`#ref-${n}`} className="ml-0.5 align-super text-[11px] text-link-blue hover:underline">[{n}]</a>;
+function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
+  // 휴대폰 위 막대(56px, sticky)에 가리지 않게 여백을 둔다
+  return <h2 id={id} className="scroll-mt-[72px] text-[18px] leading-[1.3] font-semibold text-ink lg:scroll-mt-8">{children}</h2>;
 }
 
-/* 위키 문서: 왼쪽 본문(목차 + 번호 절 + 각주), 오른쪽 정보상자. */
-/** 근거 한 줄. 제목과 같은 말을 두 번 찍지 않고, 표제어가 보이는 자리를 잘라 낸다.
- *  커뮤니티 발췌는 "@handle · 1♥ — " 가 앞에 붙어 제목과 다르게 보이지만 내용은 같고,
- *  앞에서부터 자르면 정작 그 표현이 잘려 나간다(2026-09-16 검토). 그래서 표제어를 가운데 두고 자른다. */
-function snippet(e: Evidence, term: string, width = 60): string {
-  const raw = (e.excerpt ?? "").trim();
-  if (!raw) return "";
-  const head = (e.title ?? "").trim().slice(0, 30);
-  if (head && raw.includes(head)) {
-    const rest = raw.replace(head, "").replace(/^[\s·—@♥0-9]+/, "").trim();
-    if (rest.length < 15) return "";      // 제목을 되풀이할 뿐이면 내지 않는다
-  }
-  const at = raw.toLowerCase().indexOf(term.toLowerCase());
-  if (at < 0 || raw.length <= width * 2) return raw.slice(0, width * 2);
-  const from = Math.max(0, at - width);
-  const to = Math.min(raw.length, at + term.length + width);
-  return `${from > 0 ? "…" : ""}${raw.slice(from, to)}${to < raw.length ? "…" : ""}`;
+const sum = (xs: { count: number }[]) => xs.reduce((a, p) => a + p.count, 0);
+
+function toneLine(locale: Locale, tone: KeywordCard["tone"]): string | null {
+  const total = tone.positive + tone.neutral + tone.negative;
+  if (total < 5) return null;
+  const parts = (["positive", "neutral", "negative"] as const).filter((k) => tone[k] > 0);
+  if (locale === "ko") return `문장 ${total}개 중 ${parts.map((k) => `${t(locale, `tone_${k}`)} ${tone[k]}개`).join(", ")}`;
+  return `Of ${total} sentences, ${listJoin(locale, parts.map((k) => `${tone[k]} ${t(locale, `tone_${k}`)}`))}`;
 }
 
-export default async function TermPage({ params }: { params: Promise<{ termId: string }> }) {
-  const { termId } = await params;
-  const [record, locale, curves, board, all, signals] = await Promise.all([getTermRecord(termId), getLocale(), getGenerationCurves(termId), getTrendBoard(), getTermRecords(), getTermSignals(termId)]);
+function SearchRow({ h, locale }: { h: SearchHit; locale: Locale }) {
+  const where = regionLabel(locale, h.region);
+  const rank = h.rank ? (locale === "ko" ? `${where} ${h.rank}위` : `#${h.rank} in ${where}`) : where;
+  return (
+    <li className="flex flex-wrap gap-x-3">
+      <span>{rank}</span>
+      {h.query && <span lang={scriptLang(h.query, h.region)}>“{h.query}”</span>}
+      {h.traffic && <span className="text-steel">{locale === "ko" ? `검색 ${h.traffic}` : `${h.traffic} searches`}</span>}
+      <span className="tabular-nums text-steel">{fmtDate(h.date)}</span>
+    </li>
+  );
+}
+
+export default async function TermPage({ params, searchParams }: Props) {
+  const [{ termId }, sp, locale] = await Promise.all([params, searchParams, getLocale()]);
+  const regions = askedRegions(sp);
+  const [record, curves, signals, updatedAt] = await Promise.all([
+    getTermRecord(termId), getGenerationCurves(termId), getTermSignals(termId, regions), getUpdatedAt(),
+  ]);
   if (!record) notFound();
+  const topic = await getTermTopic(termId, record.term.canonical);
+  // 관련 표현: 같은 주제에 엮인 사전 항목만(같은 분류 전체 목록 2MB 를 받지 않는다). 못 받은 것은 뺀다
+  const relatedIds = [...new Set(topic ? topic.variants.flatMap((v) => [v.term_id, ...v.linked.map((x) => x.term_id)]) : [])]
+    .filter((id): id is string => !!id && id !== termId).slice(0, 6);
+  const related = (await Promise.all(relatedIds.map((id) => getTermRecord(id).catch(() => null))))
+    .filter((r): r is TermRecord => !!r && r.term.status === "verified");
+
   const labels = L(locale);
+  const term = record.term;
   const m = currentMeaning(record);
   const tx = textFor(record, locale);
-  const usage = [...record.usage].sort((a, b) => a.first_seen.localeCompare(b.first_seen));
-  const hasTrend = record.weekly.some((p) => p.count > 0);   // 0 만 이어진 주간 자료는 없는 것과 같다
-  const last4 = record.weekly.slice(-4).reduce((a, p) => a + p.count, 0);
-  const prev4 = record.weekly.slice(-8, -4).reduce((a, p) => a + p.count, 0);
-  const refs = [...record.evidences].sort((a, b) => a.observed_at.localeCompare(b.observed_at));
-  const refNo = (id: string) => refs.findIndex((e) => e.evidence_id === id) + 1;
-  const originRefs = refs.filter((e) => e.kind === "news" || e.kind === "short" || e.kind === "web").slice(0, 2);
-  const topic = board.topics.find((x) => x.variants.some((v) => v.term_id === record.term.term_id) || x.name.ko === record.term.canonical || x.name.en === record.term.canonical);
-  const related: TermRecord[] = all.filter((r) => r.term.term_id !== record.term.term_id && r.category === record.category && r.term.status === "verified").slice(0, 8);
-  const lastEvent = [record.term.last_seen, ...record.meanings.map((x) => x.valid_from)].filter(Boolean).sort().at(-1) ?? null;
-  const nextCheck = lastEvent ? new Date(new Date(lastEvent).getTime() + record.recheck_days * 86400000).toISOString() : null;
+  // 번역이 없으면 원문(한국어)이 나온다 — 그때는 한국어 음성으로 읽게
+  const txLang = locale === "en" && !record.en ? "ko" : undefined;
+  const verified = term.status === "verified";
+  const canMake = verified && term.risk_level !== "avoid" && sp.from !== "recommend";
 
-  const sections: { id: string; title: string; show: boolean }[] = [
-    { id: "meaning", title: t(locale, "term_meaning"), show: !!m },
-    { id: "media", title: t(locale, "term_media"), show: (record.media?.length ?? 0) > 0 },
-    { id: "origin", title: t(locale, "term_origin"), show: !!tx?.origin && tx.origin !== "unknown" },
-    { id: "usage", title: t(locale, "term_sec_usage"), show: !!m },
+  // 언급 수는 대시보드 행과 같은 카드(signals)에서. 카드가 없을 때(확인 전·서버 없음)만 사전 항목의 주간 수
+  const weekly = signals?.weekly ?? record.weekly.slice(-12);
+  const hasTrend = weekly.some((p) => p.count > 0);   // 0 만 이어진 주간 자료는 없는 것과 같다
+  const partial = isPartialWeek(weekly.at(-1));
+  const last4 = signals?.mentions_4w ?? sum(weekly.slice(-4));
+  const prev4 = sum(weekly.slice(-8, -4));
+  const scope = regions.length ? t(locale, "term_scope_in").replace("{r}", joinRegions(locale, regions)) : t(locale, "term_scope_all");
+  const lastUsed = signals ? signals.last_used ?? signals.last_seen ?? null : term.last_seen ?? null;
+
+  const search = signals?.search ?? [];
+  const seen = (signals?.communities ?? []).map((c) => (locale === "ko" ? `${sourceName(locale, c.domain)} ${c.count}건` : `${sourceName(locale, c.domain)} ${c.count}`)).join(", ");
+  const tone = signals ? toneLine(locale, signals.tone) : null;
+  const signalRows = search.length > 0 || !!seen || !!tone;
+  const usage = [...record.usage].sort((a, b) => a.first_seen.localeCompare(b.first_seen));
+  const showTrend = hasTrend || signalRows || !!signals || curves.length > 0 || usage.length > 0;
+
+  const origin = tx?.origin && tx.origin !== "unknown" ? tx.origin : null;
+  const media = record.media ?? [];
+  const byDate = [...record.evidences].sort((a, b) => a.observed_at.localeCompare(b.observed_at));
+  const originRefs = byDate.filter((e) => e.kind === "news" || e.kind === "short" || e.kind === "web").slice(0, 2);
+  const sources = [...byDate].reverse().map((e) => cleanSource(e, term.canonical, locale));
+  const summaryText = topic?.summary[locale];
+  const showSummary = !!summaryText && !!tx && !summaryText.includes(tx.definition.slice(0, 20));   // 뜻과 같은 말이면 되풀이하지 않는다
+
+  const risk = riskOf(term);
+  const riskResult = risk ? t(locale, `risk_${risk}`) : term.risk_level === "none" ? t(locale, "risk_none_short") : null;
+  const history = historyRows(record, locale, riskResult);
+
+  const sections = [
+    { id: "usage", title: t(locale, "term_sec_usage"), show: !!tx?.nuance },
+    { id: "origin", title: t(locale, "term_origin"), show: !!origin },
+    { id: "media", title: t(locale, "term_media"), show: !origin && media.length > 0 },
     { id: "variants", title: t(locale, "term_sec_variants"), show: !!topic && topic.variants.length > 1 },
-    { id: "trend", title: t(locale, "term_trend"), show: hasTrend || usage.length > 0 },
-    { id: "signals", title: t(locale, "term_signals"), show: !!signals },
-    { id: "generations", title: t(locale, "term_gen_curves"), show: curves.length > 0 },
-    { id: "timeline", title: t(locale, "term_timeline"), show: true },
-    { id: "related", title: t(locale, "term_related"), show: related.length > 0 || (record.term.aliases?.length ?? 0) > 0 },
-    { id: "refs", title: t(locale, "term_refs"), show: refs.length > 0 },
-    { id: "history", title: t(locale, "term_history"), show: record.meanings.length > 0 },
+    { id: "trend", title: t(locale, "term_sec_trend"), show: showTrend },
+    { id: "sources", title: t(locale, "term_sources_title").replace("{n}", fmtInt(sources.length)), show: sources.length > 0 },
+    { id: "history", title: t(locale, "term_sec_history"), show: history.length > 0 },
+    { id: "related", title: t(locale, "term_related"), show: related.length > 0 },
   ].filter((s) => s.show);
-  const heading = (id: string) => <SectionHeading id={id} title={sections.find((s) => s.id === id)?.title ?? ""} />;
+  const title = (id: string) => sections.find((s) => s.id === id)?.title ?? "";
+
+  const makeHref = `/recommend?term=${encodeURIComponent(term.term_id)}`;
+  const makeButton = (className: string) => (
+    <Button asChild className={`h-10 rounded-md px-4 text-[14px] ${className}`}><Link href={makeHref}>{t(locale, "term_make")}</Link></Button>
+  );
 
   return (
     <PageShell>
       <article>
-        <nav className="text-[13px] text-steel"><Link href="/dictionary" className="hover:text-ink">{t(locale, "dict_title")}</Link> › {record.term.canonical}</nav>
-        <h1 lang={record.term.lang === "zh" ? "zh-Hant" : record.term.lang ?? undefined} className="mt-2 text-[30px] leading-[1.25] font-semibold text-ink">{record.term.canonical}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] text-charcoal">
-          <StatusBadge>{labels.verification[m?.verification ?? "unverified"]}</StatusBadge>
-          <span>{labels.category[record.category]}</span>
-          {record.term.aliases && record.term.aliases.length > 0 && <span className="text-steel">{t(locale, "term_other_spellings")}: <span className="text-charcoal">{record.term.aliases.join(", ")}</span></span>}
-        </div>
-        {record.term.status === "needs_review" && (
-          <p className="mt-4 border border-hairline p-3 text-[14px] text-charcoal"><span className="font-medium text-ink">{t(locale, "term_pending")}</span> {t(locale, "term_pending_more")}</p>
-        )}
+        <PageHeader
+          crumbs={<><Link href="/dictionary" className="hover:text-ink hover:underline">{t(locale, "dict_title")}</Link> › <span lang={langTag(term.lang)}>{term.canonical}</span></>}
+          title={<span lang={langTag(term.lang)}>{term.canonical}</span>}
+          description={tx ? <span lang={txLang}>{headlineFor(tx, locale)}</span> : `${t(locale, "term_no_meaning")} ${t(locale, "term_no_meaning_next")}`}
+          meta={<>
+            {!verified && <StatusBadge tone="muted">{t(locale, "term_badge_review")}</StatusBadge>}
+            {verified && m && <span>{t(locale, "term_meta_reviewed")} <span className="tabular-nums text-charcoal">{fmtDate(m.valid_from)}</span></span>}
+            {updatedAt && <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(updatedAt, locale)}</span></span>}
+          </>}
+          actions={canMake ? makeButton("hidden sm:inline-flex") : undefined}>
+          {!verified && <p className="text-[14px] leading-[1.55] text-charcoal">{t(locale, "term_draft_notice")}</p>}
+        </PageHeader>
 
-        <div className="mt-6 grid gap-10 border-t border-hairline pt-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="min-w-0 max-w-[760px] space-y-10">
+        <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,720px)_280px] xl:gap-12">
+          {/* 요약과 목차 — DOM 은 먼저, 1280px 이상에서 오른쪽 칸(따라 내려온다) */}
+          <div className="min-w-0 space-y-4 xl:sticky xl:top-8 xl:col-start-2 xl:row-start-1 xl:self-start">
+            <TermSummary locale={locale} term={term} verified={verified}
+              regions={m?.regions.length ? (locale === "ko" ? m.regions.map((r) => regionLabel(locale, r)).join(", ") : joinRegions(locale, m.regions)) : null}
+              gens={m?.generations.length ? (locale === "ko" ? m.generations.map((g) => labels.generation[g]).join(", ") : joinGens(locale, m.generations)) : null}
+              mentions={hasTrend || signals ? last4 : null} scope={scope} lastUsed={lastUsed}
+              plain={tx?.plain || null} plainLang={txLang} sources={sources.length} />
+            {canMake && makeButton("w-full sm:hidden")}
+            {sections.length > 1 && (
+              <nav aria-label={t(locale, "term_toc")} className="hidden px-1 text-[14px] xl:block">
+                <p className="text-[13px] font-semibold text-ink">{t(locale, "term_toc")}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {sections.map((s) => <li key={s.id}><a href={`#${s.id}`} className="text-charcoal hover:text-ink hover:underline">{s.title}</a></li>)}
+                </ul>
+              </nav>
+            )}
+          </div>
 
-            {m && tx && (
+          <div className="min-w-0 max-w-[720px] space-y-10 xl:col-start-1 xl:row-start-1">
+            {tx?.nuance && (
               <section className="space-y-3">
-                {heading("meaning")}
-                <p className="text-[17px] leading-[1.7] text-ink">
-                  {tx.expansion && <span className="font-semibold">{tx.expansion}. </span>}
-                  {tx.definition}
-                </p>
-                {tx.plain && <p className="text-[14px] text-charcoal"><span className="text-steel">{t(locale, "term_plain")}:</span> {tx.plain}</p>}
+                <SectionHeading id="usage">{title("usage")}</SectionHeading>
+                <p lang={txLang} className="text-[16px] leading-[1.55] text-ink">{tx.nuance}</p>
               </section>
             )}
 
-            {(record.media?.length ?? 0) > 0 && (
+            {origin && (
               <section className="space-y-3">
-                {heading("media")}
-                <TermMediaBlock media={record.media ?? []} name={record.term.canonical} locale={locale} />
+                <SectionHeading id="origin">{title("origin")}</SectionHeading>
+                <p lang={txLang} className="text-[16px] leading-[1.55] text-ink">{origin}</p>
+                {/* 각주 번호 대신 근거 한 줄 — 누르면 그 출처가 새 창으로 열린다 */}
+                {originRefs.length > 0 && (
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                    <span className="text-steel">{t(locale, "term_evidence_line")}</span>
+                    {originRefs.map((e) => (
+                      <a key={e.evidence_id} href={e.url} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-6 items-center text-link-blue hover:underline">
+                        {sourceName(locale, e.source_domain)} <span className="ml-1 tabular-nums">{fmtDate(e.observed_at)}</span>
+                        <span className="sr-only"> ({t(locale, "term_new_tab")})</span>
+                      </a>
+                    ))}
+                  </p>
+                )}
+                {media.length > 0 && <TermMediaBlock media={media} name={term.canonical} locale={locale} />}
               </section>
             )}
 
-            {tx?.origin && tx.origin !== "unknown" && (
+            {!origin && media.length > 0 && (
               <section className="space-y-3">
-                {heading("origin")}
-                <p className="text-[15px] leading-[1.7] text-charcoal">{tx.origin}{originRefs.map((e) => <RefLink key={e.evidence_id} n={refNo(e.evidence_id)} />)}</p>
-              </section>
-            )}
-
-            {m && (
-              <section className="space-y-3">
-                {heading("usage")}
-                {tx?.nuance && <p className="text-[15px] leading-[1.7] text-charcoal">{tx.nuance}</p>}
-                <p className="text-[14px] text-charcoal">
-                  {locale === "ko" ? `주로 ${joinGens(locale, m.generations)}가 ${joinRegions(locale, m.regions)}에서 씁니다.` : `Mostly used by people in their ${joinGens(locale, m.generations)} in ${joinRegions(locale, m.regions)}.`}
-                </p>
+                <SectionHeading id="media">{title("media")}</SectionHeading>
+                <TermMediaBlock media={media} name={term.canonical} locale={locale} />
               </section>
             )}
 
             {topic && topic.variants.length > 1 && (
               <section className="space-y-3">
-                {heading("variants")}
-                <p className="text-[14px] text-charcoal">{topic.summary[locale]}</p>
-                <ul className="divide-y divide-hairline border-y border-hairline text-[14px]">
-                  {topic.variants.map((v) => (
-                    <li key={v.region} className="grid gap-1 py-2.5 sm:grid-cols-[160px_1fr]">
-                      <span className="font-medium text-ink">{regionLabel(locale, v.region)} <span className="text-steel">· {v.local_name}</span></span>
-                      <div className="text-charcoal">
-                        {v.what_changed[locale]}
-                        {v.local_memes.length > 0 && <span className="text-steel"> — {v.local_memes.map((x) => x.label).join(", ")}</span>}
+                <SectionHeading id="variants">{title("variants")}</SectionHeading>
+                {showSummary && <p className="text-[16px] leading-[1.55] text-charcoal">{summaryText}</p>}
+                <VariantTable variants={topic.variants} locale={locale} />
+                <Link href={`/map?topic=${encodeURIComponent(topic.id)}`} className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "term_see_on_map")}</Link>
+              </section>
+            )}
+
+            {showTrend && (
+              <section className="space-y-5">
+                <SectionHeading id="trend">{title("trend")}</SectionHeading>
+                {hasTrend && (
+                  <div className="space-y-3">
+                    <dl className="flex flex-wrap items-end gap-x-10 gap-y-2">
+                      <div><dt className="text-[13px] text-steel">{t(locale, "term_last4")}</dt><dd className="text-[24px] leading-[1.3] font-semibold tabular-nums text-ink">{fmtInt(last4)}</dd></div>
+                      <div><dt className="text-[13px] text-steel">{t(locale, "term_prev4")}</dt><dd className="text-[24px] leading-[1.3] font-semibold tabular-nums text-ink">{fmtInt(prev4)}</dd></div>
+                      <div className="pb-1 text-[13px] text-steel">{scope}</div>
+                    </dl>
+                    <TrendChart points={weekly} locale={locale} partial={partial} />
+                  </div>
+                )}
+                {signalRows ? (
+                  <dl className="divide-y divide-hairline border-y border-hairline text-[14px]">
+                    {search.length > 0 && (
+                      <div className="grid gap-1 py-2.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
+                        <dt className="text-[13px] text-steel">{t(locale, "term_row_search")}</dt>
+                        <dd className="text-ink"><ul className="space-y-1">{search.map((h, i) => <SearchRow key={`${h.region}-${h.date}-${i}`} h={h} locale={locale} />)}</ul></dd>
                       </div>
+                    )}
+                    {seen && (
+                      <div className="grid gap-1 py-2.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
+                        <dt className="text-[13px] text-steel">{t(locale, "term_row_seen")}</dt>
+                        <dd className="text-ink">{seen}</dd>
+                      </div>
+                    )}
+                    {tone && (
+                      <div className="grid gap-1 py-2.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
+                        <dt className="text-[13px] text-steel">{t(locale, "term_row_tone")}</dt>
+                        <dd className="text-ink">{tone}</dd>
+                      </div>
+                    )}
+                  </dl>
+                ) : signals && <p className="text-[14px] text-charcoal">{t(locale, "term_signals_none")}</p>}
+                {curves.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-[15px] font-semibold text-ink">{t(locale, "term_gen_title")}</h3>
+                    <GenerationCurves curves={curves} locale={locale} />
+                  </div>
+                )}
+                {usage.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-[15px] font-semibold text-ink">{t(locale, "term_first_used")}</h3>
+                    <table className="w-full max-w-[560px] border-collapse text-left text-[14px]">
+                      <thead>
+                        <tr className="border-b border-hairline text-[13px] text-steel">
+                          <th scope="col" className="py-2 pr-4 font-medium">{t(locale, "term_col_country")}</th>
+                          <th scope="col" className="py-2 pr-4 font-medium">{t(locale, "term_col_age")}</th>
+                          <th scope="col" className="py-2 font-medium">{t(locale, "term_col_first_date")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* 비중 칸은 뺐다. 네이버 '검색' 비중이라 '쓰는 사람' 과 다르고, 대부분 한 줄 100% 라 읽을 것이 없었다 */}
+                        {usage.map((u) => (
+                          <tr key={u.segment.segment_id} className="border-b border-hairline">
+                            <td className="py-2 pr-4 text-ink">{regionLabel(locale, u.segment.region)}</td>
+                            <td className="py-2 pr-4 text-ink">{labels.generation[u.segment.generation]}</td>
+                            <td className="py-2 tabular-nums text-charcoal">{fmtDate(u.first_seen)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {sources.length > 0 && (
+              <section className="space-y-3">
+                <SectionHeading id="sources">{title("sources")}</SectionHeading>
+                <p className="text-[13px] text-steel">{kindCounts(record.evidences, locale)}</p>
+                <SourceTable rows={sources} locale={locale} />
+              </section>
+            )}
+
+            {history.length > 0 && (
+              <section className="space-y-3">
+                <SectionHeading id="history">{title("history")}</SectionHeading>
+                <EntryHistory rows={history} locale={locale} />
+              </section>
+            )}
+
+            {related.length > 0 && (
+              <section className="space-y-2">
+                <SectionHeading id="related">{title("related")}</SectionHeading>
+                <ul className="divide-y divide-hairline border-y border-hairline">
+                  {related.map((r) => (
+                    <li key={r.term.term_id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+                      <Link href={`/dictionary/${encodeURIComponent(r.term.term_id)}`} lang={langTag(r.term.lang)} className="text-[15px] font-medium text-link-blue hover:underline">{r.term.canonical}</Link>
+                      <StageCell diffusion={r.term.diffusion} lifecycle={r.term.lifecycle ?? "unknown"} locale={locale} />
                     </li>
                   ))}
                 </ul>
-                <Link href={`/map?topic=${topic.id}`} className="inline-block text-[13px] text-link-blue hover:underline">{t(locale, "term_see_on_globe")}</Link>
-              </section>
-            )}
-
-            {(hasTrend || usage.length > 0) && (
-              <section className="space-y-3">
-                {heading("trend")}
-                {/* 언급이 한 건도 없으면 추세 문장도 선도 내지 않는다. 0 이 열두 칸 이어진 선은 정보가 아니다. */}
-                {hasTrend && (
-                  <>
-                    <p className="text-[14px] text-charcoal">{trendSentence(locale, labels.lifecycle[record.term.lifecycle ?? "unknown"], last4, prev4)}</p>
-                    <Sparkline points={record.weekly} width={480} height={64} className="w-full max-w-[480px]"
-                      label={t(locale, "spark_label").replace("{n}", String(record.weekly.length)).replace("{last}", String(record.weekly.at(-1)?.count ?? 0)).replace("{max}", String(Math.max(0, ...record.weekly.map((p) => p.count))))} />
-                  </>
-                )}
-                {usage.length > 0 && (
-                  <table className="w-full max-w-[560px] text-left text-[14px]">
-                    <thead className="border-b border-hairline text-[13px] font-medium text-steel whitespace-nowrap">
-                      <tr><th className="py-2 pr-4">{t(locale, "term_col_where")}</th><th className="py-2">{t(locale, "term_col_first")}</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-hairline-soft">
-                      {/* 비중 칸은 뺐다. 네이버 '검색' 비중이라 '쓰는 사람' 과 다르고(모르는 사람이 검색한다),
-                          272개 중 242개가 한 줄 100% 거나 전부 같은 값이라 읽을 것이 없었다. */}
-                      {usage.map((u) => (
-                        <tr key={u.segment.segment_id}>
-                          <td className="py-2 pr-4 text-ink">{regionLabel(locale, u.segment.region)}, {labels.generation[u.segment.generation]}</td>
-                          <td className="py-2 tabular-nums text-charcoal">{fmtDate(u.first_seen)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
-            )}
-
-            {signals && (() => {
-              const toneTotal = signals.tone.positive + signals.tone.neutral + signals.tone.negative;
-              const pct = (n: number) => `${Math.round((n / toneTotal) * 100)}%`;
-              return (
-                <section className="space-y-4">
-                  {heading("signals")}
-                  <div className="space-y-1">
-                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_search")}</h3>
-                    {signals.search.length > 0
-                      ? <ul className="space-y-0.5 text-[14px] text-charcoal">{signals.search.map((h) => <li key={h.region}>{searchLine(locale, h)} <span className="text-steel">· {fmtDate(h.date)}</span></li>)}</ul>
-                      : <p className="text-[14px] text-steel">{t(locale, "sig_search_none")}</p>}
-                    {curves.length === 0 && <p className="text-[13px] text-steel">{t(locale, (record.term.lang ?? "ko") === "ko" ? "sig_gen_none" : "sig_gen_kr_only")}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_communities")}</h3>
-                    {signals.communities.length > 0
-                      ? <p className="text-[14px] text-charcoal">{signals.communities.map((c) => `${sourceName(locale, c.domain)} ${c.count}`).join(" · ")}</p>
-                      : <p className="text-[14px] text-steel">{t(locale, "sig_communities_none")}</p>}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-[14px] font-semibold text-ink">{t(locale, "sig_tone")}</h3>
-                    {toneTotal >= 5
-                      ? <p className="text-[14px] text-charcoal">
-                          {t(locale, "tone_positive")} {pct(signals.tone.positive)} · {t(locale, "tone_neutral")} {pct(signals.tone.neutral)} · {t(locale, "tone_negative")} {pct(signals.tone.negative)}
-                          <span className="text-steel"> {locale === "ko" ? `(문장 ${toneTotal}개 기준)` : `(${toneTotal} sentences)`}</span>
-                        </p>
-                      : <p className="text-[14px] text-steel">{t(locale, "sig_tone_none")}</p>}
-                  </div>
-                </section>
-              );
-            })()}
-
-            {curves.length > 0 && (
-              <section className="space-y-3">
-                {heading("generations")}
-                <GenerationCurves curves={curves} locale={locale} />
-              </section>
-            )}
-
-            <section className="space-y-3">
-              {heading("timeline")}
-              <TermTimeline record={record} locale={locale} />
-            </section>
-
-            {(related.length > 0 || (record.term.aliases?.length ?? 0) > 0) && (
-              <section className="space-y-2">
-                {heading("related")}
-                {record.term.aliases && record.term.aliases.length > 0 && <p className="text-[14px] text-charcoal"><span className="text-steel">{t(locale, "term_other_spellings")}:</span> {record.term.aliases.join(", ")}</p>}
-                {related.length > 0 && (
-                  <p className="text-[14px] text-charcoal">
-                    <span className="text-steel">{t(locale, "term_same_category")}:</span>{" "}
-                    {related.map((r, i) => <span key={r.term.term_id}>{i > 0 && ", "}<Link href={`/dictionary/${r.term.term_id}`} className="text-link-blue hover:underline">{r.term.canonical}</Link></span>)}
-                  </p>
-                )}
-              </section>
-            )}
-
-            {refs.length > 0 && (
-              <section className="space-y-2">
-                {heading("refs")}
-                <ol className="space-y-1.5 text-[13px]">
-                  {refs.map((e, i) => (
-                    <li key={e.evidence_id} id={`ref-${i + 1}`} className="grid grid-cols-[28px_1fr] gap-2 scroll-mt-4">
-                      <span className="text-steel tabular-nums">[{i + 1}]</span>
-                      <span className="text-charcoal">
-                        <span className="text-steel">{labels.evidenceKind[e.kind]} · {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}</span>{" "}
-                        {e.url ? <Link href={e.url} target="_blank" rel="noreferrer" className="text-link-blue hover:underline">{e.title || e.url}</Link> : e.title}
-                        {snippet(e, record.term.canonical) && (
-                          <span className="block text-steel">“{snippet(e, record.term.canonical)}”</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
-
-            {record.meanings.length > 0 && (
-              <section className="space-y-2">
-                {heading("history")}
-                <ChangeHistory meanings={record.meanings} locale={locale} />
-                <p className="text-[13px] text-steel">
-                  {t(locale, "term_first_seen")} {fmtDate(record.term.first_seen)} · {t(locale, "term_last_seen")} {fmtDate(record.term.last_seen)}
-                  {locale === "en" && <> · {t(locale, "term_original_note")}</>}
-                </p>
               </section>
             )}
           </div>
-
-          {/* 요약과 목차 — 데스크톱에서는 따라 내려온다. 휴대폰에서는 본문 아래 */}
-          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-lg border border-hairline">
-              <p className="border-b border-hairline bg-surface px-4 py-2.5 text-[14px] font-semibold text-ink">{t(locale, "term_summary")}</p>
-              <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2 px-4 py-3 text-[13px]">
-                <dt className="text-steel">{t(locale, "dict_categories")}</dt><dd className="text-charcoal">{labels.category[record.category]}</dd>
-                <dt className="text-steel">{t(locale, "term_info_lang")}</dt><dd className="text-charcoal">{termLangLabel(locale, record.term.lang ?? "ko")}</dd>
-                <dt className="text-steel">{t(locale, "term_info_status")}</dt><dd className="text-charcoal">{labels.verification[m?.verification ?? "unverified"]}</dd>
-                <dt className="text-steel">{t(locale, "term_info_lifecycle")}</dt><dd className="text-charcoal">{labels.lifecycle[record.term.lifecycle ?? "unknown"]}</dd>
-                {/* 어디까지 퍼졌나 — 규칙은 백엔드 lifecycle.diffusion, 여기서는 이름과 한 줄 이유만 보인다 */}
-                {record.term.diffusion && (
-                  <>
-                    <dt className="text-steel">{t(locale, "term_info_diffusion")}</dt>
-                    <dd className="text-charcoal">
-                      {t(locale, `diffusion_${record.term.diffusion}`)}
-                      <span className="block text-[12px] leading-[1.5] text-steel">{t(locale, `diffusion_${record.term.diffusion}_why`)}</span>
-                    </dd>
-                  </>
-                )}
-                {/* 브랜드가 쓸 때의 경고 — 수준은 백엔드 pipeline/risk.py 규칙(또는 검수자)이 정한다. 문제 없음·판단 보류는 줄을 내지 않는다 */}
-                {(() => {
-                  // 주의·사용 자제·근거 부족(검사했지만 문장이 모자람)을 보인다. 한국어 화면은 규칙이 남긴 실제 이유(근거 인용)를,
-                  // 영어 화면은 이유가 한국어뿐이라 일반 설명을 쓴다. 문제 없음·검사 전은 줄을 내지 않는다.
-                  const risk = riskOf(record.term);
-                  if (!risk) return null;
-                  const reason = (record.term.risk_reasons ?? []).find((x) => x !== "검수자가 정한 수준");
-                  return (
-                    <>
-                      <dt className="text-steel">{t(locale, "term_info_risk")}</dt>
-                      <dd className="text-charcoal">
-                        {t(locale, `risk_${risk}`)}
-                        {/* 검수자가 정한 수준이면 규칙의 이유를 붙이지 않는다 — 규칙이 반대로 보았을 수 있다(검토 2차) */}
-                        <span className="block text-[12px] leading-[1.5] text-steel">{record.term.risk_human ? t(locale, "risk_by_reviewer") : locale === "ko" && risk !== "unknown" && reason ? reason : t(locale, `risk_${risk}_why`)}</span>
-                      </dd>
-                    </>
-                  );
-                })()}
-                {m && <><dt className="text-steel">{t(locale, "term_used_by")}</dt><dd className="text-charcoal">{joinGens(locale, m.generations)}</dd></>}
-                {m && <><dt className="text-steel">{t(locale, "term_where")}</dt><dd className="text-charcoal">{joinRegions(locale, m.regions)}</dd></>}
-                <dt className="text-steel">{t(locale, "term_first_seen")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(record.term.first_seen)}</dd>
-                <dt className="text-steel">{t(locale, "term_last_seen")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(record.term.last_seen)}</dd>
-                {nextCheck && <><dt className="text-steel">{t(locale, "term_info_next")}</dt><dd className="text-charcoal tabular-nums">{fmtDate(nextCheck)}</dd></>}
-                <dt className="text-steel">{t(locale, "term_info_evidence")}</dt><dd className="text-charcoal tabular-nums">{record.evidences.length}</dd>
-              </dl>
-            </div>
-            <nav aria-label={t(locale, "term_toc")} className="hidden rounded-lg border border-hairline px-4 py-3 text-[14px] lg:block">
-              <p className="text-[13px] font-semibold text-ink">{t(locale, "term_toc")}</p>
-              <ul className="mt-1.5 space-y-1">
-                {sections.map((s) => <li key={s.id}><a href={`#${s.id}`} className="text-charcoal hover:text-ink hover:underline">{s.title}</a></li>)}
-              </ul>
-            </nav>
-          </aside>
         </div>
       </article>
     </PageShell>

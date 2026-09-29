@@ -379,17 +379,18 @@ def board(con: Connection, regions: list[str] | None = None, page: int = 1) -> K
                         rising=rising[cut], fading=fading[cut], caution=caution[cut])
 
 
-def card(con: Connection, term_id: str) -> KeywordCard | None:
-    """용어 하나의 신호 (사전 화면의 '어디서 얼마나 쓰이나'). 모든 나라를 더한다. 목표 지역 밖 용어도 만들어 준다."""
-    everywhere = [*REGIONS_FOCUS, GLOBAL]
+def card(con: Connection, term_id: str, regions: list[str] | None = None) -> KeywordCard | None:
+    """용어 하나의 신호 (사전 화면의 '언급 추이'). regions 가 없으면 모든 나라를 더하고, 있으면 대시보드 행과 같은 지역만 더한다
+    (대시보드와 사전 항목의 수가 달랐다, 개편 검토 2차). 목표 지역 밖 용어도 만들어 준다."""
+    chosen = chosen_regions(regions) if regions else [*REGIONS_FOCUS, GLOBAL]
     for s in _live(con, (_load(con) or ([], None))[0]):
         if s.card.term_id == term_id:
-            return view(s, everywhere)
+            return view(s, chosen)
     t = ds.get_term(con, term_id)
     if not t or t.status != "verified":
         return None
     s = build_card(con, t, _recent_queries(con), _Regions(con, term_id), _weeks(), outside=True)
-    return view(s, everywhere) if s else None
+    return view(s, chosen) if s else None
 
 
 def run(con: Connection) -> dict:

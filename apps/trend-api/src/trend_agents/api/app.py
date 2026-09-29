@@ -463,9 +463,10 @@ def keyword_dashboard(regions: str = "", page: int = Query(1, ge=1, le=10_000)):
 
 
 @app.get("/terms/{term_id}/signals", response_model=views.KeywordCard | None)
-def term_signals(term_id: str):
-    """용어 하나의 쓰임 신호 — 검색 순위·출몰 커뮤니티·뉘앙스·최근 근거 (사전 화면)."""
-    c = dashboard.card(_con, term_id)
+def term_signals(term_id: str, regions: str = ""):
+    """용어 하나의 쓰임 신호 — 검색 순위·출몰 커뮤니티·뉘앙스·최근 근거 (사전 화면).
+    regions 는 대시보드와 같은 쉼표 목록(KR,JP). 없으면 모든 지역 합계."""
+    c = dashboard.card(_con, term_id, [r.strip().upper() for r in regions.split(",") if r.strip()] or None)
     if not c:
         raise HTTPException(404, "not found")
     return c
