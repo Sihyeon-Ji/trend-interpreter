@@ -1,6 +1,6 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-작성일 **2026-09-28** · 변경일 **2026-09-28** · 상태 **설계 변경, 구현 대기(Cloud SQL 준비 필요)** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-09-29** · 상태 **Cloud SQL 체험 인스턴스 생성 완료, 앱 배포 구현 대기** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -16,7 +16,8 @@ CI 검사, 배포 이미지 빌드와 smoke 검사까지 통과했지만 **GCP �
 배포를 열지 않은 이유는 두 가지입니다.
 
 1. Trend API는 2026-09-28까지 SQLite(`data/trend.db`)에 저장했고, Cloud Run 인스턴스의 파일시스템은 재시작·스케일
-   아웃 시 사라집니다. 같은 날 저장소를 PostgreSQL로 옮겼으므로 이제 운영용 Cloud SQL 인스턴스가 필요합니다.
+   아웃 시 사라집니다. 같은 날 저장소를 PostgreSQL로 옮겼고, 2026-09-29에 Cloud SQL 체험 인스턴스를 만들었습니다.
+   데이터베이스·사용자·접속 경로와 데이터 게시는 아직 준비해야 합니다.
 2. Trend는 화면과 API가 별도 서비스입니다. API는 외부에 공개하지 않고 웹 서버 라우트만 호출하는 경로가 필요합니다.
 
 ## 이미 준비된 것
@@ -28,6 +29,7 @@ CI 검사, 배포 이미지 빌드와 smoke 검사까지 통과했지만 **GCP �
 | 배포 이미지 | `apps/trend-api/Dockerfile`(uvicorn, 비root, 8080), `apps/trend-web/Dockerfile`(Next.js standalone, 8080) |
 | 이미지 검증 | CI가 두 이미지를 빌드하고 `scripts/container-smoke.sh`로 health·첫 화면 확인 |
 | 저장소 | PostgreSQL. `storage/db.py` 어댑터, `DATABASE_URL` 하나로 연결. 로컬 Compose `db`와 CI 검증 완료, SQLite 이관 스크립트 `scripts/migrate_sqlite_to_postgres.py` |
+| Cloud SQL | `stunning-crane-508614-c1`의 `trend-project`, 도쿄(`asia-northeast1`), PostgreSQL 18. 2026-09-29 `gcloud sql instances describe` 결과 `RUNNABLE`. 콘솔에서 30일 무료 체험 문구 확인. DB·사용자·앱 연결은 미완료 |
 | 웹 설정 | `DATA_MODE`, `TREND_API_URL`, `FRONTEND_API_TOKEN`, `SESSION_SECRET`은 런타임 환경변수. 빌드 시 박히지 않음 |
 | 인프라 | Artifact Registry, 런타임·배포 service account, Workload Identity, 모니터링·알림·예산이 Terraform에 있음 |
 
@@ -35,9 +37,24 @@ CI 검사, 배포 이미지 빌드와 smoke 검사까지 통과했지만 **GCP �
 
 ### 1. 영속 저장소 — PostgreSQL (결정됨)
 
-관계형 데이터는 모두 PostgreSQL로 통일했습니다(2026-09-28). 운영에서는 **Cloud SQL for PostgreSQL** 인스턴스를 쓰고,
-Cloud Run API와 별도 유지보수 작업은 Cloud SQL 커넥터(Unix socket) 또는 private IP로 붙습니다. `DATABASE_URL`은 Secret Manager에 둡니다.
-비용을 낮추려면 가장 작은 공유 코어 인스턴스(예: `db-f1-micro`)로 시작하고, 자동 백업과 시점 복구를 켭니다.
+관계형 데이터는 모두 PostgreSQL로 통일했습니다(2026-09-28). 공모전 배포에는 이미 콘솔에서 생성한 **Cloud SQL for PostgreSQL**
+`trend-project`를 사용합니다. 이 인스턴스는 도쿄 리전의 PostgreSQL 18, Enterprise Plus 체험 사양(8 vCPU·64 GB·100 GB)입니다.
+콘솔에서 **30일 무료 체험** 표시를 확인했고, API 조회에서는 `RUNNABLE`입니다. 체험 종료 예상일은 생성일로부터 30일 뒤인
+**2026-10-29경**이며 정확한 시각은 콘솔의 남은 일수 표시로 확인합니다. 인스턴스 자체의 체험 요금과 별도로 리전 밖·공용
+인터넷 연결의 데이터 전송 비용은 발생할 수 있습니다([Cloud SQL 무료 체험 공식 안내](https://docs.cloud.google.com/sql/docs/postgres/free-trial-instance)).
+
+Cloud Run API와 별도 유지보수 작업은 Cloud SQL 커넥터(Unix socket) 또는 private IP로 붙습니다. `DATABASE_URL`은
+Secret Manager에 둡니다. 콘솔에서 자동 생성한 관리자 비밀번호는 Git·Terraform state·로그에 넣지 않고, 앱에는 별도
+최소 권한 DB 사용자를 사용합니다. **이번 공모전 범위에서는 자동 백업과 시점 복구를 켜지 않습니다.** 체험 인스턴스는
+백업·복원을 지원하지 않으므로, 게시 데이터가 생기면 성공한 게시본을 `pg_dump`로 별도 보관하고 로컬 PostgreSQL에서
+복원할 수 있는지 확인합니다. 덤프에는 자격증명이나 사용자 입력이 포함될 수 있으므로 Git에 넣지 않고 접근을 제한합니다.
+체험 종료 전에 유료 전환·소형 인스턴스로의 이전·서비스 종료 중 하나를 결정합니다. 전환 시에는 체험 사양 그대로 과금하지
+않도록 요금과 크기를 먼저 확인하고, 필요한 경우 백업 정책을 다시 결정합니다.
+
+현재 인스턴스는 **Terraform 외부에서 만든 체험 자원**으로 취급합니다. 이번 계획의 Terraform에는 동일 이름의 Cloud SQL
+인스턴스 생성 리소스를 추가하지 않습니다. 기존 인스턴스를 참조해 서비스 계정·IAM·Secret 메타데이터 등 앱 인프라를
+관리하며, 향후 유료 전환과 Terraform 편입은 별도 변경으로 검토합니다. 체험 종료 뒤 전환하지 않으면 인스턴스가 요청을
+처리하지 않으므로, 공모전 시연 일정과 남은 일수를 함께 점검합니다.
 Spanner Graph는 이번 제출 범위에서 제외합니다. 기존 BigQuery 공개 시계열 조회는 PostgreSQL 운영 DB 결정과 별개입니다.
 
 ### 2. 서비스 구성
@@ -84,7 +101,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 구현 순서
 
-1. Cloud SQL PostgreSQL 인스턴스와 데이터베이스·사용자를 Terraform으로 만들고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다.
+1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다. 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
 2. `infra/gcp/main.tf`에 Trend용 service account, secret metadata, IAM을 추가하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
@@ -94,12 +111,14 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
 7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
 8. [AI 호출 제어](../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../운영/배포-복구.md)에 실제 명령을 채웁니다.
+9. 데이터 게시 후 Git 밖의 제한된 위치에 `pg_dump` 사본을 남기고, 로컬 PostgreSQL 복원 검증 결과와 체험 종료 전 처리 결정을 기록합니다. 자동 백업·시점 복구는 이번 범위에 포함하지 않습니다.
 
 ## 완료 기준
 
 - `release/gcp` push 한 번으로 Trend API·웹과 필수 유지보수 작업이 검증 후 배포되고, 이전 revision이 실패한 후보에 영향을 받지 않는다. 전체 파이프라인 Job은 배포되지 않는다.
 - 웹 공개 URL에서 사전·지구본·메시지 해석이 실데이터로 열리고, API URL은 익명 호출을 거부한다.
 - 서비스 재시작 뒤에도 사전·검수 기록이 Cloud SQL에 유지된다.
+- 콘솔에서 체험 남은 일수를 확인하고, 게시 데이터의 `pg_dump` 사본을 로컬 PostgreSQL에 복원해 확인한다. 체험 종료 전 유료 전환·이전·종료 중 하나를 결정한다.
 - PC가 꺼져도 마지막 성공 게시본을 읽을 수 있고, 갱신 시각·오래된 자료 상태가 표시된다. 보존 기간 정리와 건강 점검은 PC와 독립적으로 실행되며 경고가 Discord로 온다.
 - API의 Cloud Run 동시성과 `DB_POOL_SIZE`가 같은 값으로 배포되어 있다.
 - 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
