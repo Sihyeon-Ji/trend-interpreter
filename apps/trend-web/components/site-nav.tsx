@@ -43,7 +43,8 @@ export function SiteNav({ locale, sample, readerNick, signedIn }: { locale: Loca
             <LocaleSwitch locale={locale} />
           </div>
         </div>
-        {nav("pb-3 sm:hidden")}
+        {/* 좁은 화면은 한 줄 그대로 옆으로 밀어 본다 — 영어 메뉴 다섯 개가 390px 화면을 넘어 페이지 전체가 옆으로 밀렸다(검토 3차) */}
+        {nav("-mx-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:hidden")}
       </div>
     </header>
   );

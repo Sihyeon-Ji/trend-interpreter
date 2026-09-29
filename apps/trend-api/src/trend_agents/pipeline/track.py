@@ -4,10 +4,10 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
-from ..lifecycle import diffusion, recency_stage, stage as life_stage
+from ..lifecycle import RECENT_DAYS, diffusion, recency_stage, stage as life_stage
 from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
-from .match import mentions, same_term
+from .match import evidence_mentions, mentions, same_term
 from .runs import stage
 from ..storage.db import Connection
 
@@ -27,13 +27,21 @@ def _week(d: date) -> str:
 USAGE_KINDS = ("community", "news", "short")
 
 
+def _evidences(con: Connection, term_id: str) -> list[Evidence]:
+    """이 표제어의 근거 가운데 표제어가 실제로 든 것만 — 검색이 끌어온 딴 글은 쓰임도 문서도 아니다(match.evidence_mentions)."""
+    t = ds.get_term(con, term_id)
+    if not t:
+        return []
+    evs = (Evidence.model_validate_json(j) for (j,) in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall())
+    return [e for e in evs if evidence_mentions(e, t.canonical, t.aliases)]
+
+
 def evidence_weeks(con: Connection, term_id: str) -> Counter:
     """조사가 모은 근거를 관측한 주에 센다. 이게 빠져서 근거 50건짜리 표제어도 언급 0 → unknown 이었다
     (2026-09-28 표본 30개 전부. Plan 02)."""
     c: Counter = Counter()
     seen: set[tuple[str, str]] = set()
-    for (j,) in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall():
-        e = Evidence.model_validate_json(j)
+    for e in _evidences(con, term_id):
         if e.kind not in USAGE_KINDS or e.source_domain.startswith("naver"):
             continue
         w = _week(e.observed_at.date())
@@ -48,8 +56,7 @@ def usage_kinds(con: Connection, term_id: str) -> dict[str, int]:
     """쓰임 근거를 종류별로 센다(네이버 표시 전용 결과 제외). 확산 단계 판정에 쓴다.
     'documented' 는 백과사전 문서(위키백과·나무위키) 근거 수 — 쓰임은 아니지만 자리 잡은 말인지 가른다."""
     c: Counter = Counter()
-    for (j,) in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall():
-        e = Evidence.model_validate_json(j)
+    for e in _evidences(con, term_id):
         if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver"):
             c[e.kind] += 1
         elif e.kind == "wiki" or (e.kind == "web" and e.source_domain.endswith("wikipedia.org")):
@@ -60,8 +67,7 @@ def usage_kinds(con: Connection, term_id: str) -> dict[str, int]:
 def newest_usage(con: Connection, term_id: str) -> datetime | None:
     """조사가 찾은 쓰임 근거 중 가장 최근 관측 시각."""
     newest = None
-    for (j,) in con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall():
-        e = Evidence.model_validate_json(j)
+    for e in _evidences(con, term_id):
         if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver"):
             at = e.observed_at if e.observed_at.tzinfo else e.observed_at.replace(tzinfo=timezone.utc)
             newest = at if newest is None or at > newest else newest
@@ -103,6 +109,30 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
     return c
 
 
+def measured_series(series: list[int], weeks: list[str], last_sampled: datetime) -> list[int]:
+    """용어별 뉴스 검색으로 잰 주까지만 — 그 뒤의 0 은 '안 쓰임' 이 아니라 '안 봤음' 이다. 잰 주는 잰 날까지만 셌으므로 한 주로 늘려
+    앞 주들과 견준다. 9일 전에 잰 推し活 [..,9,96,0,0] 이 '지는 중' 이 됐고(검토 3차), 매일 고르게 쓰이는 말도 이번 주 화요일에는
+    이번 주 이틀 치가 지난주 이레 치보다 적어 '지는 중' 으로 읽혔다."""
+    w = _week(last_sampled.date())
+    if w not in weeks:
+        return []
+    cut = weeks.index(w)
+    out = series[:cut + 1]
+    days = min(7, (last_sampled.date() - date.fromisoformat(w)).days + 1)
+    out[-1] = round(out[-1] * 7 / days)
+    return out
+
+
+def as_of_last_look(last_look: datetime | None, now: datetime) -> datetime:
+    """'마지막으로 쓰인 때' 를 셀 기준 시각 — 조사가 마지막으로 근거를 찾아본 때(오래지 않았으면). 그 뒤로 찾아보지 않은 날을 '안 쓰임' 으로
+    세면 다시 조사하기 전에 '꾸준함' 이 '지는 중' 으로 저절로 바뀌었다(검토 3차: 일본 '지금 쓰이는 밈' 12개 중 9개가 사흘 안에).
+    마지막 조사가 RECENT_DAYS 의 두 배보다 오래됐으면 지금을 기준으로 — 그만큼 안 봤으면 식은 것으로 본다."""
+    if last_look is None:
+        return now
+    last_look = last_look if last_look.tzinfo else last_look.replace(tzinfo=timezone.utc)
+    return last_look if (now - last_look).days <= 2 * RECENT_DAYS else now
+
+
 def run(con: Connection) -> dict:
     with stage(con, "track") as r:
         today = date.today()
@@ -133,17 +163,20 @@ def run(con: Connection) -> dict:
             last_sampled = sampled.get(t.term_id) or queried.get(t.canonical)
             if last_sampled and last_sampled.tzinfo is None:
                 last_sampled = last_sampled.replace(tzinfo=timezone.utc)
-            fresh_sample = bool(last_sampled) and (datetime.now(timezone.utc) - last_sampled).days <= 14
+            now = datetime.now(timezone.utc)
+            fresh_sample = bool(last_sampled) and (now - last_sampled).days <= 14
             newest = newest_usage(con, t.term_id)
             # 늘 모으는 원본(나라별 뉴스판·쇼츠·검색어)은 매 실행 모든 말을 같이 보므로 0 도 뜻이 있다. 용어별 뉴스 검색은 잰 주에만 몰린다
             steady_series = [raw.get(w, 0) - query_hits.get(w, 0) for w in weeks]
-            if sum(raw_series) and fresh_sample:
-                t.lifecycle = life_stage(raw_series, weeks_since)
+            measured = measured_series(raw_series, weeks, last_sampled) if fresh_sample else []
+            if sum(measured):
+                t.lifecycle = life_stage(measured, weeks_since)
             elif sum(steady_series):
                 t.lifecycle = life_stage(steady_series, weeks_since)
             else:
                 last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
-                t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None))
+                last_look = ds.last_researched(con, t.term_id, ok_only=True)
+                t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None), now=as_of_last_look(last_look, now))
             lifecycle, dif = t.lifecycle, diffusion(usage_kinds(con, t.term_id), t.lifecycle)
             # 다른 필드는 저장된 쪽에서 — 훑는 몇 분 사이 검수자가 승인·제외한 것을 시작 때 읽은 사본이 덮지 않게
             fresh = ds.get_term(con, t.term_id) or t

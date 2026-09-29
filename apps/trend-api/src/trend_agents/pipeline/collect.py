@@ -22,12 +22,20 @@ def _rotate(items: list[str], k: int) -> list[str]:
     return [items[(start + i) % len(items)] for i in range(k)]
 
 
-def mention_order(con, terms: list) -> list:
-    """뉴스 검색으로 언급을 잴 순서 — 한 번도 안 잰 것·가장 오래전에 잰 것부터. 재검증 주기로만 줄 세우면 같은 30개(주기가 같으면
-    이름순)만 매번 재서, 그 30개만 언급이 쌓이고 나머지는 늘 0 이라 생애주기가 뒤집혔다(2026-09-29 검토 2차)."""
+def mention_order(con, terms: list, n: int = 30) -> list:
+    """뉴스 검색으로 언급을 잴 n 개 — 한 번도 안 잰 것·가장 오래전에 잰 것부터. 재검증 주기로만 줄 세우면 같은 30개(주기가 같으면
+    이름순)만 매번 재서, 그 30개만 언급이 쌓이고 나머지는 늘 0 이라 생애주기가 뒤집혔다(2026-09-29 검토 2차).
+    칸은 사전에 오른 말(verified, 대시보드·추천이 쓰는 말)에 3분의 2, 검수 대기·조사 중인 말에 3분의 1 — 확인된 말이 늘 먼저면 검수 대기 말은
+    영영 재지 않아 게이트에 필요한 뉴스 근거를 얻지 못했다(검토 3차: 확인된 말 148개가 30칸을 늘 다 차지). 한쪽이 모자라면 다른 쪽이 채운다."""
     sampled = ds.mention_sampled(con)
-    # 사전에 오른 말(verified)이 먼저 — 대시보드·추천이 쓰는 말이다
-    return sorted(terms, key=lambda t: (t.status != "verified", sampled.get(t.term_id, ""), recheck_interval_days(t.lifecycle)))
+
+    def stale(t):
+        return (sampled.get(t.term_id, ""), recheck_interval_days(t.lifecycle))
+
+    verified = sorted((t for t in terms if t.status == "verified"), key=stale)
+    others = sorted((t for t in terms if t.status != "verified"), key=stale)
+    take = min(len(verified), max(n - len(others), n * 2 // 3))
+    return verified[:take] + others[:n - take]
 
 
 def run(con: Connection, mention_terms: int = 30) -> dict:
@@ -89,7 +97,7 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
     with stage(con, "collect.mentions") as r:
         terms = ds.list_terms(con, ("verified", "needs_review", "researching"))
         n = 0
-        for t in mention_order(con, terms)[:mention_terms]:
+        for t in mention_order(con, terms, mention_terms):
             region = LANG_REGION.get(t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 중국어 표제어는 대만 뉴스에서
             if region not in news_rss.LOCALES:
                 region = "US"

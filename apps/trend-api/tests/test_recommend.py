@@ -12,7 +12,6 @@ from trend_agents.storage import store as db
 def _no_models(monkeypatch):
     """시험은 모델을 부르지 않는다 — 이 서버처럼 로컬 Gemma 가 떠 있으면 이유 쓰기가 실제로 돌아 느리고 결과가 흔들렸다.
     모델 경로를 보는 시험은 스스로 다시 바꾼다."""
-    monkeypatch.setattr(recommend, "local_ok", lambda: False)
     monkeypatch.setattr(recommend, "configured", lambda: False)
     monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)
 
@@ -69,26 +68,48 @@ def test_top_five_and_explained_matches():
     assert res.items[0].matched_feelings == ["joy"] and res.items[0].any_category and not res.items[0].matched_category
 
 
-def test_reason_must_lean_on_the_dictionary_meaning():
-    meaning = "나쁜 상황에서도 좋게 보는 긍정적인 태도"
-    assert recommend.anchored("럭키비키처럼 나쁜 더위도 좋게 넘기게 해 줍니다", meaning, "럭키비키")     # 이름 + 뜻풀이 낱말
-    assert not recommend.anchored("더운 날에도 긍정적인 기분을 줍니다", meaning, "럭키비키")             # 이름이 없다 — 어떤 밈 이야기인지 모른다
-    assert not recommend.anchored("럭키비키는 달리기 선수들이 경기 전에 외치는 구호입니다", meaning, "럭키비키")   # 뜻을 새로 지어냄
-    assert not recommend.anchored("", meaning, "럭키비키")
+def test_reasons_come_from_stored_data_without_a_model(monkeypatch):
+    """추천 이유는 모델이 쓰지 않는다 — 게시된 사전 뜻·그 나라의 국가별 해석(확신 0.5 이상)·겹친 낱말로 화면이 구성한다
+    (2026-09-28 Gemma 로컬 편집 결정, Plan 07 5번). 추천하는 동안 모델을 한 번도 부르지 않는다."""
+    import json
+
+    con = _con()
+    ds.set_usage(con, "good", [("20s", "TW", datetime.now(timezone.utc).isoformat(), 0.3)])
+    ds.set_topic_note(con, "good", "TW", json.dumps({"what_changed": {"ko": "대만 팬 커뮤니티에서 응원 문구로 쓴다", "en": "Fans in Taiwan use it as a cheer"},
+                                                    "self_confidence": 0.7}), "test")
+    ds.set_topic_note(con, "good", "KR", json.dumps({"what_changed": {"ko": "근거 부족", "en": "Insufficient"}, "self_confidence": 0.2}), "test")
+    dashboard.run(con)
+    monkeypatch.setattr(recommend, "structured", lambda *a, **k: (_ for _ in ()).throw(AssertionError("모델을 부르면 안 됨")))
+    got = {i.term_id: i for i in recommend.recommend(con, LATTE, "sample", ["KR", "TW"], "friendly").items}
+    assert got["good"].local_region == "TW" and got["good"].local_note.ko.startswith("대만")      # 확신이 낮은 한국 해석은 건너뛴다
+    assert got["ok"].local_note is None and got["good"].matched_category and got["good"].matched_feelings == ["joy", "comfort"]
 
 
-def test_reason_in_the_wrong_language_is_dropped():
-    """영어 화면에 한국어 이유가 섞이면 버린다 — 밈 이름·따옴표 안의 원문은 세지 않는다."""
-    assert recommend.wrong_language("갓갓갓은 최고라는 뜻이라 출근길을 가볍게 해 준다", "en", "갓갓갓")
-    assert not recommend.wrong_language("'갓갓갓' means extremely good, so it suits an effortless commute", "en", "갓갓갓")
-    assert not recommend.wrong_language("오살힘은 하루를 버티게 하는 힘이라 더운 오후의 한 잔과 어울린다", "ko", "오살힘")
-    assert recommend.wrong_language("It fits a hot afternoon treat very well indeed", "ko", "오살힘")
+def test_links_prefer_usage_and_never_repeat_a_url():
+    """근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만(위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 나왔다, 검토 3차)."""
+    con = _con()
+    now = datetime.now(timezone.utc)
+    url = "https://ko.wikipedia.org/wiki/%EC%A2%8B%EC%9D%80%EB%A7%90"
+    ds.add_evidences(con, "good", [Evidence(evidence_id="w1", kind="web", url=url, title="Wikipedia: 좋은말", source_domain="ko.wikipedia.org", observed_at=now, excerpt="좋은말은"),
+                                   Evidence(evidence_id="w2", kind="wiki", url=url, title="좋은말", source_domain="wikipedia.org", observed_at=now, excerpt="좋은말은")])
+    dashboard.run(con)
+    item = next(i for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items if i.term_id == "good")
+    assert [e.url for e in item.evidences] == ["https://theqoo.net/good", url]
+
+
+def test_write_regions_need_a_form_written_in_that_language():
+    """결과물 지역 선택지는 그 지역에서 쓰이고 그 말의 글자(또는 로마자)로 쓴 표기가 있는 곳만 — 한글 표기뿐인 밈으로 일본어 카피를 만들지 않는다."""
+    con = _con()
+    now = datetime.now(timezone.utc)
+    ds.set_usage(con, "good", [("20s", "JP", now.isoformat(), 0.2)])
+    dashboard.run(con)
+    item = next(i for i in recommend.recommend(con, LATTE, "sample", ["KR", "JP"], "friendly").items if i.term_id == "good")
+    assert set(item.regions) >= {"KR", "JP"} and item.write_regions == ["KR"]
 
 
 def test_sample_brief_only_when_no_model_is_configured(monkeypatch):
     con = db.connect(":memory:")
     monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)   # 이 서버의 .env 와 상관없이 '아무 모델도 설정되지 않음'
-    monkeypatch.setattr(recommend, "local_ok", lambda: False)
     monkeypatch.setattr(recommend, "configured", lambda: False)
     assert recommend.understand(con, "아무 문구") == (recommend.SAMPLE_BRIEF, "sample")
 
@@ -119,7 +140,6 @@ def test_recommend_api_checks_input_before_any_model_call(monkeypatch):
 
     monkeypatch.setattr(api, "_con", _con())
     monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)
-    monkeypatch.setattr(recommend, "local_ok", lambda: False)
     monkeypatch.setattr(recommend, "configured", lambda: False)     # 모델 없는 개발 환경 → 고정 예시 설명
     c = TestClient(api.app)
     assert c.post("/recommend", data={"text": ""}).status_code == 400
@@ -165,13 +185,6 @@ def test_pool_is_not_cut_to_the_display_lists():
     dashboard.run(con)
     got = [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items]
     assert got == ["best"]
-
-
-def test_reason_needs_the_name_and_a_meaning_word():
-    meaning = "나쁜 상황에서도 좋게 보는 긍정적인 태도"
-    assert not recommend.anchored("럭키비키라서 이 라떼는 달리기 선수의 구호입니다", meaning, "럭키비키")   # 이름만, 뜻과 겹침 없음
-    assert recommend.anchored("럭키비키처럼 더위도 긍정적으로 넘기게 해 줍니다", meaning, "럭키비키")
-    assert not recommend.anchored("It is used by people", "a term used by people online", "lol")       # 흔한 말만 겹친다
 
 
 def test_unknown_voice_fails_closed():

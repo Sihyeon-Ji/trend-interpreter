@@ -312,7 +312,7 @@ def test_dashboard_regions_lists_and_search_follow_rules():
     assert dashboard.board(con, ["ID", "GLOBAL"]).rising[0].search[0].region == "ID"
     assert dashboard.board(con, ["XX"]).regions == dashboard.REGIONS_FOCUS          # 모르는 지역은 무시하고 기본값
 
-    ds.set_risk(con, "kr", "avoid", ["검수자가 정한 수준"], None, now)   # 리스크 필드는 리스크 단계·검수자 길로만 바뀐다
+    ds.set_risk(con, "kr", "avoid", ["위험 유형이 붙은 근거 3건"], now)   # 리스크 필드는 리스크 단계·검수자 길로만 바뀐다
     dashboard.refresh_card(con, "kr")                                             # 검수 결정이 다음 파이프라인을 기다리지 않는다
     assert {c.term_id for c in dashboard.board(con).caution} == {"bad", "kr"}
     assert dashboard.card(con, "de").regions == []                                # 사전 화면용으로는 지역 밖도 만든다

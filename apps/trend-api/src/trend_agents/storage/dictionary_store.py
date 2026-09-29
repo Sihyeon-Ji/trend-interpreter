@@ -201,12 +201,15 @@ def upsert_term(con: Connection, term: Term, *, human: bool = False) -> Term:
     return _write_term(con, term)
 
 
-def set_risk(con: Connection, term_id: str, level, reasons: list[str], rule_level, checked_at: datetime) -> Term | None:
-    """리스크 단계의 저장 — 리스크 필드만 바꾸고 나머지(상태·별칭·사람의 결정)는 저장된 그대로 둔다."""
+def set_risk(con: Connection, term_id: str, rule_level, reasons: list[str], checked_at: datetime) -> Term | None:
+    """리스크 단계의 저장 — 규칙의 판정(rule_level)과 이유를 받아 리스크 필드만 바꾸고 나머지(상태·별칭·사람의 결정)는 저장된 그대로 둔다.
+    실제 수준은 **지금 저장된** 사람의 결정(risk_human)이 있으면 그것이다 — 판정한 때 읽은 사본으로 정하면, 그 사이 검수자가 내린 결정 옆에
+    규칙의 수준이 적혀 화면·추천이 검수자와 다른 수준을 썼다(검토 3차)."""
     t = get_term(con, term_id)
     if not t:
         return None
-    return _write_term(con, t.model_copy(update={"risk_level": level, "risk_reasons": reasons, "risk_rule_level": rule_level,
+    level, why = (t.risk_human, ["검수자가 정한 수준", *reasons]) if t.risk_human else (rule_level, reasons)
+    return _write_term(con, t.model_copy(update={"risk_level": level, "risk_reasons": why, "risk_rule_level": rule_level,
                                                  "risk_checked_at": checked_at}))
 
 
@@ -656,7 +659,14 @@ def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[di
             rows.append({"kind": "reviewed", "at": at, "label": t[0], "term_id": tid, "detail": decision})
     from ..pipeline.match import unsafe
 
-    rows = [r for r in rows if not unsafe(r.get("label") or "")]   # 공개 '오늘의 변화' 도 둘러보는 목록이다 — 욕설 표제어는 내지 않는다
+    def shown(r: dict) -> bool:
+        # 공개 '오늘의 변화' 도 둘러보는 목록이다 — 욕설 표제어는 내지 않는다. 검수자가 '문제 없음' 으로 푼 것은 낸다(대시보드·나라 화면과 같게, 검토 3차)
+        if not unsafe(r.get("label") or ""):
+            return True
+        t = get_term(con, r["term_id"]) if r.get("term_id") else None
+        return bool(t and t.risk_level == "none")
+
+    rows = [r for r in rows if shown(r)]
     rows.sort(key=lambda r: r["at"] or "", reverse=True)
     return rows[:limit]
 

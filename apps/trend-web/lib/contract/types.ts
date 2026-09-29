@@ -160,7 +160,7 @@ export type Source1 = string;
 export type Region2 = string;
 export type Query = string | null;
 /**
- * 제품이 무엇인지 한 줄
+ * 제품이 무엇인지 한 줄 (120자 안)
  */
 export type Product = string;
 /**
@@ -215,11 +215,11 @@ export type Platform = "instagram" | "x";
  */
 export type Text = string;
 /**
- * 해시태그 3~6개, # 없이
+ * 해시태그 3~6개, # 없이, 띄어쓰기 없이
  */
 export type Hashtags = string[];
 /**
- * 이 안이 밈을 어떻게 썼는지 한국어 한 문장
+ * 이 안이 밈을 어떻게 썼는지 한 문장 (마케터가 읽는 설명, 화면 언어)
  */
 export type NoteKo = string;
 export type Copies = SocialCopy[];
@@ -241,7 +241,7 @@ export type Caption = string;
 export type Line = string;
 export type Scenes = ScriptScene[];
 /**
- * 한국어 설명
+ * 대본 설명 (마케터가 읽는 설명, 화면 언어)
  */
 export type NoteKo1 = string;
 /**
@@ -249,16 +249,19 @@ export type NoteKo1 = string;
  */
 export type Headline = string;
 /**
- * 배치 (한국어)
+ * 배치 (마케터가 읽는 설명, 화면 언어)
  */
 export type Layout = string;
+/**
+ * 색 (화면 언어)
+ */
 export type Colors1 = string[];
 /**
- * 인물·제품 위치 (한국어)
+ * 인물·제품 위치 (마케터가 읽는 설명, 화면 언어)
  */
 export type Subject = string;
 /**
- * 한국어 설명
+ * 썸네일 설명 (화면 언어)
  */
 export type NoteKo2 = string;
 
@@ -434,7 +437,7 @@ export interface ContentDraft {
   thumbnail: ThumbnailPlan;
 }
 /**
- * SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명.
+ * SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터가 읽는 설명(화면 언어 — 이름은 예전 그대로).
  */
 export interface SocialCopy {
   platform: Platform;

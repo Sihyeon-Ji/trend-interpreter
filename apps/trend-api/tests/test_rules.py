@@ -601,7 +601,8 @@ def test_dashboard_numbers_follow_the_chosen_region():
     tw = next(c for c in dashboard.board(con, ["TW"]).rising + dashboard.board(con, ["TW"]).fading if c.term_id == "oshi")
     jp = next(c for c in dashboard.board(con, ["JP"]).rising + dashboard.board(con, ["JP"]).fading if c.term_id == "oshi")
     assert tw.mentions_4w == 2 and jp.mentions_4w == 125
-    assert [s.domain for s in tw.communities] == ["dcard.tw"] and [s.domain for s in jp.communities] == ["togetter.com"]
+    # 블루스키(전 세계 플랫폼)의 일본어 글은 일본으로 — 그 용어가 쓰이는 나라 가운데서 글자로 짐작한다(검토 3차)
+    assert [s.domain for s in tw.communities] == ["dcard.tw"] and [s.domain for s in jp.communities] == ["togetter.com", "bsky.app"]
     everywhere = dashboard.card(con, "oshi")
     assert "naver:kin" not in {s.domain for s in everywhere.communities} and "bsky.app" in {s.domain for s in everywhere.communities}
 
@@ -679,7 +680,7 @@ def test_dashboard_follows_live_decisions_and_regions_round2():
     dashboard.run(con)
     assert dashboard.card(con, "vn").regions == ["VN"] and dashboard.card(con, "idn").regions == ["ID"]
 
-    ds.set_risk(con, "kr", "avoid", ["사전 뜻풀이에 적힌 주의점"], "avoid", now)       # 캐시를 만든 뒤의 결정
+    ds.set_risk(con, "kr", "avoid", ["사전 뜻풀이에 적힌 주의점"], now)                # 캐시를 만든 뒤의 결정
     assert "kr" in {c.term_id for c in dashboard.board(con, ["KR"]).caution}
     t = ds.get_term(con, "kr")
     t.status = "retired"
@@ -687,7 +688,10 @@ def test_dashboard_follows_live_decisions_and_regions_round2():
     assert "kr" not in {c.term_id for c in dashboard.cards(con, ["KR"])}
 
     assert "oops" not in {c.term_id for c in dashboard.cards(con, ["GLOBAL"])}
-    ds.set_risk(con, "oops", "none", ["검수자가 정한 수준"], "avoid", now)            # 검수자가 오탐을 풀었다
+    t = ds.get_term(con, "oops")
+    t.risk_human = "none"
+    ds.upsert_term(con, t, human=True)                                                   # 검수자가 오탐을 풀었다
+    ds.set_risk(con, "oops", "avoid", ["표제어 자체가 욕설·성적 표현이다."], now)       # 규칙이 여전히 사용 자제라고 해도 실제 수준은 검수자의 것
     assert "oops" in {c.term_id for c in dashboard.cards(con, ["GLOBAL"])}
 
 
@@ -729,11 +733,34 @@ def test_mention_sampling_rotates_through_all_terms():
     for k in range(5):
         ds.upsert_term(con, Term(term_id=f"t{k}", canonical=f"말{k}", lang="ko", status="verified", lifecycle="steady", first_seen=now, last_seen=now))
     terms = ds.list_terms(con, ("verified",))
-    first = [t.term_id for t in mention_order(con, terms)[:3]]
+    first = [t.term_id for t in mention_order(con, terms, 3)]
     for tid in first:
         ds.mark_mention_sampled(con, tid)
-    second = [t.term_id for t in mention_order(con, terms)[:3]]
+    second = [t.term_id for t in mention_order(con, terms, 3)]
     assert set(second[:2]) == {"t0", "t1", "t2", "t3", "t4"} - set(first)       # 아직 안 잰 두 말이 먼저
+
+
+def test_mention_sampling_keeps_slots_for_terms_under_review():
+    """확인된 말이 칸보다 많아도 검수 대기 말이 3분의 1 을 받는다 — 확인된 말이 늘 먼저라 검수 대기 말을 영영 재지 않았다(검토 3차)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline.collect import mention_order
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for k in range(40):
+        ds.upsert_term(con, Term(term_id=f"v{k:02d}", canonical=f"확인{k}", lang="ko", status="verified", lifecycle="steady", first_seen=now, last_seen=now))
+    for k in range(3):
+        ds.upsert_term(con, Term(term_id=f"r{k}", canonical=f"대기{k}", lang="ko", status="needs_review", lifecycle="unknown", first_seen=now, last_seen=now))
+    terms = ds.list_terms(con, ("verified", "needs_review"))
+    for t in terms:
+        ds.mark_mention_sampled(con, t.term_id)                   # 모두 한 번씩 잰 뒤에도
+    got = mention_order(con, terms, 30)
+    assert len(got) == 30 and {t.term_id for t in got} >= {"r0", "r1", "r2"}
+    assert len(mention_order(con, [t for t in terms if t.status == "verified"], 30)) == 30   # 한쪽이 모자라면 다른 쪽이 채운다
 
 def test_research_skips_terms_rejected_after_the_stage_picked_them():
     """단계가 대상을 고른 뒤 사람이 제외한 말은 조사하지 않는다 — 네트워크에 가기 전에 끝난다."""
@@ -815,3 +842,233 @@ def test_unsampled_weeks_do_not_read_as_decline():
     ds.mark_mention_sampled(con, "t1")                           # 오늘 다시 쟀는데 새 언급이 없다 → 그때는 모양으로
     track.run(con)
     assert ds.get_term(con, "t1").lifecycle in ("declining", "dormant", "peak", "steady")
+
+
+# ---------- 검토 3차 ----------
+
+def test_spot_skips_emoji_only_and_profane_candidates():
+    """발굴 후보에 글자 없는 이모지·욕설은 넣지 않는다 — 목표 지역을 늘린 뒤 '😭😭'·'fucked' 가 후보로 들어왔다. 숫자 밈 '8+9' 는 남긴다."""
+    from trend_agents.pipeline.spot import keep
+    from trend_agents.schemas import SpottedTerm
+
+    def p(term):
+        return SpottedTerm(i=0, term=term, lang="en", kind="meme", confidence=0.9)
+
+    assert not keep(p("😭😭"), "so sad 😭😭 today", lambda t: None)
+    assert not keep(p("fucked"), "we are fucked lol", lambda t: None)
+    assert keep(p("aura farming"), "peak aura farming right here", lambda t: None)
+    assert keep(p("8+9"), "8+9 是什麼梗？他就是個 8+9 啦", lambda t: None)    # 숫자 밈 — 중국어 단서 낱말(梗)로도 통과한다
+    assert not keep(p("8+9"), "他就是個 8+9 啦", lambda t: None)               # 단서가 없으면 그냥 숫자다
+
+
+def test_verb_forms_are_not_profanity_and_sexual_nuance_nouns_warn():
+    from trend_agents.pipeline.match import unsafe
+    from trend_agents.pipeline.risk import nuance_warning
+
+    for text in ("밤새 자지 않고 공부", "오늘 밤은 자지 마", "잠을 못 자지만 괜찮아", "자주 보지만 재미있다", "한 번 먹어 보지 뭐", "써 보지 그래?", "그냥 보지요"):
+        assert not unsafe(text), text
+    assert unsafe("보지") and unsafe("자지 사진")
+    for text in ("성적 표현이 들어 있어 공식 계정에서는 피한다.", "성적 농담으로 쓰인다.", "여성을 성적 대상화하는 말이다.", "11월 한 달 동안의 성적 금욕을 뜻한다."):
+        assert nuance_warning(text), text
+    for text in ("이성적인 판단", "여성적인 말투", "시험 성적이 좋다", "성적 향상을 바라는 말"):
+        assert nuance_warning(text) == "", text
+
+
+def test_risk_stage_does_not_overwrite_a_decision_made_while_judging(monkeypatch):
+    """판정하는 사이 검수자가 수준을 정하면, 저장되는 수준은 검수자의 것 — 옛 사본의 규칙 수준이 결정 옆에 적혀 화면·추천이 다른 수준을 썼다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import risk
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    ds.upsert_term(con, Term(term_id="t1", canonical="테스트밈", lang="ko", status="verified", first_seen=datetime.now(timezone.utc)))
+
+    def judging(con_, term):
+        t = ds.get_term(con, "t1")                         # 검수 화면이 이 순간에 '문제 없음' 으로 정했다
+        t.risk_human = "none"
+        ds.upsert_term(con, t, human=True)
+        return "caution", ["위험 유형이 붙은 근거 2건"]
+
+    monkeypatch.setattr(risk, "judge", judging)
+    risk.apply(con, ds.get_term(con, "t1"))
+    t = ds.get_term(con, "t1")
+    assert t.risk_human == "none" and t.risk_level == "none" and t.risk_rule_level == "caution"
+    assert t.risk_reasons[0] == "검수자가 정한 수준"
+
+
+def test_public_feed_shows_reviewer_cleared_headwords():
+    """'오늘의 변화' 도 검수자가 '문제 없음' 으로 푼 표제어는 낸다 — 대시보드·나라 화면과 같은 기준."""
+    from datetime import datetime, timezone
+
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name in (("y", "병신년"), ("z", "좆같은말")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", first_seen=now, last_seen=now))
+    t = ds.get_term(con, "y")
+    t.risk_human = t.risk_level = "none"
+    ds.upsert_term(con, t, human=True)
+    labels = {r["label"] for r in ds.recent_updates(con)}
+    assert "병신년" in labels and "좆같은말" not in labels
+
+
+def test_evidence_without_the_headword_is_not_usage_nor_a_document():
+    """검색이 끌어온 딴 글(표제어가 없는 근거)은 주별 언급·마지막 쓰임·문서 수·리스크 분류 문장에 들어가지 않고, 카드 근거로도 나가지 않는다
+    (원작자 서버 실측: 근거 9,738건 중 1,882건 — '오살힘' 추천 근거가 한국 배우·KBS 드라마 위키백과 문서였다)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import dashboard, risk, track
+    from trend_agents.schemas import Evidence, MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    at = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="오살힘", lang="ko", status="verified", first_seen=at, last_seen=at))
+    ds.add_meaning(con, "t1", MeaningDraft(definition="작지만 하루를 버티게 해 주는 것", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                                           self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "t1", [("20s", "KR", at.isoformat(), 1.0)])
+
+    def ev(eid, kind, dom, url, text):
+        return Evidence(evidence_id=eid, kind=kind, url=url, title=text, source_domain=dom, observed_at=at, excerpt=text)
+
+    ds.add_evidences(con, "t1", [ev("ok", "community", "theqoo.net", "https://theqoo.net/1", "오늘도 오살힘 충전"),
+                                 ev("off", "news", "news.example", "https://news.example/a", "소가죽 굿판 vs 오살 의식"),
+                                 ev("doc", "web", "ko.wikipedia.org", "https://ko.wikipedia.org/wiki/x", "Wikipedia: 엄마가 미쳤어요 KBS 1TV 일일 드라마다.")])
+    assert sum(track.evidence_weeks(con, "t1").values()) == 1
+    assert track.usage_kinds(con, "t1") == {"community": 1}
+    assert [e.evidence_id for e in risk._usage(con, ds.get_term(con, "t1"))] == ["ok"]
+    dashboard.run(con)
+    assert [e.url for e in dashboard.card(con, "t1").evidences] == ["https://theqoo.net/1"]
+
+
+def test_topics_store_only_evidence_that_names_the_term(monkeypatch):
+    """주제 단계의 검색 결과 가운데 표제어가 든 것만 모델에 주고 근거로 저장한다."""
+    import json  # noqa: F401
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import topics
+    from trend_agents.schemas import Evidence, MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="오살힘", lang="ko", status="verified", first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t1", MeaningDraft(definition="작지만 하루를 버티게 해 주는 것", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                                           self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "t1", [("20s", "KR", now.isoformat(), 0.5), ("20s", "TW", now.isoformat(), 0.2)])
+
+    def ev(eid, text):
+        return Evidence(evidence_id=eid, kind="news", url=f"https://n.example/{eid}", title=text, source_domain="n.example", observed_at=now, excerpt=text)
+
+    monkeypatch.setattr(topics, "gather", lambda con, term, region: [ev(f"ok-{region}", "오살힘 是什麼？"), ev(f"no-{region}", "소가죽 굿판 vs 오살 의식")])
+    monkeypatch.setattr(topics, "local_ok", lambda: True)
+    seen = []
+
+    def fake(con, prompt, schema, **k):
+        seen.append(prompt)
+        return topics.VariantNote(local_name="오살힘", what_changed={"ko": "팬 커뮤니티에서 씀", "en": "Used by fans"}, self_confidence=0.6), "local:x"
+
+    monkeypatch.setattr(topics, "structured", fake)
+    topics.run(con)
+    assert {e.evidence_id for e in ds.list_evidences(con, "t1")} == {"ok-KR", "ok-TW"}
+    assert seen and not any("오살 의식" in p for p in seen)
+
+
+def test_japanese_posts_on_global_platforms_count_for_japan():
+    """블루스키·레딧 같은 전 세계 플랫폼 글은 글자로 나라를 짐작한다 — 그 용어가 쓰이는 나라 가운데서만."""
+    from trend_agents.pipeline.dashboard import GLOBAL, text_region
+
+    assert text_region("推し活 たのしい", ["JP", "TW"]) == "JP"
+    assert text_region("推活好累", ["JP", "TW"]) == "TW"
+    assert text_region("오늘도 오살힘", ["TW"]) == GLOBAL                # 그 용어의 나라가 아니면 짐작하지 않는다
+    assert text_region("so true", ["KR"]) == GLOBAL
+
+
+def test_measured_weeks_stop_at_the_last_news_search():
+    """용어별 뉴스 검색으로 잰 주까지만 모양을 본다 — 9일 전에 잰 推し活 [..,9,96,0,0] 이 '지는 중' 이 됐다. 잰 주는 잰 날까지로 늘린다."""
+    from datetime import date, datetime, timedelta, timezone
+
+    from trend_agents.lifecycle import stage as life_stage
+    from trend_agents.pipeline.track import _week, measured_series
+
+    today = date.today()
+    weeks = [_week(today - timedelta(weeks=i)) for i in range(11, -1, -1)]
+    series = [1, 0, 0, 5, 0, 0, 0, 0, 9, 96, 0, 0]
+    sampled = datetime.combine(date.fromisoformat(weeks[9]) + timedelta(days=6), datetime.min.time(), timezone.utc)   # 두 주 전 일요일
+    got = measured_series(series, weeks, sampled)
+    assert got == series[:10] and life_stage(got, 30) != "declining"
+    tuesday = datetime.combine(date.fromisoformat(weeks[11]) + timedelta(days=1), datetime.min.time(), timezone.utc)
+    flat = [7] * 11 + [2]                                                  # 이번 주 화요일까지 이틀 치
+    assert measured_series(flat, weeks, tuesday)[-1] == 7 and life_stage(measured_series(flat, weeks, tuesday), 30) == "steady"
+
+
+def test_recency_counts_from_the_last_look_while_it_is_fresh():
+    """다시 조사하기 전에 '꾸준함' 이 저절로 '지는 중' 이 되지 않는다 — 마지막으로 찾아본 때를 기준으로(그 조사가 오래지 않았으면)."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.lifecycle import recency_stage
+    from trend_agents.pipeline.track import as_of_last_look
+
+    now = datetime.now(timezone.utc)
+    newest, look = now - timedelta(days=16), now - timedelta(days=5)
+    assert recency_stage(newest, now=now) == "declining"
+    assert recency_stage(newest, now=as_of_last_look(look, now)) == "steady"
+    assert as_of_last_look(now - timedelta(days=40), now) == now          # 한 달 넘게 안 봤으면 지금 기준
+
+
+def test_recheck_puts_dictionary_terms_before_the_review_backlog():
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline.research import due_for_recheck
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, status in (("a_review", "needs_review"), ("b_verified", "verified"), ("c_new", "researching")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=tid, lang="en", status=status, lifecycle="steady", first_seen=now))
+    assert [t.term_id for t in due_for_recheck(con, 3)] == ["c_new", "b_verified", "a_review"]
+
+
+def test_namu_recheck_backs_off_after_a_failure(monkeypatch):
+    """나무위키 문서가 고쳐진 뒤 다시 조사하다 실패한 말은 재검증 주기만큼 쉰다 — 실행마다 같은 말이 칸과 예산을 차지했다."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.pipeline import namu, research
+    from trend_agents.schemas import Evidence, MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="럭키비키", lang="ko", status="verified", lifecycle="steady", first_seen=now))
+    ds.add_meaning(con, "t1", MeaningDraft(definition="나쁜 상황도 좋게 보는 말", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                                           self_confidence=0.9), "verified_auto", [])
+    ds.log_research(con, "t1", "ok", "", [], "verified_auto", [])
+    con.execute("UPDATE research_log SET researched_at=?", ((now - timedelta(days=3)).isoformat(),))
+    con.commit()
+    edited = Evidence(evidence_id="n1", kind="wiki", url="https://namu.wiki/w/x", title="럭키비키", source_domain="namu.wiki",
+                      observed_at=now - timedelta(days=1), excerpt="럭키비키")
+    monkeypatch.setattr(namu.namuwiki, "ranking", lambda: [])
+    monkeypatch.setattr(namu.namuwiki, "category", lambda cat: [])
+    monkeypatch.setattr(namu.namuwiki, "lookup", lambda name: [edited])
+    monkeypatch.setattr("trend_agents.pipeline.gemini.local_ok", lambda: True)
+    calls = []
+
+    def failing(con_, t):
+        calls.append(t.term_id)
+        raise ValueError("형식 실패")
+
+    monkeypatch.setattr(research, "research_one", failing)
+    namu.run(con)
+    namu.run(con)
+    assert calls == ["t1"]                                                   # 두 번째 실행은 쉰다

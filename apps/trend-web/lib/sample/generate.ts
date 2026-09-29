@@ -2,15 +2,14 @@
 import type { CampaignTone, GenerationResult } from "../types";
 import { SAMPLE_RECORDS } from "./dictionary";
 
-const REGION_LANG: Record<string, string> = { KR: "ko", JP: "ja", TW: "zh-Hant", HK: "zh-Hant", TH: "th", VN: "vi", ID: "id", PH: "en", MY: "ms", SG: "en" };
-
 export function sampleGenerate(termIds: string[], region: string, tone: CampaignTone): GenerationResult {
   const names = termIds.map((id) => SAMPLE_RECORDS.find((r) => r.term.term_id === id && r.term.status === "verified")?.term.canonical).filter((x): x is string => !!x);
   const name = names[0] ?? "럭키비키";
   return {
-    region, language: REGION_LANG[region] ?? "en", tone, memes: names.length ? names : [name], model_calls: 0, source: "sample", dropped: [],
+    // 예시 글은 한국어다 — 목표 지역의 말이라고 적지 않는다(백엔드 generate.sample 과 같다)
+    region, language: "ko", tone, memes: names.length ? names : [name], model_calls: 0, source: "sample", dropped: [],
     copies: [
-      { platform: "instagram", text: `더운 오후엔 ${name}! 여름 한정 아이스 흑당 라떼로 기분 전환해요 ☕`, hashtags: ["여름한정", "흑당라떼", name.replace(/\s/g, "")], note_ko: `'${name}' 을 제품의 기분 전환 순간에 붙였다` },
+      { platform: "instagram", text: `더운 오후엔 ${name}! 여름 한정 아이스 흑당 라떼로 기분 전환해요 ☕`, hashtags: ["여름한정", "흑당라떼", name.replace(/[\s\-]/g, "")], note_ko: `'${name}' 을 제품의 기분 전환 순간에 붙였다` },
       { platform: "instagram", text: `오늘의 ${name}은 시원한 한 잔. 여름에만 만나요`, hashtags: ["아이스라떼", "여름메뉴"], note_ko: "한정판을 강조" },
       { platform: "x", text: `${name} 필요한 오후, 흑당 라떼 한 잔이면 충분`, hashtags: [], note_ko: "짧은 공감형" },
       { platform: "x", text: `여름 한정이라 더 ${name}. 이번 주까지!`, hashtags: [], note_ko: "마감 강조" },

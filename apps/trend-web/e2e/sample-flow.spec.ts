@@ -57,5 +57,8 @@ test("drafts copy and a script from a recommended meme without a model", async (
   await expect(page.getByRole("heading", { name: /만든 결과물|Drafts/ })).toBeVisible();
   await expect(page.getByText(/AI가 만든 초안|AI-generated drafts/)).toBeVisible();      // 게시 전 확인 안내
   await expect(page.getByRole("heading", { name: /숏폼 대본|Short-form script/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^(복사|Copy)$/ }).first()).toBeVisible();
+  // 복사 버튼마다 무엇을 복사하는지 이름이 있다 — 썸네일 구성안에도 있다
+  await expect(page.getByRole("button", { name: /^(복사|Copy): (인스타그램|Instagram) 1$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(복사|Copy): (썸네일 구성안|Thumbnail plan)$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /만든 결과물|Drafts/ })).toBeFocused();       // 결과가 오면 그 제목으로 초점을 옮긴다
 });

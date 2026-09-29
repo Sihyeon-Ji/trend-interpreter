@@ -32,6 +32,9 @@ const TONES: Record<CampaignTone, [Voice[], Feeling[]]> = {
 const DIFFUSION_BONUS: Record<string, number> = { spreading: 2, underground: 1, mainstream: 0.5, fading: -2 };
 const LIFECYCLE_BONUS: Record<string, number> = { emerging: 1, rising: 1, peak: 0.5, declining: -1, dormant: -3 };
 const MIN_FIT = 2, MIN_SCORE = 2, TOP = 5;
+const USAGE = ["community", "news", "short"];
+const SCRIPT: Record<string, RegExp> = { KR: /[가-힣]/, JP: /[\u3040-\u30ff\u4e00-\u9fff]/, TW: /[\u4e00-\u9fff]/, HK: /[\u4e00-\u9fff]/, TH: /[\u0e00-\u0e7f]/ };
+const writable = (name: string, region: string) => /^[\x00-\x7f\u00c0-\u024f\u1e00-\u1eff]+$/.test(name) || !!SCRIPT[region]?.test(name);
 
 function score(brief: ProductBrief, fit: Fit, c: KeywordCard, tone: CampaignTone): [number, boolean, Feeling[]] | null {
   const [voices, liked] = TONES[tone];
@@ -54,11 +57,16 @@ export function sampleRecommend(regions: string[], tone: CampaignTone): Recommen
     const got = fit ? score(SAMPLE_BRIEF, fit, c, tone) : null;
     return got ? [{ c, s: got[0], cat: got[1], shared: got[2], any: fit.any_category }] : [];
   }).sort((a, b) => b.s - a.s || b.c.mentions_4w - a.c.mentions_4w || a.c.canonical.localeCompare(b.c.canonical));
-  const items: RecommendItem[] = scored.slice(0, TOP).map(({ c, s, cat, shared, any }) => ({
+  // 근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만. 링크가 없는 것은 추천하지 않는다(백엔드 recommend._links 와 같다)
+  const links = (c: KeywordCard) => [...c.evidences].sort((a, b) => Number(!USAGE.includes(a.kind)) - Number(!USAGE.includes(b.kind)))
+    .filter((e, i, all) => all.findIndex((x) => x.url === e.url) === i).slice(0, 2);
+  const items: RecommendItem[] = scored.filter(({ c }) => links(c).length).slice(0, TOP).map(({ c, s, cat, shared, any }) => ({
     term_id: c.term_id, canonical: c.canonical, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, regions: c.regions,
     diffusion: c.diffusion ?? null, lifecycle: c.lifecycle, risk_level: c.risk_level ?? null, risk_reasons: c.risk_reasons,
-    matched_category: cat, any_category: any, matched_feelings: shared, reason: null, score: Math.round(s * 100) / 100,
-    evidences: c.evidences.slice(0, 2),
+    matched_category: cat, any_category: any, matched_feelings: shared, local_region: null, local_note: null,
+    // 예시 모드: 그 지역의 글자로 쓴 표기(또는 로마자)가 있는 곳만 — 백엔드 generate.writable 의 간단한 판
+    write_regions: board.regions.filter((r) => c.regions.includes(r) && writable(c.canonical, r)), score: Math.round(s * 100) / 100,
+    evidences: links(c),
   }));
   return { brief: SAMPLE_BRIEF, brief_source: "sample", regions: board.regions, tone, items, considered: scored.length,
            untagged: cards.filter((c) => !SAMPLE_FIT[c.term_id]).length };

@@ -498,7 +498,7 @@
       "description": "사진이나 홍보 문구를 읽은 제품 설명. 요청 때 한 번 만든다(Gemini, 개발 환경은 로컬 Gemma 또는 고정 예시).\n추천 점수에는 category·feelings 만 쓰고(닫힌 낱말), 나머지는 이유 서술과 화면 표시에 쓴다.",
       "properties": {
         "product": {
-          "description": "제품이 무엇인지 한 줄",
+          "description": "제품이 무엇인지 한 줄 (120자 안)",
           "title": "Product",
           "type": "string"
         },
@@ -673,7 +673,7 @@
         },
         "note_ko": {
           "default": "",
-          "description": "한국어 설명",
+          "description": "대본 설명 (마케터가 읽는 설명, 화면 언어)",
           "title": "Note Ko",
           "type": "string"
         }
@@ -838,7 +838,7 @@
       "type": "object"
     },
     "SocialCopy": {
-      "description": "SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명.",
+      "description": "SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터가 읽는 설명(화면 언어 — 이름은 예전 그대로).",
       "properties": {
         "platform": {
           "enum": [
@@ -854,7 +854,7 @@
           "type": "string"
         },
         "hashtags": {
-          "description": "해시태그 3~6개, # 없이",
+          "description": "해시태그 3~6개, # 없이, 띄어쓰기 없이",
           "items": {
             "type": "string"
           },
@@ -863,7 +863,7 @@
         },
         "note_ko": {
           "default": "",
-          "description": "이 안이 밈을 어떻게 썼는지 한국어 한 문장",
+          "description": "이 안이 밈을 어떻게 썼는지 한 문장 (마케터가 읽는 설명, 화면 언어)",
           "title": "Note Ko",
           "type": "string"
         }
@@ -1095,11 +1095,12 @@
           "type": "string"
         },
         "layout": {
-          "description": "배치 (한국어)",
+          "description": "배치 (마케터가 읽는 설명, 화면 언어)",
           "title": "Layout",
           "type": "string"
         },
         "colors": {
+          "description": "색 (화면 언어)",
           "items": {
             "type": "string"
           },
@@ -1108,13 +1109,13 @@
         },
         "subject": {
           "default": "",
-          "description": "인물·제품 위치 (한국어)",
+          "description": "인물·제품 위치 (마케터가 읽는 설명, 화면 언어)",
           "title": "Subject",
           "type": "string"
         },
         "note_ko": {
           "default": "",
-          "description": "한국어 설명",
+          "description": "썸네일 설명 (화면 언어)",
           "title": "Note Ko",
           "type": "string"
         }

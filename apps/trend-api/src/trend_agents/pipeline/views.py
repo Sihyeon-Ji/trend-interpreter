@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ..lifecycle import recheck_interval_days
 from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
-                       Segment, ShortScript, SocialCopy, Term, ThumbnailPlan)
+                       Segment, ShortScript, SocialCopy, Term, Text2, ThumbnailPlan)
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 
@@ -298,7 +298,10 @@ class RecommendItem(BaseModel):
     matched_category: bool             # 제품 분야가 이 밈이 어울리는 분야에 있다
     any_category: bool                 # 분야를 가리지 않는 반응·감탄 표현
     matched_feelings: list[Feeling]
-    reason: str | None = None          # 모델이 쓴 이유(사전 뜻과 겹칠 때만). 없으면 화면이 겹친 낱말로 문장을 만든다
+    # 고른 나라에서의 쓰임 — 파이프라인이 근거로 미리 써 둔 국가별 해석(확신 0.5 이상). 이유는 화면이 사전 뜻·겹친 낱말·이것으로 구성한다
+    local_region: str | None = None
+    local_note: Text2 | None = None
+    write_regions: list[str] = []      # 고른 지역 가운데 이 밈으로 결과물을 쓸 수 있는 곳(generate.writable) — 화면의 '결과물 지역' 선택지
     score: float
     evidences: list[EvidenceBrief] = []
 
@@ -317,7 +320,8 @@ class RecommendResult(BaseModel):
 
 class Dropped(BaseModel):
     id: str                            # copy0…copy3·script·thumbnail
-    reason: str                        # 검사가 남긴 문제 (한국어 한 문장)
+    code: Literal["unsafe", "no_meme", "x_too_long", "avoid_word"]   # 걸린 규칙 — 화면이 언어별 문구로 보인다
+    reason: str                        # 같은 문제의 한국어 설명 (운영 기록용)
 
 
 class GenerationResult(BaseModel):
@@ -329,6 +333,6 @@ class GenerationResult(BaseModel):
     script: ShortScript | None = None
     thumbnail: ThumbnailPlan | None = None
     dropped: list[Dropped] = []        # 두 번 다 검사에 걸려 뺀 안과 이유
-    model_calls: int                   # 생성·검사를 합친 모델 호출 수 (2, 다시 만들면 최대 4)
+    model_calls: int                   # 모델 호출 수 — 생성 1, 다시 만들면 2 (검사는 규칙이라 세지 않는다)
     source: Literal["gemini", "local", "sample"]
 

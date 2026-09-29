@@ -9,7 +9,9 @@ import re
 from datetime import date, datetime
 from typing import Literal, get_args
 
-from pydantic import BaseModel, Field, field_validator
+import unicodedata
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Category = Literal["slang", "meme", "song", "drama", "dance", "news", "geopolitics", "product", "other"]
 Generation = Literal["10s", "20s", "30s", "40s", "50s+", "all"]
@@ -177,13 +179,19 @@ def _clip(n: int):
     return f
 
 
+def _hashtag(x) -> str:
+    """해시태그 한 칸 — 글자·숫자·결합 부호·밑줄만. 태그는 공백·기호에서 끊겨 '#aura farming' 은 #aura 만 걸렸다(검토 3차).
+    \\W 로 지우면 태국어 모음 부호(결합 부호)까지 지워지므로 유니코드 분류로 가른다."""
+    return "".join(ch for ch in str(x) if ch == "_" or unicodedata.category(ch)[0] in "LMN")[:40]
+
+
 class SocialCopy(BaseModel):
-    """SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명."""
+    """SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터가 읽는 설명(화면 언어 — 이름은 예전 그대로)."""
 
     platform: Literal["instagram", "x"]
     text: str = Field(description="게시글 본문 (목표 지역 언어). 고른 밈을 그대로 넣는다")
-    hashtags: list[str] = Field(default_factory=list, description="해시태그 3~6개, # 없이")
-    note_ko: str = Field(default="", description="이 안이 밈을 어떻게 썼는지 한국어 한 문장")
+    hashtags: list[str] = Field(default_factory=list, description="해시태그 3~6개, # 없이, 띄어쓰기 없이")
+    note_ko: str = Field(default="", description="이 안이 밈을 어떻게 썼는지 한 문장 (마케터가 읽는 설명, 화면 언어)")
 
     @field_validator("text", "note_ko", mode="before")
     @classmethod
@@ -193,7 +201,13 @@ class SocialCopy(BaseModel):
     @field_validator("hashtags", mode="before")
     @classmethod
     def _tags(cls, v):
-        return [str(x).strip().lstrip("#")[:40] for x in v if str(x).strip().lstrip("#")][:8] if isinstance(v, list) else v
+        if not isinstance(v, list):
+            return v
+        out: list[str] = []
+        for x in v:
+            if (t := _hashtag(x)) and t not in out:
+                out.append(t)
+        return out[:8]
 
 
 class ScriptScene(BaseModel):
@@ -210,15 +224,15 @@ class ShortScript(BaseModel):
     title: str
     duration_s: int = Field(ge=5, le=60)
     scenes: list[ScriptScene]
-    note_ko: str = Field(default="", description="한국어 설명")
+    note_ko: str = Field(default="", description="대본 설명 (마케터가 읽는 설명, 화면 언어)")
 
 
 class ThumbnailPlan(BaseModel):
     headline: str = Field(description="썸네일 주요 문구 (목표 지역 언어)")
-    layout: str = Field(description="배치 (한국어)")
-    colors: list[str] = Field(default_factory=list)
-    subject: str = Field(default="", description="인물·제품 위치 (한국어)")
-    note_ko: str = Field(default="", description="한국어 설명")
+    layout: str = Field(description="배치 (마케터가 읽는 설명, 화면 언어)")
+    colors: list[str] = Field(default_factory=list, description="색 (화면 언어)")
+    subject: str = Field(default="", description="인물·제품 위치 (마케터가 읽는 설명, 화면 언어)")
+    note_ko: str = Field(default="", description="썸네일 설명 (화면 언어)")
 
 
 class ContentDraft(BaseModel):
@@ -228,27 +242,32 @@ class ContentDraft(BaseModel):
     script: ShortScript
     thumbnail: ThumbnailPlan
 
-
-class DraftCheck(BaseModel):
-    """사전 대조 검사 한 줄(Gemma). id 는 copy0…copy3·script·thumbnail. 판정 근거는 problem 에 한 문장."""
-
-    id: str
-    ok: bool
-    problem: str = ""
-
-
-class MemeReason(BaseModel):
-    """추천한 밈 하나가 이 제품에 어울리는 이유 (모델 서술). 사전 뜻과 겹치지 않으면 코드가 버린다."""
-
-    i: int
-    reason: str = ""
+    @model_validator(mode="before")
+    @classmethod
+    def _hoist(cls, v):
+        """모양만 바로잡는다(내용은 그대로): 작은 모델이 thumbnail 을 script 안에 넣고 script 의 note_ko 를 장면 목록 끝에 넣는 일이 잦았다
+        (2026-09-29 로컬 Gemma 실측, 생성 18번 중 7번이 이 모양으로 실패). Gemini 는 응답 스키마를 지켜 이 모양이 오지 않는다."""
+        if not (isinstance(v, dict) and isinstance(v.get("script"), dict)):
+            return v
+        s = dict(v["script"])
+        if "thumbnail" not in v and isinstance(s.get("thumbnail"), dict):
+            v = {**v, "thumbnail": s.pop("thumbnail")}
+        if isinstance(s.get("scenes"), list):
+            scenes = []
+            for x in s["scenes"]:
+                if isinstance(x, dict) and set(x) == {"note_ko"}:
+                    s.setdefault("note_ko", x["note_ko"])
+                else:
+                    scenes.append(x)
+            s["scenes"] = scenes
+        return {**v, "script": s}
 
 
 class ProductBrief(BaseModel):
     """사진이나 홍보 문구를 읽은 제품 설명. 요청 때 한 번 만든다(Gemini, 개발 환경은 로컬 Gemma 또는 고정 예시).
     추천 점수에는 category·feelings 만 쓰고(닫힌 낱말), 나머지는 이유 서술과 화면 표시에 쓴다."""
 
-    product: str = Field(description="제품이 무엇인지 한 줄")
+    product: str = Field(description="제품이 무엇인지 한 줄 (120자 안)")
     category: FitCategory = Field(description="제품 분야")
     feelings: list[Feeling] = Field(description="이 제품 홍보가 전하고 싶은 느낌 1~3개")
     values: list[str] = Field(default_factory=list, description="핵심 가치 1~3개 (예: 시원함, 한정판)")
@@ -266,6 +285,12 @@ class ProductBrief(BaseModel):
     def _category(cls, v):
         v = str(v or "").strip().lower()
         return v if v in get_args(FitCategory) else "lifestyle"
+
+    @field_validator("product", "scene", mode="before")
+    @classmethod
+    def _short_text(cls, v, info):
+        # 만들기(/generate)는 추천 결과의 설명을 브라우저에서 다시 받는다 — 길이를 여기서 막는다(검토 3차: 수백 KB 가 생성 프롬프트로 갔다)
+        return _clip(120 if info.field_name == "product" else 200)(v)
 
     @field_validator("values", "colors", "avoid", mode="before")
     @classmethod

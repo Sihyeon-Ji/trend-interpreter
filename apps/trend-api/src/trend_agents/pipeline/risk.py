@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from ..schemas import Evidence, EvidenceLabel, ShortsInterpretation
 from ..storage import dictionary_store as ds
 from .gemini import local_ok, structured
-from .match import same_term, unsafe
+from .match import evidence_mentions, same_term, unsafe
 from .runs import stage
 
 MAX_TERMS = 30            # 한 번에 분류할 용어 수 (나머지는 다음 실행)
@@ -35,7 +35,9 @@ CAUTION_NEGATIVE = 0.30
 MIN_LABELED = 5
 _BAD_ORIGIN = re.compile(r"비하|혐오|차별|멸칭|인종|slur|hate|derogat", re.I)
 # 조사 단계가 뜻풀이에 적어 둔 주의점(Plan 03 재료 '뉘앙스'). 예: 샤갈 "순화형이지만 뿌리는 욕설이다" — 근거 문장이 모자라도 사전이 이미 경고한다.
-_NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸칭|혐오|차별(?!화)|조롱|선정적|(?<![이감개중지인])성적(?:으로|인)|음란|저속|모욕|"
+_NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸칭|혐오|차별(?!화)|조롱|선정적|음란|저속|모욕|"
+                          # '성적' 은 낱말 앞머리일 때 '성적으로·성적인·성적 ○○(농담·표현·대상화…)' 만 — 이성적·감성적·시험 성적은 아니다(검토 2·3차)
+                          r"(?<![가-힣])성적(?:으로|인|\s*(?:농담|표현|의미|함의|뉘앙스|대상|행위|묘사|암시|은어|금욕|코드|맥락|희롱|드립|비하|수치|착취))|"
                           r"profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)   # '이성적'·'차별화'·'시험 성적' 은 경고가 아니다(검토 2차)
 _NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
 _NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'
@@ -62,10 +64,12 @@ risk: 그 문장이 드러내는 위험 — hate(혐오·차별) | mockery(특�
 {items}"""
 
 
-def _usage(con: Connection, term_id: str) -> list[Evidence]:
+def _usage(con: Connection, term) -> list[Evidence]:
+    """분류할 쓰임 문장 — 표제어가 실제로 든 것만. 검색이 끌어온 딴 글이 최근 PER_TERM 칸을 차지해 진짜 문장이 밀려났다(2026-09-29)."""
     evs = [Evidence.model_validate_json(j) for (j,) in
-           con.execute("SELECT json FROM evidences WHERE term_id=?", (term_id,)).fetchall()]
-    evs = [e for e in evs if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver") and (e.excerpt or e.title)]
+           con.execute("SELECT json FROM evidences WHERE term_id=?", (term.term_id,)).fetchall()]
+    evs = [e for e in evs if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver") and (e.excerpt or e.title)
+           and evidence_mentions(e, term.canonical, term.aliases)]
     return sorted(evs, key=lambda e: e.observed_at, reverse=True)[:PER_TERM]
 
 
@@ -74,7 +78,7 @@ def classify(con: Connection, term) -> int:
     if not local_ok():
         return 0
     done = ds.evidence_labels(con, term.term_id)
-    todo = [e for e in _usage(con, term.term_id) if e.evidence_id not in done]
+    todo = [e for e in _usage(con, term) if e.evidence_id not in done]
     if not todo:
         return 0
     items = "\n".join(f"{i}. {(e.excerpt or e.title)[:220]}" for i, e in enumerate(todo))
@@ -103,7 +107,7 @@ def _bad_origin(con: Connection, term) -> str:
 def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     """(수준, 이유들). 이유는 걸린 근거 문장을 인용한다."""
     labels = ds.evidence_labels(con, term.term_id)
-    evs = {e.evidence_id: e for e in _usage(con, term.term_id)}
+    evs = {e.evidence_id: e for e in _usage(con, term)}
     labeled = [(evs[k], p, r) for k, (p, r) in labels.items() if k in evs and p != "offtopic"]
     offtopic = sum(1 for k, (p, _) in labels.items() if k in evs and p == "offtopic")
     risky = [(e, r) for e, _, r in labeled if r != "none"]
@@ -147,13 +151,14 @@ def apply(con: Connection, term, *, human: bool = False) -> None:
     if not human:
         term = ds.get_term(con, term.term_id) or term
     level, reasons = judge(con, term)
-    effective, why = (term.risk_human, ["검수자가 정한 수준"] + reasons) if term.risk_human else (level, reasons)
     now = datetime.now(timezone.utc)
     if human:
+        effective, why = (term.risk_human, ["검수자가 정한 수준"] + reasons) if term.risk_human else (level, reasons)
         term.risk_level, term.risk_reasons, term.risk_rule_level, term.risk_checked_at = effective, why, level, now
         ds.upsert_term(con, term, human=True)
     else:
-        ds.set_risk(con, term.term_id, effective, why, level, now)
+        # 규칙의 판정만 넘긴다 — 실제 수준은 저장하는 순간의 사람의 결정으로 set_risk 가 정한다(판정하는 사이 검수자가 정한 것을 덮지 않게, 검토 3차)
+        ds.set_risk(con, term.term_id, level, reasons, now)
 
 
 def run(con: Connection) -> dict:
@@ -164,7 +169,7 @@ def run(con: Connection) -> dict:
         pending = []
         for t in terms:
             done = ds.evidence_labels(con, t.term_id)
-            left = sum(1 for e in _usage(con, t.term_id) if e.evidence_id not in done)
+            left = sum(1 for e in _usage(con, t) if e.evidence_id not in done)
             if left:
                 pending.append((left, t))
         pending.sort(key=lambda x: -x[0])

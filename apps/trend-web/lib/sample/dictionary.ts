@@ -57,6 +57,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_jam_w1", "wiki", "namu.wiki", "나무위키: 자만추", "2026-09-18T00:00:00Z", "자만추 — 자연스러운 만남 추구", "https://namu.wiki/w/%EC%9E%90%EB%A7%8C%EC%B6%94"),
       ev("e_jam_s1", "short", "youtube.com", "자만추 vs 인만추, 요즘 20대 연애 방식 | 쇼츠", "2026-08-18T12:00:00Z", "\"저는 자만추파라 소개팅 안 나가요\" — 댓글 1.2만, 20대 비율 높음"),
       ev("e_jam_n1", "news", "n.news.naver.com", "MZ 연애 키워드 '자만추'… 데이팅앱 피로감이 낳은 역설", "2026-07-30T02:00:00Z", "자만추(자연스러운 만남 추구)를 선호한다는 응답이 30대에서도 절반을 넘었다"),
       ev("e_jam_d1", "datalab", "datalab.naver.com", "검색 추이 · 연령대별", "2026-09-13T00:00:00Z", "20대 2025-11 피크 → 30대 2026-02 → 40대 2026-08 상승. 세대 간 확산 지연 약 9개월"),
@@ -83,6 +84,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_lv_w1", "wiki", "namu.wiki", "나무위키: 원영적 사고 — 럭키비키", "2026-09-27T00:00:00Z", "'완전 럭키비키잖아' 에서 나온 말", "https://namu.wiki/w/%EC%9B%90%EC%98%81%EC%A0%81%20%EC%82%AC%EA%B3%A0"),
       ev("e_lv_s1", "short", "youtube.com", "럭키비키 원본 장면 모음", "2026-06-02T00:00:00Z", "\"완전 럭키비키잖아~\" 반복 편집. 조회수 증가율 둔화"),
       ev("e_lv_n1", "news", "n.news.naver.com", "'럭키비키'는 끝났다? 2026 광고 카피에 남은 철 지난 밈들", "2026-08-11T01:00:00Z", "밈 수명은 평균 3개월인데 광고는 6개월 뒤에 따라온다"),
       ev("e_lv_d1", "datalab", "datalab.naver.com", "검색 추이 · 연령대별", "2026-09-13T00:00:00Z", "10대 2024-05 피크 후 지속 하락. 40대는 2025-01 소폭 상승 뒤 소멸"),
@@ -108,6 +110,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_wy_w1", "wiki", "namu.wiki", "나무위키: 원영적 사고", "2026-09-27T00:00:00Z", "원영적 사고", "https://namu.wiki/w/%EC%9B%90%EC%98%81%EC%A0%81%20%EC%82%AC%EA%B3%A0"),
       ev("e_wy_s1", "short", "youtube.com", "원영적 사고로 회사 다니는 법", "2026-09-01T00:00:00Z", "직장인 채널에서 30대 시청 비율 상승"),
       ev("e_wy_n1", "news", "n.news.naver.com", "'원영적 사고' 2년 — 밈은 죽고 태도는 남았다", "2026-05-20T00:00:00Z", "심리학자들은 '인지 재구성'의 대중 버전이라고 본다"),
     ],
@@ -157,7 +160,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
-      ev("e_aj_w1", "web", "namu.wiki", "알잘딱깔센 - 나무위키", "2026-01-05T00:00:00Z", "알아서 잘 딱 깔끔하고 센스있게의 줄임말"),
+      ev("e_aj_w1", "web", "namu.wiki", "알잘딱깔센 - 나무위키", "2026-01-05T00:00:00Z", "알아서 잘 딱 깔끔하고 센스있게의 줄임말", "https://namu.wiki/w/%EC%95%8C%EC%9E%98%EB%94%B1%EA%B9%94%EC%84%BC"),
       ev("e_aj_d1", "datalab", "datalab.naver.com", "검색 추이 · 연령대별", "2026-09-13T00:00:00Z", "2021-03 피크(100) → 2026-09 지수 2. 전 연령 소멸"),
     ],
     usage: [seg("KR", "10s", "2020-05-01", 0.5), seg("KR", "20s", "2020-06-15", 0.45), seg("KR", "30s", "2021-02-01", 0.05)],
@@ -182,6 +185,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_67_w1", "web", "en.wikipedia.org", "Wikipedia: 6-7", "2026-09-15T00:00:00Z", "6-7 (meme)", "https://en.wikipedia.org/wiki/6-7"),
       ev("e_67_n1", "news", "cnn.com", "The '6-7' meme can be annoying. But kids are shouting it for good reason", "2025-11-14T00:00:00Z", "The meaninglessness is the point, researchers say"),
       ev("e_67_n2", "news", "mashable.com", "From 6-7 to aura farming: Defining 2025's viral internet slang", "2025-12-20T00:00:00Z", "A year-end glossary of the terms adults could not escape"),
       ev("e_67_s1", "short", "youtube.com", "6 7 explained in 60 seconds", "2026-01-08T00:00:00Z", "Skrilla 가사 → 라멜로 볼 → 학교 밈 순서로 설명"),
@@ -208,6 +212,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_af_w1", "web", "en.wikipedia.org", "Wikipedia: Aura farming", "2026-09-16T00:00:00Z", "Aura farming", "https://en.wikipedia.org/wiki/Aura_farming"),
       ev("e_af_s1", "short", "youtube.com", "Boat race kid aura farming (original)", "2025-07-05T00:00:00Z", "조회수 급증. 댓글 다국어 — ID·US·BR·KR"),
       ev("e_af_n1", "news", "mashable.com", "From 6-7 to aura farming: Defining 2025's viral internet slang", "2025-12-20T00:00:00Z", "'Aura farming' — performing coolness for an audience"),
       ev("e_af_s2", "short", "youtube.com", "아우라 파밍 하는 우리 강아지", "2026-08-30T00:00:00Z", "한국어 음차 사용 확인. 20대 채널"),
@@ -233,6 +238,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_ok_w1", "web", "ko.wikipedia.org", "Wikipedia: 오시카츠 (推し活)", "2026-09-17T00:00:00Z", "推し活", "https://ko.wikipedia.org/wiki/%EC%98%A4%EC%8B%9C%EC%B9%B4%EC%B8%A0"),
       ev("e_ok_s1", "short", "youtube.com", "推し活グッズ収納ルームツアー", "2026-08-12T00:00:00Z", "일본어 쇼츠. 30~40대 여성 시청 비율 높음"),
       ev("e_ok_n1", "news", "news.yahoo.co.jp", "推し活市場、2026年も拡大　シニア層の参入が鮮明", "2026-07-08T00:00:00Z", "60대 이상 참여가 늘었다는 조사"),
       ev("e_ok_s2", "short", "youtube.com", "오시카츠 브이로그 | 도쿄돔", "2026-09-02T00:00:00Z", "한국어 음차 사용. 20대 채널"),
@@ -258,6 +264,7 @@ const BASE_RECORDS: TermRecord[] = [
       },
     ],
     evidences: [
+      ev("e_sk_w2", "web", "ko.wikipedia.org", "Wikipedia: Skibidi Toilet", "2026-09-28T00:00:00Z", "Skibidi Toilet", "https://ko.wikipedia.org/wiki/Skibidi_Toilet"),
       ev("e_sk_w1", "web", "knowyourmeme.com", "Skibidi Toilet", "2026-01-10T00:00:00Z", "Web series by DaFuq!?Boom!, 2023"),
       ev("e_sk_n1", "news", "theguardian.com", "'Brain rot' words: what parents need to know", "2025-03-02T00:00:00Z", "skibidi, rizz, sigma — the vocabulary of a generation"),
     ],

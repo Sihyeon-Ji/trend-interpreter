@@ -5,7 +5,10 @@ import re
 
 HANGUL = re.compile(r"[ᄀ-ᇿ㄰-㆏가-힯]")
 # 숫자꼴 용어('6-7')는 점수·날짜·시간과 글자만으로는 구별되지 않는다 → 이런 단서가 같이 있어야 '그 밈'을 말한 것으로 본다
-CUES = re.compile(r"meme|slang|viral|trend|brainrot|gen ?alpha|gen ?z|tiktok|shorts|mean(?:s|ing)?|what (?:is|does)|explained|origin|밈|유행어|신조어|챌린지|틱톡|쇼츠|뜻|의미|유래|정체", re.I)
+CUES = re.compile(r"meme|slang|viral|trend|brainrot|gen ?alpha|gen ?z|tiktok|shorts|mean(?:s|ing)?|what (?:is|does)|explained|origin|밈|유행어|신조어|챌린지|틱톡|쇼츠|뜻|의미|유래|정체|"
+                  # 목표 지역의 말(검토 3차): 숫자 밈(8+9·5201314)은 대만·홍콩 글에 흔한데 단서 낱말이 한국어·영어뿐이라 늘 떨어졌다
+                  r"ミーム|ネットスラング|流行語|元ネタ|意味|迷因|梗|網路用語|网络用语|意思|由來|由来|มีม|ศัพท์|แปลว่า|ความหมาย|"
+                  r"nghĩa là|artinya|bahasa gaul|istilah|ibig sabihin|maksud", re.I)
 
 
 def term_pattern(candidate: str) -> re.Pattern:
@@ -31,6 +34,13 @@ def mentions(text: str, canonical: str, aliases: list[str] | tuple[str, ...] = (
     if all(numeric_like(c) for c in hit):
         return bool(CUES.search(text))
     return True
+
+
+def evidence_mentions(e, canonical: str, aliases: list[str] | tuple[str, ...] = ()) -> bool:
+    """근거(제목·발췌)가 이 표제어를 실제로 말하는가. 검색은 본문만 맞은 딴 글도 가져온다 — 그런 글은 이 말의 쓰임이 아니다
+    (2026-09-29 원작자 서버 실측: 근거 9,738건 중 1,882건에 표제어가 없었다 — '오살힘' 에 2022년 '오살 의식' 기사·KBS 드라마 문서).
+    쇼츠처럼 모델이 쓴 발췌도 여기서는 본다 — 검증의 앵커(verification.source_text)와 달리 '무엇에 관한 근거인가' 만 가른다."""
+    return mentions(f"{e.title} {e.excerpt}", canonical, aliases)
 
 
 def same_term(name: str, canonical: str, aliases: list[str] | tuple[str, ...] = ()) -> bool:
@@ -100,7 +110,9 @@ def strip_particle(s: str) -> list[str]:
 # 증거와 상관없이 '사용 자제' 가 됐다(2026-09-29 검토). 'fuck' 은 낱말 안에 있어도(motherfucker) 욕이라 그대로 둔다.
 UNSAFE = re.compile(
     # 한국어: 다른 낱말 안의 글자('먹어보지도'·'감자지옥'·'남자지만')는 낱말 앞머리일 때만, 동사로 이어지면 빼고
-    r"시발(?![점역])|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|(?<![가-힣])보지(?![가-힣]*\s*(?:마|않|못|말))|(?<![가-힣])자지(?!러)|"
+    r"시발(?![점역])|씨발|ㅅㅂ|좆|병신|섹스|야동|아헤가오|"
+    # '보지'·'자지' 는 동사 활용(보지 마·보지만·보지요·먹어 보지 뭐 / 자지 않고·자지 마·못 자지만)이 흔하다 — 그 꼴이면 뺀다(검토 3차)
+    r"(?<![가-힣])보지(?!만|요|도|는|\s*(?:마|않|못|말|뭐|그래))|(?<![가-힣])자지(?!러|만|요|도|는|\s*(?:마|않|못|말))|"
     # 영어: 낱말 경계. 'fuck' 은 낱말 안에 있어도(motherfucker) 욕이다
     r"fuck|\b(?:bull|dog|horse)?shit(?:s|ty|post\w*)?\b|\bporn|hentai|ahegao|nsfw|goatse|"
     r"\b(?:bitch(?:es|y)?|cunts?|pussy|nigg(?:a|er)s?|retard(?:ed|s)?|whores?|sluts?)\b|"

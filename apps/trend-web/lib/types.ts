@@ -139,7 +139,10 @@ export interface RecommendItem {
   matched_category: boolean;      // 제품 분야가 이 밈이 어울리는 분야에 있다
   any_category: boolean;          // 분야를 가리지 않는 반응·감탄 표현
   matched_feelings: Feeling[];
-  reason?: string | null;         // 모델이 쓴 이유 (사전 뜻과 겹칠 때만). 없으면 화면이 겹친 낱말로 문장을 만든다
+  // 고른 나라에서의 쓰임 — 파이프라인이 근거로 미리 써 둔 국가별 해석(확신 0.5 이상). 이유는 화면이 사전 뜻·겹친 낱말·이것으로 구성한다
+  local_region?: string | null;
+  local_note?: { ko: string; en: string } | null;
+  write_regions: string[];        // 고른 지역 가운데 이 밈으로 결과물을 쓸 수 있는 곳 — '결과물 지역' 선택지
   score: number;
   evidences: EvidenceBrief[];
 }
@@ -155,7 +158,8 @@ export interface RecommendResult {
 }
 
 /* 콘텐츠 생성 (Plan 08) — 백엔드 pipeline/views.py 의 GenerationResult·Dropped 와 1:1. 결과는 저장하지 않는다. */
-export interface Dropped { id: string; reason: string }
+export type DropCode = "unsafe" | "no_meme" | "x_too_long" | "avoid_word";
+export interface Dropped { id: string; code: DropCode; reason: string }   // reason 은 같은 문제의 한국어 설명(운영 기록용) — 화면은 code 로 쓴다
 
 export interface GenerationResult {
   region: string;
@@ -165,8 +169,8 @@ export interface GenerationResult {
   copies: SocialCopy[];           // 사전 대조 검사를 통과한 안만
   script?: ShortScript | null;
   thumbnail?: ThumbnailPlan | null;
-  dropped: Dropped[];             // 두 번 다 검사에 걸려 뺀 안과 이유
-  model_calls: number;
+  dropped: Dropped[];             // 두 번 다 규칙 검사에 걸려 뺀 안과 이유
+  model_calls: number;            // 생성 1, 다시 만들면 2
   source: "gemini" | "local" | "sample";
 }
 

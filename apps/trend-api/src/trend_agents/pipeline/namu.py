@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import re
 from ..storage.db import Connection
-from datetime import date, timezone
+from datetime import date, datetime, timezone
 
 from ..collectors import namuwiki
+from ..lifecycle import recheck_interval_days
 from ..schemas import TrendQuery
 from ..storage import dictionary_store as ds
 from .match import unsafe
@@ -59,8 +60,16 @@ def run(con: Connection) -> dict:
             last = ds.last_researched(con, t.term_id, ok_only=True)
             if not last:
                 continue
+            last = last.replace(tzinfo=last.tzinfo or timezone.utc)
+            tried_at = ds.last_researched(con, t.term_id)            # 실패도 포함한 마지막 시도
+            tried_at = tried_at.replace(tzinfo=tried_at.tzinfo or timezone.utc) if tried_at else None
             ev = namuwiki.lookup(t.canonical)          # 하루 캐시 — 문서를 매번 받지 않는다
-            if ev and ev[0].observed_at > last.replace(tzinfo=last.tzinfo or timezone.utc):
+            if ev and ev[0].observed_at > last:
+                # 문서가 고쳐진 뒤 다시 조사하다 실패했으면 재검증 주기만큼 쉰다 — 실패는 '성공한 조사' 를 앞당기지 않아
+                # 같은 말이 실행마다 칸과 예산을 차지했다(검토 3차). research.run 도 실패 기록으로 같은 만큼 쉰다
+                if (tried_at and tried_at > last and tried_at >= ev[0].observed_at
+                        and (datetime.now(timezone.utc) - tried_at).days < recheck_interval_days(t.lifecycle)):
+                    continue
                 if budget_left(con) < 2 and not local_ok():   # research.run 과 같은 예산 확인
                     r.note += "예산 부족 "
                     break

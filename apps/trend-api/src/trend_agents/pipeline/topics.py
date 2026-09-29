@@ -11,7 +11,7 @@ from ..collectors.naver_search import for_model
 from ..schemas import Evidence, Text2
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, budget_left, local_ok, structured
-from .match import mentions
+from .match import evidence_mentions, mentions
 from .research import first_party_evidence
 from .runs import stage
 from ..storage.db import Connection
@@ -79,7 +79,10 @@ def run(con: Connection) -> dict:
             if budget_left(con) < 1 and not local_ok():
                 r.note = "예산 부족"
                 break
-            evs = for_model(gather(con, t.canonical, reg) + first_party_evidence(con, t.canonical))
+            # 검색 결과 가운데 표제어가 실제로 든 것만 — 거르지 않고 저장해 딴 글('오살힘' 에 2022년 '오살 의식' 기사·KBS 드라마 문서)이
+            # 사전 근거로 나가고 생애주기·리스크 입력을 부풀렸다(2026-09-29, 검토 3차)
+            evs = [e for e in for_model(gather(con, t.canonical, reg) + first_party_evidence(con, t.canonical, t.aliases))
+                   if evidence_mentions(e, t.canonical, t.aliases)]
             m = ds.current_meaning(con, t.term_id)
             lines = [f"- [{e.kind}] {e.source_domain}: {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in evs[:25]]
             try:

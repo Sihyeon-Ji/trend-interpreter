@@ -10,7 +10,7 @@ from ..config import REGIONS_FOCUS
 from ..schemas import ShortsVideo, SpottedTerm
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, local_ok, structured
-from .match import mentions
+from .match import mentions, unsafe
 from .runs import stage
 from ..storage.db import Connection
 
@@ -71,6 +71,10 @@ def keep(p: SpottedTerm, line: str, existing) -> bool:
     if p.kind == "none" or p.confidence < MIN_CONFIDENCE or not (1 < len(t) <= 30) or len(t.split()) > 4:
         return False
     if any(ch in t for ch in "#@/") or t.replace(" ", "").replace("-", "").isdigit():
+        return False
+    # 글자·숫자가 하나도 없는 것(이모지·문장부호뿐 '😭😭')과 욕설·선정 표현은 후보가 아니다 — 목표 지역을 늘린 뒤 그런 후보가 쏟아졌다(2026-09-29).
+    # '8+9' 같은 숫자 밈은 남긴다(숫자만인 것은 위 규칙이 따로 본다)
+    if not any(ch.isalnum() for ch in t) or unsafe(t):
         return False
     if not mentions(line, t):
         return False  # 줄에 없는 표현 = 환각

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GenerationView } from "@/components/generation-view";
 import { riskOf, stageLine } from "@/components/keyword-card";
@@ -16,7 +16,7 @@ const TONES: CampaignTone[] = ["friendly", "witty", "premium"];
 type ErrorKey = "rec_need_input" | "rec_too_big" | "rec_bad_type" | "rec_failed";
 const ERRORS: Record<string, ErrorKey> = { need_input: "rec_need_input", too_big: "rec_too_big", bad_type: "rec_bad_type" };
 
-/** 모델이 쓴 이유가 없으면(사전 뜻과 겹치지 않아 버렸거나 모델이 꺼져 있으면) 겹친 낱말로 규칙 문장을 만든다. */
+/** 어울리는 점 — 제품 설명과 밈의 쓰임 낱말이 겹친 곳(추천 점수의 근거). 이유는 모델이 쓰지 않고 이것·사전 뜻·현지 쓰임으로 보인다(Plan 07 5번). */
 function matchLine(locale: Locale, it: RecommendItem, category: string) {
   const labels = L(locale);
   const parts: string[] = [];
@@ -42,6 +42,8 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   const [genBusy, setGenBusy] = useState(false);
   const [genError, setGenError] = useState<"gen_failed" | "gen_need_pick" | null>(null);
   const [gen, setGen] = useState<GenerationResult | null>(null);
+  // 만들기 요청마다 번호 — 새 추천을 받은 뒤에 도착한 옛 결과물은 버린다(검토 3차: 이전 톤의 카피가 새 목록 밑에 떴다)
+  const genSeq = useRef(0);
 
   // 미리보기 주소는 이 탭 안에서만 산다 — 사진을 바꾸거나 빼거나 화면을 떠나면 돌려준다
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
@@ -69,7 +71,7 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
       const res = await fetch("/api/recommend", { method: "POST", body });
       const json = (await res.json().catch(() => ({}))) as RecommendResult & { error?: string };
       if (!res.ok) setError(ERRORS[json.error ?? ""] ?? "rec_failed");
-      else { setResult(json); setPicked([]); setGen(null); setGenError(null); setGenRegion(json.regions[0] ?? "KR"); }
+      else { genSeq.current++; setResult(json); setPicked([]); setGen(null); setGenError(null); setGenBusy(false); setGenRegion(json.regions[0] ?? "KR"); }
     } catch {
       setError("rec_failed");
     }
@@ -77,25 +79,33 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   };
 
   const togglePick = (id: string) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < 3 ? [...cur, id] : cur));
-  // 결과물을 쓸 지역은 고른 밈이 실제로 쓰이는 곳만 — 한국 밈으로 일본 카피를 만들지 않는다(백엔드도 거른다)
-  const covered = result ? result.regions.filter((r) => picked.some((id) => result.items.find((i) => i.term_id === id)?.regions.includes(r))) : [];
+  // 결과물을 쓸 지역은 고른 밈을 그 말로 쓸 수 있는 곳만(백엔드 generate.writable 이 정한 write_regions) — 한국 밈으로 일본 카피를 만들지 않는다
+  const covered = result ? result.regions.filter((r) => picked.some((id) => result.items.find((i) => i.term_id === id)?.write_regions.includes(r))) : [];
   const regionOptions = picked.length ? covered : result?.regions ?? [];
   const chosenRegion = regionOptions.includes(genRegion) ? genRegion : regionOptions[0] ?? "";
   const make = async () => {
     if (!result) return;
     if (!picked.length) { setGenError("gen_need_pick"); return; }
+    const seq = ++genSeq.current;
     setGenBusy(true);
     setGenError(null);
+    let got: GenerationResult | null = null;
+    let failed = false;
     try {
       const res = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ term_ids: picked, brief: result.brief, region: chosenRegion, tone: result.tone, lang: locale }) });
-      if (!res.ok) setGenError("gen_failed");
-      else setGen((await res.json()) as GenerationResult);
+      if (res.ok) got = (await res.json()) as GenerationResult;
+      else failed = true;
     } catch {
-      setGenError("gen_failed");
+      failed = true;
     }
+    if (seq !== genSeq.current) return;          // 그 사이 새 추천을 받았다 — 이 결과물은 지금 목록의 것이 아니다
+    if (failed) setGenError("gen_failed");
+    else setGen(got);
     setGenBusy(false);
   };
+  // 결과물이 오면 그 제목으로 초점을 옮긴다 — 10~80초 걸린 뒤 무엇이 어디에 생겼는지 알린다(검토 3차)
+  useEffect(() => { if (gen) document.getElementById("gen-title")?.focus(); }, [gen]);
 
   const field = "mt-1 block w-full rounded-[4px] border border-hairline bg-white px-3 py-2 text-[15px] text-ink";
   const chip = (on: boolean) => cn("rounded-full border px-3 py-1 text-[13px] whitespace-nowrap",
@@ -145,8 +155,11 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
         </div>
       </form>
 
-      {/* 화면 읽기 프로그램에 진행과 결과를 알린다 */}
-      <p aria-live="polite" className="sr-only">{busy ? t(locale, "rec_busy") : result ? `${t(locale, "rec_results")} ${result.items.length}` : ""}</p>
+      {/* 화면 읽기 프로그램에 진행과 결과를 알린다 — 추천과 만들기 모두 */}
+      <p aria-live="polite" className="sr-only">
+        {busy ? t(locale, "rec_busy") : genBusy ? t(locale, "gen_busy") : gen ? `${t(locale, "gen_title")} ${gen.copies.length}`
+          : result ? `${t(locale, "rec_results")} ${result.items.length}` : ""}
+      </p>
       {result && (
         <section aria-labelledby="rec-results" className="space-y-5">
           {result.brief && (
@@ -177,9 +190,15 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
                     <p className="mt-1 text-[14px] leading-[1.55] text-charcoal">{locale === "ko" ? it.gloss_ko : it.gloss_en}</p>
                     <p className="mt-1 text-[12px] text-steel">{stageLine(locale, it)}</p>
                     <p className="mt-2 text-[14px] text-ink">
-                      <span className="text-steel">{it.reason ? t(locale, "rec_why") : t(locale, "rec_match")}: </span>
-                      {it.reason ?? matchLine(locale, it, category)}
+                      <span className="text-steel">{t(locale, "rec_match")}: </span>
+                      {matchLine(locale, it, category)}
                     </p>
+                    {it.local_note && it.local_region && (
+                      <p className="mt-1 text-[13px] leading-[1.55] text-charcoal">
+                        <span className="text-steel">{t(locale, "rec_local")} ({regionLabel(locale, it.local_region)}): </span>
+                        {locale === "ko" ? it.local_note.ko : it.local_note.en}
+                      </p>
+                    )}
                     {(riskOf(it) === "caution" || riskOf(it) === "unknown") && <p className="mt-1 text-[12px] text-charcoal">{t(locale, `risk_${riskOf(it) as "caution" | "unknown"}_why`)}</p>}
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
                       <label className="flex items-center gap-1.5 text-charcoal">
@@ -189,8 +208,8 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
                       </label>
                       {/* 새 탭으로 — 사전을 보고 돌아와도 추천 결과가 남는다 */}
                       <Link href={`/dictionary/${it.term_id}`} target="_blank" rel="noopener" className="text-link-blue hover:underline">{t(locale, "rec_open_term")}</Link>
-                      {it.evidences.map((e) => (
-                        <a key={e.url} href={e.url} target="_blank" rel="noreferrer" className="text-steel hover:text-ink hover:underline">
+                      {it.evidences.map((e, i) => (
+                        <a key={`${e.url}-${i}`} href={e.url} target="_blank" rel="noreferrer" className="text-steel hover:text-ink hover:underline">
                           {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}
                         </a>
                       ))}
@@ -215,6 +234,7 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
                 )}
                 <Button type="button" disabled={genBusy || (picked.length > 0 && !chosenRegion)} onClick={() => void make()} className="rounded-lg px-4">{genBusy ? t(locale, "gen_busy") : t(locale, "gen_submit")}</Button>
                 {genError && <p role="alert" className="text-[13px] text-error">{t(locale, genError)}</p>}
+                {picked.length > 0 && !chosenRegion && <p className="text-[13px] text-charcoal">{t(locale, "gen_no_region")}</p>}
               </div>
             </div>
           )}

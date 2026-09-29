@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from contextvars import ContextVar
 from queue import Queue
 import threading
@@ -350,15 +351,36 @@ _recommend_limit = recommend_stage.RateLimit()
 MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
 
 
+# 몸통 크기 한도 — 폼·JSON 을 읽기 전에 Content-Length 로 막는다. 만들기는 제품 설명(수백 자)과 밈 id 몇 개뿐이다(검토 3차: 수백 KB 설명이 프롬프트로 갔다)
+_BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/generate": 16 * 1024}
+
+
 @app.middleware("http")
 async def _upload_cap(request, call_next):
-    if request.url.path == "/recommend" and request.method == "POST":
+    cap = _BODY_CAP.get(request.url.path) if request.method == "POST" else None
+    if cap:
         length = request.headers.get("content-length")
         if length is None:          # 길이를 밝히지 않는 조각 전송(chunked)은 크기를 미리 막을 수 없다 — 받지 않는다(검토 2차)
             return JSONResponse({"detail": "요청 길이가 필요합니다"}, status_code=411)
-        if int(length or 0) > recommend_stage.MAX_IMAGE + 64 * 1024:
-            return JSONResponse({"detail": "사진은 5MB까지입니다"}, status_code=413)
+        if not length.isdigit() or int(length) > cap:
+            return JSONResponse({"detail": "사진은 5MB까지입니다" if request.url.path == "/recommend" else "요청이 너무 큽니다"}, status_code=413)
     return await call_next(request)
+
+
+# 모델을 부르는 요청은 한 인스턴스에 동시에 둘까지 — 분당 한도만으로는 느린 요청(생성 10~85초)이 쌓여 작업 스레드·DB 연결을 다 차지해
+# 사전·대시보드 읽기까지 멈출 수 있었다(검토 3차). 자리가 없으면 기다리지 않고 429.
+MODEL_SLOTS = 2
+_model_slots = threading.BoundedSemaphore(MODEL_SLOTS)
+
+
+@contextmanager
+def _model_slot():
+    if not _model_slots.acquire(blocking=False):
+        raise HTTPException(429, "지금은 요청이 많습니다. 잠시 뒤에 다시 시도해 주세요")
+    try:
+        yield
+    finally:
+        _model_slots.release()
 
 
 @app.post("/recommend", response_model=views.RecommendResult)
@@ -389,11 +411,12 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
     if not recommend_stage.ready(_con, wanted):      # 비교할 후보가 없는 지역 — 모델을 부르지 않고 알린다
         return views.RecommendResult(brief=None, brief_source="none", regions=dashboard.chosen_regions(wanted), tone=tone,  # type: ignore[arg-type]
                                      items=[], considered=0, untagged=len(dashboard.cards(_con, wanted)))
-    try:
-        brief, source = recommend_stage.understand(_con, text, picture, ui)
-    except recommend_stage.Unavailable as e:
-        raise HTTPException(503, str(e)) from None
-    return recommend_stage.recommend(_con, brief, source, wanted, tone, ui)
+    with _model_slot():
+        try:
+            brief, source = recommend_stage.understand(_con, text, picture, ui)
+        except recommend_stage.Unavailable as e:
+            raise HTTPException(503, str(e)) from None
+    return recommend_stage.recommend(_con, brief, source, wanted, tone)
 
 
 class GenerateIn(BaseModel):
@@ -409,14 +432,15 @@ _generate_limit = recommend_stage.RateLimit(per_minute=10)
 
 @app.post("/generate", response_model=views.GenerationResult)
 def generate(body: GenerateIn):
-    """SNS 카피·숏폼 대본·썸네일 구성안 (Plan 08). 모델은 생성·검사 한 번씩, 다시 만들어도 네 번까지. 결과는 저장하지 않는다."""
+    """SNS 카피·숏폼 대본·썸네일 구성안 (Plan 08). 모델은 생성 한 번, 다시 만들어도 두 번(검사는 규칙). 결과는 저장하지 않는다."""
     region = body.region.strip().upper()
     if region not in REGIONS_FOCUS:
         raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
     if not _generate_limit.allow(time.monotonic()):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
     try:
-        return generate_stage.run(_con, body.term_ids, body.brief, region, body.tone, "en" if body.lang == "en" else "ko")
+        with _model_slot():
+            return generate_stage.run(_con, body.term_ids, body.brief, region, body.tone, "en" if body.lang == "en" else "ko")
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
     except generate_stage.Unavailable as e:

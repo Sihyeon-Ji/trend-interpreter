@@ -24,13 +24,16 @@ function regionsOf(r: TermRecord): string[] {
   return regions;
 }
 
+const hasPath = (url: string) => { try { return !["", "/"].includes(new URL(url).pathname); } catch { return false; } };
+
 function toCard(r: TermRecord): KeywordCard {
   const m = r.meanings.find((x) => !x.valid_to) ?? r.meanings.at(-1);
   const weekly = r.weekly.slice(-12);
   const counts = new Map<string, number>();
   for (const e of r.evidences) if (e.kind === "community") counts.set(e.source_domain, (counts.get(e.source_domain) ?? 0) + 1);
   const communities: SourceCount[] = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([domain, count]) => ({ domain, count }));
-  const recent = [...r.evidences].filter((e) => e.kind !== "datalab").sort((a, b) => b.observed_at.localeCompare(a.observed_at)).slice(0, 5);
+  // 홈페이지 주소뿐인 것은 근거가 아니다 — 백엔드 dashboard._has_path 와 같다(예시 모드에서만 근거 없는 추천이 나가던 것, 검토 3차)
+  const recent = [...r.evidences].filter((e) => e.kind !== "datalab" && hasPath(e.url)).sort((a, b) => b.observed_at.localeCompare(a.observed_at)).slice(0, 5);
   return {
     term_id: r.term.term_id, canonical: r.term.canonical, lang: r.term.lang ?? "ko", category: r.category,
     gloss_ko: r.ko?.definition ?? m?.definition ?? "", gloss_en: r.en?.definition ?? m?.definition ?? "",

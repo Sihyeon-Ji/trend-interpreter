@@ -139,18 +139,21 @@ def promote_candidates(con: Connection, limit: int) -> list[Term]:
 
 
 def due_for_recheck(con: Connection, limit: int) -> list[Term]:
-    """아직 조사 기록이 없는 'researching' 용어가 먼저, 그다음 재검증 주기가 지난 것."""
-    out: list[Term] = []
+    """재검증 주기가 지난 것 — 아직 조사 기록이 없는 'researching' 용어, 사전에 오른 말(verified), 검수 대기 순으로, 같은 무리에서는 가장 오래전에
+    조사한 것부터. 예전에는 조사 중 다음이 이름순이라 확인된 말이 검수 대기 수백 개 뒤로 밀려 2주 넘게 다시 보지 못했고, 그동안 '마지막으로
+    쓰인 때' 가 늙어 꾸준한 밈이 '지는 중' 이 됐다(검토 3차)."""
+    out: list[tuple] = []
     now = datetime.now(timezone.utc)
+    order = {"researching": 0, "verified": 1}
     for t in ds.list_terms(con, ("researching", "verified", "needs_review")):
         cm = ds.current_meaning(con, t.term_id)
         if cm and cm.verification == "verified_human":
             continue
         last = ds.last_researched(con, t.term_id)
         if last is None or (now - last).days >= recheck_interval_days(t.lifecycle):
-            out.append(t)
-    out.sort(key=lambda t: (t.status != "researching",))
-    return out[:limit]
+            out.append((order.get(t.status, 2), last.isoformat() if last else "", t))
+    out.sort(key=lambda x: (x[0], x[1]))
+    return [t for _, _, t in out[:limit]]
 
 
 OFFLINE_PROMPT = """아래는 우리가 직접 수집한 근거(뉴스 제목·쇼츠 해석·검색 트렌드·웹 발췌)다. 이것만 보고 '{term}' 의 뜻을 JSON(MeaningDraft)으로 구조화하라.

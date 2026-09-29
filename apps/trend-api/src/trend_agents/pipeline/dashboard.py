@@ -167,6 +167,20 @@ class _Regions:
         return ""
 
 
+# 나라를 가를 수 없는 전 세계 플랫폼(블루스키·레딧)의 글은 글자로 나라를 짐작한다 — 그 용어가 이미 쓰이는 나라 가운데서만.
+# 일본 표제어의 커뮤니티 근거 181건 중 178건(170건이 블루스키)이 '전 세계' 로 가 일본 카드가 비었다(검토 3차). 한자만 쓴 글은 대만·홍콩.
+_TEXT_REGION = ((re.compile(r"[가-힣]"), ("KR",)), (re.compile(r"[぀-ヿ]"), ("JP",)), (re.compile(r"[฀-๿]"), ("TH",)),
+                (re.compile(r"[ăâđêôơưĂÂĐÊÔƠƯạ-ỹ]"), ("VN",)), (re.compile(r"[一-鿿]"), ("TW", "HK", "JP")))
+
+
+def text_region(text: str, regions: list[str]) -> str:
+    """글자로 짐작한 나라(그 용어의 나라 가운데). 모르면 GLOBAL."""
+    for pat, cands in _TEXT_REGION:
+        if pat.search(text or ""):
+            return next((r for r in cands if r in regions), GLOBAL)
+    return GLOBAL
+
+
 def _has_path(url: str) -> bool:
     """'https://namu.wiki/' 같은 홈페이지 주소는 근거가 아니다 — 나무위키 실시간 검색어·예전 시드에 118건 있었다(검토 2차)."""
     return urlsplit(url or "").path not in ("", "/")
@@ -188,9 +202,12 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
     m = ds.current_meaning(con, t.term_id)
     ko, en = ds.get_translation(con, t.term_id, "ko"), ds.get_translation(con, t.term_id, "en")
     base = m.definition if m else ""
-    # 쓰임 근거 + 설명 문서(위키·웹). 네이버 블로그 결과는 'web' 으로 들어와도 표시 전용이라 뺀다(검토 2차). 주소가 홈페이지뿐인 것도 뺀다
+    # 쓰임 근거 + 설명 문서(위키·웹). 네이버 블로그 결과는 'web' 으로 들어와도 표시 전용이라 뺀다(검토 2차). 주소가 홈페이지뿐인 것도 뺀다.
+    # 문서도 표제어가 든 것만 — 주제 단계가 나라마다 위키백과 검색 1위를 거르지 않고 넣어 '오살힘' 추천의 근거가 한국 배우·KBS 드라마 문서였다(검토 3차)
     evs = [e for e in ds.list_evidences(con, t.term_id)
-           if (_usage_ok(e, t) or (e.kind in ("wiki", "web") and not e.source_domain.startswith("naver"))) and _has_path(e.url)]
+           if (_usage_ok(e, t) or (e.kind in ("wiki", "web") and not e.source_domain.startswith("naver")
+                                   and mentions(f"{e.title or ''} {e.excerpt or ''}", t.canonical, t.aliases)))
+           and _has_path(e.url)]
     labels = ds.evidence_labels(con, t.term_id)
     weekly: dict[str, list[int]] = {}
     for r, cnt in ds.get_weekly_region(con, t.term_id).items():
@@ -202,8 +219,11 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
     examples: dict[str, list[EvidenceBrief]] = {}
     last_used: dict[str, datetime] = {}
     per_domain: Counter = Counter()
+    shown: set[str] = set()
     for e in evs:
         r = regions_of.of(e)
+        if r == GLOBAL and e.kind in USAGE_KINDS:
+            r = text_region(f"{e.title or ''} {e.excerpt or ''}", regions)
         if e.kind in USAGE_KINDS and (r not in last_used or e.observed_at > last_used[r]):
             last_used[r] = e.observed_at
         if e.kind == "community":
@@ -211,8 +231,10 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         p = labels.get(e.evidence_id, (None, None))[0]
         if p and p != "offtopic":
             tone.setdefault(r, Counter())[p] += 1
-        if per_domain[e.source_domain] < 2 and len(examples.get(r, [])) < 5:   # 한 곳에 몰리지 않게 출처마다 두 건까지
+        # 한 곳에 몰리지 않게 출처마다 두 건까지. 같은 주소는 한 번만 — 위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 보였다(검토 3차)
+        if per_domain[e.source_domain] < 2 and len(examples.get(r, [])) < 5 and e.url not in shown:
             per_domain[e.source_domain] += 1
+            shown.add(e.url)
             examples.setdefault(r, []).append(EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=(e.title or e.excerpt)[:160],
                                                             url=e.url, observed_at=e.observed_at))
     card = KeywordCard(

@@ -28,7 +28,9 @@ TIMEOUT = 180.0
 MAX_TOKENS = 2048  # 폭주 방지(재질문에서 2만 자를 뱉은 실측). 구조화 출력은 이보다 훨씬 짧다
 
 _JSON_RULE = "\n\n아래 모양대로 키 이름과 값 종류를 그대로 지켜 JSON 하나만 출력하라. 모든 키를 넣는다. null 은 모양에 |null 이 있는 키에만 쓰고, 그 외 키는 모르면 빈 문자열 \"\" 이나 빈 배열 [] 로 채운다. 설명이나 코드 펜스는 쓰지 않는다.\n모양: {schema}"
-_RETRY_RULE = "\n\n직전 응답은 위 모양과 맞지 않았다. 같은 내용을 위 모양 그대로, 항목 수를 바꾸지 말고 다시 답하라."
+_RETRY_RULE = "\n\n직전 응답은 위 모양과 맞지 않았다({error}). 같은 내용을 위 모양 그대로, 항목 수를 바꾸지 말고 다시 답하라."
+# Ollama 기본 클라이언트는 시간 제한이 없다 — 모델이 멈추면 요청을 받은 작업 스레드가 끝없이 묶였다(검토 3차)
+_OLLAMA = ollama.Client(timeout=TIMEOUT)
 
 
 def available(model: str = GEMMA_LOCAL_MODEL) -> bool:
@@ -38,7 +40,7 @@ def available(model: str = GEMMA_LOCAL_MODEL) -> bool:
             r = httpx.get(f"{LOCAL_LLM_BASE_URL}/models", timeout=5)
             r.raise_for_status()
             return any(m.get("id") == model for m in r.json().get("data", []))
-        return any(m.model == model for m in ollama.list().models)
+        return any(m.model == model for m in ollama.Client(timeout=5).list().models)
     except Exception:
         return False
 
@@ -55,15 +57,23 @@ def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = 
     ask = prompt + _JSON_RULE.format(schema=describe_schema(js))
     error = ""
     for _ in range(2):
-        text = _chat(ask + (_RETRY_RULE if error else ""), temperature, model, json_schema=js, **({"image": image} if image else {}))
+        text = _chat(ask + (_RETRY_RULE.format(error=error) if error else ""), temperature, model, json_schema=js, **({"image": image} if image else {}))
         try:
             return adapter.validate_json(extract_json(text))
         except (ValidationError, ValueError) as e:
-            error = str(e).splitlines()[0][:200]
+            error = _problem(e)
             partial = _valid_items(adapter, js, text)
             if partial is not None:
                 return partial  # 틀린 항목만 버리고 나머지는 살린다 — 호출부(classify 등)가 매핑 비율로 배치 폐기를 판단한다
     raise ValueError(f"로컬 LLM 구조화 출력 실패 ({model}): {error}")
+
+
+def _problem(e: Exception) -> str:
+    """재질문에 넣을 짧은 오류 — 어느 키가 틀렸는지. '4 validation errors' 만 알려 주면 작은 모델이 같은 자리(최상위 thumbnail 을
+    script 안에 넣기)를 또 틀렸다(2026-09-29 실측)."""
+    if isinstance(e, ValidationError):
+        return "; ".join(f"{'.'.join(map(str, x['loc'])) or '(전체)'}: {x['msg']}" for x in e.errors()[:4])[:300]
+    return str(e).splitlines()[0][:200]
 
 
 def _valid_items(adapter: TypeAdapter, js: dict, text: str):
@@ -174,7 +184,7 @@ def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None 
             content = choice["message"].get("reasoning_content") or ""
         return content
     # Ollama: format(스키마 강제)은 보내지 않는다 — 모듈 주석의 실측. 스키마는 이미 프롬프트에 있다.
-    r = ollama.chat(model=model, messages=messages, think=False,
+    r = _OLLAMA.chat(model=model, messages=messages, think=False,
                     options={"temperature": temperature, "num_ctx": NUM_CTX, "num_predict": MAX_TOKENS})
     return r.message.content
 
