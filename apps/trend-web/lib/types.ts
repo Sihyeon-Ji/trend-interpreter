@@ -69,7 +69,11 @@ export interface PipelineStage {
   label: string;
   count_24h: number;
   status: "ok" | "warn" | "zero";
-  note?: string;
+  note?: string | null;
+  // 관리 화면 '수집 현황' — 마지막 실행의 상태(없으면 24시간 안에 실행 없음)와 그 단계의 마지막 실행 시각
+  run_status?: "ok" | "idle" | "skipped" | "error" | null;
+  last_started_at?: string | null;
+  last_finished_at?: string | null;
 }
 
 export interface ReviewItem {
@@ -79,6 +83,11 @@ export interface ReviewItem {
   reasons: string[];
   evidence_count: number;
   queued_at: string;
+  // 근거를 보고 결정하도록: 표제어 말, 지금 사전에 실린 뜻(없으면 새 뜻), 표제어가 든 근거 상위 5건, 최근 12주 언급
+  lang?: string | null;
+  current?: Meaning | null;
+  evidences?: Evidence[];
+  weekly?: WeeklyPoint[];
 }
 
 /* 키워드 대시보드 (Plan 04) — 백엔드 pipeline/views.py 의 KeywordCard·KeywordBoard 와 1:1. 값은 pipeline/dashboard.py 규칙이 채운다. */

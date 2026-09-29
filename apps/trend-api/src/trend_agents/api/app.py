@@ -95,6 +95,7 @@ class ExplainOut(BaseModel):
 class ReviewIn(BaseModel):
     decision: str  # approve | reject
     by: str = "reviewer"
+    meaning_id: str | None = None  # 검수자가 본 뜻. 그사이 조사가 새 판을 만들었으면 409 — 보지 않은 뜻을 싣지 않는다
 
 
 @app.get("/health")
@@ -176,6 +177,8 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
     m = ds.current_meaning(_con, term_id)
     if not t or not m:
         raise HTTPException(404, "not found")
+    if body.meaning_id and body.meaning_id != m.meaning_id:
+        raise HTTPException(409, "그사이 제안이 바뀌었습니다")
     if body.decision == "approve":
         ds.set_verification(_con, m.meaning_id, "verified_human", body.by)
         t.status = "verified"

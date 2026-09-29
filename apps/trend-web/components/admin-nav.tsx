@@ -1,27 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { ListTabs, type TabItem } from "@/components/list-tabs";
 
-const LINKS = [
-  { href: "/admin", label: "검수" },
-  { href: "/admin/risk", label: "주의 표현" },
-  { href: "/admin/status", label: "수집 현황" },
-];
-
-export function AdminNav() {
+/** 관리 탭(검수·리스크·수집 현황). 현재 탭은 주소로 정한다 — 레이아웃은 탭을 옮겨도 다시 그리지 않는다. */
+export function AdminNav({ items, label }: { items: TabItem[]; label: string }) {
   const path = usePathname();
-  return (
-    <nav className="flex gap-5 border-b border-hairline text-[14px]">
-      {LINKS.map((l) => {
-        const active = path === l.href;
-        return (
-          <Link key={l.href} href={l.href} className={cn("-mb-px border-b-2 py-2", active ? "border-ink font-medium text-ink" : "border-transparent text-steel hover:text-ink")}>
-            {l.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  const current = items.find((i) => i.href === path)?.id ?? items[0]?.id ?? "";
+  return <ListTabs items={items} current={current} label={label} />;
 }

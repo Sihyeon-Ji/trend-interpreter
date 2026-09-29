@@ -60,6 +60,11 @@ class PipelineStage(BaseModel):
     count_24h: int
     status: Literal["ok", "warn", "zero"]
     note: str | None = None
+    # 관리 화면 '수집 현황' — 마지막 실행의 상태를 나눠 보낸다(실패·건너뜀·처리 없음이 한 모양이던 '주의'를 가른다).
+    # None 이면 24시간 안에 실행 기록이 없다. 시각은 24시간 창과 상관없이 그 단계의 마지막 실행.
+    run_status: Literal["ok", "idle", "skipped", "error"] | None = None
+    last_started_at: str | None = None
+    last_finished_at: str | None = None
 
 
 class ReviewItem(BaseModel):
@@ -69,6 +74,11 @@ class ReviewItem(BaseModel):
     reasons: list[str]
     evidence_count: int
     queued_at: str
+    # 검수자가 근거를 보고 결정하도록(관리 화면 개편): 표제어 말, 지금 사전에 실린 뜻, 표제어가 든 근거 상위 5건, 최근 12주 언급
+    lang: str | None = None
+    current: Meaning | None = None
+    evidences: list[Evidence] = []
+    weekly: list[WeeklyPoint] = []
 
 
 STAGE_LABELS = {
@@ -105,11 +115,17 @@ def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",)) -> 
 
 def pipeline_stages(con: Connection) -> list[PipelineStage]:
     counts = ds.stage_counts_24h(con)
+    last = ds.stage_last_runs(con)
     out = []
     for key, label in STAGE_LABELS.items():
         cnt, status, note = counts.get(key, (0, "", ""))
         st: Literal["ok", "warn", "zero"] = "warn" if status in ("error", "skipped") else ("ok" if (cnt > 0 or key == "collect.retention") else "zero")
-        out.append(PipelineStage(key=key, label=label, count_24h=cnt, status=st, note=note or None))
+        # 0건이 정상인 단계(정리·못 답한 질문 조사 등)도 있으니 '처리 없음' 은 실패가 아니다 — 화면이 배지로만 알린다
+        run: Literal["ok", "idle", "skipped", "error"] | None = (
+            None if not status else "error" if status == "error" else "skipped" if status == "skipped" else "ok" if st == "ok" else "idle")
+        started, finished = last.get(key, (None, None))
+        out.append(PipelineStage(key=key, label=label, count_24h=cnt, status=st, note=note or None, run_status=run,
+                                 last_started_at=started, last_finished_at=finished))
     return out
 
 
@@ -120,7 +136,12 @@ def review_items(con: Connection) -> list[ReviewItem]:
         m = ds.current_meaning(con, q["term_id"])
         if not t or not m:
             continue
-        out.append(ReviewItem(term_id=t.term_id, canonical=t.canonical, proposed=m, reasons=q["reasons"], evidence_count=q["evidence_count"], queued_at=q["queued_at"]))
+        # 지금 실린 뜻: 제안보다 앞 판 가운데 확인된 마지막 것. 없으면 새 뜻이다
+        cur = [x for x in ds.list_meanings(con, t.term_id) if x.version < m.version and x.verification in ("verified_auto", "verified_human")]
+        evs = [e for e in shown_evidences(con, t) if e.kind != "datalab"][:5]
+        weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
+        out.append(ReviewItem(term_id=t.term_id, canonical=t.canonical, proposed=m, reasons=q["reasons"], evidence_count=q["evidence_count"], queued_at=q["queued_at"],
+                              lang=t.lang, current=cur[-1] if cur else None, evidences=evs, weekly=weekly))
     return out
 
 

@@ -471,6 +471,12 @@ def stage_counts_24h(con: Connection) -> dict[str, tuple[int, str, str]]:
     return out
 
 
+def stage_last_runs(con: Connection) -> dict[str, tuple[str | None, str | None]]:
+    """단계마다 마지막 실행의 (시작, 끝) 시각 — 관리 화면 '수집 현황'. 24시간 창과 상관없이 전체 기록에서."""
+    rows = con.execute("SELECT stage, MAX(started_at), MAX(finished_at) FROM pipeline_runs GROUP BY stage").fetchall()
+    return {r[0]: (r[1], r[2]) for r in rows}
+
+
 def gemini_budget_left(con: Connection, daily_budget: int, ledger: str = "") -> int:
     """ledger: '' 는 파이프라인, 'req:' 는 이용자 요청 — 같은 표에 날짜 앞에 붙여 따로 센다."""
     row = con.execute("SELECT count FROM gemini_calls WHERE day=?", (ledger + date.today().isoformat(),)).fetchone()

@@ -80,12 +80,34 @@ export async function getUpdatedAt(): Promise<string | null> {
   return (await getMeta())?.last_run ?? null;
 }
 
+/** 관리 화면 조회 — 예시 데이터로 바꾸지 않고(예시 문구를 보고 실제 뜻을 승인하게 된다), 캐시하지 않는다(결정 뒤 건수가 그대로였다).
+ *  실패하면 던진다 → app/admin/error.tsx 가 '다시 불러오기' 를 보인다. */
+async function apiNoStore<T>(path: string): Promise<T> {
+  const res = await fetch(`${API}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new ApiError(path, res.status);
+  return res.json() as Promise<T>;
+}
+
 export async function getPipelineStages(): Promise<PipelineStage[]> {
-  return isSampleMode ? SAMPLE_STAGES : apiOr<PipelineStage[]>("/pipeline/stages", SAMPLE_STAGES, 30);
+  return isSampleMode ? SAMPLE_STAGES : apiNoStore<PipelineStage[]>("/pipeline/stages");
+}
+
+/** 예시 모드는 예시 사전에서 지금 실린 뜻·근거를 붙인다(백엔드 views.review_items 와 같은 규칙). */
+function sampleQueue(): ReviewItem[] {
+  return SAMPLE_QUEUE.map((q) => {
+    const rec = SAMPLE_RECORDS.find((r) => r.term.term_id === q.term_id);
+    const cur = rec?.meanings.filter((m) => m.version < q.proposed.version && (m.verification === "verified_auto" || m.verification === "verified_human")) ?? [];
+    return { ...q, lang: rec?.term.lang ?? null, current: cur.at(-1) ?? null, evidences: (rec?.evidences ?? []).filter((e) => e.kind !== "datalab").slice(0, 5), weekly: rec?.weekly ?? [] };
+  });
 }
 
 export async function getReviewQueue(): Promise<ReviewItem[]> {
-  return isSampleMode ? SAMPLE_QUEUE : apiOr<ReviewItem[]>("/review/queue", SAMPLE_QUEUE, 30);
+  return isSampleMode ? sampleQueue() : apiNoStore<ReviewItem[]>("/review/queue");
+}
+
+/** 관리 '리스크' 탭 — 사전에 오른 말 전부. getTermRecords 와 달리 예시로 내려가지 않는다. */
+export async function getRiskRecords(): Promise<TermRecord[]> {
+  return isSampleMode ? SAMPLE_RECORDS : apiNoStore<TermRecord[]>("/terms");
 }
 
 export function getSampleCopy(locale: Locale): string {
@@ -202,7 +224,7 @@ export async function getReviewStats(): Promise<ReviewStats> {
     const count = (v: string) => cur.filter((m) => m!.verification === v).length;
     return { verified_auto: count("verified_auto"), verified_human: count("verified_human"), needs_review: SAMPLE_QUEUE.length, rejected: count("rejected") };
   }
-  return api<ReviewStats>("/review/stats");
+  return apiNoStore<ReviewStats>("/review/stats");
 }
 
 /** 키워드 대시보드 (Plan 04). regions 가 비면 목표 지역 전체, page 는 목록마다 몇째 쪽(30개씩). 지역 판정과 목록 나누기는 백엔드 규칙이 한다.
@@ -225,4 +247,12 @@ export async function getTermSignals(termId: string, regions: string[] = []): Pr
   if (isSampleMode) return sampleSignals(termId);
   const q = regions.length ? `?regions=${regions.map(encodeURIComponent).join(",")}` : "";
   return apiOr<KeywordCard | null>(`/terms/${encodeURIComponent(termId)}/signals${q}`, null, 300);
+}
+
+/** 세계 지도 — 지역 층은 대시보드와 같은 키워드 보드(밈 수·주의·대표 밈, 갱신 시각도 하나), 나라를 건너간 밈은 트렌드 보드의 주제.
+ *  api 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다 → app/map/error.tsx. 실데이터처럼 보이는 2021년 예시가 뜨던 문제(개편 검토). */
+export async function getMapData(): Promise<{ keywords: KeywordBoard; board: TrendBoard }> {
+  if (isSampleMode) return { keywords: sampleKeywordBoard([]), board: SAMPLE_BOARD };
+  const [keywords, board] = await Promise.all([apiNoStore<KeywordBoard>("/dashboard"), api<TrendBoard>("/trends/board", 30)]);
+  return { keywords, board: { ...board, why: board.why ?? [] } };
 }

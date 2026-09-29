@@ -16,13 +16,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   if (!token) return NextResponse.json({ error: "서버 설정이 빠졌습니다. 관리자에게 알려 주세요." }, { status: 500 });
 
   let decision = "";
+  let meaningId: unknown = null;   // 검수자가 본 뜻 — 그사이 새 판이 생겼으면 백엔드가 409 로 막는다
   try {
-    ({ decision = "" } = await req.json());
+    ({ decision = "", meaning_id: meaningId = null } = await req.json());
   } catch {
     return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
   }
   if (decision !== "approve" && decision !== "reject") {
     return NextResponse.json({ error: "결정은 승인 또는 제외만 기록합니다." }, { status: 400 });
+  }
+
+  if (meaningId !== null && typeof meaningId !== "string") {
+    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
   }
 
   const { termId } = await params;
@@ -31,12 +36,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
     res = await fetch(`${API}/review/${encodeURIComponent(termId)}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
-      body: JSON.stringify({ decision, by: session.user }),
+      body: JSON.stringify({ decision, by: session.user, meaning_id: meaningId }),
       cache: "no-store",
     });
   } catch {
     return NextResponse.json({ error: "서버에 연결하지 못했습니다." }, { status: 502 });
   }
+  if (res.status === 409) return NextResponse.json({ error: "그사이 제안이 바뀌었습니다. 다시 보고 결정하세요." }, { status: 409 });
   if (!res.ok) return NextResponse.json({ error: `기록하지 못했습니다 (${res.status}).` }, { status: res.status });
   return NextResponse.json(await res.json());
 }
