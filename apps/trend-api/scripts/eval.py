@@ -45,7 +45,10 @@ GATE_CASES = [
     ("용어가 원문에 없는 근거만", "저메추", draft("저녁 메뉴 추천", "저녁 메뉴 추천"), [ev("news", "a.com", "오늘 저녁 뭐 먹지"), ev("short", "youtube.com", "저녁 메뉴 브이로그")], "unverified"),
     ("모델 자기확신 낮음", "저메추", draft("저녁 메뉴 추천", "저녁 메뉴 추천", conf=0.3),
      [ev("news", "a.com", "저메추 해주는 AI, 저녁 메뉴 추천"), ev("web", "b.com", "저메추 = 저녁 메뉴 추천")], "unverified"),
-    ("정상: 쇼츠+뉴스", "6-7", draft("뜻 없는 감탄사", None), [ev("short", "youtube.com", "6-7 meme compilation"), ev("news", "nytimes.com", "What does 6-7 mean?")], "verified_auto"),
+    ("정상: 쇼츠+뉴스+위키 문서", "6-7", draft("뜻 없는 감탄사", None),
+     [ev("short", "youtube.com", "6-7 meme compilation"), ev("news", "nytimes.com", "What does 6-7 mean?"), ev("wiki", "en.wikipedia.org", "6-7 (meme)")], "verified_auto"),
+    ("참고 문서 없음: 쇼츠+뉴스+커뮤니티만", "6-7", draft("뜻 없는 감탄사", None),
+     [ev("short", "youtube.com", "6-7 meme compilation"), ev("news", "nytimes.com", "What does 6-7 mean?"), ev("community", "bsky.app", "6-7 meme lol")], "unverified"),
     ("뜻 충돌: 현행 풀이와 다름", "자만추", draft("자연스러운 만남 추구", "자만한 추종"),
      [ev("news", "mk.co.kr", "자만추 = 자만한 추종?"), ev("web", "x.com", "자만추 자만한 추종")], "unverified"),
 ]

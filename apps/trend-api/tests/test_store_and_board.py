@@ -192,7 +192,8 @@ def test_research_does_not_override_human_approval(monkeypatch):
 
 
 def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
-    """리스크 수준은 규칙이 정한다. 위험 근거 1건은 잡음, 3건이면 사용 자제, 근거가 모자라면 판단 보류."""
+    """리스크 수준은 규칙이 정한다. 위험 근거 1건은 잡음, 3건이면 사용 자제, 근거가 모자라면 판단 보류.
+    이유는 기사·쇼츠 문장만 인용하고, 커뮤니티 글은 글도 사이트 이름도 옮기지 않고 건수로만 적는다(ADR 0003)."""
     from datetime import datetime, timezone
 
     from trend_agents.pipeline import risk
@@ -211,12 +212,27 @@ def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
 
     ds.set_evidence_labels(con, "t1", [(f"e{i}", "neutral", "hate") for i in range(3)], "test")
     level, reasons = risk.judge(con, t)
-    assert level == "caution" and not any("@a.bsky" in r for r in reasons)   # 한 곳에 몰리면 주의까지, 머리말은 뗀다
+    assert (level, reasons) == ("caution", ["커뮤니티 글에서 혐오·차별 맥락으로 쓰인 경우 3건"])   # 한 곳에 몰리면 주의까지, 건수로만
 
     ds.add_evidences(con, "t1", [Evidence(evidence_id="n1", kind="news", url="n1", title="t", source_domain="news.example",
                                           observed_at=now, excerpt="테스트밈 기사")])
     ds.set_evidence_labels(con, "t1", [("n1", "negative", "hate")], "test")
-    assert risk.judge(con, t)[0] == "avoid"                # 출처 둘 이상에서 3건 이상이면 사용 자제
+    level, reasons = risk.judge(con, t)
+    assert (level, reasons) == ("avoid", ["위험 유형이 붙은 근거 4건", "“테스트밈 기사” (news.example)",   # 출처 둘 이상에서 3건 이상이면 사용 자제
+                                          "커뮤니티 글에서 혐오·차별 맥락으로 쓰인 경우 3건"])
+    assert not any("bsky" in r or "테스트밈 문장" in r for r in reasons)
+
+    # 부정 비율: 부정 문장이 커뮤니티 글뿐이면 그 몫만, 기사가 있으면 기사를 인용한다
+    neg = Term(term_id="t3", canonical="부정밈", lang="ko", status="verified", first_seen=now, last_seen=now)
+    ds.upsert_term(con, neg)
+    ds.add_evidences(con, "t3", [Evidence(evidence_id=f"p{i}", kind="community", url=f"p{i}", title="t", source_domain="theqoo.net",
+                                          observed_at=now, excerpt=f"부정밈 글 {i}") for i in range(5)])
+    ds.set_evidence_labels(con, "t3", [(f"p{i}", "negative" if i < 2 else "neutral", "none") for i in range(5)], "test")
+    assert risk.judge(con, neg) == ("caution", ["커뮤니티 글의 40%가 부정적인 맥락"])
+    ds.add_evidences(con, "t3", [Evidence(evidence_id="pn", kind="news", url="pn", title="t", source_domain="news.example",
+                                          observed_at=now, excerpt="부정밈 논란 기사")])
+    ds.set_evidence_labels(con, "t3", [("pn", "negative", "none")], "test")
+    assert risk.judge(con, neg) == ("caution", ["부정적으로 쓰인 근거가 50% — 예: “부정밈 논란 기사” (news.example)"])
 
     ds.set_evidence_labels(con, "t1", [(f"e{i}", "offtopic", "none") for i in range(6)] + [("n1", "offtopic", "none")], "test")
     level, reasons = risk.judge(con, t)

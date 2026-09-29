@@ -10,9 +10,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
+from ..collectors.community import is_community_post
 from ..lifecycle import recheck_interval_days  # noqa: F401  (생애주기 라벨과 같은 모듈을 쓴다는 표시)
 from ..storage import dictionary_store as ds
-from .match import evidence_mentions, keywords, loose_key, strip_particle, unsafe
+from .match import keywords, loose_key, strip_particle, unsafe
+from .views import shown_evidences
 from ..storage.db import Connection
 
 LIFECYCLE = {"emerging": "막 뜨는 중", "rising": "오르는 중", "peak": "절정", "steady": "꾸준함",
@@ -160,11 +162,12 @@ def _status_codes(t) -> dict:
 
 
 def _term_card(con, t, m) -> dict:
+    # 출처 수는 사전 항목의 출처 표와 같은 수 — 화면이 '출처 n건 모두 보기' 로 그 표를 가리킨다(커뮤니티·SNS 글은 빠진다, ADR 0003)
     return {"type": "term", "term_id": t.term_id, "canonical": t.canonical,
             "definition": _clean(m.definition) if m else "", "origin": _clean(m.origin) if m else "",
             "status": t.status, "lifecycle": LIFECYCLE.get(t.lifecycle, t.lifecycle),
             "category": CATEGORY.get(t.category, t.category), **_status_codes(t),
-            "evidence_count": con.execute("SELECT COUNT(*) FROM evidences WHERE term_id=?", (t.term_id,)).fetchone()[0],
+            "evidence_count": len(shown_evidences(con, t)),
             "media": ds.get_media(con, t.term_id)}
 
 
@@ -279,7 +282,7 @@ def lookup_term(ctx: Ctx, args: dict) -> str:
     ctx.offer(t.canonical, _clean(m.definition) if m else "")   # 모델이 "없다" 고 해도 이걸 내보낸다
     if m:
         ctx.offer(t.canonical, _clean(m.definition))
-    evs = [e for e in ds.list_evidences(ctx.con, t.term_id) if e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases)]   # 딴 글의 출처를 대지 않는다
+    evs = shown_evidences(ctx.con, t)   # 사전 항목과 같은 근거 — 딴 글의 출처도, 커뮤니티·SNS 사이트 이름도 대지 않는다(ADR 0003)
     doms = sorted({e.source_domain for e in evs})[:4]
     if not m:
         return f"'{t.canonical}' 는 사전에 있지만 뜻이 아직 정리되지 않았습니다."
@@ -359,7 +362,7 @@ def why_trending(ctx: Ctx, args: dict) -> str:
         return f"'{term}' 의 급증 원인 조사 기록이 없습니다."
     x = got[0]
     actors = ", ".join(a.name for a in x.actors[:4]) or "없음"
-    evs = ds.list_evidences(ctx.con, f"q|{ds.norm(x.term)}|{x.region}")
+    evs = [e for e in ds.list_evidences(ctx.con, f"q|{ds.norm(x.term)}|{x.region}") if not is_community_post(e)]   # 나라 화면의 근거 목록과 같은 규칙
     return (f"검색어: {x.term} ({REGION.get(x.region, x.region)}, {x.date})\n계기: {x.trigger}\n왜 지금: {_clean(x.why_now)}\n"
             f"관련 인물·주체: {actors}\n근거: {len(evs)}건")
 

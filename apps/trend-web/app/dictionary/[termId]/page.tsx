@@ -108,9 +108,9 @@ export default async function TermPage({ params, searchParams }: Props) {
   const lastUsed = signals ? signals.last_used ?? signals.last_seen ?? null : term.last_seen ?? null;
 
   const search = signals?.search ?? [];
-  const seen = (signals?.communities ?? []).map((c) => (locale === "ko" ? `${sourceName(locale, c.domain)} ${c.count}건` : `${sourceName(locale, c.domain)} ${c.count}`)).join(", ");
+  // 커뮤니티 사이트 이름('주로 보인 곳')은 싣지 않는다 — 커뮤니티 글은 뉘앙스 수처럼 지표로만 센다(ADR 0003)
   const tone = signals ? toneLine(locale, signals.tone) : null;
-  const signalRows = search.length > 0 || !!seen || !!tone;
+  const signalRows = search.length > 0 || !!tone;
   const usage = [...record.usage].sort((a, b) => a.first_seen.localeCompare(b.first_seen));
   const showTrend = hasTrend || signalRows || !!signals || curves.length > 0 || usage.length > 0;
 
@@ -241,12 +241,6 @@ export default async function TermPage({ params, searchParams }: Props) {
                       <div className="grid gap-1 py-2.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
                         <dt className="text-[13px] text-steel">{t(locale, "term_row_search")}</dt>
                         <dd className="text-ink"><ul className="space-y-1">{search.map((h, i) => <SearchRow key={`${h.region}-${h.date}-${i}`} h={h} locale={locale} />)}</ul></dd>
-                      </div>
-                    )}
-                    {seen && (
-                      <div className="grid gap-1 py-2.5 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
-                        <dt className="text-[13px] text-steel">{t(locale, "term_row_seen")}</dt>
-                        <dd className="text-ink">{seen}</dd>
                       </div>
                     )}
                     {tone && (

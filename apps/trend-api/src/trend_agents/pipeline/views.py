@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ..collectors.community import is_community_post
 from ..lifecycle import recheck_interval_days
 from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
                        Segment, ShortScript, SocialCopy, Term, Text2, ThumbnailPlan)
@@ -89,9 +90,11 @@ STAGE_LABELS = {
 
 
 def shown_evidences(con: Connection, t: Term) -> list[Evidence]:
-    """사전 화면·질문 답에 낼 근거 — 표제어가 든 것만(검색 지수 datalab 은 문장이 아니라 그대로 둔다). 검색이 끌어온 딴 글
-    ('오살힘' 에 2022년 '오살 의식' 기사)이 인용으로 나갔다(2026-09-29 원작자 서버 근거 9,738건 중 1,882건, match.evidence_mentions)."""
-    return [e for e in ds.list_evidences(con, t.term_id) if e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases)]
+    """사전 화면·질문 답·검수 화면에 낼 근거 — 표제어가 든 것만(검색 지수 datalab 은 문장이 아니라 그대로 둔다). 검색이 끌어온 딴 글
+    ('오살힘' 에 2022년 '오살 의식' 기사)이 인용으로 나갔다(2026-09-29 원작자 서버 근거 9,738건 중 1,882건, match.evidence_mentions).
+    커뮤니티·SNS 글은 내지 않는다 — 쓰임 지표로만 센다(ADR 0003)."""
+    return [e for e in ds.list_evidences(con, t.term_id)
+            if not is_community_post(e) and (e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases))]
 
 
 def term_record(con: Connection, t: Term) -> TermRecord:
@@ -231,7 +234,7 @@ def query_graph(con: Connection, key: str, limit_evidence: int = 12) -> QueryGra
     g = ds.graph_query(con, key)
     if not g:
         return None
-    evs = ds.list_evidences(con, f"q|{key}")
+    evs = [e for e in ds.list_evidences(con, f"q|{key}") if not is_community_post(e)]   # 커뮤니티·SNS 글은 내지 않는다(ADR 0003)
     return QueryGraph(key=g["key"], term=g["term"], region=g["region"], explained=g["explained"], actors=g["actors"], wiki=g["wiki"], term_id=g["term_id"],
                       evidence=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=e.title or e.excerpt, url=e.url, observed_at=e.observed_at) for e in evs[:limit_evidence]])
 
@@ -295,9 +298,9 @@ class KeywordCard(BaseModel):
     mentions_4w: int
     search: list[SearchHit]            # 나라마다 가장 최근·높은 순위 하나
     gen_peaks: list[GenPeak] = []      # 연령대별 검색 정점 (네이버 데이터랩, 한국어 표제어만. 눈에 띄는 정점만)
-    communities: list[SourceCount]     # 커뮤니티 근거가 많이 나온 곳 상위 5
+    communities: list[SourceCount] = []   # 늘 빈 목록 — 커뮤니티 사이트 이름은 이용자에게 내지 않는다(ADR 0003). 예전 화면이 읽는 칸이라 남긴다
     tone: Tone
-    evidences: list[EvidenceBrief]     # 최근 근거 5건
+    evidences: list[EvidenceBrief]     # 최근 근거 5건 (커뮤니티·SNS 글은 빼고)
     last_seen: datetime | None = None
     last_used: datetime | None = None  # 고른 지역에서 가장 최근에 쓰인 글(커뮤니티·뉴스·쇼츠)의 때 — 원본 언급이 0 인 말의 순서와 표시
 

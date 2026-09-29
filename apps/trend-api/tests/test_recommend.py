@@ -26,9 +26,9 @@ def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=Tru
     m = ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 은 기분 좋은 하루를 뜻하는 말", origin="x", nuance="y", generations=["20s"],
                                               regions=["KR"], self_confidence=0.9), "verified_auto", [])
     ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
-    # 추천은 근거 링크가 있어야 나간다(ADR 0001) — 쓰임 글 하나씩
-    ds.add_evidences(con, tid, [Evidence(evidence_id=f"e_{tid}", kind="community", url=f"https://theqoo.net/{tid}", title=f"{name} 글",
-                                         source_domain="theqoo.net", observed_at=now, excerpt=f"{name} 진짜")])
+    # 추천은 근거 링크가 있어야 나간다(ADR 0001) — 쓰임 기사 하나씩. 커뮤니티 글은 링크가 되지 않는다(ADR 0003)
+    ds.add_evidences(con, tid, [Evidence(evidence_id=f"e_{tid}", kind="news", url=f"https://news.example/{tid}", title=f"{name} 기사",
+                                         source_domain="news.example", observed_at=now, excerpt=f"{name} 진짜")])
     cur = ds.current_meaning(con, tid)
     ds.set_fit(con, tid, cur.meaning_id, MemeFit(feelings=list(feelings), uses=["reaction"], fits=list(fits), any_category=any_category, voice=voice), "test")
     return m
@@ -86,15 +86,20 @@ def test_reasons_come_from_stored_data_without_a_model(monkeypatch):
 
 
 def test_links_prefer_usage_and_never_repeat_a_url():
-    """근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만(위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 나왔다, 검토 3차)."""
+    """근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만(위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 나왔다, 검토 3차).
+    커뮤니티·SNS 글은 더 최근이어도 링크로 나가지 않는다(ADR 0003)."""
     con = _con()
     now = datetime.now(timezone.utc)
     url = "https://ko.wikipedia.org/wiki/%EC%A2%8B%EC%9D%80%EB%A7%90"
     ds.add_evidences(con, "good", [Evidence(evidence_id="w1", kind="web", url=url, title="Wikipedia: 좋은말", source_domain="ko.wikipedia.org", observed_at=now, excerpt="좋은말은"),
-                                   Evidence(evidence_id="w2", kind="wiki", url=url, title="좋은말", source_domain="wikipedia.org", observed_at=now, excerpt="좋은말은")])
+                                   Evidence(evidence_id="w2", kind="wiki", url=url, title="좋은말", source_domain="wikipedia.org", observed_at=now, excerpt="좋은말은"),
+                                   Evidence(evidence_id="c1", kind="community", url="https://theqoo.net/good", title="좋은말 글", source_domain="theqoo.net",
+                                            observed_at=now, excerpt="좋은말 진짜"),
+                                   Evidence(evidence_id="c2", kind="web", url="https://bsky.app/profile/a/post/1", title="좋은말 ㅋㅋ", source_domain="bsky.app",
+                                            observed_at=now, excerpt="좋은말 ㅋㅋ")])
     dashboard.run(con)
     item = next(i for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items if i.term_id == "good")
-    assert [e.url for e in item.evidences] == ["https://theqoo.net/good", url]
+    assert [e.url for e in item.evidences] == ["https://news.example/good", url]
 
 
 def test_write_regions_need_a_form_written_in_that_language():

@@ -68,7 +68,8 @@ def test_numeric_terms_need_a_meme_cue():
 
 
 def test_gate_blocks_non_expressions():
-    evs = [ev("news", "a.com", "aqi 100 in Jakarta", "aqi is high"), ev("news", "b.com", "aqi warning", "aqi"), ev("short", "youtube.com", "aqi", "aqi")]
+    evs = [ev("news", "a.com", "aqi 100 in Jakarta", "aqi is high"), ev("news", "b.com", "aqi warning", "aqi"), ev("short", "youtube.com", "aqi", "aqi"),
+           ev("wiki", "wikipedia.org", "AQI", "aqi is an index", url="https://en.wikipedia.org/wiki/AQI")]
     d = MeaningDraft(definition="Air quality index", origin="x", nuance="y", generations=["20s"], regions=["ID"], self_confidence=0.9, is_expression=False)
     v, reasons = gate("aqi", d, evs, None)
     assert v == "unverified" and any("사전 대상 아님" in r for r in reasons)
@@ -391,8 +392,8 @@ def test_live_lookup_keeps_only_snippets_that_contain_the_term():
     from trend_agents.schemas import Evidence
 
     def ev(text: str) -> Evidence:
-        return Evidence(evidence_id="e1", kind="community", url="https://lemmy.world/x", title=text,
-                        source_domain="lemmy.world", observed_at=datetime.now(timezone.utc), excerpt=text)
+        return Evidence(evidence_id="e1", kind="wiki", url="https://en.wikipedia.org/wiki/x", title=text,
+                        source_domain="wikipedia.org", observed_at=datetime.now(timezone.utc), excerpt=text)
 
     term = "delulu"
     hit = ev("delulu is short for delusional")
@@ -601,10 +602,14 @@ def test_dashboard_numbers_follow_the_chosen_region():
     tw = next(c for c in dashboard.board(con, ["TW"]).rising + dashboard.board(con, ["TW"]).fading if c.term_id == "oshi")
     jp = next(c for c in dashboard.board(con, ["JP"]).rising + dashboard.board(con, ["JP"]).fading if c.term_id == "oshi")
     assert tw.mentions_4w == 2 and jp.mentions_4w == 125
-    # 블루스키(전 세계 플랫폼)의 일본어 글은 일본으로 — 그 용어가 쓰이는 나라 가운데서 글자로 짐작한다(검토 3차)
-    assert [s.domain for s in tw.communities] == ["dcard.tw"] and [s.domain for s in jp.communities] == ["togetter.com", "bsky.app"]
+    # 커뮤니티 글은 지표로만 센다 — 카드에 사이트 이름도 글도 없다(ADR 0003)
     everywhere = dashboard.card(con, "oshi")
-    assert "naver:kin" not in {s.domain for s in everywhere.communities} and "bsky.app" in {s.domain for s in everywhere.communities}
+    assert tw.communities == jp.communities == everywhere.communities == []
+    assert not any(e.kind == "community" for c in (tw, jp, everywhere) for e in c.evidences)
+    # 그래도 나라별 쓰임으로는 센다: 블루스키(전 세계 플랫폼)의 일본어 글은 일본으로 — 그 용어가 쓰이는 나라 가운데서 글자로 짐작한다(검토 3차).
+    # 네이버 결과는 쓰임으로 세지 않는다(세면 'KR' 이 생긴다)
+    stored = next(s for s in dashboard._load(con)[0] if s.card.term_id == "oshi")
+    assert set(stored.last_used) == {"JP", "TW"} and tw.last_used and jp.last_used
 
     cake = dashboard.card(con, "cake")
     assert cake.regions == ["GLOBAL"]                            # 일본 카드가 아니다
@@ -945,7 +950,8 @@ def test_evidence_without_the_headword_is_not_usage_nor_a_document():
     assert track.usage_kinds(con, "t1") == {"community": 1}
     assert [e.evidence_id for e in risk._usage(con, ds.get_term(con, "t1"))] == ["ok"]
     dashboard.run(con)
-    assert [e.url for e in dashboard.card(con, "t1").evidences] == ["https://theqoo.net/1"]
+    card = dashboard.card(con, "t1")
+    assert card.evidences == [] and card.last_used is not None   # 표제어가 든 글은 커뮤니티 글뿐 — 쓰임으로만 세고 근거로 내지 않는다(ADR 0003)
 
 
 def test_topics_store_only_evidence_that_names_the_term(monkeypatch):
@@ -1075,7 +1081,7 @@ def test_namu_recheck_backs_off_after_a_failure(monkeypatch):
 
 
 def test_dictionary_page_shows_only_evidence_that_names_the_term():
-    """사전 화면의 근거 목록도 표제어가 든 것만 — 검색 지수(datalab)는 문장이 아니라 그대로 둔다."""
+    """사전 화면의 근거 목록도 표제어가 든 것만 — 검색 지수(datalab)는 문장이 아니라 그대로 둔다. 커뮤니티 글은 표제어가 있어도 내지 않는다(ADR 0003)."""
     from datetime import datetime, timezone
 
     from trend_agents.pipeline import views
@@ -1090,6 +1096,175 @@ def test_dictionary_page_shows_only_evidence_that_names_the_term():
     def ev(eid, kind, text):
         return Evidence(evidence_id=eid, kind=kind, url=f"https://x.example/{eid}", title=text, source_domain="x.example", observed_at=at, excerpt=text)
 
-    ds.add_evidences(con, "t1", [ev("ok", "community", "오늘도 오살힘 충전"), ev("off", "news", "소가죽 굿판 vs 오살 의식"),
-                                 ev("lab", "datalab", "검색 추이 · 연령대별 20대 2026-03 피크")])
+    ds.add_evidences(con, "t1", [ev("ok", "news", "요즘 뜨는 오살힘"), ev("off", "news", "소가죽 굿판 vs 오살 의식"),
+                                 ev("lab", "datalab", "검색 추이 · 연령대별 20대 2026-03 피크"), ev("post", "community", "오늘도 오살힘 충전")])
     assert {e.evidence_id for e in views.term_record(con, t).evidences} == {"ok", "lab"}
+
+
+# ---------- ADR 0003: 사전 등재 기준 — 참고 문서가 있는 말만 자동으로, 커뮤니티·SNS 글은 지표로만 ----------
+
+def _lucky_draft():
+    return MeaningDraft(definition="어떤 일이든 운 좋게 받아들이는 긍정적 태도", origin="장원영의 말에서", nuance="밝게 쓴다",
+                        generations=["20s"], regions=["KR"], self_confidence=0.9)
+
+
+def test_gate_lists_only_terms_with_a_reference_document():
+    """자동으로 싣는 말은 참고 문서(나무위키·위키백과·Know Your Meme·pixiv 백과사전·萌娘百科)에 표제어가 든 문서가 있어야 한다.
+    뉴스·커뮤니티 두 곳이 있어도 문서가 없으면 검수 대기. 홈페이지 주소·실시간 검색어·표제어가 없는 문서·커뮤니티 링크는 문서가 아니다."""
+    from trend_agents.verification import NO_REFERENCE
+
+    term, draft = "럭키비키", _lucky_draft()
+    usage = [ev("news", "news.example", f"{term} 유행", f"{term} 가 유행이다"), ev("community", "bsky.app", f"{term} ㅋㅋ", f"완전 {term}잖아")]
+    assert gate(term, draft, usage, None) == ("unverified", [NO_REFERENCE])
+
+    for kind, domain, url in (("wiki", "namu.wiki", "https://namu.wiki/w/x"), ("wiki", "wikipedia.org", "https://ko.wikipedia.org/wiki/x"),
+                              ("web", "knowyourmeme.com", "https://knowyourmeme.com/memes/x"), ("web", "dic.pixiv.net", "https://dic.pixiv.net/a/x"),
+                              ("web", "zh.moegirl.org.cn", "https://zh.moegirl.org.cn/x")):
+        doc = ev(kind, domain, f"{term} 문서", f"{term} 는 긍정 밈이다", url=url)
+        assert gate(term, draft, usage + [doc], None) == ("verified_auto", []), domain
+
+    not_docs = [ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 유래", url="https://namu.wiki/"),               # 홈페이지 주소
+                ev("datalab", "namu.wiki", f"나무위키 실시간 검색어: {term}", term, url="https://namu.wiki/w/x"),     # 실시간 검색어
+                ev("wiki", "namu.wiki", "나무위키: 장원영", "아이브의 멤버다", url="https://namu.wiki/w/y"),            # 표제어가 없는 문서
+                ev("web", "theqoo.net", f"{term} 글", f"{term} 진짜", url="https://theqoo.net/1"),                    # 커뮤니티 링크
+                ev("web", "notwikipedia.org", f"{term} 문서", f"{term} 는 밈", url="https://notwikipedia.org/w/x")]   # 글자만 비슷한 도메인
+    for doc in not_docs:
+        assert NO_REFERENCE in gate(term, draft, usage + [doc], None)[1], doc.url
+
+
+def test_gate_does_not_demote_listed_terms_for_a_missing_document():
+    """이미 실린 말을 다시 조사할 때는 이 규칙으로 강등하지 않는다 — 기존 항목은 문서 대조(Plan 12) 뒤 사람이 정리한다. 검수 대기 중인 말에는 그대로."""
+    from trend_agents.schemas import Meaning
+    from trend_agents.verification import NO_REFERENCE
+
+    term, draft = "럭키비키", _lucky_draft()
+    usage = [ev("news", "news.example", f"{term} 유행", f"{term} 가 유행이다"), ev("community", "bsky.app", f"{term} ㅋㅋ", f"완전 {term}잖아")]
+    listed = Meaning(**draft.model_dump(), meaning_id="m1", term_id="t1", version=1, confidence=0.9, verification="verified_auto",
+                     valid_from=datetime.now(timezone.utc))
+    assert gate(term, draft, usage, listed) == ("verified_auto", [])
+    assert NO_REFERENCE in gate(term, draft, usage, listed.model_copy(update={"verification": "unverified"}))[1]
+
+
+def test_research_without_a_document_waits_for_a_person_who_can_publish_it(monkeypatch):
+    """조사 단계: 참고 문서가 없으면 검수 대기로 가고 사람 큐에 쉬운 이유와 함께 남는다(자동으로 닫지 않는다). 문서가 있으면 바로 실린다.
+    사람이 승인하면 문서가 없어도 실린다 — 그런 문서가 드문 지역의 예외 길."""
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+    from trend_agents.collectors import community, gdelt_context, namuwiki, naver_search, wiktionary
+    from trend_agents.pipeline import research
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+    from trend_agents.verification import NO_REFERENCE
+
+    documented = {"원영적 사고"}
+    monkeypatch.setattr(research, "budget_left", lambda con: 0)                  # Search grounding 없이 — 모은 근거로만(오프라인 조사)
+    monkeypatch.setattr(research, "structured", lambda *a, **k: (_lucky_draft(), "local:test"))
+    monkeypatch.setattr(research, "first_party_evidence", lambda con, term, *a, **k: [ev("news", "news.example", f"{term} 유행", f"요즘 {term} 가 유행이다")])
+    monkeypatch.setattr(research, "_wikipedia_evidence", lambda *a, **k: [])
+    monkeypatch.setattr(research, "attach_media", lambda *a, **k: 0)
+    monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(gdelt_context, "sentences", lambda *a, **k: [])
+    monkeypatch.setattr(naver_search, "gather", lambda *a, **k: ([], []))
+    monkeypatch.setattr(community, "gather", lambda term, *a, **k: ([ev("community", "bsky.app", f"{term} ㅋㅋ", f"완전 {term}")], []))
+    monkeypatch.setattr(namuwiki, "lookup", lambda name: [ev("wiki", "namu.wiki", f"나무위키: {name}", f"{name}는 장원영에게서 나온 말이다",
+                                                             url=f"https://namu.wiki/w/{name}")] if name in documented else [])
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name in (("t1", "럭키비키"), ("t2", "원영적 사고")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="researching", first_seen=now, last_seen=now))
+    assert research.research_one(con, ds.get_term(con, "t1")) == ("unverified", [NO_REFERENCE])
+    assert ds.get_term(con, "t1").status == "needs_review"
+    assert [(q["term_id"], q["reasons"]) for q in ds.review_queue(con)] == [("t1", [NO_REFERENCE])]
+    assert research.research_one(con, ds.get_term(con, "t2")) == ("verified_auto", [])
+    assert ds.get_term(con, "t2").status == "verified"
+
+    monkeypatch.setattr(api, "_con", con)
+    monkeypatch.setenv("FRONTEND_API_TOKEN", "tok")
+    m = ds.current_meaning(con, "t1")
+    r = TestClient(api.app).post("/review/t1", json={"decision": "approve", "by": "kim", "meaning_id": m.meaning_id}, headers={"x-frontend-token": "tok"})
+    assert r.status_code == 200 and ds.get_term(con, "t1").status == "verified"
+    assert ds.current_meaning(con, "t1").verification == "verified_human"
+
+
+def test_community_posts_are_recognised_on_any_path():
+    """커뮤니티·SNS 글은 수집기가 붙인 종류(community)뿐 아니라 구글 뉴스가 기사로 준 한국 커뮤니티 글, 조사 모델이 든 커뮤니티·SNS 링크도 가린다.
+    도메인은 그 사이트이거나 하위 도메인일 때만."""
+    from trend_agents.collectors.community import is_community_post
+
+    posts = [ev("community", "naver:cafearticle", "카페 글"), ev("news", "디시인사이드", "야갤 글", url="https://news.google.com/rss/articles/x"),
+             ev("web", "gall.dcinside.com", "갤 글", url="https://gall.dcinside.com/board/view/?no=1"), ev("web", "x.com", "글", url="https://x.com/a/status/1"),
+             ev("web", "forum.lowyat.net", "글", url="https://forum.lowyat.net/topic/1"), ev("community", "youtube.com/comments", "YouTube 댓글")]
+    docs = [ev("news", "news.example", "기사"), ev("wiki", "namu.wiki", "나무위키: x", url="https://namu.wiki/w/x"),
+            ev("short", "youtube.com", "쇼츠", url="https://www.youtube.com/shorts/abc"), ev("news", "lowyat.net", "기술 기사", url="https://lowyat.net/2026/x")]
+    assert all(is_community_post(e) for e in posts) and not any(is_community_post(e) for e in docs)
+
+
+def test_community_posts_are_signals_not_sources(monkeypatch):
+    """커뮤니티·SNS 글은 마지막 쓰임·뉘앙스로 세지만 사전 항목·검수 화면·대시보드 카드·질문 답·'왜 뜨나' 근거에 제목·링크·사이트 이름으로 나가지 않는다."""
+    from datetime import date
+
+    from trend_agents.collectors.community import is_community_post
+    from trend_agents.pipeline import board, dashboard, tools, views
+    from trend_agents.schemas import TrendExplanation
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = ds.upsert_term(con, Term(term_id="t1", canonical="오살힘", lang="ko", status="verified", first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t1", MeaningDraft(definition="오늘을 살아갈 힘. 하루를 버티게 해 주는 것", origin="x", nuance="y", generations=["20s"],
+                                           regions=["KR"], self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "t1", [("20s", "KR", now.isoformat(), 1.0)])
+    shown = [ev("news", "news.example", "요즘 뜨는 오살힘", "오살힘 이 뜬다", url="https://news.example/a"),
+             ev("wiki", "namu.wiki", "나무위키: 오살힘", "오살힘은 오늘을 살아갈 힘의 줄임말이다", url="https://namu.wiki/w/오살힘")]
+    posts = [ev("community", "bsky.app", "오살힘 ㅋㅋ", "오늘의 오살힘", url="https://bsky.app/profile/a/post/1"),
+             ev("community", "naver:cafearticle", "네이버 카페 · 오살힘", "오살힘 모음", url="https://cafe.naver.com/x/1"),
+             ev("news", "디시인사이드", "오살힘 짤 - 디시인사이드", "오살힘 짤", url="https://news.google.com/rss/articles/y"),
+             ev("web", "theqoo.net", "오살힘 모음 - 더쿠", "오살힘 모음", url="https://theqoo.net/1")]
+    ds.add_evidences(con, "t1", shown + posts)
+    ds.set_evidence_labels(con, "t1", [(posts[0].evidence_id, "neutral", "none")], "test")
+    names = ("bsky", "naver:cafe", "디시", "theqoo", "더쿠")
+
+    assert {e.evidence_id for e in views.term_record(con, t).evidences} == {e.evidence_id for e in shown}
+    ds.queue_review(con, "t1", MeaningDraft(**ds.current_meaning(con, "t1").model_dump(include=set(MeaningDraft.model_fields))), ["x"], 6)
+    assert {e.evidence_id for e in views.review_items(con)[0].evidences} <= {e.evidence_id for e in shown}
+
+    dashboard.run(con)
+    card = dashboard.card(con, "t1")
+    assert card.communities == [] and card.evidences and not any(is_community_post(e) for e in card.evidences)
+    assert card.last_used is not None and card.tone.neutral == 1              # 쓰임·뉘앙스로는 센다
+
+    ctx = tools.Ctx(con)
+    said = tools.lookup_term(ctx, {"term": "오살힘"})
+    assert "근거: 2건" in said and not any(n in said for n in names)
+    assert ctx.cards[0]["evidence_count"] == 2                                 # '출처 n건 모두 보기' 는 사전 항목의 출처 수와 같다
+
+    ds.save_explanation(con, TrendExplanation(term="오살힘", region="KR", date=date.today(), why_now="팬들이 쓴다", why_now_en="Fans use it",
+                                              trigger="meme", self_confidence=0.8))
+    ds.add_evidences(con, f"q|{ds.norm('오살힘')}|KR", shown[:1] + posts)
+    [why] = board.why_list(con)
+    assert [e.url for e in why.evidence] == [shown[0].url] and why.evidence_counts == {"news": 2, "community": 2, "web": 1}
+    assert [e.url for e in views.query_graph(con, f"{ds.norm('오살힘')}|KR").evidence] == [shown[0].url]
+    assert "근거: 1건" in tools.why_trending(tools.Ctx(con), {"term": "오살힘", "region": "KR"})
+
+
+def test_community_collection_and_live_lookup_skip_dropped_sources(monkeypatch):
+    """Lemmy·Hacker News 는 목표 지역 밖이라 모으지 않는다. 실시간 찾아보기는 이용자에게 출처가 보이므로 커뮤니티·SNS 를 읽지 않는다."""
+    from trend_agents.collectors import community, wikipedia_search, wiktionary
+    from trend_agents.pipeline import live
+
+    def boom(*a, **k):
+        raise RuntimeError("down")
+
+    for name in ("google_indexed_posts", "reddit_search", "bluesky_search"):
+        monkeypatch.setattr(community, name, boom)
+    evs, notes = community.gather("delulu", "US")
+    assert evs == [] and sorted(n.split(":")[0] for n in notes) == ["bluesky", "community_sites", "reddit"]
+
+    monkeypatch.setattr(community, "bluesky_search", lambda *a, **k: (_ for _ in ()).throw(AssertionError("읽으면 안 됨")))
+    monkeypatch.setattr(wikipedia_search, "summary", lambda *a, **k: None)
+    monkeypatch.setattr(wikipedia_search, "search", lambda *a, **k: [])
+    monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
+    assert all(fn() == [] for fn in live._sources("delulu", "ko"))

@@ -3,7 +3,7 @@ import { Sparkline } from "@/components/sparkline";
 import { RiskCell, StageCell } from "@/components/term-status";
 import { t, type Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
-import { fmtDate, fmtInt, regionLabel, sourceName } from "@/lib/labels";
+import { fmtDate, fmtInt, regionLabel } from "@/lib/labels";
 import type { KeywordCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +26,12 @@ function Mentions({ card }: { card: KeywordCard }) {
 }
 
 /* 대시보드 목록. 1024px 이상은 표, 그 아래는 선으로만 나눈 목록 행 — 카드 모자이크를 쓰지 않는다. 행을 누르면 사전 항목(뜻·근거·신호).
-   표는 최소 폭·가로 스크롤 없이 칸 우선순위로 줄인다: 1280px 미만에서는 '주로 보인 곳' 칸과 스파크라인을 숨긴다.
+   표는 최소 폭·가로 스크롤 없이 칸 우선순위로 줄인다: 1280px 미만에서는 스파크라인을 숨긴다.
+   커뮤니티 사이트 이름('주로 보인 곳')은 싣지 않는다 — 커뮤니티 글은 쓰임 지표로만 센다(ADR 0003).
    showRegions: 한 나라만 볼 때가 아니면 표현 아래에 쓰이는 나라를 쓴다(한 나라를 보면 모든 행이 같은 나라라 뺀다). */
 export function KeywordTable({ cards, locale, showRegions = false, linkRegions = [] }: { cards: KeywordCard[]; locale: Locale; showRegions?: boolean; linkRegions?: string[] }) {
   // 고른 지역을 사전 항목에 넘긴다 — 항목의 수가 이 표와 같은 지역 기준이 된다
   const entry = (c: KeywordCard) => `/dictionary/${c.term_id}${linkRegions.length ? `?regions=${linkRegions.join(",")}` : ""}`;
-  const where = (c: KeywordCard) => c.communities.slice(0, 2).map((s) => sourceName(locale, s.domain));
   const regions = (c: KeywordCard) => (showRegions && c.regions.length
     ? <p className="mt-0.5 text-[12px] text-steel">{c.regions.map((r) => (r === "GLOBAL" ? t(locale, "dash_global") : regionLabel(locale, r))).join(", ")}</p> : null);
   const th = "sticky top-0 z-10 border-b border-hairline bg-surface py-2.5 pr-4 text-[13px] font-medium text-steel";
@@ -45,7 +45,6 @@ export function KeywordTable({ cards, locale, showRegions = false, linkRegions =
             <th scope="col" className={cn(th, "w-[150px]")}>{t(locale, "dash_col_stage")}</th>
             <th scope="col" className={cn(th, "w-[104px] text-right xl:w-[176px]")}>{t(locale, "dash_mentions_4w")}</th>
             <th scope="col" className={cn(th, "w-[108px] text-right")}>{t(locale, "dash_last_used")}</th>
-            <th scope="col" className={cn(th, "hidden w-[150px] xl:table-cell")}>{t(locale, "dash_seen_on")}</th>
             <th scope="col" className={cn(th, "w-[124px]")}>{t(locale, "dash_col_risk")}</th>
           </tr>
         </thead>
@@ -60,7 +59,6 @@ export function KeywordTable({ cards, locale, showRegions = false, linkRegions =
               <td className="py-3 pr-4"><StageCell diffusion={c.diffusion} lifecycle={c.lifecycle} locale={locale} /></td>
               <td className="py-3 pr-4 text-right"><Mentions card={c} /></td>
               <td className="py-3 pr-4 text-right tabular-nums text-[13px] text-charcoal">{fmtDate(lastUsed(c))}</td>
-              <td className="hidden py-3 pr-4 text-[13px] text-charcoal xl:table-cell">{where(c).length ? where(c).join(", ") : <span className="text-steel">—</span>}</td>
               <td className="py-3"><RiskCell item={c} locale={locale} /></td>
             </tr>
           ))}

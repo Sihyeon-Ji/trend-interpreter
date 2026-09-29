@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import threading
 
+from ..collectors.community import is_community_post
 from ..config import USE_LOCAL_GEMMA
 from ..schemas import MemeFit, ProductBrief, Text2
 from ..storage import dictionary_store as ds
@@ -102,12 +103,12 @@ def ready(con: Connection, regions: list[str]) -> int:
 
 
 def _links(con: Connection, c: KeywordCard) -> list:
-    """추천마다 근거 링크 두 건 — 쓰임 글(커뮤니티·뉴스·쇼츠)이 먼저, 설명 문서는 그다음. 같은 주소는 한 번만
-    (위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 나왔다, 검토 3차). 고른 지역의 근거가 없으면 모든 지역 것으로 —
-    링크 없는 추천을 내지 않는다(ADR 0001 근거 규칙)."""
+    """추천마다 근거 링크 두 건 — 쓰임 글(뉴스·쇼츠)이 먼저, 설명 문서는 그다음. 커뮤니티·SNS 글은 링크로 내지 않는다(ADR 0003).
+    같은 주소는 한 번만 (위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 나왔다, 검토 3차). 고른 지역의 근거가 없으면
+    모든 지역 것으로 — 링크 없는 추천을 내지 않는다(ADR 0001 근거 규칙)."""
     def pick(evs):
         seen: set[str] = set()
-        out = [e for e in sorted((e for e in evs if e.kind != "datalab"), key=lambda e: e.kind not in dashboard.USAGE_KINDS)
+        out = [e for e in sorted((e for e in evs if e.kind != "datalab" and not is_community_post(e)), key=lambda e: e.kind not in dashboard.USAGE_KINDS)
                if not (e.url in seen or seen.add(e.url))]
         return out[:2]
 

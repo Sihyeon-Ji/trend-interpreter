@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import json
 
+from ..collectors.community import is_community_post
 from ..schemas import EvidenceBrief, Text2, Topic, TopicVariant, TopicVariantLink, TrendBoard, TrendItem, TrendWhy
 from ..storage import dictionary_store as ds
 from .match import unsafe
@@ -156,17 +157,18 @@ def run(con: Connection) -> dict:
 
 
 def why_list(con: Connection, limit_evidence: int = 8) -> list[TrendWhy]:
-    """급증 원인 설명 + 근거 요약 (이용자 카드)."""
+    """급증 원인 설명 + 근거 요약 (이용자 카드). 커뮤니티·SNS 글은 종류별 건수로만 세고 근거 목록에 내지 않는다(ADR 0003)."""
     out: list[TrendWhy] = []
     for x in ds.explanations_by_region(con).values():
         evs = ds.list_evidences(con, f"q|{ds.norm(x.term)}|{x.region}")
         counts: dict[str, int] = {}
         for e in evs:
             counts[e.kind] = counts.get(e.kind, 0) + 1
+        shown = [e for e in evs if not is_community_post(e)]
         row = con.execute("SELECT updated_at FROM trend_explanations WHERE key=?", (f"{ds.norm(x.term)}|{x.region}",)).fetchone()
         out.append(TrendWhy(term=x.term, region=x.region, date=x.date, why_now=Text2(ko=x.why_now, en=x.why_now_en or x.why_now), trigger=x.trigger, actors=x.actors,
                             first_signal=x.first_signal, confidence=x.self_confidence, evidence_counts=counts,
-                            evidence=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=e.title or e.excerpt, url=e.url, observed_at=e.observed_at) for e in evs[:limit_evidence]],
+                            evidence=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=e.title or e.excerpt, url=e.url, observed_at=e.observed_at) for e in shown[:limit_evidence]],
                             updated_at=datetime.fromisoformat(row[0]) if row else datetime.now(timezone.utc)))
     out.sort(key=lambda w: w.updated_at, reverse=True)
     return out

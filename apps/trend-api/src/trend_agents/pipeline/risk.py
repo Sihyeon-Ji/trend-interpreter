@@ -10,15 +10,18 @@ LLM 이 혼자 "안전함" 을 붙이지 않는다. 로컬 Gemma 는 **근거 �
 '식상' 은 리스크가 아니다 — 확산 단계와 대시보드의 '식어 가는 밈' 이 따로 보인다(2026-09-29 검토: 주의 43개 중 25개가 식상 하나로 주의였고,
 화면은 그것을 '민감한 맥락' 이라고 설명했다).
 
-이유는 걸린 근거 문장을 그대로 인용한다. 문장 분류는 Plan 04 대시보드의 긍정·부정 뉘앙스에도 쓴다.
+이유는 걸린 기사·쇼츠 문장을 인용한다. 커뮤니티·SNS 글은 판정에는 세지만 인용하지도 사이트 이름을 대지도 않고 건수로만 적는다
+(ADR 0003 — 이유는 사전 항목·추천 화면에 그대로 나간다). 문장 분류는 Plan 04 대시보드의 긍정·부정 뉘앙스에도 쓴다.
 로컬 모델이 없으면(기본 개발 환경) 분류는 건너뛰고 이미 있는 분류로만 판정한다.
 """
 from __future__ import annotations
 
 import re
+from collections import Counter
 from ..storage.db import Connection
 from datetime import datetime, timezone
 
+from ..collectors.community import is_community_post
 from ..schemas import Evidence, EvidenceLabel, ShortsInterpretation
 from ..storage import dictionary_store as ds
 from .gemini import local_ok, structured
@@ -41,6 +44,18 @@ _NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸�
                           r"profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)   # '이성적'·'차별화'·'시험 성적' 은 경고가 아니다(검토 2차)
 _NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
 _NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'
+RISK_KO = {"hate": "혐오·차별", "mockery": "조롱", "gender": "성별 갈등", "politics": "정치", "sexual": "선정성"}
+
+
+def _quotable(e: Evidence) -> bool:
+    """이유에 인용할 수 있는 근거 — 기사·쇼츠·문서. 커뮤니티·SNS 글과 네이버 검색 결과(표시 전용)는 인용하지 않는다(ADR 0003)."""
+    return e.kind in ("news", "short", "wiki", "web") and not e.source_domain.startswith("naver") and not is_community_post(e)
+
+
+def _posts_line(risky: list[tuple[Evidence, str]]) -> str:
+    """커뮤니티 글에 붙은 위험을 건수로만 — 글을 옮기거나 사이트 이름을 대지 않는다."""
+    kinds = ", ".join(RISK_KO.get(r, r) for r, _ in Counter(r for _, r in risky).most_common())
+    return f"커뮤니티 글에서 {kinds} 맥락으로 쓰인 경우 {len(risky)}건"
 
 
 def nuance_warning(text: str) -> str:
@@ -105,7 +120,7 @@ def _bad_origin(con: Connection, term) -> str:
 
 
 def judge(con: Connection, term) -> tuple[str | None, list[str]]:
-    """(수준, 이유들). 이유는 걸린 근거 문장을 인용한다."""
+    """(수준, 이유들). 이유는 걸린 기사·쇼츠 문장을 인용하고, 커뮤니티 글은 건수로만 적는다."""
     labels = ds.evidence_labels(con, term.term_id)
     evs = {e.evidence_id: e for e in _usage(con, term)}
     labeled = [(evs[k], p, r) for k, (p, r) in labels.items() if k in evs and p != "offtopic"]
@@ -114,8 +129,12 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     negative = [e for e, p, _ in labeled if p == "negative"]
 
     def quote(e: Evidence) -> str:
-        text = re.sub(r"^@\S+\s*·\s*\d+♥\s*—\s*", "", (e.excerpt or e.title).strip())   # 블루스카이 머리말
-        return f"“{text[:90]}” ({e.source_domain})"
+        return f"“{(e.excerpt or e.title).strip()[:90]}” ({e.source_domain})"
+
+    def risky_examples(n: int) -> list[str]:
+        """위험 근거의 예 — 인용할 수 있는 것은 n건까지 인용, 커뮤니티 글은 건수 한 줄."""
+        posts = [(e, r) for e, r in risky if not _quotable(e)]
+        return [quote(e) for e, _ in risky if _quotable(e)][:n] + ([_posts_line(posts)] if posts else [])
 
     if unsafe(term.canonical):
         return "avoid", ["표제어 자체가 욕설·성적 표현이다."]
@@ -124,7 +143,7 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
         return "avoid", [f"영상 해석이 지적한 기원: {origin[:120]}"]
     # 한 곳(블루스카이 등)에 몰린 위험 문장은 그 커뮤니티의 말투일 수 있다 — 출처가 둘 이상일 때만 '피함'
     if len(risky) >= AVOID_RISKY and len({e.source_domain for e, _ in risky}) >= 2:
-        return "avoid", [f"위험 유형이 붙은 근거 {len(risky)}건"] + [quote(e) for e, _ in risky[:2]]
+        return "avoid", [f"위험 유형이 붙은 근거 {len(risky)}건"] + risky_examples(2)
     m = ds.current_meaning(con, term.term_id)
     warned = nuance_warning(f"{m.nuance} {m.origin}" if m else "")
     reasons = [f"사전 뜻풀이에 적힌 주의점: “{warned}”"] if warned else []
@@ -134,10 +153,20 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
         extra = f" (글자만 같은 딴 이야기 {offtopic}건 제외)" if offtopic else ""
         return None, [f"그 뜻으로 쓰인 근거가 {len(labeled)}건뿐이라 판단을 보류한다{extra}."]
     if len(risky) >= CAUTION_RISKY:
-        reasons.append(f"위험 유형이 붙은 근거 {len(risky)}건: " + quote(risky[0][0]))
+        shown = [e for e, _ in risky if _quotable(e)]
+        posts = [(e, r) for e, r in risky if not _quotable(e)]
+        if shown:
+            reasons.append(f"위험 유형이 붙은 근거 {len(risky)}건: " + quote(shown[0]))
+        if posts:
+            reasons.append(_posts_line(posts))
     ratio = len(negative) / len(labeled)
     if ratio >= CAUTION_NEGATIVE:
-        reasons.append(f"부정적으로 쓰인 근거가 {ratio:.0%} — 예: " + quote(negative[0]))
+        shown_neg = [e for e in negative if _quotable(e)]
+        if shown_neg:
+            reasons.append(f"부정적으로 쓰인 근거가 {ratio:.0%} — 예: " + quote(shown_neg[0]))
+        else:                          # 부정 문장이 모두 커뮤니티 글 — 그 글들 가운데 부정의 몫만 적는다
+            posts = [e for e, _, _ in labeled if not _quotable(e)]
+            reasons.append(f"커뮤니티 글의 {len(negative) / len(posts):.0%}가 부정적인 맥락")
     if reasons:
         return "caution", reasons
     return "none", [f"분류된 근거 {len(labeled)}건에 위험 신호가 없다."]

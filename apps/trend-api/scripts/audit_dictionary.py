@@ -6,6 +6,8 @@
   uv run scripts/audit_dictionary.py --reject "brics|very" --downgrade "Papa Aa Gaye"   # 표제어 이름으로 제외 / 강등 (구분자 |)
 
 사람이 확인한(verified_human) 뜻은 '풀이가 근거 원문에 없음' 사유를 막지 않는다 — 풀이는 사람이 앵커다. 출처 수·1차 근거 부족은 그대로 막는다.
+참고 문서가 없다는 사유(ADR 0003)도 사람이 확인한 뜻은 막지 않는다 — 사람의 승인이 문서가 드문 지역의 예외 길이다.
+그 밖의 항목에는 참고 문서 규칙이 적용되므로, 문서 없는 말의 --apply 는 사용자가 목록을 확인한 뒤에만 쓴다(Plan 12).
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ from trend_agents.pipeline.research import first_party_evidence  # noqa: E402
 from trend_agents.schemas import Evidence, MeaningDraft  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
 from trend_agents.storage import store as db  # noqa: E402
-from trend_agents.verification import gate  # noqa: E402
+from trend_agents.verification import NO_REFERENCE, gate  # noqa: E402
 from trend_agents.storage.db import Connection
 
 REGION_BY_LANG = {"ko": "KR", "ja": "JP", "id": "ID", "de": "DE", "pt": "BR", "hi": "IN", "te": "IN", "es": "MX", "th": "TH", "vi": "VN"}
@@ -32,7 +34,7 @@ BY = "team"
 def blocking(reasons: list[str], human: bool) -> list[str]:
     out = [r for r in reasons if not r.endswith("제외됨")]
     if human:
-        out = [r for r in out if "어떤 근거 원문에도 없음" not in r]
+        out = [r for r in out if "어떤 근거 원문에도 없음" not in r and r != NO_REFERENCE]
     return out
 
 

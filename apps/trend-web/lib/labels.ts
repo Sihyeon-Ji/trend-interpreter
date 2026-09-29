@@ -78,24 +78,18 @@ export const joinGens = (locale: Locale, gens: Generation[]) => listJoin(locale,
 export const joinRegions = (locale: Locale, regions: string[]) => listJoin(locale, regions.map((r) => L(locale).region[r] ?? r));
 export const regionLabel = (locale: Locale, code: string) => L(locale).region[code] ?? code;
 
-/* 근거 출처 이름. 수집기가 붙인 코드('naver:cafearticle')를 사람이 읽는 이름으로. 모르는 것은 도메인 그대로. */
+/* 근거 출처 이름. 수집기가 붙인 코드('naver:blog')를 사람이 읽는 이름으로. 모르는 것은 도메인 그대로.
+   커뮤니티·SNS 글은 화면에 내지 않으므로(ADR 0003) 그 사이트 이름은 두지 않는다. */
 const SOURCE_NAME: Record<Locale, Record<string, string>> = {
-  ko: { "naver:blog": "네이버 블로그", "naver:cafearticle": "네이버 카페", "naver:kin": "네이버 지식iN", "naver:news": "네이버 뉴스", "datalab.naver.com": "네이버 데이터랩",
-        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends",
+  ko: { "naver:blog": "네이버 블로그", "naver:news": "네이버 뉴스", "datalab.naver.com": "네이버 데이터랩", "trends.google.com": "Google Trends",
         // 사람이 읽는 이름 — 도메인을 그대로 내지 않는다(디자인 개편 검토)
-        "namu.wiki": "나무위키", "theqoo.net": "더쿠", "instiz.net": "인스티즈", "dcard.tw": "Dcard", "togetter.com": "Togetter",
-        "girlschannel.net": "ガールズちゃんねる", "brunch.co.kr": "브런치", "instagram.com": "Instagram", "x.com": "X", "youtube.com": "YouTube",
+        "namu.wiki": "나무위키", "brunch.co.kr": "브런치", "instagram.com": "Instagram", "youtube.com": "YouTube",
         "wikipedia.org": "위키백과", "ko.wikipedia.org": "위키백과", "en.wikipedia.org": "영어 위키백과", "ja.wikipedia.org": "일본어 위키백과",
-        "zh.wikipedia.org": "중국어 위키백과", "reddit.com": "Reddit", "5ch.net": "5ちゃんねる", "pantip.com": "Pantip" },
-  en: { "naver:blog": "Naver Blog", "naver:cafearticle": "Naver Cafe", "naver:kin": "Naver KnowledgeiN", "naver:news": "Naver News", "datalab.naver.com": "Naver DataLab",
-        "bsky.app": "Bluesky", "news.ycombinator.com": "Hacker News", "trends.google.com": "Google Trends",
-        "namu.wiki": "Namuwiki", "theqoo.net": "theqoo", "instiz.net": "instiz", "dcard.tw": "Dcard", "togetter.com": "Togetter",
-        "girlschannel.net": "Girls Channel", "brunch.co.kr": "Brunch", "instagram.com": "Instagram", "x.com": "X", "youtube.com": "YouTube",
+        "zh.wikipedia.org": "중국어 위키백과" },
+  en: { "naver:blog": "Naver Blog", "naver:news": "Naver News", "datalab.naver.com": "Naver DataLab", "trends.google.com": "Google Trends",
+        "namu.wiki": "Namuwiki", "brunch.co.kr": "Brunch", "instagram.com": "Instagram", "youtube.com": "YouTube",
         "wikipedia.org": "Wikipedia", "ko.wikipedia.org": "Korean Wikipedia", "en.wikipedia.org": "Wikipedia", "ja.wikipedia.org": "Japanese Wikipedia",
-        "zh.wikipedia.org": "Chinese Wikipedia", "reddit.com": "Reddit", "5ch.net": "5channel", "pantip.com": "Pantip",
-        // 구글 뉴스가 한국 커뮤니티를 한국어 이름으로 준다 — 영어 화면에서는 영어 이름으로
-        "디시인사이드": "DC Inside", "갤러리": "DC Inside", "클리앙": "Clien", "에펨코리아": "FM Korea", "더쿠": "theqoo", "루리웹": "Ruliweb",
-        "인스티즈": "instiz", "뽐뿌": "Ppomppu" },
+        "zh.wikipedia.org": "Chinese Wikipedia" },
 };
 export const sourceName = (locale: Locale, domain: string) => SOURCE_NAME[locale][domain] ?? domain;
 

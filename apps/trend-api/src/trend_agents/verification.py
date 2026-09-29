@@ -3,8 +3,14 @@
 참고 아키텍처(MCTI)에서 이식한 두 원칙:
 - 라벨 정직성 게이트: 라벨(verified)은 결정론 근거가 있을 때만. 실패는 삭제가 아니라 강등 + 사유 기록.
 - 앵커 가드: 용어·풀이가 근거 '원문'에 실재할 때만 그 근거를 센다. LLM 자기검증 금지.
+
+사전 등재 기준(ADR 0003, 2026-09-29): 자동으로 싣는 말은 유래를 적는 참고 문서(나무위키·위키백과·Know Your Meme·
+pixiv 백과사전·萌娘百科)에 표제어가 든 문서가 있어야 한다. 커뮤니티·SNS 글은 쓰임을 재는 지표일 뿐 뜻의 근거가 아니다.
+문서가 없으면 검수 대기로 가고, 사람이 승인하면 실린다(그런 문서가 드문 지역의 예외 길).
 """
 from __future__ import annotations
+
+from urllib.parse import urlsplit
 
 from .schemas import Evidence, Meaning, MeaningDraft, Verification
 
@@ -13,6 +19,19 @@ MIN_SELF_CONFIDENCE = 0.5
 # 위키백과 문서는 사람이 쓴 백과사전 항목이라 1차 근거로 인정한다. 다만 언어판이 달라도 한 출처로 세도록
 # source_domain 을 wikipedia.org 하나로 맞춰 두었다 — 영어판·한국어판을 "독립 출처 2개" 로 셈하면 자기확인이 된다.
 FIRST_PARTY = {"short", "news", "datalab", "wiki"}
+# 참고 문서가 있는 곳(하위 도메인 포함 — ko.wikipedia.org 등). 니코니코 대백과는 이 서버를 막고, pixiv 백과사전은 대부분 봇 확인 뒤에 있다.
+REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixiv.net", "zh.moegirl.org.cn")
+NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
+
+
+def reference_doc(e: Evidence) -> bool:
+    """참고 문서의 한 쪽인가 — 위키·웹 근거이고 주소가 참고 문서 도메인의 문서일 때만.
+    나무위키 실시간 검색어(datalab, 주소는 홈페이지)나 홈페이지 주소뿐인 근거는 문서가 아니다."""
+    if e.kind not in ("wiki", "web"):
+        return False
+    u = urlsplit(e.url or "")
+    host = (u.hostname or "").lower()
+    return u.path not in ("", "/") and any(host == d or host.endswith("." + d) for d in REFERENCE_DOMAINS)
 
 
 def _norm(s: str) -> str:
@@ -55,6 +74,11 @@ def gate(
         reasons.append(f"용어가 실재하는 독립 출처 {MIN_INDEPENDENT_DOMAINS}개 미만")
     if not any(e.kind in FIRST_PARTY for e in anchored):
         reasons.append("1차 근거(쇼츠·뉴스·데이터랩) 없음 — 웹 검색만으로는 부족")
+    # 참고 문서 규칙(ADR 0003). 이미 실린 말(현행 뜻이 확인됨)을 다시 조사할 때는 이 규칙으로 강등하지 않는다 —
+    # 기존 항목은 문서 대조(Plan 12)를 거쳐 사람이 확인한 뒤에 정리한다.
+    listed = current is not None and current.verification in ("verified_auto", "verified_human")
+    if not listed and not any(reference_doc(e) for e in anchored):
+        reasons.append(NO_REFERENCE)
     if draft.expansion and not any(_norm(draft.expansion) in _norm(source_text(e)) for e in evidences):
         reasons.append(f"풀이 {draft.expansion!r} 가 어떤 근거 원문에도 없음 — 환각 의심")
     if draft.self_confidence < MIN_SELF_CONFIDENCE:

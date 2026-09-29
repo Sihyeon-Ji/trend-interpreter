@@ -6,13 +6,13 @@ import type { Evidence } from "./types";
 export interface SourceRow {
   id: string;
   date: string;          // 관측 시각 (ISO)
-  source: string;        // "톱스타뉴스 기사", "Bluesky 글"
+  source: string;        // "톱스타뉴스 기사", "나무위키 문서"
   title: string;
   url: string;
   excerpt: string;       // 제목에 없는 내용이 있을 때만
 }
 
-/* 출처 칸의 '무엇' — "톱스타뉴스 기사", "Bluesky 글". 종류 이름('커뮤니티')을 붙이면 "Bluesky 커뮤니티" 가 되어 어색했다. */
+/* 출처 칸의 '무엇' — "톱스타뉴스 기사", "나무위키 문서". 커뮤니티 글은 화면에 오지 않지만(ADR 0003) 종류마다 이름을 둔다. */
 const NOUN: Record<Locale, Record<Evidence["kind"], string>> = {
   ko: { short: "영상", news: "기사", datalab: "검색 통계", web: "웹 문서", community: "글", human: "검수 기록", wiki: "문서" },
   en: { short: "video", news: "article", datalab: "search stats", web: "web page", community: "post", human: "review note", wiki: "article" },
@@ -38,12 +38,11 @@ function around(text: string, term: string, width = 60): string {
   return `${from > 0 ? "…" : ""}${text.slice(from, to)}${to < text.length ? "…" : ""}`;
 }
 
-/** 출처 한 줄. 커뮤니티 발췌 앞의 "@handle · 1♥ — " (개인 계정·좋아요 수)를 떼고, 따옴표가 겹친 것을 풀고,
- *  제목을 되풀이할 뿐인 발췌는 내지 않는다(제목 앞 30자만 비교하던 것을 전체 비교로). */
+/** 출처 한 줄. 따옴표가 겹친 것을 풀고, 제목을 되풀이할 뿐인 발췌는 내지 않는다(제목 앞 30자만 비교하던 것을 전체 비교로). */
 export function cleanSource(e: Evidence, term: string, locale: Locale): SourceRow {
   const names = [e.source_domain, sourceName("ko", e.source_domain), sourceName("en", e.source_domain)];
   const title = stripSourceTail((e.title ?? "").trim(), names).replace(QUOTES, "") || e.url;
-  let excerpt = (e.excerpt ?? "").trim().replace(/^@\S+\s*·\s*\d+\s*♥\s*[—–-]\s*/u, "").replace(QUOTES, "");
+  let excerpt = (e.excerpt ?? "").trim().replace(QUOTES, "");
   const nt = norm(title), ne = norm(excerpt);
   if (!ne || nt.includes(ne)) excerpt = "";
   else if (nt && ne.includes(nt) && ne.length - nt.length < 15) excerpt = "";   // 제목에 몇 글자 붙은 것뿐이면 새 내용이 아니다

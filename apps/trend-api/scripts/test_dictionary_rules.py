@@ -26,8 +26,10 @@ draft = MeaningDraft(definition="자연스러운 만남을 추구한다는 뜻",
 ev = [
     Evidence(evidence_id="e1", kind="short", url="https://www.youtube.com/watch?v=x", source_domain="youtube.com", observed_at=now, excerpt="자만추 vs 인만추"),
     Evidence(evidence_id="e2", kind="news", url="https://n.news.naver.com/a", source_domain="news.naver.com", observed_at=now, excerpt="자만추(자연스러운 만남 추구)"),
+    Evidence(evidence_id="e5", kind="wiki", url="https://namu.wiki/w/자만추", source_domain="namu.wiki", observed_at=now, excerpt="자만추는 자연스러운 만남 추구의 줄임말이다"),
 ]
-v, why = gate("자만추", draft, ev, None);            print(f"  2출처+1차근거+앵커    -> {v:13s} {why}")
+v, why = gate("자만추", draft, ev, None);            print(f"  2출처+1차근거+앵커+문서 -> {v:13s} {why}")
+v, why = gate("자만추", draft, ev[:2], None);        print(f"  참고 문서 없음        -> {v:13s} {why}")
 v, why = gate("자만추", draft, ev[:1], None);        print(f"  1출처                -> {v:13s} {why}")
 web = [Evidence(evidence_id="e3", kind="web", url="https://a.com", source_domain="a.com", observed_at=now), Evidence(evidence_id="e4", kind="web", url="https://b.com", source_domain="b.com", observed_at=now)]
 v, why = gate("자만추", draft, web, None);           print(f"  웹검색만 2출처(앵커X) -> {v:13s} {why}")

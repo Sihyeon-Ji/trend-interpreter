@@ -1,7 +1,7 @@
 /* 예시 데이터 모드의 키워드 대시보드. 실제 지역 판정·목록 나누기는 백엔드 pipeline/dashboard.py 의 규칙이고,
    여기는 그 규칙을 예시 사전(SAMPLE_RECORDS)에 그대로 옮겨 모델·서버 없이 화면을 열어 보게 할 뿐이다. */
 import { TARGET_REGIONS } from "../reader";
-import type { KeywordBoard, KeywordCard, KeywordList, SourceCount, TermRecord } from "../types";
+import type { KeywordBoard, KeywordCard, KeywordList, TermRecord } from "../types";
 import { SAMPLE_RECORDS } from "./dictionary";
 
 const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
@@ -31,11 +31,11 @@ const hasPath = (url: string) => { try { return !["", "/"].includes(new URL(url)
 function toCard(r: TermRecord): KeywordCard {
   const m = r.meanings.find((x) => !x.valid_to) ?? r.meanings.at(-1);
   const weekly = r.weekly.slice(-12);
-  const counts = new Map<string, number>();
-  for (const e of r.evidences) if (e.kind === "community") counts.set(e.source_domain, (counts.get(e.source_domain) ?? 0) + 1);
-  const communities: SourceCount[] = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([domain, count]) => ({ domain, count }));
   // 홈페이지 주소뿐인 것은 근거가 아니다 — 백엔드 dashboard._has_path 와 같다(예시 모드에서만 근거 없는 추천이 나가던 것, 검토 3차)
-  const recent = [...r.evidences].filter((e) => e.kind !== "datalab" && hasPath(e.url)).sort((a, b) => b.observed_at.localeCompare(a.observed_at)).slice(0, 5);
+  const dated = [...r.evidences].filter((e) => e.kind !== "datalab" && hasPath(e.url)).sort((a, b) => b.observed_at.localeCompare(a.observed_at));
+  const recent = dated.slice(0, 5);
+  // 커뮤니티 글은 '마지막 쓰임' 으로만 세고 근거로 보이지 않는다 — 백엔드 dashboard.build_card 와 같다(ADR 0003)
+  const shown = dated.filter((e) => e.kind !== "community").slice(0, 5);
   return {
     term_id: r.term.term_id, canonical: r.term.canonical, lang: r.term.lang ?? "ko", category: r.category,
     gloss_ko: r.ko?.definition ?? m?.definition ?? "", gloss_en: r.en?.definition ?? m?.definition ?? "",
@@ -43,8 +43,8 @@ function toCard(r: TermRecord): KeywordCard {
     risk_level: r.term.risk_level ?? null, risk_reasons: r.term.risk_reasons ?? [],
     weekly, mentions_4w: weekly.slice(-4).reduce((a, p) => a + p.count, 0),
     risk_checked_at: r.term.risk_checked_at ?? null,
-    search: [], gen_peaks: [], communities, tone: { positive: 0, neutral: 0, negative: 0 },
-    evidences: recent.map((e) => ({ kind: e.kind, source_domain: e.source_domain, title: e.title ?? e.excerpt ?? "", url: e.url, observed_at: e.observed_at })),
+    search: [], gen_peaks: [], communities: [], tone: { positive: 0, neutral: 0, negative: 0 },
+    evidences: shown.map((e) => ({ kind: e.kind, source_domain: e.source_domain, title: e.title ?? e.excerpt ?? "", url: e.url, observed_at: e.observed_at })),
     last_seen: r.term.last_seen ?? null,
     last_used: recent.find((e) => ["community", "news", "short"].includes(e.kind))?.observed_at ?? null,
   };

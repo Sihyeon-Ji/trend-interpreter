@@ -1,8 +1,9 @@
-"""키워드 대시보드 (Plan 04). 용어 하나를 마케터가 볼 신호로 모은다 — 퍼진 정도·리스크·언급 추이·검색 순위·연령대 정점·출몰 커뮤니티·뉘앙스·최근 근거.
+"""키워드 대시보드 (Plan 04). 용어 하나를 마케터가 볼 신호로 모은다 — 퍼진 정도·리스크·언급 추이·검색 순위·연령대 정점·뉘앙스·최근 근거.
 
 지역 판정과 목록 나누기(지금 쓰이는 밈·식어 가는 밈·주의가 필요한 밈)는 규칙이다. 모델은 부르지 않는다.
-단계(run)가 용어마다 **나라별 재료**(원본 언급·커뮤니티·뉘앙스·근거)를 만들어 board_cache 의 'dashboard' 에 두고,
+단계(run)가 용어마다 **나라별 재료**(원본 언급·뉘앙스·근거·마지막 쓰임)를 만들어 board_cache 의 'dashboard' 에 두고,
 API(board)는 고른 지역의 재료만 더해 카드를 만든다 — 지역을 바꾸면 목록뿐 아니라 수치도 그 지역 것으로 바뀐다(Plan 04 완료 기준).
+커뮤니티·SNS 글은 마지막 쓰임·뉘앙스로만 센다. 근거 예시·'많이 보인 곳' 으로 내지 않는다(ADR 0003).
 """
 from __future__ import annotations
 
@@ -14,14 +15,14 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 
-from ..collectors.community import COMMUNITY_SITES
+from ..collectors.community import COMMUNITY_SITES, is_community_post
 from ..config import LANG_REGION, REGIONS_FOCUS
 from ..schemas import Evidence, EvidenceBrief, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from .match import mentions, unsafe
 from .runs import stage
-from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, SourceCount, Tone, WeeklyPoint
+from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, Tone, WeeklyPoint
 
 GLOBAL = "GLOBAL"
 CACHE_KEY = "dashboard"
@@ -150,9 +151,8 @@ class Stored(BaseModel):
     card: KeywordCard                               # 나라와 상관없는 필드(뜻·단계·리스크·검색 순위 전체·연령대 정점)
     weeks: list[str]
     weekly: dict[str, list[int]] = {}               # 나라(목표 지역·GLOBAL)별 원본 주간 언급
-    communities: dict[str, dict[str, int]] = {}     # 나라별 커뮤니티 도메인 건수
-    tone: dict[str, dict[str, int]] = {}            # 나라별 뉘앙스 수
-    evidences: dict[str, list[EvidenceBrief]] = {}  # 나라별 최근 쓰임 근거. "" = 나라를 가를 수 없는 문서(위키 등)
+    tone: dict[str, dict[str, int]] = {}            # 나라별 뉘앙스 수 (커뮤니티 글 포함 — 수만 나간다)
+    evidences: dict[str, list[EvidenceBrief]] = {}  # 나라별 최근 근거(커뮤니티·SNS 글은 빼고). "" = 나라를 가를 수 없는 문서(위키 등)
     last_used: dict[str, datetime] = {}             # 나라별 가장 최근에 쓰인 글의 때
 
 
@@ -231,7 +231,6 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         row = weekly.setdefault(r if r in REGIONS_FOCUS else GLOBAL, [0] * len(weeks))
         for i, w in enumerate(weeks):
             row[i] += cnt.get(w, 0)
-    communities: dict[str, Counter] = {}
     tone: dict[str, Counter] = {}
     examples: dict[str, list[EvidenceBrief]] = {}
     last_used: dict[str, datetime] = {}
@@ -243,11 +242,12 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
             r = text_region(f"{e.title or ''} {e.excerpt or ''}", regions)
         if e.kind in USAGE_KINDS and (r not in last_used or e.observed_at > last_used[r]):
             last_used[r] = e.observed_at
-        if e.kind == "community":
-            communities.setdefault(r, Counter())[e.source_domain] += 1
         p = labels.get(e.evidence_id, (None, None))[0]
         if p and p != "offtopic":
             tone.setdefault(r, Counter())[p] += 1
+        # 커뮤니티·SNS 글은 마지막 쓰임·뉘앙스로만 세고 근거 예시로 내지 않는다(ADR 0003)
+        if is_community_post(e):
+            continue
         # 한 곳에 몰리지 않게 출처마다 두 건까지. 같은 주소는 한 번만 — 위키백과 문서가 web·wiki 로 두 번 들어와 같은 링크가 둘 보였다(검토 3차)
         if per_domain[e.source_domain] < 2 and len(examples.get(r, [])) < 5 and e.url not in shown:
             per_domain[e.source_domain] += 1
@@ -259,25 +259,24 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         gloss_ko=ko.definition if ko else base, gloss_en=en.definition if en else base, regions=[] if outside else regions,
         lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
-        communities=[], tone=Tone(), evidences=[], last_seen=t.last_seen)
-    return Stored(card=card, weeks=weeks, weekly=weekly, communities={r: dict(c) for r, c in communities.items()},
-                  tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used)
+        tone=Tone(), evidences=[], last_seen=t.last_seen)
+    return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used)
 
 
 def view(s: Stored, chosen: list[str]) -> KeywordCard:
-    """고른 지역의 재료만 더한 카드. 나라를 가를 수 없는 문서(위키 등)는 어느 지역에서나 근거로 보인다."""
+    """고른 지역의 재료만 더한 카드. 나라를 가를 수 없는 문서(위키 등)는 어느 지역에서나 근거로 보인다.
+    커뮤니티 사이트 이름(communities)은 채우지 않는다. 이 규칙 전에 만든 캐시의 커뮤니티 근거도 여기서 거른다(ADR 0003)."""
     series = [sum(s.weekly.get(r, [0] * len(s.weeks))[i] for r in chosen) for i in range(len(s.weeks))]
-    comm: Counter = Counter()
     tone: Counter = Counter()
     for r in chosen:
-        comm.update(s.communities.get(r, {}))
         tone.update(s.tone.get(r, {}))
-    evs = sorted((e for r in (*chosen, "") for e in s.evidences.get(r, [])), key=lambda e: e.observed_at, reverse=True)[:5]
+    evs = sorted((e for r in (*chosen, "") for e in s.evidences.get(r, []) if not is_community_post(e)),
+                 key=lambda e: e.observed_at, reverse=True)[:5]
     return s.card.model_copy(update={
         "weekly": [WeeklyPoint(week_start=w, count=c) for w, c in zip(s.weeks, series)],
         "mentions_4w": sum(series[-4:]),
         "search": [h for h in s.card.search if h.region in chosen],
-        "communities": [SourceCount(domain=d, count=n) for d, n in comm.most_common(5)],
+        "communities": [],
         "tone": Tone(positive=tone["positive"], neutral=tone["neutral"], negative=tone["negative"]),
         "evidences": evs,
         "last_used": max((s.last_used[r] for r in chosen if r in s.last_used), default=None),

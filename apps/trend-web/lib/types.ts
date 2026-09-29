@@ -113,9 +113,9 @@ export interface KeywordCard {
   mentions_4w: number;
   search: SearchHit[];            // 고른 지역의 인기 검색어 기록
   gen_peaks: GenPeak[];           // 연령대별 검색 정점 (네이버 데이터랩, 한국어 표제어만)
-  communities: SourceCount[];
+  communities: SourceCount[];     // 늘 빈 목록 — 커뮤니티 사이트 이름은 이용자에게 내지 않는다(ADR 0003). 화면은 읽지 않는다
   tone: Tone;
-  evidences: EvidenceBrief[];
+  evidences: EvidenceBrief[];     // 최근 근거 (커뮤니티·SNS 글은 빼고)
   last_seen?: string | null;
   last_used?: string | null;      // 고른 지역에서 가장 최근에 쓰인 글의 때
 }

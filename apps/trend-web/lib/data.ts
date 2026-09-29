@@ -14,6 +14,10 @@ import { TARGET_REGIONS } from "./reader";
 export const isSampleMode = process.env.DATA_MODE !== "api";
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
+/* 예시 모드도 백엔드 views.shown_evidences 와 같이 — 커뮤니티 글은 쓰임 지표(예시 대시보드의 '마지막 쓰임')로만 두고
+   사전 항목·검수·해석 화면의 근거로 보이지 않는다(ADR 0003). */
+const SHOWN_RECORDS: TermRecord[] = SAMPLE_RECORDS.map((r) => ({ ...r, evidences: r.evidences.filter((e) => e.kind !== "community") }));
+
 class ApiError extends Error {
   constructor(path: string, readonly status: number) {
     super(`${path} → ${status}`);
@@ -36,13 +40,13 @@ async function apiOr<T>(path: string, fallback: T, revalidate = 60): Promise<T> 
 }
 
 export async function getTermRecords(): Promise<TermRecord[]> {
-  return isSampleMode ? SAMPLE_RECORDS : apiOr<TermRecord[]>("/terms", SAMPLE_RECORDS);
+  return isSampleMode ? SHOWN_RECORDS : apiOr<TermRecord[]>("/terms", SHOWN_RECORDS);
 }
 
 /** 사전 색인용. 서버가 실패하면 예시 데이터로 바꿔 넣지 않고 실패를 알린다 — 운영 사용자가 예시 52개를 실제 사전으로
  *  보게 되던 것(2026-09-29 검토). 예시 모드도 공개 사전처럼 확인된 표현만 싣는다. */
 export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: boolean }> {
-  if (isSampleMode) return { records: SAMPLE_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
+  if (isSampleMode) return { records: SHOWN_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
   try {
     return { records: await api<TermRecord[]>("/terms"), ok: true };
   } catch {
@@ -54,7 +58,7 @@ export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: bo
  *  api 모드에서 서버가 답하지 않으면 예시 데이터로 바꾸지 않고 던진다 → app/dictionary/[termId]/error.tsx 가 '다시 불러오기' 를 낸다
  *  (예시 수치가 실제처럼 보이던 것, 개편 검토 2차). */
 export async function getTermRecord(termId: string): Promise<TermRecord | null> {
-  if (isSampleMode) return SAMPLE_RECORDS.find((r) => r.term.term_id === termId) ?? null;
+  if (isSampleMode) return SHOWN_RECORDS.find((r) => r.term.term_id === termId) ?? null;
   try {
     return await api<TermRecord | null>(`/terms/${encodeURIComponent(termId)}`);
   } catch (e) {
@@ -95,7 +99,7 @@ export async function getPipelineStages(): Promise<PipelineStage[]> {
 /** 예시 모드는 예시 사전에서 지금 실린 뜻·근거를 붙인다(백엔드 views.review_items 와 같은 규칙). */
 function sampleQueue(): ReviewItem[] {
   return SAMPLE_QUEUE.map((q) => {
-    const rec = SAMPLE_RECORDS.find((r) => r.term.term_id === q.term_id);
+    const rec = SHOWN_RECORDS.find((r) => r.term.term_id === q.term_id);
     const cur = rec?.meanings.filter((m) => m.version < q.proposed.version && (m.verification === "verified_auto" || m.verification === "verified_human")) ?? [];
     return { ...q, lang: rec?.term.lang ?? null, current: cur.at(-1) ?? null, evidences: (rec?.evidences ?? []).filter((e) => e.kind !== "datalab").slice(0, 5), weekly: rec?.weekly ?? [] };
   });
@@ -107,7 +111,7 @@ export async function getReviewQueue(): Promise<ReviewItem[]> {
 
 /** 관리 '리스크' 탭 — 사전에 오른 말 전부. getTermRecords 와 달리 예시로 내려가지 않는다. */
 export async function getRiskRecords(): Promise<TermRecord[]> {
-  return isSampleMode ? SAMPLE_RECORDS : apiNoStore<TermRecord[]>("/terms");
+  return isSampleMode ? SHOWN_RECORDS : apiNoStore<TermRecord[]>("/terms");
 }
 
 export function getSampleCopy(locale: Locale): string {
@@ -128,7 +132,7 @@ export async function explain(text: string, locale: Locale, reader: Reader = {})
     return explainMessage(text, picked, locale, plain, reader);
   }
   const plain = SAMPLE_REWRITES[locale][text.trim()] ?? null;
-  return explainMessage(text, SAMPLE_RECORDS, locale, plain, reader);
+  return explainMessage(text, SHOWN_RECORDS, locale, plain, reader);
 }
 
 export async function getTrendBoard(): Promise<TrendBoard> {

@@ -46,8 +46,9 @@ class LiveResult:
 
 
 def _sources(term: str, lang: str) -> list:
-    """빠른 것만. 느린 조사(위키 본문·네이버·유튜브)는 뒤쪽 research 가 맡는다."""
-    from ..collectors import community, wikipedia_search, wiktionary
+    """빠른 것만. 느린 조사(위키 본문·네이버·유튜브)는 뒤쪽 research 가 맡는다.
+    커뮤니티·SNS 글(예전의 Lemmy·블루스키)은 읽지 않는다 — 찾은 곳이 이용자에게 출처로 보이고, 그런 글은 지표로만 쓴다(ADR 0003)."""
+    from ..collectors import wikipedia_search, wiktionary
 
     def wiki(lg: str):
         sm = wikipedia_search.summary(lg, term)
@@ -64,9 +65,7 @@ def _sources(term: str, lang: str) -> list:
                          observed_at=datetime.now(timezone.utc), excerpt=sm["extract"][:300])]
 
     return [lambda: wiki(lang), lambda: wiki("en") if lang != "en" else [],
-            lambda: wiktionary.lookup(term, lang),
-            lambda: community.lemmy_search(term, 5),
-            lambda: community.bluesky_search(term, 5)]
+            lambda: wiktionary.lookup(term, lang)]
 
 
 def look_up(con: Connection, term: str, lang: str = "ko", deadline: float | None = None,
@@ -78,7 +77,7 @@ def look_up(con: Connection, term: str, lang: str = "ko", deadline: float | None
     stop = deadline if deadline is not None else t0 + TIMEOUT_S
     got: list[Evidence] = []
     if say:
-        say("live", f"사전에 없어서 지금 찾아보는 중: 위키백과 · 위키낱말사전 · Lemmy · 블루스카이")
+        say("live", "사전에 없어서 지금 찾아보는 중: 위키백과 · 위키낱말사전")
     with ThreadPoolExecutor(max_workers=5) as ex:
         futures = [ex.submit(fn) for fn in _sources(term, lang)]
         for f in futures:
