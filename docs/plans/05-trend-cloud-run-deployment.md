@@ -122,7 +122,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 - PC가 꺼져도 마지막 성공 게시본을 읽을 수 있고, 갱신 시각·오래된 자료 상태가 표시된다. 보존 기간 정리와 건강 점검은 PC와 독립적으로 실행되며 경고가 Discord로 온다.
 - API의 Cloud Run 동시성과 `DB_POOL_SIZE`가 같은 값으로 배포되어 있다.
 - 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
-- `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 로그 지표로 확인한다.
+- `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 `gemini_call` 로그 지표와 프로젝트의 Vertex AI API 요청 수로 함께 확인한다. 먼저 켠 상태의 호출 한 번이 두 값에 모두 잡히는지 본다([AI 호출 제어](../운영/AI-호출-제어.md#호출-기록)).
 - 문서의 현재 상태와 검증 결과가 갱신되어 있다.
 
 ## 현재 상태와 남은 일 (2026-09-29 실측)
@@ -175,7 +175,15 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
     그러지 않으면 운영 `/meta`의 `stale`이 계속 참이고 유지보수 작업이 매번 2로 끝난다.
 - **Gemini 호출 이벤트.** `pipeline/gemini.py`가 Vertex에 요청을 보낼 때마다 `event=gemini_call`(`model`·`ledger`·`outcome`·`code`) 한 줄을 남긴다.
   Cloud Run 서비스와 Job은 JSON 로그라 `jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있다([AI 호출 제어](../운영/AI-호출-제어.md)).
-  호출이 꺼져 있으면(`MODEL_REQUESTS_ENABLED=false`) 장부를 깎기 전에 끝나 이벤트가 0이다. 전에는 보내지 않은 요청이 호출마다 장부를 1씩 깎았다(시험에서 36→35, 12→11).
+  호출이 꺼져 있으면(`MODEL_REQUESTS_ENABLED=false`) 장부를 깎기 전에 끝나 이벤트가 0이다. 전에는 보내지 않은 요청이 호출마다 장부를 1씩 깎았다
+  (시험에서 파이프라인 장부 36→35, 요청 장부 12→11. 운영 API에서 그렇게 부르는 곳은 `/ask`·`/ask/stream`의 목록 간추리기·지금 찾아보기다).
+  이벤트 0건은 설계상 결과라 그것만으로 호출 중지를 증명하지 않는다.
+  Vertex AI API 요청 수와 함께 보고, 운영 `LOG_LEVEL`은 `INFO`로 둔다(성공한 호출이 INFO다).
+- **`/explain` 재작성 연결.** 작업 스레드가 요청 연결(`api._con`)을 넘겨받아, API에서는 장부를 읽기도 전에 `RuntimeError`가 나고 그것을 삼켜
+  '쉽게 풀어 쓰면'이 늘 비어 있었다(호출 0회). 이제 `/ask/stream`처럼 `db.session()`으로 따로 빌린다. 그래서 운영에서 호출을 켜면 이 경로가
+  처음으로 Gemini를 부른다. 지금은 파이프라인 장부(`request=False`)로 세고 429·503이면 기다려 다시 시도하므로(요청이 12초에 먼저 끝나도 뒤에서 계속),
+  켜기 전에 이용자 요청 장부(`request=True`: 모델마다 한 번, 기다리지 않음)로 옮길지 정한다.
 - **보존 기간 실측.** 원작자 서버 `trend.db`에는 사용자 문장 정리가 없어 해석 캐시 66건 중 59건이 7일을 넘겼다(가장 오래된 것 09-14, 미해결 질문은 0건).
   그 서버에 이 정리를 옮기면 첫 실행에서 지워진다.
-- 남은 일: Job·Scheduler와 실패 경보(Discord), `gemini_call` 로그 지표, 배포 뒤 `MODEL_REQUESTS_ENABLED=false`에서 0회 확인은 인프라 작업에서 한다.
+- 남은 일: Job·Scheduler와 실패 경보(Discord), `gemini_call` 로그 지표, 배포 뒤 `MODEL_REQUESTS_ENABLED=false`에서 0회 확인(켠 상태 한 번으로
+  두 집계를 먼저 확인)은 인프라 작업에서 한다.

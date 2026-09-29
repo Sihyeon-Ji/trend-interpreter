@@ -27,10 +27,23 @@ Cloud Run 서비스에서 `USE_LOCAL_GEMMA=1`을 켜도 개발자 PC의 Ollama�
 
 Gemini에 요청을 한 번 보낼 때마다 `pipeline/gemini.py`가 로그 한 줄을 남깁니다. `event=gemini_call`과 `model`, `ledger`(`pipeline`·`request`),
 `outcome`(`ok`·`rejected`(429·503)·`error`), HTTP `code`만 담고 프롬프트·응답은 넣지 않습니다. Cloud Run 서비스와 Job의 로그는 JSON이라
-`jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있습니다. `MODEL_REQUESTS_ENABLED=false`면 클라이언트를 만들기 전에 끝나
-이 줄도 `gemini_calls` 장부 차감도 없으므로, 그 설정으로 배포한 뒤 지표가 0인지로 호출 중지를 확인합니다.
-운영 API의 Gemini 요청은 모두 이 함수를 거칩니다. 개발자 PC 파이프라인의 조사(Search grounding)와 쇼츠 해석은 `interpreters/`에서
-직접 부르므로 이 줄에 들지 않습니다.
+`jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있습니다. 이 지표는 어느 모델·장부·결과의 호출이었는지 가르는 데 씁니다.
+운영 API의 Gemini 요청은 모두 이 함수를 거칩니다. 개발자 PC 파이프라인의 조사(Search grounding)·쇼츠 해석과 ADK 에이전트는
+`interpreters/`·`agents/`에서 직접 부르므로 이 줄에 들지 않습니다.
+
+`gemini_call`이 0건이라는 것만으로는 호출이 멈췄다고 할 수 없습니다.
+
+- 이 줄은 `generate()`가 클라이언트를 얻은 뒤에만 남습니다. `MODEL_REQUESTS_ENABLED=false`면 클라이언트를 만들기 전에 끝나므로
+  설계상 0이고(`gemini_calls` 장부도 깎지 않습니다), 이 함수를 거치지 않는 호출이 생겨도 0입니다.
+- 성공한 호출은 INFO로 남습니다. `LOG_LEVEL`을 `WARNING` 이상으로 두면 성공한 호출이 지표에서 빠지므로 운영에서는 `INFO`로 둡니다.
+
+그래서 호출 중지는 코드와 상관없는 프로젝트 쪽 집계와 함께 확인합니다. Cloud Monitoring의 `serviceruntime.googleapis.com/api/request_count`
+(자원 `consumed_api`, `service="aiplatform.googleapis.com"`)가 Vertex AI API 요청을 세며, `credential_id`로 나누면 운영 서비스 계정의
+호출과 개발자 PC 파이프라인의 조사·쇼츠 호출을 가를 수 있습니다.
+
+1. 호출을 켠 상태에서 한 번 부르고 `gemini_call`(`outcome=ok`)과 Vertex AI API 요청 수에 모두 잡히는지 봅니다. 둘 중 하나라도
+   잡히지 않으면 지표나 필터가 틀린 것이므로 0을 믿지 않습니다.
+2. `MODEL_REQUESTS_ENABLED=false`로 배포한 뒤 두 값이 모두 늘지 않는지 봅니다.
 
 ## 로컬에서 확인하기
 
@@ -43,7 +56,7 @@ docker compose run --rm --build check
 
 `apps/trend-api/tests/test_model_client.py`가 mock 모드에서 클라이언트를 만들지 않는 것과, vertex 모드에서
 API key 없이 프로젝트·위치만으로 클라이언트를 만드는 것을 검사합니다. `test_ops_signals.py`는 요청마다 `gemini_call`이
-한 줄씩 남는 것과, 호출이 꺼져 있으면 그 줄도 장부 차감도 없는 것을 검사합니다.
+한 줄씩 남는 것(`/explain` 재작성처럼 작업 스레드에서 부르는 호출 포함)과, 호출이 꺼져 있으면 그 줄도 장부 차감도 없는 것을 검사합니다.
 
 ## 운영 배포 뒤 조정 방법
 
