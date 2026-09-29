@@ -2,6 +2,8 @@
 
 결정일 **2026-09-28** · 상태 **아키텍처 결정, 운영 구현 전** · 관련 [Plan 05](../plans/05-trend-cloud-run-deployment.md) · [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)
 
+> **2026-09-29 변경:** 아래는 9월 28일 결정의 기록이다. 최신 실행 계획은 [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)을 따른다. Gemma 실험·편집은 Colab GPU 중심으로 옮기고 소유자 Drive의 공유 폴더에 입력·결과를 보관한다. PC는 수집과 GPU 미배정 시 대체 추론 경로로 유지한다. 공개 서비스와 배치를 분리하고 승인 결과만 게시하는 원칙은 유지한다.
+
 ## 결론
 
 - Trend Interpreter는 웹 SaaS다. 사용자의 기기에 모델 설치를 요구하지 않는다.
