@@ -3,6 +3,9 @@ import { TARGET_REGIONS } from "../reader";
 import type { TermRecord } from "../types";
 
 const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
+// 광동어에만 쓰는 글자가 들었거나 광동어 코드면 홍콩, 다른 중국어는 대만 (백엔드 config.home_region)
+const CANTONESE = /[㗎咗嘅冇佢啲喺嘢嚟唔]/;
+const homeRegion = (canonical: string, lang: string) => (["yue", "yu"].includes(lang) || CANTONESE.test(canonical) ? "HK" : LANG_REGION[lang]);
 const SCRIPT: Record<string, RegExp> = { ko: /[가-힣]/, ja: /[぀-ヿ一-鿿]/, zh: /[一-鿿]/, th: /[฀-๿]/, vi: /[ăâđêôơưĂÂĐÊÔƠƯẠ-ỹ]/ };
 const LATIN_LANGS = ["id", "tl", "fil", "ms"];
 const LATIN_ONLY = /^[\x00-\x7fÀ-ɏḀ-ỿ\s]+$/;
@@ -15,8 +18,8 @@ export function termRegions(r: TermRecord): string[] {
   const regions = TARGET_REGIONS.filter((x) => known.has(x));
   const lang = r.term.lang ?? "ko";
   if (!known.size) {
-    const home = LANG_REGION[lang];
-    if (home && TARGET_REGIONS.includes(home) && (SCRIPT[lang]?.test(r.term.canonical) || LATIN_LANGS.includes(lang))) regions.push(home);
+    const home = homeRegion(r.term.canonical, lang);
+    if (home && TARGET_REGIONS.includes(home) && (SCRIPT[home === "HK" ? "zh" : lang]?.test(r.term.canonical) || LATIN_LANGS.includes(lang))) regions.push(home);
     else if (LATIN_ONLY.test(r.term.canonical)) return ["GLOBAL"];
   }
   if (known.has("GLOBAL") || (!regions.length && known.size && lang === "en")) regions.push("GLOBAL");

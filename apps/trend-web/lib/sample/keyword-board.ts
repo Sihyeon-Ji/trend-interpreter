@@ -1,30 +1,15 @@
 /* 예시 데이터 모드의 키워드 대시보드. 실제 지역 판정·목록 나누기는 백엔드 pipeline/dashboard.py 의 규칙이고,
    여기는 그 규칙을 예시 사전(SAMPLE_RECORDS)에 그대로 옮겨 모델·서버 없이 화면을 열어 보게 할 뿐이다. */
+import { termRegions } from "../dictionary/regions";
 import { TARGET_REGIONS } from "../reader";
 import type { KeywordBoard, KeywordCard, KeywordList, TermRecord } from "../types";
 import { SAMPLE_RECORDS } from "./dictionary";
 
-const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
-// 표제어 언어의 나라로 두는 것은 그 나라 글자로 쓴 말만 (백엔드 dashboard.term_regions 와 같은 규칙)
-const SCRIPT: Record<string, RegExp> = { ko: /[가-힣]/, ja: /[\u3040-\u30ff\u4e00-\u9fff]/, zh: /[\u4e00-\u9fff]/, th: /[\u0e00-\u0e7f]/ };
-const LATIN_ONLY = /^[\x00-\x7f\u00c0-\u024f\s]+$/;
 const LIST_MAX = 30;       // 한 쪽에 보이는 수 (백엔드 dashboard.LIST_MAX)
 const STALE_DAYS = 90;     // 12주 언급이 0 이고 마지막 쓰임이 이보다 오래되면 '식어 가는' (백엔드 dashboard.STALE_DAYS)
 const GENERATED_AT = "2026-09-13T21:10:00Z";
 const DIFFUSION_ORDER: Record<string, number> = { spreading: 0, underground: 1, mainstream: 2 };
 const LIFECYCLE_ORDER: Record<string, number> = { emerging: 0, rising: 0, peak: 1, steady: 2 };
-
-function regionsOf(r: TermRecord): string[] {
-  const used = new Set(r.usage.map((u) => u.segment.region).filter(Boolean));   // '' 는 나라 정보가 없는 것
-  const regions = TARGET_REGIONS.filter((x) => used.has(x));
-  const lang = r.term.lang ?? "ko";
-  if (!used.size) {
-    if (TARGET_REGIONS.includes(LANG_REGION[lang]) && SCRIPT[lang]?.test(r.term.canonical)) regions.push(LANG_REGION[lang]);
-    else if (LATIN_ONLY.test(r.term.canonical)) return ["GLOBAL"];
-  }
-  if (used.has("GLOBAL") || (!regions.length && used.size && lang === "en")) regions.push("GLOBAL");
-  return regions;
-}
 
 const hasPath = (url: string) => { try { return !["", "/"].includes(new URL(url).pathname); } catch { return false; } };
 
@@ -39,7 +24,7 @@ function toCard(r: TermRecord): KeywordCard {
   return {
     term_id: r.term.term_id, canonical: r.term.canonical, lang: r.term.lang ?? "ko", category: r.category,
     gloss_ko: r.ko?.definition ?? m?.definition ?? "", gloss_en: r.en?.definition ?? m?.definition ?? "",
-    regions: regionsOf(r), lifecycle: r.term.lifecycle ?? "unknown", diffusion: r.term.diffusion ?? null,
+    regions: termRegions(r), lifecycle: r.term.lifecycle ?? "unknown", diffusion: r.term.diffusion ?? null,
     risk_level: r.term.risk_level ?? null, risk_reasons: r.term.risk_reasons ?? [],
     weekly, mentions_4w: weekly.slice(-4).reduce((a, p) => a + p.count, 0),
     risk_checked_at: r.term.risk_checked_at ?? null,
