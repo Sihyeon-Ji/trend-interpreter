@@ -382,6 +382,12 @@ const ko = {
   notfound_title: "사전에 없는 항목입니다",
   notfound_body: "아직 등록되지 않았거나 확인 중일 수 있습니다.",
   notfound_back: "사전으로 돌아가기",
+  // ---- 화면 개편 2차: dashboard (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: recommend (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: term (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: feeds (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: pages (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: map-admin (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
 } as const;
 
 export type StringKey = keyof typeof ko;
@@ -760,6 +766,12 @@ const en = {
   notfound_title: "Not in the dictionary",
   notfound_body: "It may not be registered yet, or it may be under review.",
   notfound_back: "Back to the dictionary",
+  // ---- 화면 개편 2차: dashboard (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: recommend (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: term (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: feeds (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: pages (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
+  // ---- 화면 개편 2차: map-admin (이 줄 바로 아래에 이 그룹의 키를 넣는다 — 병합 충돌을 막으려고 그룹마다 자리를 나눴다) ----
 } as const satisfies Record<StringKey, string>;
 
 const STRINGS: Record<Locale, Record<StringKey, string>> = { ko, en };
