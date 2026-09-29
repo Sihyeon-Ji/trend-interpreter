@@ -1,4 +1,5 @@
-"""대시보드 목록 규칙(디자인 개편 2차 검토 09-29) — 세 목록은 겹치지 않고, 오래 안 쓰인 말은 '식어 가는' 으로, 건수는 자르기 전 전체, 쪽으로 나눈다.
+"""대시보드 목록 규칙(디자인 개편 2차 검토 09-29) — 주의 밈은 쓰이는·식는 목록에도 남고 사용 자제는 주의 목록에만(Plan 04),
+오래 안 쓰인 말은 '식어 가는' 으로, 건수는 자르기 전 전체, 쪽으로 나눈다.
 모델 없이 인메모리 DB 로."""
 from datetime import datetime, timedelta, timezone
 
@@ -20,7 +21,7 @@ def _term(con, tid, name, lang="ko", region="KR", lifecycle="steady", risk=None,
         ds.set_weekly_region(con, tid, {region: {dashboard._weeks()[-1]: mentions}})
 
 
-def test_lists_do_not_overlap_and_stale_memes_are_fading():
+def test_caution_stays_in_use_avoid_only_in_caution_and_stale_memes_are_fading():
     con = db.connect(":memory:")
     long_ago = datetime.now(timezone.utc) - timedelta(days=900)
     _term(con, "fresh", "럭키비키", mentions=5)
@@ -33,13 +34,11 @@ def test_lists_do_not_overlap_and_stale_memes_are_fading():
 
     b = dashboard.board(con, ["KR"])
     ids = [[c.term_id for c in lst] for lst in (b.rising, b.fading, b.caution)]
-    assert ids == [["fresh", "quiet"], ["old"], ["bad", "warn"]]   # 주의 목록은 사용 자제 먼저, 다른 목록과 겹치지 않는다
-    assert b.totals == {"rising": 2, "fading": 1, "caution": 2}
-    assert sum(b.totals.values()) == b.counts["KR"] == 5          # 탭 건수의 합이 칩 건수와 같다
+    assert ids == [["warn", "fresh", "quiet"], ["old"], ["bad", "warn"]]   # 주의 밈은 표시와 함께 쓰이는 목록에도, 사용 자제는 주의 목록에만(먼저)
+    assert b.totals == {"rising": 3, "fading": 1, "caution": 2}
+    avoid = sum(1 for c in b.caution if c.risk_level == "avoid")
+    assert b.totals["rising"] + b.totals["fading"] + avoid == b.counts["KR"] == 5   # 칩 건수 = 쓰이는 + 식는 + 사용 자제
     assert b.counts["ALL"] == 6 and b.counts["JP"] == 1
-
-    whole = dashboard.board(con)
-    assert sum(whole.totals.values()) == whole.counts["ALL"]
 
 
 def test_board_is_paged_with_real_totals():

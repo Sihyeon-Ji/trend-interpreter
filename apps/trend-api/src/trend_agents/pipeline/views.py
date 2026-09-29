@@ -285,7 +285,7 @@ class KeywordBoard(BaseModel):
     generated_at: datetime
     regions: list[str]                 # 고른 지역
     counts: dict[str, int]             # 지역마다 카드 수 (지역 고르기 버튼에 쓴다). 'ALL' 은 목표 지역 어디든(전 세계만인 것은 빼고)
-    totals: dict[str, int] = {}        # 목록마다 전체 건수 {rising, fading, caution} — 셋은 겹치지 않아 합이 고른 지역의 건수다
+    totals: dict[str, int] = {}        # 목록마다 전체 건수 {rising, fading, caution}. 주의 밈은 쓰이는·식는 목록에도 있다(Plan 04)
     page: int = 1                      # 아래 세 목록에 실린 쪽 (1부터)
     page_size: int = 30
     rising: list[KeywordCard]          # 지금 쓰이는 밈 (그 쪽만)

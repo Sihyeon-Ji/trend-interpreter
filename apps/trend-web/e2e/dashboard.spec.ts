@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-/* 대시보드(디자인 개편 2차 검토 09-29) — 예시 모드. 지역은 하나만, 세 목록은 겹치지 않고, 행 전체가 링크, 빈 지역은 패널 하나. */
+/* 대시보드(디자인 개편 2차 검토 09-29) — 예시 모드. 지역은 하나만, 주의 밈은 쓰이는·식는 목록에도 남고 사용 자제는 주의에만(Plan 04),
+   행 전체가 링크, 빈 지역은 패널 하나. */
 
 const count = (name: string) => Number(name.match(/(\d+)\s*$/)?.[1] ?? NaN);
 
-test("region chips pick one region and tab counts add up to the chip", async ({ page }) => {
+test("region chips pick one region and tab counts match the chip", async ({ page }) => {
   await page.goto("/?regions=JP");
   const chips = page.getByRole("navigation", { name: /^(지역|Regions)$/ });
   await expect(chips.locator("[aria-current='true']")).toHaveCount(1);
@@ -13,7 +14,9 @@ test("region chips pick one region and tab counts add up to the chip", async ({ 
   const tabs = page.getByRole("navigation", { name: /밈 목록|Meme lists/ }).getByRole("link");
   const names = await tabs.allInnerTexts();
   expect(names).toHaveLength(3);
-  expect(names.map(count).reduce((a, b) => a + b, 0)).toBe(jp);      // 겹치지 않으니 합이 지역 건수
+  const [rising, fading, caution] = names.map(count);
+  expect(rising + fading).toBeLessThanOrEqual(jp);                     // 칩 건수 = 쓰이는 + 식는 + 사용 자제(주의 목록에만)
+  expect(jp).toBeLessThanOrEqual(rising + fading + caution);
 
   await chips.getByRole("link", { name: /^(대만|Taiwan) \d+$/ }).click();
   await expect(page).toHaveURL(/[?&]regions=TW(&|$)/);                  // 더하지 않고 바꾼다

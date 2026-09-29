@@ -16,7 +16,7 @@ import { getReader } from "@/lib/reader-server";
 import type { KeywordBoard, KeywordList } from "@/lib/types";
 
 /* 첫 화면 — 사용 흐름 1단계 '살펴보기' (ADR 0001, Plan 04, docs/트렌드/디자인-개편.md). 지역 하나를 고르면 그 지역의 밈을
-   지금 쓰이는·식어 가는·주의 셋(겹치지 않는다)으로 나눠 표로 보인다. 지역·탭·쪽은 주소에만 둔다(익명은 설정을 갖지 않는다). */
+   지금 쓰이는·식어 가는·주의 셋으로 나눠 표로 보인다(주의 밈은 쓰이는·식는 목록에도, 사용 자제는 주의에만 — Plan 04). 지역·탭·쪽은 주소에만 둔다(익명은 설정을 갖지 않는다). */
 const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
 const LISTS = ["rising", "fading", "caution"] as const satisfies readonly KeywordList[];
 

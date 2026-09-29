@@ -70,7 +70,7 @@ export function KeywordTable({ cards, locale, showRegions = false }: { cards: Ke
           <li key={c.term_id} className="relative py-3.5 hover:bg-surface-soft">
             <div className="flex items-start justify-between gap-3">
               <Link href={`/dictionary/${c.term_id}`} lang={langTag(c.lang)} className={cn("min-w-0 text-[16px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
-              {/* 휴대폰에서는 '특이 사항 없음' 만 생략한다 — 주의·사용 자제·판단 보류·확인 전은 그대로 */}
+              {/* 휴대폰에서는 '특이 사항 없음' 만 생략한다 — 주의·사용 자제·근거 부족·확인 전은 그대로 */}
               {c.risk_level !== "none" && <RiskCell item={c} locale={locale} />}
             </div>
             <p className="mt-1 truncate text-[14px] text-charcoal">{gloss(c, locale)}</p>

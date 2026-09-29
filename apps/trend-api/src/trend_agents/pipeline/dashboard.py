@@ -91,9 +91,9 @@ def _is_fading(c: KeywordCard, now: datetime) -> bool:
 
 
 def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
-    """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈) — 셋은 겹치지 않는다. 주의·사용 자제가 붙은 것은 단계와 상관없이 주의 목록에만
-    (사용 자제 먼저), 나머지를 쓰이는·식는 목록으로 나눈다. 그래서 세 목록 건수의 합이 지역 건수와 같다(디자인 개편 검토 09-29:
-    주의 목록이 위 두 목록을 되풀이했다). 자르지 않는다 — 쪽 나누기는 board 가 한다. now 는 카드를 만든 때(갱신 시각)."""
+    """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈). Plan 04: 주의 밈은 지금도 쓰이는 말이라 쓰이는·식는 목록에 표시와 함께 남고,
+    사용 자제는 주의 목록에만 둔다(사용 자제 먼저). 그래서 칩 건수 = 쓰이는 + 식는 + 사용 자제.
+    자르지 않는다 — 쪽 나누기는 board 가 한다. now 는 카드를 만든 때(갱신 시각)."""
     now = now or datetime.now(timezone.utc)
 
     # 원본 언급(뉴스 제목·쇼츠·검색어)에 밈 이름이 오르는 일은 드물어 대부분 0 이다 — 그다음은 가장 최근에 쓰인 글 순
@@ -101,12 +101,12 @@ def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[K
     def recent(c: KeywordCard) -> float:
         return max((d.timestamp() for d in (c.last_used, c.last_seen) if d), default=0.0)
 
-    flagged = [c for c in cards if c.risk_level in ("caution", "avoid")]
-    rest = [c for c in cards if c.risk_level not in ("caution", "avoid")]
-    rising = sorted((c for c in rest if not _is_fading(c, now)),
+    usable = [c for c in cards if c.risk_level != "avoid"]
+    rising = sorted((c for c in usable if not _is_fading(c, now)),
                     key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w, -recent(c)))
-    fading = sorted((c for c in rest if _is_fading(c, now)), key=lambda c: -recent(c))
-    caution = sorted(flagged, key=lambda c: (c.risk_level != "avoid", -c.mentions_4w, -recent(c)))
+    fading = sorted((c for c in usable if _is_fading(c, now)), key=lambda c: -recent(c))
+    caution = sorted((c for c in cards if c.risk_level in ("caution", "avoid")),
+                     key=lambda c: (c.risk_level != "avoid", -c.mentions_4w, -recent(c)))
     return rising, fading, caution
 
 
