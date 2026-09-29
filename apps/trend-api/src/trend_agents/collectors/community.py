@@ -72,9 +72,9 @@ def _site_key(site: str) -> str:
     return next((p for p in site.split(".") if p not in ("forum", "forums", "www")), site)
 
 
-def google_indexed_posts(term: str, region: str, limit: int = 8) -> list[Evidence]:
-    """구글에 색인된 커뮤니티 글. 제목에 게시판·사이트 이름이 붙어 온다."""
-    sites = COMMUNITY_SITES.get(region, DEFAULT_SITES)
+def google_indexed_posts(term: str, region: str, limit: int = 8, sites: list[str] | None = None) -> list[Evidence]:
+    """구글에 색인된 커뮤니티 글. 제목에 게시판·사이트 이름이 붙어 온다. sites 를 주면 그 사이트만(기본은 그 나라 목록)."""
+    sites = sites or COMMUNITY_SITES.get(region, DEFAULT_SITES)
     q = f"{term} " + " OR ".join(f"site:{s}" for s in sites)
     news_region = region if region in news_rss.LOCALES else "US"
     out: list[Evidence] = []
@@ -133,12 +133,19 @@ def bluesky_search(term: str, limit: int = 8) -> list[Evidence]:
     return out
 
 
-def gather(term: str, region: str, videos: list[tuple[str, str, str]] = (), comment_videos: int = 2) -> tuple[list[Evidence], list[str]]:
-    """모든 커뮤니티 소스를 한 번에. (근거 목록, 실패 메모). videos: (video_id, url, title)"""
+def gather(term: str, region: str, videos: list[tuple[str, str, str]] = (), comment_videos: int = 2,
+           forums: str | None = None) -> tuple[list[Evidence], list[str]]:
+    """모든 커뮤니티 소스를 한 번에. (근거 목록, 실패 메모). videos: (video_id, url, title)
+    forums 를 주면 그 나라 포럼(reddit 빼고)도 따로 찾는다 — 영어 표제어는 reddit 을 전처럼 미국판에서 찾고 SG·MY·PH 포럼을 돌아가며 더한다
+    (한 검색에 묶었더니 결과 8건을 두 사이트가 나눠 reddit 몫이 줄었다, 검토 09-30)."""
     evs: list[Evidence] = []
     notes: list[str] = []
-    for name, fn in (("community_sites", lambda: google_indexed_posts(term, region)), ("reddit", lambda: reddit_search(term)),
-                     ("bluesky", lambda: bluesky_search(term))):
+    local = [s for s in COMMUNITY_SITES.get(forums or "", []) if s != "reddit.com"]
+    sources = [("community_sites", lambda: google_indexed_posts(term, region)), ("reddit", lambda: reddit_search(term)),
+               ("bluesky", lambda: bluesky_search(term))]
+    if local:
+        sources.append(("forums", lambda: google_indexed_posts(term, forums, sites=local)))
+    for name, fn in sources:
         try:
             evs += fn()
         except Exception as e:

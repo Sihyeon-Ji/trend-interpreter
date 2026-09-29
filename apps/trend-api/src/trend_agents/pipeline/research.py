@@ -454,7 +454,7 @@ def needs_human(reasons: list[str], documented: bool = False) -> bool:
 def community_region(con: Connection, term: Term) -> str:
     """커뮤니티를 뒤질 나라. 표제어의 나라(광동어는 홍콩)이고, 여러 나라가 같이 쓰는 말(중국어)은 조사할 때마다 번갈아 —
     중국어는 대만 사이트(PTT·Dcard)만 뒤져 홍콩(LIHKG·香港討論區) 글을 한 번도 보지 않았다(Plan 04). 영어는 싱가포르·말레이시아·필리핀
-    사이트를 돌아간다(나라마다 reddit 도 함께 찾아 미국 몫은 그대로). 커뮤니티 글은 전처럼 지표로만 쓴다(ADR 0003)."""
+    포럼을 돌아간다(reddit 은 전처럼 미국판에서 따로, research_one). 커뮤니티 글은 전처럼 지표로만 쓴다(ADR 0003)."""
     cycle = region_cycle(term.canonical, term.lang) or (ENGLISH_EDITIONS if term.lang == "en" else ())
     return cycle[ds.research_count(con, term.term_id) % len(cycle)] if cycle else home_region(term.canonical, term.lang) or "US"
 
@@ -519,7 +519,10 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         first_party += gdelt_context.sentences(term.canonical)
 
         region = community_region(con, term)
-        first_party += community.gather(term.canonical, region)[0]
+        if term.lang == "en":   # reddit 은 전처럼 미국판에서, SG·MY·PH 포럼은 따로 돌아가며 — 한 검색에 묶으면 reddit 몫이 줄었다(검토 09-30)
+            first_party += community.gather(term.canonical, "US", forums=region)[0]
+        else:
+            first_party += community.gather(term.canonical, region)[0]
         if region == "KR":
             from ..collectors import naver_search
 

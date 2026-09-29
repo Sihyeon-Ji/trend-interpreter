@@ -31,6 +31,26 @@ def _headlines(con, source, region, k):
     db.upsert_news(con, [_news(f"h-{source}-{region}-{i}", f"{source} headline {i}", source, region) for i in range(k)])
 
 
+def _offline_research(monkeypatch, regions: list[str] = ()) -> list:
+    """research_one 을 네트워크·모델 없이 — 조사 모델은 쓰는 나라가 regions 인 뜻을 돌려주고, 커뮤니티를 어디서 찾았는지(표제어, 나라, 포럼) 적는다."""
+    from trend_agents.collectors import community, gdelt_context, namuwiki, naver_search, wiktionary
+    from trend_agents.pipeline import research
+
+    draft = MeaningDraft(definition="뜻", origin="x", nuance="y", generations=["20s"], regions=list(regions), self_confidence=0.5)
+    calls: list = []
+    monkeypatch.setattr(research, "budget_left", lambda con: 0)                  # Search grounding 없이 — 모은 근거로만(오프라인 조사)
+    monkeypatch.setattr(research, "structured", lambda *a, **k: (draft, "local:test"))
+    monkeypatch.setattr(research, "first_party_evidence", lambda *a, **k: [])
+    monkeypatch.setattr(research, "_wikipedia_evidence", lambda *a, **k: [])
+    monkeypatch.setattr(research, "attach_media", lambda *a, **k: 0)
+    monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(gdelt_context, "sentences", lambda *a, **k: [])
+    monkeypatch.setattr(naver_search, "gather", lambda *a, **k: ([], []))
+    monkeypatch.setattr(namuwiki, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(community, "gather", lambda term, region, *a, **k: calls.append((term, region, k.get("forums"))) or ([], []))
+    return calls
+
+
 def _collect(con, monkeypatch, results: dict) -> None:
     """collect.run 을 네트워크 없이. 키워드 검색은 results[(판, 검색어)] 를 그 판의 결과로 돌려주고, 머리기사·트렌드·위키는 비운다."""
     from trend_agents.pipeline import collect
@@ -214,9 +234,8 @@ def test_other_editions_count_per_region_but_not_in_the_total_or_lifecycle():
     assert dict(ds.get_weekly(con, "t"))[week] == 2 and ds.get_weekly_region(con, "t")["SG"][week] == 3
 
 
-def test_english_community_research_rotates_sg_my_ph_sites():
-    """영어 표제어의 커뮤니티 조사는 싱가포르·말레이시아·필리핀 사이트를 돌아간다(각 목록에 reddit 이 있어 미국 몫도 그대로)."""
-    from trend_agents.collectors.community import COMMUNITY_SITES
+def test_english_community_research_rotates_sg_my_ph_forums():
+    """영어 표제어의 커뮤니티 조사는 싱가포르·말레이시아·필리핀 포럼을 돌아간다."""
     from trend_agents.pipeline.research import community_region
 
     con = db.connect(":memory:")
@@ -226,7 +245,29 @@ def test_english_community_research_rotates_sg_my_ph_sites():
         got.append(community_region(con, en))
         ds.log_research(con, "en", "test", "", [], "unverified", [])
     assert got == ["SG", "MY", "PH", "SG"]
-    assert all("reddit.com" in COMMUNITY_SITES[r] for r in ("SG", "MY", "PH"))
+
+
+def test_english_community_search_keeps_reddit_on_the_us_edition(monkeypatch):
+    """reddit 은 예전처럼 미국판에서 따로 찾고, 그 나라 포럼은 reddit 을 뺀 검색으로 더한다 — 'site:포럼 OR site:reddit.com' 한 검색에 묶었더니
+    결과 8건을 두 사이트가 나눠 reddit 몫이 줄고 판도 바뀌었다(검토 09-30). 조사 단계는 영어에만 포럼을 넘기고, 차례는 조사 횟수로 돈다."""
+    from trend_agents.collectors import community
+    from trend_agents.pipeline import research
+
+    asked = []
+    monkeypatch.setattr(community.news_rss, "fetch_news", lambda region, query=None, limit=30, **k: asked.append((region, query, limit)) or [])
+    monkeypatch.setattr(community, "reddit_search", lambda *a, **k: [])
+    monkeypatch.setattr(community, "bluesky_search", lambda *a, **k: [])
+    community.gather("aura farming", "US", forums="SG")
+    assert asked == [("US", "aura farming site:reddit.com", 8), ("SG", "aura farming site:forums.hardwarezone.com.sg", 8)]
+
+    calls = _offline_research(monkeypatch)
+    con = db.connect(":memory:")
+    for tid, name, lang in (("en", "aura farming", "en"), ("zh", "傻眼貓咪", "zh")):
+        ds.upsert_term(con, _term(tid, name, lang, status="researching"))
+    research.research_one(con, ds.get_term(con, "en"))
+    research.research_one(con, ds.get_term(con, "en"))
+    research.research_one(con, ds.get_term(con, "zh"))
+    assert calls == [("aura farming", "US", "SG"), ("aura farming", "US", "MY"), ("傻眼貓咪", "TW", None)]
 
 
 def test_term_joins_a_region_when_its_outlets_there_reach_n():
