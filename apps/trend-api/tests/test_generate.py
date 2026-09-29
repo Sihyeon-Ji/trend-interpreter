@@ -19,6 +19,9 @@ def _con():
         ds.set_risk(con, tid, risk, [], risk, now)
         ds.add_meaning(con, tid, MeaningDraft(definition="나쁜 상황도 좋게 보는 말", origin="x", nuance="긍정", generations=["20s"], regions=["KR"],
                                               self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "lv", [("20s", "KR", now.isoformat(), 0.5), ("20s", "JP", now.isoformat(), 0.5)])
+    ds.upsert_term(con, Term(term_id="kronly", canonical="오살힘", lang="ko", status="verified", first_seen=now, last_seen=now))
+    ds.set_usage(con, "kronly", [("20s", "KR", now.isoformat(), 1.0)])
     return con
 
 
@@ -101,3 +104,36 @@ def test_generate_api_rejects_non_target_regions(monkeypatch):
     body = {"term_ids": ["t_x"], "brief": BRIEF.model_dump(), "region": "US", "tone": "friendly"}
     assert c.post("/generate", json=body).status_code == 400
     assert c.post("/generate", json={**body, "term_ids": []}).status_code == 422
+
+
+def test_prefer_gemini_does_not_fall_into_the_local_text_path(monkeypatch):
+    """생성은 Gemini 가 맡는다 — 로컬 Gemma 가 켜져 있어도 prefer_gemini 면 Gemini 를 부르고 구조화 결과(.parsed)를 돌려준다.
+    (문자열 프롬프트는 generate() 가 로컬로 돌리던 탓에 .parsed 가 없어 실패했다, 2026-09-29)"""
+    from types import SimpleNamespace
+
+    from trend_agents.pipeline import gemini
+
+    con = db.connect(":memory:")
+    seen = {}
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            seen["model"] = model
+            return SimpleNamespace(parsed={"ok": True})
+
+    monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(gemini, "configured", lambda: True)
+    monkeypatch.setattr(gemini, "local_ok", lambda: True)
+    parsed, used = gemini.structured(con, "prompt", dict, prefer_gemini=True)
+    assert parsed == {"ok": True} and used == seen["model"] and not used.startswith("local")
+
+
+def test_only_memes_used_in_the_target_region(monkeypatch):
+    """한국에서만 쓰는 밈으로 일본 카피를 만들지 않는다 — 가타카나로 옮겨 적어 읽히지도, 검사를 통과하지도 않았다(2026-09-29 실측)."""
+    con = _con()
+    _fake(monkeypatch, [_draft("여름엔 럭키비키")], [[]])
+    with pytest.raises(ValueError):
+        generate.run(con, ["kronly"], BRIEF, "JP", "friendly")
+    res = generate.run(con, ["kronly", "lv"], BRIEF, "JP", "friendly")
+    assert res.memes == ["럭키비키"]
+

@@ -11,6 +11,7 @@ from ..schemas import ContentDraft, DraftCheck, ProductBrief, ScriptScene, Short
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from .gemini import BudgetExhausted, configured, local_ok, structured
+from .dashboard import term_regions
 from .match import mentions, unsafe
 from .views import Dropped, GenerationResult
 
@@ -54,7 +55,8 @@ def _meme_lines(con: Connection, terms) -> str:
         ko = ds.get_translation(con, t.term_id, "ko")
         text = ko or m
         caution = " / 쓸 때 조심: " + "; ".join(r for r in t.risk_reasons if r != "검수자가 정한 수준")[:160] if t.risk_level == "caution" else ""
-        out.append(f"- {t.canonical}: {(text.definition if text else '')[:160]} (뉘앙스: {(text.nuance if text else '')[:120]}){caution}")
+        alias = f" (다른 표기: {', '.join(t.aliases[:3])})" if t.aliases else ""
+        out.append(f"- {t.canonical}{alias}: {(text.definition if text else '')[:160]} (뉘앙스: {(text.nuance if text else '')[:120]}){caution}")
     return "\n".join(out)
 
 
@@ -124,6 +126,10 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     terms = [t for tid in dict.fromkeys(term_ids) if (t := ds.get_term(con, tid)) and t.status == "verified" and t.risk_level != "avoid"][:MAX_MEMES]
     if not terms:
         raise ValueError("쓸 수 있는 밈이 없습니다")
+    # 그 지역에서 쓰이는 밈만 — 한국 밈을 일본 카피에 넣으면 가타카나로 옮겨 적어(オサルヒム) 읽히지도, 검사를 통과하지도 않았다(2026-09-29 실측)
+    terms = [t for t in terms if region in term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)})]
+    if not terms:
+        raise ValueError("고른 밈 가운데 이 지역에서 쓰이는 것이 없습니다")
     lang = REGION_LANG.get(region, "en")
     if not (local_ok() or configured()):
         return sample(terms, region, tone)

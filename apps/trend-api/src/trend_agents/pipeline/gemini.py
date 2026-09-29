@@ -37,9 +37,10 @@ def local_ok() -> bool:
 
 
 def generate(con: Connection, contents: Any, config: types.GenerateContentConfig | None = None,
-             model: str | None = None, tries: int = 3, allow_fallback: bool = True) -> tuple[Any, str]:
+             model: str | None = None, tries: int = 3, allow_fallback: bool = True,
+             allow_local: bool = True) -> tuple[Any, str]:
     """(응답, 실제로 쓴 모델). 예산이 없으면 BudgetExhausted. 텍스트 전용 호출은 로컬 Gemma 가 켜져 있으면 그쪽으로."""
-    if local_ok() and isinstance(contents, str):
+    if allow_local and local_ok() and isinstance(contents, str):
         from . import local_llm
 
         return local_llm.generate(contents), f"local:{__import__('trend_agents.config', fromlist=['GEMMA_LOCAL_MODEL']).GEMMA_LOCAL_MODEL}"
@@ -70,7 +71,7 @@ def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0
     if prefer_gemini and configured() and budget_left(con) > 0:
         contents0: Any = [types.Part.from_bytes(data=image[0], mime_type=image[1]), prompt] if image else prompt
         resp, used = generate(con, contents0, types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema,
-                                                                          temperature=temperature), model=model)
+                                                                          temperature=temperature), model=model, allow_local=False)
         return resp.parsed, used
     if local_ok():
         from . import local_llm

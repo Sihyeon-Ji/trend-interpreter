@@ -74,6 +74,10 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   };
 
   const togglePick = (id: string) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < 3 ? [...cur, id] : cur));
+  // 결과물을 쓸 지역은 고른 밈이 실제로 쓰이는 곳만 — 한국 밈으로 일본 카피를 만들지 않는다(백엔드도 거른다)
+  const covered = result ? result.regions.filter((r) => picked.some((id) => result.items.find((i) => i.term_id === id)?.regions.includes(r))) : [];
+  const regionOptions = picked.length ? covered : result?.regions ?? [];
+  const chosenRegion = regionOptions.includes(genRegion) ? genRegion : regionOptions[0] ?? "";
   const make = async () => {
     if (!result) return;
     if (!picked.length) { setGenError("gen_need_pick"); return; }
@@ -81,7 +85,7 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
     setGenError(null);
     try {
       const res = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ term_ids: picked, brief: result.brief, region: genRegion || result.regions[0], tone: result.tone, lang: locale }) });
+        body: JSON.stringify({ term_ids: picked, brief: result.brief, region: chosenRegion, tone: result.tone, lang: locale }) });
       if (!res.ok) setGenError("gen_failed");
       else setGen((await res.json()) as GenerationResult);
     } catch {
@@ -189,15 +193,15 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
             <div className="space-y-2 border-t border-hairline pt-4">
               <p className="text-[13px] text-steel">{t(locale, "gen_pick_hint")}</p>
               <div className="flex flex-wrap items-center gap-3">
-                {result.regions.length > 1 && (
+                {regionOptions.length > 1 && (
                   <label className="text-[13px] text-steel">
                     {t(locale, "gen_region")}{" "}
-                    <select value={genRegion} onChange={(e) => setGenRegion(e.target.value)} className="rounded-[4px] border border-hairline bg-white px-2 py-1 text-[14px] text-ink">
-                      {result.regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
+                    <select value={chosenRegion} onChange={(e) => setGenRegion(e.target.value)} className="rounded-[4px] border border-hairline bg-white px-2 py-1 text-[14px] text-ink">
+                      {regionOptions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
                     </select>
                   </label>
                 )}
-                <Button type="button" disabled={genBusy} onClick={() => void make()} className="rounded-lg px-4">{genBusy ? t(locale, "gen_busy") : t(locale, "gen_submit")}</Button>
+                <Button type="button" disabled={genBusy || (picked.length > 0 && !chosenRegion)} onClick={() => void make()} className="rounded-lg px-4">{genBusy ? t(locale, "gen_busy") : t(locale, "gen_submit")}</Button>
                 {genError && <p role="alert" className="text-[13px] text-error">{t(locale, genError)}</p>}
               </div>
             </div>
