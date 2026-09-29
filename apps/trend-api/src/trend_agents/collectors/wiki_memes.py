@@ -31,13 +31,30 @@ CATEGORIES: dict[str, list[str]] = {
     "zh": ["Category:网络流行语"],
 }
 LANG_REGION = {"en": "US", "ko": "KR", "ja": "JP", "id": "ID", "zh": "TW"}
+# 나라 분류(목표 지역). 언어판 분류와 따로 받아 캐시에도 나라를 적고, 여기서 온 문서는 그 나라 말로 둔다(Plan 04) —
+# 중국어 위키 밈을 모두 대만으로 보냈다. 2026-09-29 실측 문서 수: 香港網絡迷因 1 · 香港網絡文化 30 · 香港俚語 43(하위 분류 제외).
+REGION_CATEGORIES: dict[str, tuple[str, list[str]]] = {
+    "HK": ("zh", ["Category:香港網絡迷因", "Category:香港網絡文化", "Category:香港俚語"]),
+}
+# 영어 밈의 설명이 목표 지역을 대면 그 나라 말로 둔다('Thai pygmy hippopotamus' → 태국). 미국으로 두면 그 지역 후보로 세지 않았다.
+# 북한은 한국이 아니다. 여럿이면 설명에서 먼저 나온 나라.
+_COUNTRY = tuple((re.compile(p), r) for p, r in (
+    (r"(?<!North )\bKoreans?\b|\bKorea\b(?<!North Korea)", "KR"), (r"\bJapan(ese)?\b", "JP"), (r"\bTaiwan(ese)?\b", "TW"),
+    (r"\bHong Kong(ers?|ese)?\b", "HK"), (r"\bThai(land|s)?\b", "TH"), (r"\bViet ?nam(ese)?\b", "VN"), (r"\bIndonesian?s?\b", "ID"),
+    (r"\bPhilippines?\b|\bFilipin[oa]s?\b|\bPinoy\b", "PH"), (r"\bMalaysian?s?\b", "MY"), (r"\bSingapore(ans?)?\b", "SG")))
+
+
+def country_named(description: str) -> str | None:
+    """영어 설명이 댄 목표 지역(먼저 나온 것). 없으면 None."""
+    hits = [(m.start(), r) for pat, r in _COUNTRY if (m := pat.search(description or ""))]
+    return min(hits)[1] if hits else None
 
 # 목록·설명 문서는 표현이 아니다. 괄호 주석이 붙은 것은 살린다("6-7 (meme)" → "6-7").
 SKIP = ("List of", "목록", "일람", "Daftar", "Danh sách", "列表", "一覽", "一览", "大賞", "Internet meme", "인터넷 밈", "インターネット・ミーム", "Meme Internet",
         "Category:", "분류:", "Template:", "틀:")
 
 # 괄호 주석을 떼도 되는 것 — 뗀 이름이 그대로 표제어다.
-OK_PAREN = re.compile(r"^(meme|밈|ミーム|internet meme|인터넷 밈|유행어|slang|dance|챌린지)$", re.I)
+OK_PAREN = re.compile(r"^(meme|밈|ミーム|internet meme|인터넷 밈|유행어|slang|dance|챌린지|網絡用語|網路用語|网络用语|潮語|潮语|流行語|流行语|迷因)$", re.I)
 
 # 분류에 들어 있다는 것 자체가 '인터넷 밈' 이라는 뜻이다 — 그래서 설명은 **걸러내는 데만** 쓴다.
 # (새로 생긴 문서는 설명이 아직 없다. Ballerina Cappuccina·Bombardiro Crocodilo 가 전부 그 경우였다.)
@@ -47,21 +64,30 @@ _NOT_TERM = re.compile(
     r"company|corporation|airline|brand|restaurant|chain|product|drink|toy|collectible|cryptocurrency|"
     r"band|rapper|singer|musician|actor|actress|streamer|youtuber|influencer|internet personality|"
     r"footballer|politician|businessman|racehorse|league|club|"
-    r"born \d{4}|\(\d{4}[–-]|murder|suspect|scandal|incident|conspiracy|"
+    r"murder|suspect|scandal|incident|conspiracy|"
     r"fictional character|cartoon character|dog breed|martial art|historiographical|"
     r"tour operator|musical artist|advertising campaign|advertisement|photograph|feud|social media duo|"
-    r"parties hosted|newspaper|magazine)\b|"
+    r"parties hosted|newspaper|magazine|disambiguation)\b|"
     r"노래|음반|싱글|영화|드라마|만화|게임|웹사이트|기업|프렌차이즈|프랜차이즈|브랜드|음료|"
     r"가수|래퍼|배우|선수|정치인|유튜버|스트리머|등장인물|품종|무예|\d{4}년 출생|"
     r"の楽曲|のアルバム|のシングル|の映画|の漫画|のゲーム|のキャラクター|登場人物|テレビアニメ|"
     r"歌手|俳優|声優|企業|チェーン|商品|飲料|プラットフォーム|ウェブサイト|品種|馬\b|"
-    r"歌曲|專輯|专辑|電影|电影|電視劇|电视剧|遊戲|游戏|公司|演員|演员|政治人物|網站|网站",
+    r"歌曲|專輯|专辑|電影|电影|電視劇|电视剧|遊戲|游戏|公司|演員|演员|政治人物|網站|网站|論壇|论坛|消歧義|消歧义",   # 홍콩 분류의 게시판·동음이의 문서(09-29)
     re.I)
+
+
+# 태어난 해·생몰년은 사람 문서의 표시다. 동물 밈도 같은 꼴이라('Thai pygmy hippopotamus (born 2024)' — Moo Deng 이 여기서 빠졌다)
+# 동물 이름이 있으면 살린다. 영어 동물 이름은 소문자로만 본다(사람 이름 'Larry Bird' 를 동물로 읽지 않게).
+# 생몰년 '(1983-)' 꼴은 예전에는 \b(...)\b 안에 있어 괄호 앞 낱말 경계가 없어서 한 번도 걸리지 않았다.
+_LIFESPAN = re.compile(r"\bborn \d{4}|\(\d{4} ?[–-]", re.I)
+_ANIMAL = re.compile(r"\b(animal|hippopotamus|hippo|cat|dog|capybara|penguin|bear|panda|monkey|seal|otter|bird|parrot|owl|goat|rabbit|"
+                     r"hamster|raccoon|fox|frog|lizard|fish)\b|동물|고양이|강아지|하마|판다|펭귄|動物|动物|猫|貓|犬|狗|パンダ|カバ|河馬|ペンギン|企鵝")
 
 
 def is_meme(description: str) -> bool:
     """분류가 이미 '인터넷 밈' 이라고 했다. 설명이 노래·영화·사람·회사라고 반박할 때만 버린다."""
-    return not _NOT_TERM.search(description or "")
+    d = description or ""
+    return not (_NOT_TERM.search(d) or (_LIFESPAN.search(d) and not _ANIMAL.search(d)))
 
 
 CACHE = Path("data/wiki_memes.json")   # 받아 온 원천 자료. 거르기는 읽을 때 하므로 규칙을 고쳐도 다시 받지 않는다
@@ -138,23 +164,24 @@ def _simplified(titles: list[str]) -> set[str]:
     return out
 
 
-def _fetch_raw(langs: tuple[str, ...], per_category: int) -> list[dict]:
+def _fetch(lang: str, categories: list[str], per_category: int) -> list[dict]:
     """[{title, term, lang, description}] — 분류 구성원과 그 한 줄 설명. 거르지 않는다."""
-    raw: list[dict] = []
-    for lang in langs:
-        titles: list[str] = []
-        for cat in CATEGORIES.get(lang, []):
-            try:
-                titles += _members(lang, cat, per_category)
-            except Exception:
-                continue
-        keep = [t for t in dict.fromkeys(titles) if clean_title(t)]
-        if lang == "zh" and keep:
-            simplified = _simplified(keep)
-            keep = [t for t in keep if t not in simplified]
-        desc = _descriptions(lang, keep) if keep else {}
-        raw += [{"title": t, "term": clean_title(t), "lang": lang, "description": desc.get(t, "")} for t in keep]
-    return raw
+    titles: list[str] = []
+    for cat in categories:
+        try:
+            titles += _members(lang, cat, per_category)
+        except Exception:
+            continue
+    keep = [t for t in dict.fromkeys(titles) if clean_title(t)]
+    if lang == "zh" and keep:
+        simplified = _simplified(keep)
+        keep = [t for t in keep if t not in simplified]
+    desc = _descriptions(lang, keep) if keep else {}
+    return [{"title": t, "term": clean_title(t), "lang": lang, "description": desc.get(t, "")} for t in keep]
+
+
+def _fetch_raw(langs: tuple[str, ...], per_category: int) -> list[dict]:
+    return [r for lang in langs for r in _fetch(lang, CATEGORIES.get(lang, []), per_category)]
 
 
 def known_memes(langs: tuple[str, ...] = ("en", "ko", "ja", "id", "zh"), per_category: int = 200, *, cache: bool = True) -> list[dict]:
@@ -162,21 +189,26 @@ def known_memes(langs: tuple[str, ...] = ("en", "ko", "ja", "id", "zh"), per_cat
     raw: list[dict] = []
     if cache and CACHE.exists():
         raw = json.loads(CACHE.read_text(encoding="utf-8"))
-    # 캐시에 없는 언어만 새로 받는다 — 언어판을 늘려도 이미 받은 것을 다시 받지 않는다
-    missing = tuple(lang for lang in langs if not any(r.get("lang") == lang for r in raw))
-    if missing:
-        raw += _fetch_raw(missing, per_category)
-        if cache and raw:
+    # 캐시에 없는 언어·나라 분류만 새로 받는다 — 언어판을 늘려도 이미 받은 것을 다시 받지 않는다
+    missing = tuple(lang for lang in langs if not any(r.get("lang") == lang and not r.get("region") for r in raw))
+    fresh = _fetch_raw(missing, per_category) if missing else []
+    for region, (lang, cats) in REGION_CATEGORIES.items():
+        if lang in langs and not any(r.get("region") == region for r in raw):   # 받지 못했으면(429 등) 다음에 다시
+            fresh += [{**r, "region": region} for r in _fetch(lang, cats, per_category)]
+    if fresh:
+        raw += fresh
+        if cache:
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             CACHE.write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
 
     out: list[dict] = []
     seen: set[tuple[str, str]] = set()
-    for r in raw:
+    for r in sorted(raw, key=lambda r: not r.get("region")):   # 나라 분류에서 온 것을 먼저 — 같은 제목이면 그 나라로 둔다
         t, lang = r.get("term"), r.get("lang", "en")
         if not t or lang not in langs or (lang, t.lower()) in seen or not is_meme(r.get("description", "")):
             continue
         seen.add((lang, t.lower()))
-        out.append({"term": t, "lang": lang, "region": home_region(t, lang) or LANG_REGION.get(lang, "US"),   # 광동어 제목은 홍콩
-                    "source_title": r.get("title", t), "description": r.get("description", "")})
+        region = r.get("region") or (country_named(r.get("description", "")) if lang == "en" else None) \
+            or home_region(t, lang) or LANG_REGION.get(lang, "US")                                  # 광동어 제목은 홍콩
+        out.append({"term": t, "lang": lang, "region": region, "source_title": r.get("title", t), "description": r.get("description", "")})
     return out

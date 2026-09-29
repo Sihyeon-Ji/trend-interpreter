@@ -48,6 +48,7 @@ def test_wiki_seeds_send_cantonese_titles_to_hong_kong(tmp_path, monkeypatch):
     cache.write_text(json.dumps([{"title": "行得㗎啦", "term": "行得㗎啦", "lang": "zh", "description": ""},
                                  {"title": "傻眼貓咪", "term": "傻眼貓咪", "lang": "zh", "description": ""}], ensure_ascii=False), encoding="utf-8")
     monkeypatch.setattr(wiki_memes, "CACHE", cache)
+    monkeypatch.setattr(wiki_memes, "_members", lambda lang, cat, limit: [])     # 나라 분류를 받으러 나가지 않게
     got = {r["term"]: r["region"] for r in wiki_memes.known_memes(("zh",))}
     assert got == {"行得㗎啦": "HK", "傻眼貓咪": "TW"}
 
@@ -215,3 +216,44 @@ def test_research_reserves_slots_for_under_covered_target_regions():
     assert sum(g.startswith("Wiki meme") for g in got) == 8 - research.REGION_SLOTS                # 나머지 칸은 예전 순서(위키 먼저)
     assert "Kisme Jda Hoga" not in got and "Bro" not in got
     assert [t.canonical for t in research.promote_candidates(con, 8)][:1] == ["TAM THÁI TỬ"]      # 다음 실행에는 남은 지역 후보가 먼저
+
+
+def test_wiki_seed_keeps_animal_memes_with_a_birth_year():
+    """'태어난 해' 는 사람 문서의 표시라 버리지만, 동물 밈(태국 피그미하마 Moo Deng 'born 2024')까지 버렸다."""
+    from trend_agents.collectors.wiki_memes import is_meme
+
+    assert is_meme("Thai pygmy hippopotamus (born 2024)") and is_meme("Internet celebrity cat (2012–2019)")
+    assert not is_meme("French pole vaulter (born 2003)") and not is_meme("American killer (born 1998)")
+    assert not is_meme("Australian breakdancer (Born 1987)")                       # 예전처럼 대소문자는 가리지 않는다
+    assert not is_meme("Japanese Thoroughbred racehorse (1996–2025)")        # 경주마는 따로 막는다
+    assert not is_meme("미국의 유튜버, 방송인 (1990-2019)") and not is_meme("大韓民国の歌手 (1990-)")
+    assert not is_meme("维基媒体消歧义页") and not is_meme("香港網絡論壇") and is_meme("香港流行語")       # 홍콩 분류의 동음이의·게시판 문서
+
+
+def test_wiki_seeds_add_hong_kong_categories_and_target_country_english_memes(tmp_path, monkeypatch):
+    """홍콩 분류(香港網絡迷因·香港網絡文化·香港俚語)를 더하고 그 문서는 홍콩으로 둔다 — 이미 받아 둔 캐시에도 새로 받는다.
+    영어 밈은 설명이 목표 지역을 대면 그 나라로(Moo Deng → 태국, Pacu Jalur → 인도네시아), 북한은 한국이 아니다."""
+    from trend_agents.collectors import wiki_memes
+
+    cache = tmp_path / "wiki_memes.json"
+    cache.write_text(json.dumps([
+        {"title": "Moo Deng", "term": "Moo Deng", "lang": "en", "description": "Thai pygmy hippopotamus (born 2024)"},
+        {"title": "Pacu Jalur", "term": "Pacu Jalur", "lang": "en", "description": "Traditional canoe racing in Sumatra, Indonesia"},
+        {"title": "Chill Guy", "term": "Chill Guy", "lang": "en", "description": "2024 internet meme"},
+        {"title": "Juche Gang", "term": "Juche Gang", "lang": "en", "description": "North Korean propaganda internet meme"},
+        {"title": "傻眼貓咪", "term": "傻眼貓咪", "lang": "zh", "description": ""},
+    ], ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(wiki_memes, "CACHE", cache)
+    asked: list[str] = []
+    members = {"Category:香港網絡迷因": ["Obsession糖衣陷阱"], "Category:香港網絡文化": ["屈機", "港女 (潮語)", "香港網絡用語列表"],
+               "Category:香港俚語": ["屈機", "師奶"]}
+    monkeypatch.setattr(wiki_memes, "_members", lambda lang, cat, limit: asked.append(cat) or members[cat])
+    monkeypatch.setattr(wiki_memes, "_simplified", lambda titles: set())
+    monkeypatch.setattr(wiki_memes, "_descriptions", lambda lang, titles: {})
+
+    got = {r["term"]: r["region"] for r in wiki_memes.known_memes(("en", "zh"))}
+    assert asked == ["Category:香港網絡迷因", "Category:香港網絡文化", "Category:香港俚語"]     # 캐시에 없는 홍콩 분류만 받는다
+    assert got == {"Moo Deng": "TH", "Pacu Jalur": "ID", "Chill Guy": "US", "Juche Gang": "US", "傻眼貓咪": "TW",
+                   "Obsession糖衣陷阱": "HK", "屈機": "HK", "港女": "HK", "師奶": "HK"}
+    asked.clear()
+    assert {r["term"] for r in wiki_memes.known_memes(("zh",))} >= {"屈機", "傻眼貓咪"} and asked == []   # 다음에는 캐시에서
