@@ -55,10 +55,11 @@ export async function POST(req: Request) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ term_ids: termIds, brief, region, tone, lang }),
       cache: "no-store",
+      signal: req.signal,   // 화면에서 '그만두기' 를 누르거나 창을 닫으면 백엔드 요청도 끊는다
     });
   } catch {
-    return NextResponse.json({ error: "failed" }, { status: 502 });
+    return NextResponse.json({ error: req.signal.aborted ? "aborted" : "failed" }, { status: req.signal.aborted ? 499 : 502 });
   }
-  if (!res.ok) return NextResponse.json({ error: "failed" }, { status: res.status });
+  if (!res.ok) return NextResponse.json({ error: res.status === 429 ? "busy" : "failed" }, { status: res.status });
   return NextResponse.json(await res.json());
 }

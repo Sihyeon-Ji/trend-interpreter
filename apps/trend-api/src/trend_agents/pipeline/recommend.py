@@ -128,23 +128,32 @@ def local_context(con: Connection, term_id: str, chosen: list[str]) -> tuple[str
     return None
 
 
-def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: list[str], tone: str) -> RecommendResult:
-    """순위와 이유의 재료는 모두 저장된 데이터와 규칙이다 — 이 함수는 모델을 부르지 않는다."""
+def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: list[str], tone: str, pin: str | None = None) -> RecommendResult:
+    """순위와 이유의 재료는 모두 저장된 데이터와 규칙이다 — 이 함수는 모델을 부르지 않는다.
+    pin 은 사전 항목에서 사람이 먼저 고른 밈 — 순위(TOP) 밖이어도 목록 끝에 넣는다. 고른 지역의 카드가 아니거나 사용 자제·저속한 말투이거나
+    근거 링크가 없으면 넣지 않는다(순위 규칙의 문턱만 건너뛴다)."""
     chosen = dashboard.chosen_regions(regions)
     cards = dashboard.cards(con, chosen)             # 표시 목록(30개씩)이 아니라 고른 지역의 모든 카드
     fits = {tid: f for tid, (_, f) in ds.all_fits(con).items()}
     scored, comparable = rank(brief, cards, fits, tone)
     picked = [p for p in scored if _links(con, p[1])][:TOP]      # 근거 링크가 없는 것은 추천하지 않는다
+    if pin and all(c.term_id != pin for _, c, _, _ in picked):
+        card = next((c for c in cards if c.term_id == pin), None)
+        fit = fits.get(pin)
+        if card and card.risk_level != "avoid" and not (fit and fit.voice == "crude") and _links(con, card):
+            got = next((p for p in scored if p[1].term_id == pin), None)
+            picked.append(got or (0.0, card, False, []))
     items = []
     for s, c, cat, feel in picked:
         ctx = local_context(con, c.term_id, chosen)
         term, usage = ds.get_term(con, c.term_id), {u["region"] for u in ds.get_usage(con, c.term_id)}
-        items.append(RecommendItem(term_id=c.term_id, canonical=c.canonical, gloss_ko=c.gloss_ko, gloss_en=c.gloss_en, regions=c.regions,
+        items.append(RecommendItem(term_id=c.term_id, canonical=c.canonical, lang=c.lang, gloss_ko=c.gloss_ko, gloss_en=c.gloss_en, regions=c.regions,
                                    diffusion=c.diffusion, lifecycle=c.lifecycle, risk_level=c.risk_level, risk_reasons=c.risk_reasons,
-                                   risk_checked_at=c.risk_checked_at, matched_category=cat, any_category=fits[c.term_id].any_category,
+                                   risk_checked_at=c.risk_checked_at, matched_category=cat,
+                                   any_category=bool(fits.get(c.term_id) and fits[c.term_id].any_category),
                                    matched_feelings=feel, local_region=ctx[0] if ctx else None, local_note=ctx[1] if ctx else None,
                                    write_regions=[r for r in chosen if r in REGION_LANG and term and writable(term, r, usage)],
-                                   score=round(s, 2), evidences=_links(con, c)))
+                                   score=round(s, 2), evidences=_links(con, c), pinned=c.term_id == pin))
     return RecommendResult(brief=brief, brief_source=brief_source, regions=chosen, tone=tone, items=items,
                            considered=len(scored), untagged=len(cards) - comparable)
 

@@ -49,7 +49,8 @@ function score(brief: ProductBrief, fit: Fit, c: KeywordCard, tone: CampaignTone
   return s >= MIN_SCORE ? [s, cat, shared] : null;
 }
 
-export function sampleRecommend(regions: string[], tone: CampaignTone): RecommendResult {
+/** pin: 사전 항목에서 먼저 고른 밈 — 순위 밖이어도 목록 끝에 넣는다(백엔드 recommend.recommend 의 pin 과 같다). */
+export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: string | null): RecommendResult {
   const board = sampleKeywordBoard(regions);
   const cards = [...new Map([...board.rising, ...board.fading, ...board.caution].map((c) => [c.term_id, c])).values()];
   const scored = cards.flatMap((c) => {
@@ -60,8 +61,13 @@ export function sampleRecommend(regions: string[], tone: CampaignTone): Recommen
   // 근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만. 링크가 없는 것은 추천하지 않는다(백엔드 recommend._links 와 같다)
   const links = (c: KeywordCard) => [...c.evidences].sort((a, b) => Number(!USAGE.includes(a.kind)) - Number(!USAGE.includes(b.kind)))
     .filter((e, i, all) => all.findIndex((x) => x.url === e.url) === i).slice(0, 2);
-  const items: RecommendItem[] = scored.filter(({ c }) => links(c).length).slice(0, TOP).map(({ c, s, cat, shared, any }) => ({
-    term_id: c.term_id, canonical: c.canonical, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, regions: c.regions,
+  const top = scored.filter(({ c }) => links(c).length).slice(0, TOP);
+  const pinCard = pin && !top.some(({ c }) => c.term_id === pin) ? cards.find((c) => c.term_id === pin) : undefined;
+  if (pinCard && pinCard.risk_level !== "avoid" && SAMPLE_FIT[pin!]?.voice !== "crude" && links(pinCard).length) {
+    top.push(scored.find(({ c }) => c.term_id === pin) ?? { c: pinCard, s: 0, cat: false, shared: [], any: SAMPLE_FIT[pin!]?.any_category ?? false });
+  }
+  const items: RecommendItem[] = top.map(({ c, s, cat, shared, any }) => ({
+    term_id: c.term_id, canonical: c.canonical, lang: c.lang, pinned: c.term_id === pin, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, regions: c.regions,
     diffusion: c.diffusion ?? null, lifecycle: c.lifecycle, risk_level: c.risk_level ?? null, risk_reasons: c.risk_reasons,
     matched_category: cat, any_category: any, matched_feelings: shared, local_region: null, local_note: null,
     // 예시 모드: 그 지역의 글자로 쓴 표기(또는 로마자)가 있는 곳만 — 백엔드 generate.writable 의 간단한 판

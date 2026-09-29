@@ -25,28 +25,33 @@ export async function POST(req: Request) {
   const tone = (TONES.includes(form.get("tone") as CampaignTone) ? form.get("tone") : "friendly") as CampaignTone;
   const regions = String(form.get("regions") ?? "").split(",").map((r) => r.trim().toUpperCase()).filter((r) => TARGET_REGIONS.includes(r));
   const lang = form.get("lang") === "en" ? "en" : "ko";
+  // 사전 항목의 '이 밈으로 만들기' 에서 먼저 고른 밈 id — 모양만 보고 넘긴다(있는지는 백엔드가 본다)
+  const term = String(form.get("term") ?? "").trim();
+  const pin = /^[\w.:-]{1,64}$/.test(term) ? term : "";
   const image = form.get("image");
   const photo = image instanceof File && image.size > 0 ? image : null;
   if (photo && photo.size > MAX_IMAGE) return NextResponse.json({ error: "too_big" }, { status: 413 });
   if (photo && !["image/jpeg", "image/png", "image/webp"].includes(photo.type)) return NextResponse.json({ error: "bad_type" }, { status: 415 });
   if (!text && !photo) return NextResponse.json({ error: "need_input" }, { status: 400 });
 
-  if (isSampleMode) return NextResponse.json(sampleRecommend(regions, tone));
+  if (isSampleMode) return NextResponse.json(sampleRecommend(regions, tone, pin || null));
 
   const out = new FormData();
   out.set("text", text);
   out.set("tone", tone);
   out.set("lang", lang);
   out.set("regions", regions.join(","));
+  if (pin) out.set("term", pin);
   if (photo) out.set("image", photo, "photo");   // 파일 이름은 넘기지 않는다
   let res: Response;
   try {
-    res = await fetch(`${API}/recommend`, { method: "POST", body: out, cache: "no-store" });
+    res = await fetch(`${API}/recommend`, { method: "POST", body: out, cache: "no-store", signal: req.signal });
   } catch {
     return NextResponse.json({ error: "failed" }, { status: 502 });
   }
   if (!res.ok) {
-    const code = res.status === 413 ? "too_big" : res.status === 415 ? "bad_type" : res.status === 400 ? "need_input" : "failed";
+    // 429(분당 한도)는 따로 알린다 — '잠시 뒤' 대신 '요청이 많다' 고 말한다
+    const code = res.status === 413 ? "too_big" : res.status === 415 ? "bad_type" : res.status === 400 ? "need_input" : res.status === 429 ? "busy" : "failed";
     return NextResponse.json({ error: code }, { status: res.status });
   }
   return NextResponse.json(await res.json());

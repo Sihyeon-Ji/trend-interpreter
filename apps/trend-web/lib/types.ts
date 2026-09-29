@@ -133,6 +133,7 @@ export type CampaignTone = "friendly" | "witty" | "premium";
 export interface RecommendItem {
   term_id: string;
   canonical: string;
+  lang: string;                   // 표제어의 말(KeywordCard.lang) — 원문에 lang 을 붙인다
   gloss_ko: string;
   gloss_en: string;
   regions: string[];
@@ -150,6 +151,7 @@ export interface RecommendItem {
   write_regions: string[];        // 고른 지역 가운데 이 밈으로 결과물을 쓸 수 있는 곳 — '결과물 지역' 선택지
   score: number;
   evidences: EvidenceBrief[];
+  pinned: boolean;                // 사전 항목의 '이 밈으로 만들기' 로 먼저 고른 밈 — 순위 밖이어도 목록 끝에 들어온다
 }
 
 export interface RecommendResult {

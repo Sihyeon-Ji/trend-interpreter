@@ -385,7 +385,7 @@ def _model_slot():
 
 @app.post("/recommend", response_model=views.RecommendResult)
 def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("friendly"), lang: str = Form("ko"),
-              image: UploadFile | None = File(None)):
+              image: UploadFile | None = File(None), term: str = Form("")):
     """사진 한 장이나 홍보 문구(또는 둘 다)로 밈 추천 (Plan 07). 사진은 메모리에서만 읽고 저장·기록하지 않는다.
     모델 호출이 막히는 작업이라 동기 함수로 둔다(작업 스레드에서 돈다)."""
     if tone not in recommend_stage.TONES:
@@ -416,7 +416,8 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
             brief, source = recommend_stage.understand(_con, text, picture, ui)
         except recommend_stage.Unavailable as e:
             raise HTTPException(503, str(e)) from None
-    return recommend_stage.recommend(_con, brief, source, wanted, tone)
+    # term: 사전 항목의 '이 밈으로 만들기' 에서 먼저 고른 밈 id — 순위 밖이어도 목록에 넣는다(규칙 문턱만 건너뛴다)
+    return recommend_stage.recommend(_con, brief, source, wanted, tone, term.strip()[:64] or None)
 
 
 class GenerateIn(BaseModel):

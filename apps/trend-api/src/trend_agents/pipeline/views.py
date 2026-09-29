@@ -297,6 +297,7 @@ class KeywordBoard(BaseModel):
 class RecommendItem(BaseModel):
     term_id: str
     canonical: str
+    lang: str = ""                     # 표제어의 말(KeywordCard.lang) — 화면이 원문에 lang 을 붙인다
     gloss_ko: str
     gloss_en: str
     regions: list[str]
@@ -314,6 +315,7 @@ class RecommendItem(BaseModel):
     write_regions: list[str] = []      # 고른 지역 가운데 이 밈으로 결과물을 쓸 수 있는 곳(generate.writable) — 화면의 '결과물 지역' 선택지
     score: float
     evidences: list[EvidenceBrief] = []
+    pinned: bool = False               # 사전 항목의 '이 밈으로 만들기' 로 사람이 먼저 고른 밈 — 순위 밖이어도 목록 끝에 넣는다
 
 
 class RecommendResult(BaseModel):
