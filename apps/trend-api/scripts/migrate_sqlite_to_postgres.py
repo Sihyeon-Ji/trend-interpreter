@@ -2,6 +2,7 @@
 
 사용: uv run scripts/migrate_sqlite_to_postgres.py [--sqlite data/trend.db] [--database-url postgresql://...]
 표 목록과 컬럼은 현재 DDL 기준이다. SQLite 쪽에만 있는 컬럼은 버리고, PostgreSQL 쪽에만 있는 컬럼은 NULL 로 둔다.
+단 terms.diffusion 은 용어 JSON 에서 채운다(마이그레이션 002 의 보정은 행이 들어오기 전, 처음 연결할 때 돈다).
 기본키가 없는 표(pipeline_runs, research_log, interpretations, video_snapshots)는 대상이 비어 있을 때만 복사한다.
 """
 from __future__ import annotations
@@ -51,6 +52,10 @@ def migrate(sqlite_path: Path, dst: db.Connection) -> None:
             copied += before.rowcount if before.rowcount >= 0 else 0
             dst.commit()
         print(f"{name:20} {copied}/{total} 복사" + (f" (기본키 색인에 들어가지 않는 {left_out}건 제외)" if left_out else ""))
+    filled = dst.execute("UPDATE terms SET diffusion = json::jsonb ->> 'diffusion' "
+                         "WHERE diffusion IS NULL AND json::jsonb ->> 'diffusion' IS NOT NULL").rowcount
+    dst.commit()
+    print(f"{'terms.diffusion':20} {filled}건 채움")
     print(f"{'term_aliases':20} {dictionary_store.rebuild_aliases(dst)}건 다시 만듦")
 
 

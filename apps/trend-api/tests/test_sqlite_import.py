@@ -49,6 +49,17 @@ def _twin(tmp_path: Path, *terms: Term, links: tuple[str, ...] = ()) -> Path:
     return path
 
 
+def test_diffusion_column_is_filled_from_the_term_json(tmp_path):
+    # 마이그레이션 002 의 보정은 표가 비어 있을 때(연결할 때) 돌았다 — 옮긴 뒤 열이 비어 있었다
+    con = db.connect(":memory:")
+    path = _twin(tmp_path, Term(term_id="t1", canonical="럭키비키", diffusion="mainstream", aliases=["럭키 비키"]),
+                 Term(term_id="t2", canonical="느좋"))
+    mig.migrate(path, con)
+    assert dict(con.execute("SELECT term_id, diffusion FROM terms").fetchall()) == {"t1": "mainstream", "t2": None}
+    assert ds.find_term(con, "럭키 비키").term_id == "t1"  # 별칭 표도 다시 만든다
+    con.close()
+
+
 def test_news_links_too_long_for_the_primary_key_index_are_left_out(tmp_path):
     # PostgreSQL 기본키(btree) 색인은 한 항목 2,704바이트까지 — 트윈의 2,901바이트 주소 하나에 이관이 news 에서 멈췄다(2026-09-29)
     con = db.connect(":memory:")
