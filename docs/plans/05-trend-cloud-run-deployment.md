@@ -1,6 +1,6 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-작성일 **2026-09-28** · 변경일 **2026-09-29** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 — 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 — 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀, 유지보수 작업·운영 신호 — 10-01 develop)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -92,7 +92,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 | --- | --- | --- |
 | Gemma 4 사용 | Kaggle의 사전·국가별 해석 편집 배치, PC 대체 경로 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행. 운영 Cloud Run GPU 배치 여부는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중(미정) |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
-| 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | 로컬 코드에는 `collect.retention`이 있으나 PC와 독립적인 운영 예약 작업이 추가로 필요 |
+| 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | PC와 독립적으로 돌 `scripts/maintenance.py` 구현(2026-09-29). 예약 실행(Cloud Run Job·Scheduler)은 남음 |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |
 | 별칭 조회 | `term_aliases` 표와 기본키 인덱스 | 완료. 마이그레이션 001 |
 | DB 연결 | `psycopg_pool` 풀 + Cloud Run 동시성 제한 | 완료. `DB_POOL_SIZE`(기본 8)와 Cloud Run `--concurrency`를 같은 값으로 배포 |
@@ -106,7 +106,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
    Cloud SQL 연결 총량은 `max-instances × DB_POOL_SIZE`에 유지보수 작업과 로컬 게시 연결 수를 더해 인스턴스의 허용 연결 수보다 작게 설계합니다.
-4. **전체 파이프라인 Job은 만들지 않습니다.** PC·Kaggle 배치의 검수 후 게시 방법과 중복 실행 방지는 Plan 06에서 구현합니다. 대신 해석 캐시 7일·미해결 질문 30일 보존 정리와 마지막 게시 시각 건강 점검을 PC 없이 실행하는 최소 권한 예약 작업을 설계·구현합니다. 현재 `collect.retention`과 `scripts/health_check.py`는 존재하지만 독립 예약 작업은 아직 없습니다. 운영 로그에 사용자 원문·생성 결과를 남기지 않습니다.
+4. **전체 파이프라인 Job은 만들지 않습니다.** 로컬 파이프라인의 게시 방법과 중복 실행 방지는 Plan 06에서 구현합니다. 대신 해석 캐시 7일·미해결 질문 30일 보존 정리와 마지막 게시 시각 건강 점검을 PC 없이 실행하는 최소 권한 예약 작업을 설계·구현합니다. 예약 작업이 실행할 `scripts/maintenance.py`는 구현했습니다([구현 기록](#구현-기록)). Job·Scheduler·경보 연결이 남았습니다. 운영 로그에 사용자 원문·생성 결과를 남기지 않습니다.
 5. `.github/workflows/release-gcp.yml`에 application job을 다시 추가하고, `scripts/release_scope.py`의 `app` 판정이 그 job을 켜도록 연결합니다. `scripts/release_recovery.py`의 `SECRETS`에 새 서비스를 추가합니다.
 6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
 7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
@@ -152,3 +152,25 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 8. 다중 인스턴스 대비: `apply_migrations` 에 `pg_advisory_xact_lock`, 마이그레이션은 expand-only, 풀에 `check=ConnectionPool.check_connection`.
 9. **사용자/팀 결정 대기:** Cloud SQL 사양·에디션·버전·네트워크(공개 IP + Auth Proxy 만, 또는 비공개 IP + VPC), 월 비용 수용과 지출 상한(기존 상한은 Vertex AI·Gemini API 만 덮는다).
 10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.
+
+## 구현 기록
+
+### 2026-09-29 유지보수 작업과 운영 신호 (`feat/ops-signals`)
+
+- **`apps/trend-api/scripts/maintenance.py`.** 해석 캐시 7일·미해결 질문 30일 정리(`prune_user_text`)와 마지막 정상 게시 점검을 한 번 하고
+  이벤트 한 줄(`event=maintenance`: 지운 건수·게시 시각·경과 시간·오류 종류)을 남긴다. 종료 코드는 0 정상, 1 정리·점검 실패, 2 게시본이 오래됨.
+  표를 만들거나 마이그레이션하지 않으므로 DB 역할에는 `explain_cache`·`lookups`의 SELECT·DELETE와 `pipeline_runs`의 SELECT만 주면 된다.
+  로컬 Compose PostgreSQL에서 그 권한만 가진 역할로 실행해 확인했다(수집 기록만 → 2, 게시 1시간 전 → 0, 틀린 비밀번호 → 1이며 로그에는 `OperationalError`만).
+  같은 역할로 `db.connect()`를 부르면 `permission denied for schema public`으로 실패한다. 오래됨은 다시 돌려도 풀리지 않으므로 Job 재시도는 0으로 둔다.
+- **게시 신선도.** `/meta`의 `last_run`은 이제 지도(`board`)·대시보드(`dashboard`) 게시가 모두 성공한 마지막 때이고 `stale`은 그게 12시간보다 오래됐는지다.
+  전에는 어느 단계든 끝난 때(0건·건너뜀 포함)였다. 원작자 서버 `trend.db`(읽기 전용 조회)에서 잰 값:
+  - 09-17~09-28 밤마다 23:2x 게시 → 다음 날 09:2x 게시 간격이 10.0~10.5시간이다. 8시간 한계(`health_check.py`)는 매일 밤 울리고 12시간은 울리지 않는다.
+  - 09-28 19:33·23:33(한국 시각) 지도 단계가 `KeyError: 'namu_rank'`로 실패해 지도가 14:27 것으로 19.1시간 남았다. 그동안 옛 계산은 23:33:06을 냈고,
+    새 계산은 14:27을 내며 09-29 02:27에 `stale`이 된다.
+  - 화면(사전·최근 변화의 '갱신' 시각, 관리 화면 머리의 '마지막 실행')은 코드 변경 없이 새 `last_run`을 보인다. `stale` 표시는 프론트 결정 뒤에 붙인다.
+- **Gemini 호출 이벤트.** `pipeline/gemini.py`가 Vertex에 요청을 보낼 때마다 `event=gemini_call`(`model`·`ledger`·`outcome`·`code`) 한 줄을 남긴다.
+  Cloud Run 서비스와 Job은 JSON 로그라 `jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있다([AI 호출 제어](../운영/AI-호출-제어.md)).
+  호출이 꺼져 있으면(`MODEL_REQUESTS_ENABLED=false`) 장부를 깎기 전에 끝나 이벤트가 0이다. 전에는 보내지 않은 요청이 호출마다 장부를 1씩 깎았다(시험에서 36→35, 12→11).
+- **보존 기간 실측.** 원작자 서버 `trend.db`에는 사용자 문장 정리가 없어 해석 캐시 66건 중 59건이 7일을 넘겼다(가장 오래된 것 09-14, 미해결 질문은 0건).
+  그 서버에 이 정리를 옮기면 첫 실행에서 지워진다.
+- 남은 일: Job·Scheduler와 실패 경보(Discord), `gemini_call` 로그 지표, 배포 뒤 `MODEL_REQUESTS_ENABLED=false`에서 0회 확인은 인프라 작업에서 한다.
