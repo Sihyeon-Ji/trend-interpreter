@@ -12,13 +12,13 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.formparsers import MultiPartParser
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from ..config import WEB_ORIGINS
+from ..config import REGIONS_FOCUS, WEB_ORIGINS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import explain as explain_stage
-from ..pipeline import dashboard, recommend as recommend_stage, risk, views
-from ..schemas import RiskLevel, TrendBoard
+from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
+from ..schemas import CampaignTone, ProductBrief, RiskLevel, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
 from ..storage import db
@@ -386,6 +386,33 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
         raise HTTPException(503, str(e)) from None
     wanted = [r.strip().upper() for r in regions.split(",") if r.strip()]
     return recommend_stage.recommend(_con, brief, source, wanted, tone, "en" if lang == "en" else "ko")
+
+
+class GenerateIn(BaseModel):
+    term_ids: list[str] = Field(min_length=1, max_length=3)   # 추천에서 고른 밈
+    brief: ProductBrief                                     # 추천이 읽어 낸 제품 설명 (다시 읽지 않는다 — 모델 호출을 아낀다)
+    region: str                                             # 결과물을 쓸 목표 지역 하나 — 그 나라 말로 만든다
+    tone: CampaignTone = "friendly"
+    lang: str = "ko"                                        # 화면 언어 — 설명 칸을 그 말로
+
+
+_generate_limit = recommend_stage.RateLimit(per_minute=10)
+
+
+@app.post("/generate", response_model=views.GenerationResult)
+def generate(body: GenerateIn):
+    """SNS 카피·숏폼 대본·썸네일 구성안 (Plan 08). 모델은 생성·검사 한 번씩, 다시 만들어도 네 번까지. 결과는 저장하지 않는다."""
+    region = body.region.strip().upper()
+    if region not in REGIONS_FOCUS:
+        raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
+    if not _generate_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    try:
+        return generate_stage.run(_con, body.term_ids, body.brief, region, body.tone, "en" if body.lang == "en" else "ko")
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except generate_stage.Unavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)

@@ -1,5 +1,5 @@
 /* 계약 타입은 lib/contract/types.ts (자동 생성) 에서 온다. 여기는 프론트 전용 뷰 모델만. */
-import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, ProductBrief, RiskLevel, Segment, Term } from "./contract/types";
+import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, ProductBrief, RiskLevel, Segment, ShortScript, SocialCopy, Term, ThumbnailPlan } from "./contract/types";
 import type { EvidenceBrief } from "./trends/types";
 
 export type {
@@ -15,6 +15,10 @@ export type {
   Lifecycle,
   Verification,
   ProductBrief,
+  SocialCopy,
+  ShortScript,
+  ScriptScene,
+  ThumbnailPlan,
 } from "./contract/types";
 
 export type TermStatus = NonNullable<Term["status"]>;
@@ -147,5 +151,21 @@ export interface RecommendResult {
   items: RecommendItem[];
   considered: number;
   untagged: number;
+}
+
+/* 콘텐츠 생성 (Plan 08) — 백엔드 pipeline/views.py 의 GenerationResult·Dropped 와 1:1. 결과는 저장하지 않는다. */
+export interface Dropped { id: string; reason: string }
+
+export interface GenerationResult {
+  region: string;
+  language: string;               // 결과물의 말 (목표 지역)
+  tone: CampaignTone;
+  memes: string[];
+  copies: SocialCopy[];           // 사전 대조 검사를 통과한 안만
+  script?: ShortScript | null;
+  thumbnail?: ThumbnailPlan | null;
+  dropped: Dropped[];             // 두 번 다 검사에 걸려 뺀 안과 이유
+  model_calls: number;
+  source: "gemini" | "local" | "sample";
 }
 

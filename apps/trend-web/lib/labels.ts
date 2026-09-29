@@ -17,6 +17,7 @@ interface Labels {
   feeling: Record<Feeling, string>;
   fitCategory: Record<FitCategory, string>;
   campaignTone: Record<CampaignTone, string>;
+  draftLang: Record<string, string>;
 }
 
 const ko: Labels = {
@@ -39,6 +40,7 @@ const ko: Labels = {
   fitCategory: { food_drink: "음식·음료", fashion_beauty: "패션·뷰티", tech: "전자기기·앱", game: "게임", entertainment: "공연·영상·음악", travel: "여행",
                  finance: "금융", health_fitness: "건강·운동", education: "교육", lifestyle: "생활용품" },
   campaignTone: { friendly: "친근함", witty: "재치", premium: "고급스러움" },
+  draftLang: { ko: "한국어", ja: "일본어", "zh-Hant": "번체 중국어", th: "태국어", vi: "베트남어", id: "인도네시아어", en: "영어", ms: "말레이어" },
 };
 
 const en: Labels = {
@@ -61,6 +63,7 @@ const en: Labels = {
   fitCategory: { food_drink: "food & drink", fashion_beauty: "fashion & beauty", tech: "tech & apps", game: "games", entertainment: "shows & music",
                  travel: "travel", finance: "finance", health_fitness: "health & fitness", education: "education", lifestyle: "home & lifestyle" },
   campaignTone: { friendly: "Friendly", witty: "Witty", premium: "Premium" },
+  draftLang: { ko: "Korean", ja: "Japanese", "zh-Hant": "Traditional Chinese", th: "Thai", vi: "Vietnamese", id: "Indonesian", en: "English", ms: "Malay" },
 };
 
 const LABELS: Record<Locale, Labels> = { ko, en };

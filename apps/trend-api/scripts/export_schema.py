@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from trend_agents.config import ROOT
 from trend_agents.schemas import (
+    ContentDraft,
     Evidence,
     GenerationRead,
     Meaning,
@@ -36,6 +37,7 @@ class Contract(BaseModel):
     generation_read: GenerationRead
     news_item: NewsItem
     product_brief: ProductBrief   # 추천(Plan 07) 결과의 제품 설명 — 화면이 느낌·분야 낱말을 그대로 쓴다
+    content_draft: ContentDraft   # 생성(Plan 08) 결과물 — 카피·대본·썸네일
 
 
 out = ROOT.parent / "trend-web" / "lib" / "contract" / "schema.json"

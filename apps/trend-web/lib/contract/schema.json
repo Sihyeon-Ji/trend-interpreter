@@ -1,5 +1,30 @@
 {
   "$defs": {
+    "ContentDraft": {
+      "description": "생성 한 번의 결과: 인스타그램 2안·X 2안, 숏폼 대본 하나, 썸네일 구성안 하나.",
+      "properties": {
+        "copies": {
+          "items": {
+            "$ref": "#/$defs/SocialCopy"
+          },
+          "title": "Copies",
+          "type": "array"
+        },
+        "script": {
+          "$ref": "#/$defs/ShortScript"
+        },
+        "thumbnail": {
+          "$ref": "#/$defs/ThumbnailPlan"
+        }
+      },
+      "required": [
+        "copies",
+        "script",
+        "thumbnail"
+      ],
+      "title": "ContentDraft",
+      "type": "object"
+    },
     "Evidence": {
       "properties": {
         "evidence_id": {
@@ -556,6 +581,44 @@
       "title": "ProductBrief",
       "type": "object"
     },
+    "ScriptScene": {
+      "properties": {
+        "start_s": {
+          "minimum": 0,
+          "title": "Start S",
+          "type": "integer"
+        },
+        "end_s": {
+          "minimum": 0,
+          "title": "End S",
+          "type": "integer"
+        },
+        "visual": {
+          "description": "화면에 보이는 것 (목표 지역 언어)",
+          "title": "Visual",
+          "type": "string"
+        },
+        "caption": {
+          "default": "",
+          "description": "자막 (목표 지역 언어)",
+          "title": "Caption",
+          "type": "string"
+        },
+        "line": {
+          "default": "",
+          "description": "대사·내레이션 (목표 지역 언어)",
+          "title": "Line",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_s",
+        "end_s",
+        "visual"
+      ],
+      "title": "ScriptScene",
+      "type": "object"
+    },
     "Segment": {
       "description": "세대 × 국가. 확산 경로의 노드.",
       "properties": {
@@ -586,6 +649,41 @@
         "region"
       ],
       "title": "Segment",
+      "type": "object"
+    },
+    "ShortScript": {
+      "description": "틱톡·릴스용 15~30초 대본.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "duration_s": {
+          "maximum": 60,
+          "minimum": 5,
+          "title": "Duration S",
+          "type": "integer"
+        },
+        "scenes": {
+          "items": {
+            "$ref": "#/$defs/ScriptScene"
+          },
+          "title": "Scenes",
+          "type": "array"
+        },
+        "note_ko": {
+          "default": "",
+          "description": "한국어 설명",
+          "title": "Note Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "duration_s",
+        "scenes"
+      ],
+      "title": "ShortScript",
       "type": "object"
     },
     "ShortsInterpretation": {
@@ -737,6 +835,44 @@
         "source"
       ],
       "title": "ShortsVideo",
+      "type": "object"
+    },
+    "SocialCopy": {
+      "description": "SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명.",
+      "properties": {
+        "platform": {
+          "enum": [
+            "instagram",
+            "x"
+          ],
+          "title": "Platform",
+          "type": "string"
+        },
+        "text": {
+          "description": "게시글 본문 (목표 지역 언어). 고른 밈을 그대로 넣는다",
+          "title": "Text",
+          "type": "string"
+        },
+        "hashtags": {
+          "description": "해시태그 3~6개, # 없이",
+          "items": {
+            "type": "string"
+          },
+          "title": "Hashtags",
+          "type": "array"
+        },
+        "note_ko": {
+          "default": "",
+          "description": "이 안이 밈을 어떻게 썼는지 한국어 한 문장",
+          "title": "Note Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "platform",
+        "text"
+      ],
+      "title": "SocialCopy",
       "type": "object"
     },
     "Term": {
@@ -950,6 +1086,45 @@
       ],
       "title": "Term",
       "type": "object"
+    },
+    "ThumbnailPlan": {
+      "properties": {
+        "headline": {
+          "description": "썸네일 주요 문구 (목표 지역 언어)",
+          "title": "Headline",
+          "type": "string"
+        },
+        "layout": {
+          "description": "배치 (한국어)",
+          "title": "Layout",
+          "type": "string"
+        },
+        "colors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Colors",
+          "type": "array"
+        },
+        "subject": {
+          "default": "",
+          "description": "인물·제품 위치 (한국어)",
+          "title": "Subject",
+          "type": "string"
+        },
+        "note_ko": {
+          "default": "",
+          "description": "한국어 설명",
+          "title": "Note Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline",
+        "layout"
+      ],
+      "title": "ThumbnailPlan",
+      "type": "object"
     }
   },
   "description": "프론트가 소비하는 모델 묶음. $defs 에 전부 나온다.",
@@ -986,6 +1161,9 @@
     },
     "product_brief": {
       "$ref": "#/$defs/ProductBrief"
+    },
+    "content_draft": {
+      "$ref": "#/$defs/ContentDraft"
     }
   },
   "required": [
@@ -999,7 +1177,8 @@
     "shorts_interpretation",
     "generation_read",
     "news_item",
-    "product_brief"
+    "product_brief",
+    "content_draft"
   ],
   "title": "Contract",
   "type": "object"

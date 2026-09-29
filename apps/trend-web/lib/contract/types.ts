@@ -209,6 +209,58 @@ export type Colors = string[];
  * 이 홍보에서 피해야 할 표현·주제
  */
 export type Avoid = string[];
+export type Platform = "instagram" | "x";
+/**
+ * 게시글 본문 (목표 지역 언어). 고른 밈을 그대로 넣는다
+ */
+export type Text = string;
+/**
+ * 해시태그 3~6개, # 없이
+ */
+export type Hashtags = string[];
+/**
+ * 이 안이 밈을 어떻게 썼는지 한국어 한 문장
+ */
+export type NoteKo = string;
+export type Copies = SocialCopy[];
+export type Title3 = string;
+export type DurationS = number;
+export type StartS = number;
+export type EndS = number;
+/**
+ * 화면에 보이는 것 (목표 지역 언어)
+ */
+export type Visual = string;
+/**
+ * 자막 (목표 지역 언어)
+ */
+export type Caption = string;
+/**
+ * 대사·내레이션 (목표 지역 언어)
+ */
+export type Line = string;
+export type Scenes = ScriptScene[];
+/**
+ * 한국어 설명
+ */
+export type NoteKo1 = string;
+/**
+ * 썸네일 주요 문구 (목표 지역 언어)
+ */
+export type Headline = string;
+/**
+ * 배치 (한국어)
+ */
+export type Layout = string;
+export type Colors1 = string[];
+/**
+ * 인물·제품 위치 (한국어)
+ */
+export type Subject = string;
+/**
+ * 한국어 설명
+ */
+export type NoteKo2 = string;
 
 /**
  * 프론트가 소비하는 모델 묶음. $defs 에 전부 나온다.
@@ -225,6 +277,7 @@ export interface Contract {
   generation_read: GenerationRead;
   news_item: NewsItem;
   product_brief: ProductBrief;
+  content_draft: ContentDraft;
 }
 export interface Term {
   term_id: TermId;
@@ -371,4 +424,44 @@ export interface ProductBrief {
   scene?: Scene;
   colors?: Colors;
   avoid?: Avoid;
+}
+/**
+ * 생성 한 번의 결과: 인스타그램 2안·X 2안, 숏폼 대본 하나, 썸네일 구성안 하나.
+ */
+export interface ContentDraft {
+  copies: Copies;
+  script: ShortScript;
+  thumbnail: ThumbnailPlan;
+}
+/**
+ * SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명.
+ */
+export interface SocialCopy {
+  platform: Platform;
+  text: Text;
+  hashtags?: Hashtags;
+  note_ko?: NoteKo;
+}
+/**
+ * 틱톡·릴스용 15~30초 대본.
+ */
+export interface ShortScript {
+  title: Title3;
+  duration_s: DurationS;
+  scenes: Scenes;
+  note_ko?: NoteKo1;
+}
+export interface ScriptScene {
+  start_s: StartS;
+  end_s: EndS;
+  visual: Visual;
+  caption?: Caption;
+  line?: Line;
+}
+export interface ThumbnailPlan {
+  headline: Headline;
+  layout: Layout;
+  colors?: Colors1;
+  subject?: Subject;
+  note_ko?: NoteKo2;
 }

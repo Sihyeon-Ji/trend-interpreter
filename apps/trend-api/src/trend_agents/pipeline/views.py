@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ..lifecycle import recheck_interval_days
 from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
-                       Segment, Term)
+                       Segment, ShortScript, SocialCopy, Term, ThumbnailPlan)
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 
@@ -306,4 +306,24 @@ class RecommendResult(BaseModel):
     items: list[RecommendItem]
     considered: int                    # 지역·말투·리스크를 통과해 점수를 받은 후보 수
     untagged: int                      # 아직 쓰임 낱말이 없어 비교하지 못한 표제어 수
+
+
+# ---------- 콘텐츠 생성 (Plan 08) — 값은 pipeline/generate.py 가 채운다. 저장하지 않는다 ----------
+
+class Dropped(BaseModel):
+    id: str                            # copy0…copy3·script·thumbnail
+    reason: str                        # 검사가 남긴 문제 (한국어 한 문장)
+
+
+class GenerationResult(BaseModel):
+    region: str
+    language: str                      # 결과물의 말 (목표 지역)
+    tone: CampaignTone
+    memes: list[str]                   # 쓴 밈 이름
+    copies: list[SocialCopy]           # 검사를 통과한 안만
+    script: ShortScript | None = None
+    thumbnail: ThumbnailPlan | None = None
+    dropped: list[Dropped] = []        # 두 번 다 검사에 걸려 뺀 안과 이유
+    model_calls: int                   # 생성·검사를 합친 모델 호출 수 (2, 다시 만들면 최대 4)
+    source: Literal["gemini", "local", "sample"]
 

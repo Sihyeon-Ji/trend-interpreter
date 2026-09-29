@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { GenerationView } from "@/components/generation-view";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, listJoin, regionLabel, sourceName } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
-import type { CampaignTone, RecommendItem, RecommendResult } from "@/lib/types";
+import type { CampaignTone, GenerationResult, RecommendItem, RecommendResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const MAX_IMAGE = 5 * 1024 * 1024;
@@ -33,6 +34,12 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
   const [result, setResult] = useState<RecommendResult | null>(null);
+  // 만들기(Plan 08): 추천에서 밈을 최대 3개 고르고, 결과물을 쓸 지역 하나를 정한다
+  const [picked, setPicked] = useState<string[]>([]);
+  const [genRegion, setGenRegion] = useState<string>("");
+  const [genBusy, setGenBusy] = useState(false);
+  const [genError, setGenError] = useState<"gen_failed" | "gen_need_pick" | null>(null);
+  const [gen, setGen] = useState<GenerationResult | null>(null);
 
   // 미리보기 주소는 이 탭 안에서만 산다 — 사진을 바꾸거나 빼거나 화면을 떠나면 돌려준다
   useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
@@ -59,11 +66,28 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
       const res = await fetch("/api/recommend", { method: "POST", body });
       const json = (await res.json().catch(() => ({}))) as RecommendResult & { error?: string };
       if (!res.ok) setError(ERRORS[json.error ?? ""] ?? "rec_failed");
-      else setResult(json);
+      else { setResult(json); setPicked([]); setGen(null); setGenError(null); setGenRegion(json.regions[0] ?? "KR"); }
     } catch {
       setError("rec_failed");
     }
     setBusy(false);
+  };
+
+  const togglePick = (id: string) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < 3 ? [...cur, id] : cur));
+  const make = async () => {
+    if (!result) return;
+    if (!picked.length) { setGenError("gen_need_pick"); return; }
+    setGenBusy(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ term_ids: picked, brief: result.brief, region: genRegion || result.regions[0], tone: result.tone, lang: locale }) });
+      if (!res.ok) setGenError("gen_failed");
+      else setGen((await res.json()) as GenerationResult);
+    } catch {
+      setGenError("gen_failed");
+    }
+    setGenBusy(false);
   };
 
   const field = "mt-1 block w-full rounded-[4px] border border-hairline bg-white px-3 py-2 text-[15px] text-ink";
@@ -143,6 +167,11 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
                     </p>
                     {it.risk_level === "caution" && <p className="mt-1 text-[12px] text-charcoal">{t(locale, "risk_caution_why")}</p>}
                     <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
+                      <label className="flex items-center gap-1.5 text-charcoal">
+                        <input type="checkbox" checked={picked.includes(it.term_id)} disabled={!picked.includes(it.term_id) && picked.length >= 3}
+                          onChange={() => togglePick(it.term_id)} />
+                        {t(locale, "gen_pick")}
+                      </label>
                       <Link href={`/dictionary/${it.term_id}`} className="text-link-blue hover:underline">{t(locale, "rec_open_term")}</Link>
                       {it.evidences.map((e) => (
                         <a key={e.url} href={e.url} target="_blank" rel="noreferrer" className="text-steel hover:text-ink hover:underline">
@@ -156,8 +185,26 @@ export function RecommendForm({ locale, initialRegions }: { locale: Locale; init
             </ol>
           )}
           <p className="text-[12px] text-steel">{t(locale, "rec_note")}</p>
+          {result.items.length > 0 && (
+            <div className="space-y-2 border-t border-hairline pt-4">
+              <p className="text-[13px] text-steel">{t(locale, "gen_pick_hint")}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                {result.regions.length > 1 && (
+                  <label className="text-[13px] text-steel">
+                    {t(locale, "gen_region")}{" "}
+                    <select value={genRegion} onChange={(e) => setGenRegion(e.target.value)} className="rounded-[4px] border border-hairline bg-white px-2 py-1 text-[14px] text-ink">
+                      {result.regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
+                    </select>
+                  </label>
+                )}
+                <Button type="button" disabled={genBusy} onClick={() => void make()} className="rounded-lg px-4">{genBusy ? t(locale, "gen_busy") : t(locale, "gen_submit")}</Button>
+                {genError && <p role="alert" className="text-[13px] text-error">{t(locale, genError)}</p>}
+              </div>
+            </div>
+          )}
         </section>
       )}
+      {gen && <GenerationView result={gen} locale={locale} />}
     </div>
   );
 }

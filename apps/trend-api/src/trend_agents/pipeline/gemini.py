@@ -64,8 +64,14 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
 
 
 def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0.1, model: str | None = None,
-               image: tuple[bytes, str] | None = None) -> tuple[Any, str]:
-    """image 는 (바이트, MIME) 한 장. 로컬 Gemma 가 켜져 있으면 그쪽이 그림까지 읽고, 아니면 Gemini 가 읽는다."""
+               image: tuple[bytes, str] | None = None, prefer_gemini: bool = False) -> tuple[Any, str]:
+    """image 는 (바이트, MIME) 한 장. 로컬 Gemma 가 켜져 있으면 그쪽이 그림까지 읽고, 아니면 Gemini 가 읽는다.
+    prefer_gemini: 생성처럼 Gemini 가 맡는 일(ADR 0002 §3) — Gemini 가 설정돼 있고 예산이 남았으면 로컬 Gemma 보다 먼저 쓴다."""
+    if prefer_gemini and configured() and budget_left(con) > 0:
+        contents0: Any = [types.Part.from_bytes(data=image[0], mime_type=image[1]), prompt] if image else prompt
+        resp, used = generate(con, contents0, types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema,
+                                                                          temperature=temperature), model=model)
+        return resp.parsed, used
     if local_ok():
         from . import local_llm
         from ..config import GEMMA_LOCAL_MODEL

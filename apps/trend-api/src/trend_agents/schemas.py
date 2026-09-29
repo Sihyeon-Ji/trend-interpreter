@@ -168,6 +168,74 @@ class FitLabel(MemeFit):
     i: int
 
 
+# ---------- 콘텐츠 생성 (Plan 08) — Gemini 한 번의 구조화 출력과 Gemma 의 사전 대조 검사 ----------
+
+def _clip(n: int):
+    def f(v):
+        return str(v).strip()[:n] if v is not None else ""
+    return f
+
+
+class SocialCopy(BaseModel):
+    """SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터를 위한 한국어 설명."""
+
+    platform: Literal["instagram", "x"]
+    text: str = Field(description="게시글 본문 (목표 지역 언어). 고른 밈을 그대로 넣는다")
+    hashtags: list[str] = Field(default_factory=list, description="해시태그 3~6개, # 없이")
+    note_ko: str = Field(default="", description="이 안이 밈을 어떻게 썼는지 한국어 한 문장")
+
+    @field_validator("text", "note_ko", mode="before")
+    @classmethod
+    def _short(cls, v, info):
+        return _clip(600 if info.field_name == "text" else 200)(v)
+
+    @field_validator("hashtags", mode="before")
+    @classmethod
+    def _tags(cls, v):
+        return [str(x).strip().lstrip("#")[:40] for x in v if str(x).strip().lstrip("#")][:8] if isinstance(v, list) else v
+
+
+class ScriptScene(BaseModel):
+    start_s: int = Field(ge=0)
+    end_s: int = Field(ge=0)
+    visual: str = Field(description="화면에 보이는 것 (목표 지역 언어)")
+    caption: str = Field(default="", description="자막 (목표 지역 언어)")
+    line: str = Field(default="", description="대사·내레이션 (목표 지역 언어)")
+
+
+class ShortScript(BaseModel):
+    """틱톡·릴스용 15~30초 대본."""
+
+    title: str
+    duration_s: int = Field(ge=5, le=60)
+    scenes: list[ScriptScene]
+    note_ko: str = Field(default="", description="한국어 설명")
+
+
+class ThumbnailPlan(BaseModel):
+    headline: str = Field(description="썸네일 주요 문구 (목표 지역 언어)")
+    layout: str = Field(description="배치 (한국어)")
+    colors: list[str] = Field(default_factory=list)
+    subject: str = Field(default="", description="인물·제품 위치 (한국어)")
+    note_ko: str = Field(default="", description="한국어 설명")
+
+
+class ContentDraft(BaseModel):
+    """생성 한 번의 결과: 인스타그램 2안·X 2안, 숏폼 대본 하나, 썸네일 구성안 하나."""
+
+    copies: list[SocialCopy]
+    script: ShortScript
+    thumbnail: ThumbnailPlan
+
+
+class DraftCheck(BaseModel):
+    """사전 대조 검사 한 줄(Gemma). id 는 copy0…copy3·script·thumbnail. 판정 근거는 problem 에 한 문장."""
+
+    id: str
+    ok: bool
+    problem: str = ""
+
+
 class MemeReason(BaseModel):
     """추천한 밈 하나가 이 제품에 어울리는 이유 (모델 서술). 사전 뜻과 겹치지 않으면 코드가 버린다."""
 

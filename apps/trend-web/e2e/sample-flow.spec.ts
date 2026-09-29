@@ -40,3 +40,17 @@ test("recommend suggests memes for a product without a model", async ({ page }) 
   await items.filter({ hasText: "럭키비키" }).getByRole("link", { name: /사전에서 보기|Open in dictionary/ }).click();
   await expect(page).toHaveURL(/\/dictionary\/t_luckyvicky$/);
 });
+
+test("drafts copy and a script from a recommended meme without a model", async ({ page }) => {
+  await page.goto("/recommend");
+  await page.getByLabel(/홍보 문구|Your copy/).fill("여름 한정 아이스 라떼");
+  await page.getByRole("button", { name: /밈 추천받기|Suggest memes/ }).click();
+  const item = page.getByRole("article").filter({ hasText: "럭키비키" });
+  await item.getByRole("checkbox", { name: /만들기에 쓰기|Use for drafts/ }).check();
+  await page.getByRole("button", { name: /카피·대본 만들기|Draft copy and script/ }).click();
+
+  await expect(page.getByRole("heading", { name: /만든 결과물|Drafts/ })).toBeVisible();
+  await expect(page.getByText(/AI가 만든 초안|AI-generated drafts/)).toBeVisible();      // 게시 전 확인 안내
+  await expect(page.getByRole("heading", { name: /숏폼 대본|Short-form script/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(복사|Copy)$/ }).first()).toBeVisible();
+});
