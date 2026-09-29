@@ -52,7 +52,7 @@ export interface TermRecord {
   recheck_days: number;
   media?: TermMedia[];     // 대표 그림·영상 (주소만 보관, 라이선스 함께)
   gate_reasons?: string[]; // needs_review 인 경우 게이트가 남긴 사유
-  regions?: string[];      // 보여 줄 지역 — 백엔드가 대시보드와 같은 규칙(쓰는 나라 + 12주 원본 언급)으로 정한다. 예시 데이터에는 없다
+  regions?: string[];      // 보여 줄 지역 — 백엔드가 대시보드와 같은 규칙(쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)으로 정한다. 예시 데이터에는 없다
 }
 
 /** 대표 그림·영상. 그림은 위키미디어 공용의 자유 라이선스만, 영상은 유튜브 공식 플레이어로 끼운다. */

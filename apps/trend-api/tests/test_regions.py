@@ -229,43 +229,70 @@ def test_english_community_research_rotates_sg_my_ph_sites():
     assert all("reddit.com" in COMMUNITY_SITES[r] for r in ("SG", "MY", "PH"))
 
 
-def test_term_joins_a_region_when_its_raw_mentions_there_reach_n():
-    """조사가 정하지 않은 목표 지역도 12주 원본 언급(뉴스·쇼츠·검색어)이 N 번이면 그 지역 용어로 본다. N 보다 적으면 우연으로 본다."""
+def test_term_joins_a_region_when_its_outlets_there_reach_n():
+    """조사가 정하지 않은 목표 지역도 그 나라 매체 N 곳이 12주 안에 쓰면 그 지역 용어로 본다 — 더하기만 하고, 조사로 정한 '전 세계' 는 그대로
+    둔다(판의 기사 수로 더했더니 미국에서만 쓴다던 영어 말이 '전 세계' 목록에서 빠졌다, 검토 09-30)."""
     from trend_agents.pipeline import dashboard
 
-    n = dashboard.REGION_MIN_MENTIONS
+    n = dashboard.REGION_MIN_OUTLETS
     en = _term("en", "aura farming", "en")
-    assert dashboard.term_regions(en, {"KR"}, {"SG": n, "MY": n - 1, "GLOBAL": 50}) == ["KR", "SG"]
-    assert dashboard.term_regions(en, {"US"}, {"PH": n}) == ["PH"]              # 미국에서만 쓰던 영어 말도 필리핀에서 N 번이면 필리핀
+    assert dashboard.term_regions(en, {"KR"}, {"SG": n, "MY": n - 1}) == ["KR", "SG"]
+    assert dashboard.term_regions(en, {"US"}, {"PH": n}) == ["PH", "GLOBAL"]    # 미국에서만 쓰던 영어 말도 필리핀 매체 N 곳이면 필리핀에도
     assert dashboard.term_regions(en, {"US"}, {"PH": n - 1}) == ["GLOBAL"]
     cake = _term("cake", "The cake is a lie", "ja")                              # 나라 정보가 없는 로마자 표제어
-    assert dashboard.term_regions(cake, set(), {"SG": n}) == ["SG"] and dashboard.term_regions(cake, set(), {}) == ["GLOBAL"]
+    assert dashboard.term_regions(cake, set(), {"SG": n}) == ["SG", "GLOBAL"] and dashboard.term_regions(cake, set(), {}) == ["GLOBAL"]
     assert dashboard.term_regions(_term("zh", "傻眼貓咪", "zh"), set(), {"HK": n}) == ["TW", "HK"]
     assert dashboard.term_regions(_term("de", "Ehrenmann", "de"), {"DE"}, {"SG": n - 1}) == []
 
 
-def test_dashboard_and_dictionary_share_the_mention_region_rule():
-    """싱가포르판에서 N 번 쓰인 말은 대시보드 싱가포르 목록에 들고, 사전 항목(API)의 지역도 같은 규칙으로 싱가포르다."""
-    from trend_agents.pipeline import dashboard, track, views
-    from trend_agents.schemas import MeaningDraft, NewsItem
+def test_regions_come_from_local_outlets_not_edition_hits():
+    """판의 기사 수가 아니라 그 나라 매체 수로 센다 — 검토(09-30)가 재현한 잘못된 지역을 막는다. 홍콩판의 領便當 기사는 대만·태국 매체였고,
+    싱가포르판의 'vibe' 는 BBC·Bloomberg·NYT 였다. 머리기사는 세지 않는다('草' 가 대만판 '草莓', 'vibe' 가 한국판 노래 'VIBE' 기사에 걸렸다).
+    같은 매체의 다른 이름('Malay Mail'·'malaymail.com')은 한 곳이다."""
+    from trend_agents.pipeline import dashboard
 
     con = db.connect(":memory:")
-    now = datetime.now(timezone.utc)
-    ds.upsert_term(con, _term("t1", "aura farming", "en"))
-    ds.add_meaning(con, "t1", MeaningDraft(definition="멋있어 보이려고 일부러 폼을 잡는 것", origin="x", nuance="y", generations=["20s"],
-                                           regions=["US"], self_confidence=0.9), "verified_auto", [])
-    ds.set_usage(con, "t1", [("20s", "US", now.isoformat(), 1.0)])
+    for tid, name, lang, usage in (("lb", "領便當", "zh", ["TW"]), ("v", "vibe", "en", ["US"]), ("k", "草", "ja", ["JP"]), ("af", "aura farming", "en", ["US"])):
+        _verified(con, tid, name, lang, usage)
+    homes = {"LINE TODAY": "TH", "Yahoo新聞": "TW", "中天新聞網": "TW", "Malay Mail": "MY", "malaymail.com": "MY", "The Star": "MY"}
+
+    def sample(tid, query, region, sources, title):
+        ds.add_mention_samples(con, tid, [_news(f"{tid}{i}", f"{title} {i}", s, region, query) for i, s in enumerate(sources)], homes)
+
+    def regions(tid):
+        return dashboard.regions_for(con, ds.get_term(con, tid))
+
+    sample("lb", "領便當", "HK", ["LINE TODAY", "LINE TODAY", "Yahoo新聞", "中天新聞網"], "角色領便當")
+    sample("v", "vibe", "SG", ["BBC", "Bloomberg", "The New York Times", "Ars Technica"], "The vibe shift")
+    sample("af", "aura farming", "MY", ["Malay Mail", "malaymail.com", "The Star"], "Aura farming")
+    db.upsert_news(con, [_news(f"tw{i}", f"草莓季開跑 {i}", s, "TW") for i, s in enumerate(["自由時報", "UDN", "Yahoo新聞"])]
+                   + [_news(f"kr{i}", f"태양 'VIBE' 차트 {i}", s, "KR") for i, s in enumerate(["연합뉴스", "뉴시스", "스포츠조선"])])
+    assert (regions("lb"), regions("v"), regions("k")) == (["TW"], ["GLOBAL"], ["JP"])
+    assert dashboard.local_outlets(con, "af") == {"MY": 2} and regions("af") == ["GLOBAL"]
+    ds.add_mention_samples(con, "af", [_news("af9", "Aura farming at KLCC", "Free Malaysia Today", "MY", "aura farming")], {"Free Malaysia Today": "MY"})
+    assert regions("af") == ["MY", "GLOBAL"]
+
+
+def test_dashboard_and_dictionary_share_the_region_rule():
+    """싱가포르 매체 N 곳이 쓴 말은 대시보드 싱가포르 목록에 들고(수치도 싱가포르판 기사), 사전 항목(API)의 지역도 같은 값이다.
+    '전 세계' 목록에도 그대로 남는다."""
+    from trend_agents.pipeline import dashboard, track, views
+
+    con = db.connect(":memory:")
+    _verified(con, "t1", "aura farming", "en", ["US"])
     track.run(con)
     dashboard.run(con)
     assert dashboard.card(con, "t1").regions == ["GLOBAL"] and views.term_record(con, ds.get_term(con, "t1")).regions == ["GLOBAL"]
 
-    db.upsert_news(con, [NewsItem(title=f"Aura farming story {i}", link=f"sg{i}", source="x", published_at=now, region="SG", query="aura farming")
-                         for i in range(dashboard.REGION_MIN_MENTIONS)])
+    sg = ["The Straits Times", "CNA", "AsiaOne"]
+    ds.add_mention_samples(con, "t1", [_news(f"sg{i}", f"Aura farming story {i}", s, "SG", "aura farming") for i, s in enumerate(sg)], dict.fromkeys(sg, "SG"))
     track.run(con)
     dashboard.run(con)
-    sg = dashboard.board(con, ["SG"])
-    assert [c.term_id for c in sg.rising + sg.fading] == ["t1"] and sg.rising[0].mentions_4w == dashboard.REGION_MIN_MENTIONS
-    assert dashboard.card(con, "t1").regions == ["SG"] == views.term_record(con, ds.get_term(con, "t1")).regions
+    board = dashboard.board(con, ["SG"])
+    assert [c.term_id for c in board.rising + board.fading] == ["t1"] and (board.rising + board.fading)[0].mentions_4w == len(sg)
+    assert dashboard.card(con, "t1").regions == ["SG", "GLOBAL"] == views.term_record(con, ds.get_term(con, "t1")).regions
+    glob = dashboard.board(con, ["GLOBAL"])
+    assert [c.term_id for c in glob.rising + glob.fading] == ["t1"]
 
 
 def test_research_reserves_slots_for_under_covered_target_regions():

@@ -1057,6 +1057,12 @@ def indicator_mentions(con: Connection, term_id: str) -> list[tuple[str, str]]:
                        "AND NOT EXISTS (SELECT 1 FROM news n WHERE n.link=m.link)", (term_id,)).fetchall()
 
 
+def mention_outlets(con: Connection, term_id: str, since: str) -> list[tuple[str, str]]:
+    """(매체의 나라, 매체) — since 이후 발행된 키워드 검색 기사 가운데 나라를 아는 매체의 것마다(같은 매체가 여러 번 나온다)."""
+    return con.execute("SELECT home, source FROM mention_samples WHERE term_id=? AND home IS NOT NULL AND published_at >= ?",
+                       (term_id, since)).fetchall()
+
+
 # ---------- 커뮤니티 조사 차례 (Plan 04) ----------
 
 def research_count(con: Connection, term_id: str) -> int:

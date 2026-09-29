@@ -13,7 +13,7 @@ const LATIN_ONLY = /^[\x00-\x7fÀ-ɏḀ-ỿ\s]+$/;
 /** 이 표현을 보여 줄 지역 — 대시보드와 같은 규칙(백엔드 pipeline/dashboard.term_regions). 뜻의 regions 만 보면
  *  쓰임(usage)에만 나라가 있는 표현이 빠져 '한국' 을 골라도 96개가 58개로 나왔다(2026-09-29 검토). */
 export function termRegions(r: TermRecord): string[] {
-  if (r.regions) return r.regions;   // API 는 백엔드가 정한 지역을 준다(원본 언급 N 번 규칙은 나라별 언급 수가 있는 백엔드에서만)
+  if (r.regions) return r.regions;   // API 는 백엔드가 정한 지역을 준다(그 나라 매체 수 규칙은 매체 기록이 있는 백엔드에서만)
   const known = new Set(r.usage.map((u) => u.segment.region).filter(Boolean));
   const regions = TARGET_REGIONS.filter((x) => known.has(x));
   const lang = r.term.lang ?? "ko";

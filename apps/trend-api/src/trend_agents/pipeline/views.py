@@ -53,7 +53,7 @@ class TermRecord(BaseModel):
     recheck_days: int
     media: list[TermMedia] = []
     gate_reasons: list[str] | None = None
-    regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.term_regions: 쓰는 나라 + 12주 원본 언급)
+    regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
 
 
 class PipelineStage(BaseModel):
