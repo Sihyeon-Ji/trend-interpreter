@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
 -- 용어마다 뉴스 검색으로 언급을 마지막으로 잰 때(마이그레이션 006). collect.mentions 가 오래된 것부터 돌아가며 잰다.
-CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT);
+-- region 은 지난번에 잰 나라(마이그레이션 013) — 여러 나라가 쓰는 말은 다음에 다른 나라를 잰다.
+CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT, region TEXT);
 -- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
 CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
@@ -1026,7 +1027,19 @@ def mention_sampled(con: Connection) -> dict[str, str]:
     return dict(con.execute("SELECT term_id, last_at FROM mention_queries").fetchall())
 
 
-def mark_mention_sampled(con: Connection, term_id: str) -> None:
-    con.execute("INSERT OR REPLACE INTO mention_queries VALUES (?,?)", (term_id, now_s()))
+def mention_rotation(con: Connection) -> dict[str, str]:
+    """용어마다 지난번 언급을 잰 나라 — 번갈아 재는 말(대만·홍콩 등)의 다음 차례를 정한다."""
+    return dict(con.execute("SELECT term_id, region FROM mention_queries WHERE region IS NOT NULL").fetchall())
+
+
+def mark_mention_sampled(con: Connection, term_id: str, region: str | None = None) -> None:
+    con.execute("INSERT OR REPLACE INTO mention_queries VALUES (?,?,?)", (term_id, now_s(), region))
     con.commit()
+
+
+# ---------- 커뮤니티 조사 차례 (Plan 04) ----------
+
+def research_count(con: Connection, term_id: str) -> int:
+    """이 용어를 조사한 횟수(실패 포함). 커뮤니티를 나라마다 번갈아 뒤질 때 차례로 쓴다."""
+    return con.execute("SELECT COUNT(*) FROM research_log WHERE term_id=?", (term_id,)).fetchone()[0]
 

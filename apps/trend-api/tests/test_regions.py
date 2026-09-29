@@ -50,3 +50,47 @@ def test_wiki_seeds_send_cantonese_titles_to_hong_kong(tmp_path, monkeypatch):
     monkeypatch.setattr(wiki_memes, "CACHE", cache)
     got = {r["term"]: r["region"] for r in wiki_memes.known_memes(("zh",))}
     assert got == {"行得㗎啦": "HK", "傻眼貓咪": "TW"}
+
+
+def test_chinese_mentions_alternate_between_taiwan_and_hong_kong():
+    """중국어 표제어는 대만·홍콩 뉴스판을 번갈아 잰다 — 대만판만 재서 홍콩 키워드 검색이 0건이었다. 광동어는 홍콩만, 다른 말은 그대로."""
+    from trend_agents.pipeline.collect import mention_regions
+
+    con = db.connect(":memory:")
+    zh, yue, ko = _term("zh", "傻眼貓咪", "zh"), _term("yue", "行得㗎啦", "zh"), _term("ko", "럭키비키", "ko")
+    seen = []
+    for _ in range(3):
+        [region] = mention_regions(zh, ds.mention_rotation(con).get("zh"))
+        ds.mark_mention_sampled(con, "zh", region)
+        seen.append(region)
+    assert seen == ["TW", "HK", "TW"]
+    assert mention_regions(yue, "HK") == ["HK"] and mention_regions(yue, None) == ["HK"]
+    assert mention_regions(ko, None) == ["KR"] and mention_regions(_term("de", "Ehrenmann", "de"), None) == ["DE"]
+
+
+def test_chinese_community_research_alternates_between_taiwan_and_hong_kong():
+    """커뮤니티 조사도 조사할 때마다 대만·홍콩 사이트를 번갈아 뒤진다. 광동어는 홍콩, 한국어는 한국."""
+    from trend_agents.pipeline.research import community_region
+
+    con = db.connect(":memory:")
+    zh = _term("zh", "傻眼貓咪", "zh")
+    assert community_region(con, zh) == "TW"
+    ds.log_research(con, "zh", "test", "", [], "unverified", [])
+    assert community_region(con, zh) == "HK"
+    ds.log_research(con, "zh", "test", "", [], "unverified", [])
+    assert community_region(con, zh) == "TW"
+    assert community_region(con, _term("yue", "行得㗎啦", "zh")) == "HK"
+    assert community_region(con, _term("ko", "럭키비키", "ko")) == "KR"
+
+
+def test_mention_rotation_column_upgrades_an_existing_table():
+    """마이그레이션 013 은 이미 있는 두 칸짜리 mention_queries 에 나라 칸을 더한다(운영 DB). 예전 행은 차례가 없는 것으로 읽힌다."""
+    con = db.connect(":memory:")
+    con.executescript("DROP TABLE mention_queries; CREATE TABLE mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT);"
+                      "INSERT INTO mention_queries VALUES ('old', '2026-09-28T00:00:00+00:00'); DELETE FROM schema_migrations WHERE version=13;")
+    from trend_agents.storage.db import apply_migrations
+
+    assert apply_migrations(con) == ["013_mention_regions.sql"]
+    assert ds.mention_rotation(con) == {} and set(ds.mention_sampled(con)) == {"old"}
+    ds.mark_mention_sampled(con, "old", "HK")
+    assert ds.mention_rotation(con) == {"old": "HK"}

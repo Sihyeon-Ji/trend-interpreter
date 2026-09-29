@@ -11,7 +11,7 @@ import httpx
 
 from google.genai import errors
 
-from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, home_region
+from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, home_region, region_cycle
 from ..interpreters.gemini_research import research_term
 from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo, Term
@@ -422,6 +422,13 @@ def needs_human(reasons: list[str], documented: bool = False) -> bool:
     return not any(m in r for r in reasons for m in MECHANICAL)
 
 
+def community_region(con: Connection, term: Term) -> str:
+    """커뮤니티를 뒤질 나라. 표제어의 나라(광동어는 홍콩)이고, 여러 나라가 같이 쓰는 말(중국어)은 조사할 때마다 번갈아 —
+    중국어는 대만 사이트(PTT·Dcard)만 뒤져 홍콩(LIHKG·香港討論區) 글을 한 번도 보지 않았다(Plan 04)."""
+    cycle = region_cycle(term.canonical, term.lang)
+    return cycle[ds.research_count(con, term.term_id) % len(cycle)] if cycle else home_region(term.canonical, term.lang) or "US"
+
+
 def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     """1) Search grounding 조사(3.8 → 3.5). 2) 둘 다 할당량이면 우리가 모은 근거만으로 구조화(오프라인). 판정은 어느 길이든 게이트가 한다."""
     cur = ds.current_meaning(con, term.term_id)
@@ -481,7 +488,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
 
         first_party += gdelt_context.sentences(term.canonical)
 
-        region = home_region(term.canonical, term.lang) or "US"   # 광동어는 홍콩 커뮤니티에서
+        region = community_region(con, term)
         first_party += community.gather(term.canonical, region)[0]
         if region == "KR":
             from ..collectors import naver_search

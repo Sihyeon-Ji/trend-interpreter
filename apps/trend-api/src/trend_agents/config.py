@@ -71,6 +71,21 @@ def home_region(text: str, lang: str | None) -> str | None:
     return LANG_REGION.get(lang or "")
 
 
+# 여러 목표 지역이 같이 쓰는 말은 언급(뉴스 검색)과 커뮤니티 조사를 이 나라들로 번갈아 한다(Plan 04). 광동어는 홍콩만 —
+# 중국어를 대만 뉴스판에서만 재서 홍콩 키워드 검색이 0건이었다(2026-09-29).
+ALTERNATE_REGIONS = {"zh": ("TW", "HK")}
+
+
+def region_cycle(text: str, lang: str | None) -> tuple[str, ...]:
+    """이 표제어를 번갈아 볼 나라들. 광동어는 홍콩 말이라 번갈지 않는다(빈 튜플이면 표제어의 나라 하나)."""
+    return () if home_region(text, lang) == "HK" else ALTERNATE_REGIONS.get(lang or "", ())
+
+
+def next_region(cycle: tuple[str, ...], last: str | None) -> str:
+    """돌아가며 볼 나라 가운데 지난번 다음 차례. 처음이거나 지난번이 목록에 없으면 첫 나라."""
+    return cycle[(cycle.index(last) + 1) % len(cycle)] if last in cycle else cycle[0]
+
+
 def require(name: str, value: str) -> str:
     if not value:
         raise SystemExit(f"[config] {name} 가 .env 에 없습니다. .env.example 을 참고해 채워주세요.")

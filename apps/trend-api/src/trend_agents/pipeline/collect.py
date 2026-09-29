@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from ..collectors import google_trends as gt
 from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
-from ..config import GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY, home_region
+from ..config import GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY, home_region, next_region, region_cycle
 from ..lifecycle import recheck_interval_days
 from ..storage import dictionary_store as ds
 from ..storage import store as db
@@ -36,6 +36,14 @@ def mention_order(con, terms: list, n: int = 30) -> list:
     others = sorted((t for t in terms if t.status != "verified"), key=stale)
     take = min(len(verified), max(n - len(others), n * 2 // 3))
     return verified[:take] + others[:n - take]
+
+
+def mention_regions(t, last: str | None = None) -> list[str]:
+    """이 표제어의 언급을 잴 뉴스판. 표제어의 나라(광동어는 홍콩)이고, 여러 나라가 같이 쓰는 말(중국어)은 지난번 다음 나라 —
+    대만·홍콩을 번갈아 잰다. 뉴스판이 없는 나라면 미국판."""
+    cycle = region_cycle(t.canonical, t.lang)
+    region = next_region(cycle, last) if cycle else home_region(t.canonical, t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")
+    return [region if region in news_rss.LOCALES else "US"]
 
 
 def run(con: Connection, mention_terms: int = 30) -> dict:
@@ -96,14 +104,13 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
     # 사전 용어의 언급 추적용 뉴스 검색 (재검증 주기가 짧은 것부터)
     with stage(con, "collect.mentions") as r:
         terms = ds.list_terms(con, ("verified", "needs_review", "researching"))
+        last = ds.mention_rotation(con)
         n = 0
         for t in mention_order(con, terms, mention_terms):
-            region = home_region(t.canonical, t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 광동어는 홍콩, 다른 중국어는 대만 뉴스에서
-            if region not in news_rss.LOCALES:
-                region = "US"
+            [region] = mention_regions(t, last.get(t.term_id))
             try:
                 n += db.upsert_news(con, news_rss.fetch_news(region, query=t.canonical, limit=20))
-                ds.mark_mention_sampled(con, t.term_id)       # 결과가 0건이어도 잰 것이다
+                ds.mark_mention_sampled(con, t.term_id, region)       # 결과가 0건이어도 잰 것이다. 번갈아 재는 말은 다음에 다른 나라
             except Exception as e:
                 r.note += f"{t.canonical}:{type(e).__name__} "
         r.count = n
