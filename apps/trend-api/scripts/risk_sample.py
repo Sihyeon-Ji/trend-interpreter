@@ -5,7 +5,8 @@
   (--sqlite 가 없으면 DATABASE_URL 의 PostgreSQL. 검수자는 운영 화면에서 정하므로 agree 는 운영 DB 나 그 사본으로 돌린다)
 
 뽑는 법: 확인된(verified) 말 가운데 리스크 단계가 판정한 것(risk_checked_at 있음)을 규칙의 수준(risk_rule_level)으로 나눠
-사용 자제 5 · 주의 7 · 없음 5 · 판단 보류 3. 1차 검토에서 어긋났거나 논의된 말(REQUIRED)은 제 층에 꼭 넣고, 나머지는 시드로 고정해 뽑는다.
+사용 자제 5 · 주의 7 · 없음 5 · 판단 보류 3. 1차 검토에서 어긋났거나 논의된 말(REQUIRED)은 제 층에 꼭 넣고(어긋난 넷을 모두 넣어
+규칙이 위험을 놓친 쪽도 다시 본다), 나머지는 시드로 고정해 뽑는다.
 일치: 검수자가 정한 수준이 규칙의 수준과 같은가. 검수자가 '규칙대로' 를 고르면 사람의 값은 지워지고 결정한 사람만 남으므로(risk_decided_by)
 그것도 규칙에 동의한 것으로 센다. 결정이 없는 줄은 '검토 전'.
 """
@@ -24,8 +25,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 OUT = Path(__file__).resolve().parents[3] / "artifacts" / "eval" / "risk-sample.json"
 QUOTAS = {"avoid": 5, "caution": 7, "none": 5, "hold": 3}
-# Plan 03 1차 검토(개발자 16/20)에서 어긋났거나 검토 중 논의된 말 — 표본마다 다시 본다
-REQUIRED = ("懶人包", "gaslighting", "brah", "viral video", "FOMO")
+# Plan 03 1차 검토(개발자 16/20)에서 어긋난 넷(viral video·pov·brah 는 문장 분위기로 '주의', Tralalero Tralala 는 원본 음성의
+# 신성모독을 놓쳐 '없음' — 규칙이 위험을 놓친 쪽의 유일한 예)과 검토 중 논의된 말 — 표본마다 다시 본다
+REQUIRED = ("懶人包", "gaslighting", "brah", "viral video", "FOMO", "pov", "Tralalero Tralala")
 LEVEL_KO = {"avoid": "사용 자제", "caution": "주의", "none": "없음", "hold": "판단 보류"}
 
 
