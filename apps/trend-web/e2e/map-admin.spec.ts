@@ -64,6 +64,20 @@ test.describe("admin", () => {
     await expect(page.getByRole("button", { name: /6-7 검토|Review 6-7/ })).toBeFocused();
   });
 
+  test("a proposed fix sits beside the published meaning and is published as a new version", async ({ page }) => {
+    await page.goto("/admin?kind=correction");                                                   // 문서 대조의 제안(Plan 12) — 예시에 종류마다 하나
+    await expect(page.getByRole("link", { name: /^(고칠 안|Proposed fix) \d+$/ })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("button", { name: /aura farming 검토|Review aura farming/ }).click();
+    const detail = page.getByRole("region", { name: "aura farming" });
+    await expect(detail.getByRole("heading", { name: /^(지금 실린 뜻|Published meaning)$/ })).toBeVisible();   // 지금 뜻은 그대로 실린 채
+    await expect(detail.getByRole("heading", { name: /^(고칠 안|Proposed fix)$/ })).toBeVisible();
+    await expect(detail.getByRole("link", { name: /en\.wikipedia\.org\/wiki\/Aura_farming/ })).toBeVisible();   // 사유의 참고 문서
+    await detail.getByRole("button", { name: /aura farming 고칠 안 싣기|Publish the fix aura farming/ }).click();
+    const done = page.getByRole("listitem").filter({ has: page.getByRole("button", { name: /되돌리기|Undo/ }) });
+    await expect(done).toContainText(/aura farming.*(새 판으로 실었습니다|Published the fix as a new version)/);
+    await expect(done.getByRole("button", { name: /되돌리기|Undo/ })).toBeFocused();
+  });
+
   test("status and risk tabs open with their own titles", async ({ page }) => {
     await page.goto("/admin/status");
     await expect(page).toHaveTitle(/수집 현황|Collection status/);

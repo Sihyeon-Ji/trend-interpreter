@@ -18,7 +18,7 @@ const GROUPS: Group[] = ["collect", "discover", "research", "build"];
 // 번호 대신 네 묶음 — 실행 순서는 묶음 안에서 마지막 실행 시작 순으로 보인다(scripts/run_pipeline.py 순서와 같은 뜻)
 const GROUP_OF: Record<string, Group> = {
   classify: "discover", spikes: "discover", candidates: "discover", spot: "discover", namu: "discover", hunt: "discover", interpret: "discover", discover: "discover",
-  research: "research", track: "research", risk: "research", naver: "research", verify: "research",
+  research: "research", crosscheck: "research", track: "research", risk: "research", naver: "research", verify: "research",
   translate: "build", topics: "build", board: "build", dashboard: "build", fit: "build",
 };
 const groupOf = (key: string): Group => (key === "collect" || key.startsWith("collect.") ? "collect" : GROUP_OF[key] ?? "build");
@@ -26,7 +26,7 @@ const STAGE_KEY: Record<string, StringKey> = {
   "collect.youtube": "adm_stage_collect_youtube", "collect.news": "adm_stage_collect_news", "collect.trends_rss": "adm_stage_collect_trends_rss",
   "collect.trends_bq": "adm_stage_collect_trends_bq", "collect.wikipedia": "adm_stage_collect_wikipedia", "collect.mentions": "adm_stage_collect_mentions",
   "collect.retention": "adm_stage_collect_retention", classify: "adm_stage_classify", spikes: "adm_stage_spikes", candidates: "adm_stage_candidates",
-  spot: "adm_stage_spot", namu: "adm_stage_namu", hunt: "adm_stage_hunt", interpret: "adm_stage_interpret", research: "adm_stage_research",
+  spot: "adm_stage_spot", namu: "adm_stage_namu", hunt: "adm_stage_hunt", interpret: "adm_stage_interpret", research: "adm_stage_research", crosscheck: "adm_stage_crosscheck",
   track: "adm_stage_track", risk: "adm_stage_risk", naver: "adm_stage_naver", translate: "adm_stage_translate", topics: "adm_stage_topics",
   board: "adm_stage_board", dashboard: "adm_stage_dashboard", fit: "adm_stage_fit",
 };

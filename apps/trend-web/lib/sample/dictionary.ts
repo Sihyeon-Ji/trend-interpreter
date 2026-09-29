@@ -2,7 +2,7 @@
    실데이터가 붙으면 lib/data.ts 의 분기만 바뀌고 이 파일은 데모·테스트용으로 남는다. */
 import type { Diffusion } from "../contract/types";
 import type { Locale } from "../i18n";
-import type { Evidence, Meaning, PipelineStage, ReviewItem, TermRecord, TermUsage, WeeklyPoint } from "../types";
+import type { Evidence, Meaning, MeaningDraft, PipelineStage, ReviewItem, TermRecord, TermUsage, WeeklyPoint } from "../types";
 import { KOREAN_2026 } from "./korean-2026";
 import { LATEST_2026 } from "./latest-2026";
 
@@ -338,15 +338,49 @@ export const SAMPLE_STAGES: PipelineStage[] = [
   { key: "verify", label: "확인", count_24h: 11, status: "ok", note: "확인 7 · 검수 대기 4" },
 ];
 
+const published = (termId: string): Meaning => SAMPLE_RECORDS.find((r) => r.term.term_id === termId)!.meanings.find((m) => m.valid_to == null)!;
+/** 지금 실린 뜻 위에 몇 칸만 고친 안 — 백엔드 pipeline/crosscheck.merged 와 같다(풀이·세대·나라는 그대로). */
+const fixOf = (termId: string, fix: Partial<Pick<MeaningDraft, "definition" | "origin" | "nuance">>): MeaningDraft => {
+  const m = published(termId);
+  return { definition: m.definition, expansion: m.expansion ?? null, origin: m.origin, nuance: m.nuance, generations: m.generations, regions: m.regions,
+    self_confidence: m.self_confidence, is_expression: true, ...fix };
+};
+
+/* 검수 큐 — 새 말(조사 결과) 다섯과 문서 대조의 제안(Plan 12) 종류마다 하나. 문서 대조의 제안은 지금 뜻이 공개된 채로 올라온다. */
 export const SAMPLE_QUEUE: ReviewItem[] = [
   {
-    term_id: "t_sabopil", canonical: "사보필",
+    term_id: "t_aurafarming", canonical: "aura farming", kind: "correction",
+    draft: fixOf("t_aurafarming", { origin: "'aura'(아우라) 인터넷 속어에서 나온 말로, 2024년 X·인스타그램·틱톡에서 널리 쓰이기 시작했다. 2025년 인도네시아 소년이 보트 경주 뱃머리에서 무표정으로 춤추는 영상이 대표 이미지가 됐다." }),
+    reasons: ["문서 대조: 고칠 것", "유래: 문서는 'aura' 속어에서 나와 2024년에 퍼졌다고 적는다. 지금 뜻은 게임·애니 팬덤의 농담에서 출발했다고 적는다",
+      "참고 문서: https://en.wikipedia.org/wiki/Aura_farming"],
+    evidence_count: 4, queued_at: "2026-09-29T02:10:00Z",
+    docs: [{ wiki: "Wikipedia", url: "https://en.wikipedia.org/wiki/Aura_farming", summary: "멋있어 보이려고 일부러 애쓰는 행동을 가리키며, 'aura' 속어에서 나왔다고 적는다.", proposal: null }],
+  },
+  {
+    term_id: "t_skibidi", canonical: "skibidi", kind: "conflict",
+    reasons: ["문서 대조: 위키끼리 다름", "뜻: 나무위키는 뜻 없이 붙이는 말이라고, 위키백과는 '멋지다·이상하다' 같은 뜻으로 쓴다고 적는다",
+      "참고 문서: https://namu.wiki/w/Skibidi%20Toilet", "참고 문서: https://en.wikipedia.org/wiki/Skibidi_Toilet"],
+    evidence_count: 3, queued_at: "2026-09-29T02:12:00Z",
+    docs: [
+      { wiki: "나무위키", url: "https://namu.wiki/w/Skibidi%20Toilet", summary: "'Skibidi Toilet' 시리즈에서 나온 말로, 특별한 뜻 없이 붙인다고 적는다.", proposal: null },
+      { wiki: "Wikipedia", url: "https://en.wikipedia.org/wiki/Skibidi_Toilet", summary: "10대가 '멋지다' 또는 '이상하다·별로다'라는 뜻으로 붙인다고 적는다.",
+        proposal: fixOf("t_skibidi", { definition: "'Skibidi Toilet' 시리즈에서 나와 10대가 '멋지다' 또는 '이상하다·별로다'라는 뜻으로 붙이는 말. 맥락에 따라 뜻이 정반대가 된다." }) },
+    ],
+  },
+  {
+    term_id: "t_mugonghae", canonical: "무공해", kind: "retire",
+    reasons: ["문서 대조: 밈이 아님", "문서는 환경 용어 '무공해'(공해가 없음)를 다룬다 — 사람을 두고 쓰는 뜻은 문서에 없다", "참고 문서: https://ko.wikipedia.org/wiki/무공해"],
+    evidence_count: 3, queued_at: "2026-09-29T02:14:00Z",
+    docs: [{ wiki: "위키백과(ko)", url: "https://ko.wikipedia.org/wiki/무공해", summary: "", proposal: null }],
+  },
+  {
+    term_id: "t_sabopil", canonical: "사보필", kind: "new",
     proposed: SAMPLE_RECORDS.find((r) => r.term.term_id === "t_sabopil")!.meanings[0],
     reasons: ["뜻을 정의한 공개 출처가 없음 (캐릿 기사 목차만)", "서로 다른 출처가 2개 미만"],
     evidence_count: 1, queued_at: "2026-09-14T07:40:00Z",
   },
   {
-    term_id: "t_sixseven", canonical: "6-7",
+    term_id: "t_sixseven", canonical: "6-7", kind: "new",
     proposed: {
       meaning_id: "m_67_2", term_id: "t_sixseven", version: 2,
       definition: "의미 없는 감탄사. 최근 근거에서는 '그저 그렇다(5~7점)' 라는 평가 뉘앙스가 뚜렷해짐.",
@@ -358,13 +392,13 @@ export const SAMPLE_QUEUE: ReviewItem[] = [
     evidence_count: 3, queued_at: "2026-09-13T06:10:00Z",
   },
   {
-    term_id: "t_galau", canonical: "galau",
+    term_id: "t_galau", canonical: "galau", kind: "new",
     proposed: SAMPLE_RECORDS.find((r) => r.term.term_id === "t_galau")!.meanings[0],
     reasons: ["확신도 42% (기준 50%)", "서로 다른 출처가 2개 미만"],
     evidence_count: 1, queued_at: "2026-09-12T06:20:00Z",
   },
   {
-    term_id: "t_aurafarming_ko", canonical: "아우라 농사",
+    term_id: "t_aurafarming_ko", canonical: "아우라 농사", kind: "new",
     proposed: {
       meaning_id: "m_afko_1", term_id: "t_aurafarming_ko", version: 1,
       definition: "'aura farming'의 직역 표기. 실제 사용 표기인지 불명.",
@@ -376,7 +410,7 @@ export const SAMPLE_QUEUE: ReviewItem[] = [
     evidence_count: 2, queued_at: "2026-09-11T06:30:00Z",
   },
   {
-    term_id: "t_luckyvicky", canonical: "럭키비키",
+    term_id: "t_luckyvicky", canonical: "럭키비키", kind: "new",
     proposed: {
       meaning_id: "m_lv_retire", term_id: "t_luckyvicky", version: 2,
       definition: "추세를 '거의 안 쓰임'으로 바꾸자는 제안. 12주 연속 감소, 최근 4주 평균 10건 미만.",

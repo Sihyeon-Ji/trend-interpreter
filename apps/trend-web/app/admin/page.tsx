@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ReviewTable, type ReviewKind } from "@/components/review-table";
+import { ReviewTable, type ReviewTab } from "@/components/review-table";
 import { getReviewQueue, getReviewStats, isSampleMode } from "@/lib/data";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
@@ -9,10 +9,13 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t(locale, "adm_tab_review")} — ${t(locale, "adm_title")} — ${t(locale, "site")}` };
 }
 
+// 탭 주소(?kind=) — 클라이언트 모듈의 값은 서버 화면에서 참조로만 오므로 목록을 여기 둔다
+const TABS = ["new", "changed", "trend", "correction", "conflict", "retire"] as const satisfies readonly ReviewTab[];
+
 export default async function AdminReviewPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const [locale, sp] = await Promise.all([getLocale(), searchParams]);
   const [items, stats] = await Promise.all([getReviewQueue(), getReviewStats().catch(() => null)]);   // 요약 숫자만 실패하면 그 칸에 '—'
-  const kind: ReviewKind | "all" = sp.kind === "new" || sp.kind === "changed" || sp.kind === "trend" ? sp.kind : "all";
+  const kind: ReviewTab | "all" = TABS.find((k) => k === sp.kind) ?? "all";
   const total = stats ? stats.verified_auto + stats.verified_human + stats.needs_review + stats.rejected : 0;
   const n = (v: number | undefined) => (stats && v != null ? t(locale, "adm_count").replace("{n}", v.toLocaleString("en-US")) : "—");
   const cells: [string, string, string?][] = [

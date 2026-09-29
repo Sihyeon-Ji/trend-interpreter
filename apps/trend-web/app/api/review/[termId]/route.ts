@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
+const KINDS = ["new", "correction", "conflict", "retire"];   // 검수 제안의 종류(Plan 12) — 승인의 뜻이 종류마다 달라 백엔드가 대기 제안과 맞춰 본다
 
 /** 검수 결정을 백엔드에 기록한다. 브라우저는 백엔드를 직접 부르지 않는다 —
  *  로그인과 검수 권한을 여기서 확인하고, 쓰기 토큰은 서버에만 둔다. 결정한 사람 이름도 세션에서 가져온다. */
@@ -17,8 +18,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
 
   let decision = "";
   let meaningId: unknown = null;   // 검수자가 본 뜻 — 그사이 새 판이 생겼으면 백엔드가 409 로 막는다
+  let kind: unknown = null;        // 검수자가 본 제안의 종류 — 대기 중인 제안과 다르면 백엔드가 409 로 막는다
+  let choice: unknown = null;      // 위키끼리 다름: 고른 문서 번호, 또는 "keep"(지금 뜻 그대로)
   try {
-    ({ decision = "", meaning_id: meaningId = null } = await req.json());
+    ({ decision = "", meaning_id: meaningId = null, kind = null, choice = null } = await req.json());
   } catch {
     return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
   }
@@ -29,6 +32,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   if (meaningId !== null && typeof meaningId !== "string") {
     return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
   }
+  if (kind !== null && !(typeof kind === "string" && KINDS.includes(kind))) {
+    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
+  }
+  if (choice !== null && choice !== "keep" && !(typeof choice === "number" && Number.isInteger(choice) && choice >= 0)) {
+    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
+  }
 
   const { termId } = await params;
   let res: Response;
@@ -36,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
     res = await fetch(`${API}/review/${encodeURIComponent(termId)}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
-      body: JSON.stringify({ decision, by: session.user, meaning_id: meaningId }),
+      body: JSON.stringify({ decision, by: session.user, meaning_id: meaningId, kind, choice }),
       cache: "no-store",
     });
   } catch {

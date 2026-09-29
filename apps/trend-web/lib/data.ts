@@ -105,12 +105,16 @@ export async function getPipelineStages(): Promise<PipelineStage[]> {
   return isSampleMode ? SAMPLE_STAGES : apiNoStore<PipelineStage[]>("/pipeline/stages");
 }
 
-/** 예시 모드는 예시 사전에서 지금 실린 뜻·근거를 붙인다(백엔드 views.review_items 와 같은 규칙). */
+/** 예시 모드는 예시 사전에서 지금 실린 뜻·근거를 붙인다(백엔드 views.review_items 와 같은 규칙).
+ *  새 말은 제안보다 앞 판 가운데 확인된 마지막 것을, 문서 대조의 제안(고칠 안·위키끼리 다름·사전에서 뺄지)은 공개 중인 지금 뜻을 current 로. */
 function sampleQueue(): ReviewItem[] {
   return SAMPLE_QUEUE.map((q) => {
     const rec = SHOWN_RECORDS.find((r) => r.term.term_id === q.term_id);
-    const cur = rec?.meanings.filter((m) => m.version < q.proposed.version && (m.verification === "verified_auto" || m.verification === "verified_human")) ?? [];
-    return { ...q, lang: rec?.term.lang ?? null, current: cur.at(-1) ?? null, evidences: (rec?.evidences ?? []).filter((e) => e.kind !== "datalab").slice(0, 5), weekly: rec?.weekly ?? [] };
+    const cur = q.kind === "new"
+      ? (rec?.meanings.filter((m) => m.version < (q.proposed?.version ?? 0) && (m.verification === "verified_auto" || m.verification === "verified_human")) ?? []).at(-1)
+      : rec?.meanings.find((m) => m.valid_to == null);
+    return { ...q, lang: rec?.term.lang ?? null, current: cur ?? null, meaning_id: q.kind === "new" ? q.proposed?.meaning_id ?? null : cur?.meaning_id ?? null,
+      evidences: (rec?.evidences ?? []).filter((e) => e.kind !== "datalab").slice(0, 5), weekly: rec?.weekly ?? [] };
   });
 }
 

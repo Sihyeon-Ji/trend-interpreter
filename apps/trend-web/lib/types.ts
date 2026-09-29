@@ -1,5 +1,5 @@
 /* 계약 타입은 lib/contract/types.ts (자동 생성) 에서 온다. 여기는 프론트 전용 뷰 모델만. */
-import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningText, MemeRef, ProductBrief, RiskLevel, Segment, ShortScript, SocialCopy, Term, ThumbnailPlan } from "./contract/types";
+import type { Diffusion, Evidence, Lifecycle, Meaning, MeaningDraft, MeaningText, MemeRef, ProductBrief, RiskLevel, Segment, ShortScript, SocialCopy, Term, ThumbnailPlan } from "./contract/types";
 import type { EvidenceBrief } from "./trends/types";
 
 export type {
@@ -76,10 +76,26 @@ export interface PipelineStage {
   last_finished_at?: string | null;
 }
 
+/** 검수 제안의 종류 (Plan 12, views.ReviewKind) — 새 말(조사 결과) · 고칠 안 · 위키끼리 다름 · 사전에서 뺄지 */
+export type ReviewKind = "new" | "correction" | "conflict" | "retire";
+
+/** 제안의 근거가 된 참고 문서 한 쪽 (views.ReviewDoc). 위키끼리 다를 때는 고르는 설명이다 — proposal 이 있는 것만 고를 수 있다. */
+export interface ReviewDoc {
+  wiki: string;
+  url: string;
+  summary: string;
+  proposal?: MeaningDraft | null;
+}
+
+/** 검수 한 건 (views.ReviewItem). new: proposed 가 확인 전인 지금 판, current 는 그 앞의 확인된 판(없으면 새 말).
+ *  correction·conflict·retire: current 가 공개 중인 지금 뜻 — 제안이 올라와 있어도 사전에 그대로 실려 있다. */
 export interface ReviewItem {
   term_id: string;
   canonical: string;
-  proposed: Meaning;
+  kind: ReviewKind;
+  meaning_id?: string | null;     // 결정과 함께 되돌려 보낼 뜻 — new 는 proposed, 나머지는 current. 그사이 바뀌었으면 서버가 409
+  proposed?: Meaning | null;      // new: 검수할 뜻
+  draft?: MeaningDraft | null;    // correction: 고칠 안 (승인하면 새 판)
   reasons: string[];
   evidence_count: number;
   queued_at: string;
@@ -88,6 +104,7 @@ export interface ReviewItem {
   current?: Meaning | null;
   evidences?: Evidence[];
   weekly?: WeeklyPoint[];
+  docs?: ReviewDoc[];             // correction·retire: 참고 문서 · conflict: 문서마다의 설명
 }
 
 /* 키워드 대시보드 (Plan 04) — 백엔드 pipeline/views.py 의 KeywordCard·KeywordBoard 와 1:1. 값은 pipeline/dashboard.py 규칙이 채운다. */
