@@ -7,7 +7,8 @@
   근거 분류(evidence_labels)   분류한 문장에 표제어가 있는가, 딴 이야기(offtopic)로 본 몫
   쓰임 낱말(term_fit)          건수와 처리 시간만
   뜻 초안(조사)                게이트 통과, 사람 수정률 — 사람이 정한 초안(승인·제외, 사람이 쓴 새 판으로 바뀜) 가운데 제외·교체한 몫.
-                              초안의 모델은 뜻 판이 생긴 직후의 research_log 로 정한다. 검수 큐에는 게이트에 걸린 것만 가므로 대기·미검토 수를 함께 적는다
+                              초안의 모델은 뜻 판이 생긴 직후의 research_log 로 정한다. 검수 큐에는 게이트에 걸린 것만 가므로 대기 수와,
+                              사람이 안 보고 실린 것(지금 사전에 실린 판 — 현행이고 게이트 판정 그대로이며 확인된 말의 판)을 함께 적는다
   처리 시간                    그 단계 실행 시간 ÷ 그 실행에서 만든 건수(수집·저장 포함). 결과의 저장 시각이 든 실행(pipeline_runs)으로 묶는다
 
   uv run scripts/eval_editing.py --sqlite /path/to/trend-copy.db    # 원작자 서버 DB 사본 (sqlite3 원본.db ".backup 사본.db")
@@ -166,6 +167,7 @@ def drafts(con) -> dict[str, dict]:
             "SELECT term_id, researched_at, model, verification FROM research_log WHERE verification != 'error'").fetchall():
         logs[tid].append((_at(at), model, verification))
     waiting = {tid for (tid,) in con.execute("SELECT term_id FROM review_queue WHERE decision IS NULL").fetchall()}
+    listed = {tid for (tid,) in con.execute("SELECT term_id FROM terms WHERE status='verified'").fetchall()}
     versions: dict[str, list] = defaultdict(list)
     for tid, version, verification, valid_from, valid_to, j in con.execute(
             "SELECT term_id, version, verification, valid_from, valid_to, json FROM meanings").fetchall():
@@ -196,7 +198,8 @@ def drafts(con) -> dict[str, dict]:
             if rejected or replaced or approved:
                 g[f"decided_by:{vs[i + 1][4] if replaced else by}"] += 1
             g["pending"] += valid_to is None and verification == "unverified" and tid in waiting
-            g["published_unreviewed"] += gate == "verified_auto" and not (rejected or replaced or approved)
+            # 지금 실린 판만 — 뒤에 기계가 새 판으로 바꾼 옛 판, 사전에 오르지 않은 말의 판은 실려 있지 않다(09-29 23:58 사본: e4b 에서 140 → 108)
+            g["published_unreviewed"] += valid_to is None and verification == "verified_auto" and tid in listed
     return {m: dict(c) for m, c in out.items()}
 
 

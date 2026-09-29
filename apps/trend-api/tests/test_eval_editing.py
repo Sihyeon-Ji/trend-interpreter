@@ -64,6 +64,14 @@ def test_editing_metrics_follow_the_rules():
     ds.add_meaning(con, "t4", _draft("열받는다를 강조한 말"), "unverified", [])
     ds.queue_review(con, "t4", _draft("열받는다를 강조한 말"), ["출처 부족"], 1)
     ds.log_research(con, "t4", "offline:" + E4B, "", [], "unverified", [])           # 검수 대기
+    _term(con, "t6", "오운완")                                                        # 다시 조사해 기계가 새 판을 썼다 — 옛 판은 이제 실려 있지 않다
+    ds.add_meaning(con, "t6", _draft("오늘 운동 완료의 줄임말"), "verified_auto", [])
+    ds.log_research(con, "t6", "offline:" + E4B, "", [], "verified_auto", [])
+    ds.add_meaning(con, "t6", _draft("오늘 운동을 마쳤다는 줄임말"), "verified_auto", [])
+    ds.log_research(con, "t6", "offline:" + E4B, "", [], "verified_auto", [])
+    ds.upsert_term(con, Term(term_id="t7", canonical="킹정", lang="ko", status="needs_review", first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t7", _draft("정말 인정한다는 말"), "verified_auto", [])     # 게이트는 통과했지만 사전에 오르지 않은 말
+    ds.log_research(con, "t7", "offline:" + E4B, "", [], "verified_auto", [])
 
     m = ee.measure(con)
     tr = m["translations"][E4B]
@@ -78,7 +86,8 @@ def test_editing_metrics_follow_the_rules():
     assert m["term_fit"][E4B]["rows"] == 1
 
     d = m["drafts"]["offline:" + E4B]
-    assert (d["drafts"], d["gate_passed"], d["decided"], d["corrected"], d["pending"], d["published_unreviewed"]) == (3, 1, 1, 1, 1, 1)
+    assert (d["drafts"], d["gate_passed"], d["decided"], d["corrected"], d["pending"]) == (6, 4, 1, 1, 1)
+    assert d["published_unreviewed"] == 2                            # 지금 사전에 실린 판만: 갓생·오운완의 새 판(옛 판·오르지 않은 말은 빼고)
     assert d["decided_by:reviewer"] == 1 and set(m["drafts"]) == {"offline:" + E4B}   # 사람이 쓴 판(시드)은 초안으로 세지 않는다
 
     md = ee.table(m)
