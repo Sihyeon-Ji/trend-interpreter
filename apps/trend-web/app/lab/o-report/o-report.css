@@ -1,0 +1,222 @@
+/* 초안 1 '트렌드 리포트형' — 이 초안(/lab/o-report)의 레이아웃만 불러온다. 모든 선택자는 .lab-o-report 아래(다른 화면에 새지 않게).
+   토큰: 종이 #FFFFFF · 안개 #EDF3F3 · 먹 #0D1B1F · 석판 #4F6166 · 청록 #00737A (데이터·선택 한 가지 색). 주의·사용 자제는 상태 전용.
+   청록은 '이번 기간·고른 것' 만 뜻한다 — 그래프의 최근 창, 고른 줄, 고른 지역, 초점 테두리. 내림은 석판(빨강은 '쓰지 마세요' 전용). */
+
+.lab-o-report {
+  --or-paper: #ffffff;
+  --or-mist: #edf3f3;
+  --or-ink: #0d1b1f;
+  --or-slate: #4f6166;
+  --or-line: #d5dfe0;
+  --or-line-strong: #b4c3c6;
+  --or-edge: #7a8e91;       /* 입력 칸의 경계 — 흰 바탕과 3:1 이상 */
+  --or-petrol: #00737a;
+  --or-petrol-deep: #005a60;
+  --or-petrol-tint: #d3eaea;
+  --or-context: #c9d6d8;   /* 그래프의 지난 기간 (배경 정보) */
+  --or-base: #93a7aa;      /* 그래프의 '견준 기간' */
+  --or-caution: #8a5300;
+  --or-caution-line: #e3c58c;
+  --or-avoid: #b3261e;
+  --or-avoid-line: #efb3ad;
+  --or-num: var(--font-or-num), var(--font-pretendard);
+
+  min-height: 100dvh;
+  background: var(--or-paper);
+  color: var(--or-ink);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* 숫자 — 순위·증감·건수·축. 반쯤 좁은 그로테스크로, 표의 숫자는 자릿수를 맞춘다 */
+.lab-o-report .or-num {
+  font-family: var(--or-num);
+  font-variation-settings: "wdth" 80;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0;
+}
+
+/* 원문 글자 — 한 낱말 안에서 글꼴이 섞이지 않게 글자의 말마다 제 글꼴을 먼저 쓴다 */
+.lab-o-report :lang(ja) {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Noto Sans JP", "Yu Gothic", Meiryo, var(--font-pretendard);
+}
+.lab-o-report :lang(zh-Hant) {
+  font-family: "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", var(--font-pretendard);
+}
+.lab-o-report :lang(th) {
+  font-family: "Noto Sans Thai", Thonburi, "Leelawadee UI", var(--font-pretendard);
+}
+
+/* 기본값은 base 층에 — 층 밖의 규칙은 Tailwind 유틸리티(층 안)를 이기므로, 요소마다 준 tracking-·outline- 이 먹게 여기 둔다 */
+@layer base {
+  .lab-o-report :focus-visible {
+    outline: 2px solid var(--or-petrol);
+    outline-offset: 2px;
+  }
+  .lab-o-report h1,
+  .lab-o-report h2,
+  .lab-o-report h3 {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* 머리 제목 — 지역이 제목이자 조작부다 */
+.lab-o-report .or-headline {
+  font-size: clamp(30px, 4.2vw, 48px);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+.lab-o-report .or-region-button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.06em;
+  border-bottom: 0.09em solid var(--or-petrol);
+  padding: 0 0.04em;
+  line-height: 1.05;
+  color: inherit;
+  cursor: pointer;
+}
+.lab-o-report .or-region-button:hover { background: var(--or-mist); }
+.lab-o-report .or-region-button svg { width: 0.5em; height: 0.5em; align-self: center; color: var(--or-petrol); }
+
+/* 표지 — 밈 낱말이 그림이다. 검색 곡선이 아래에서 솟고, 청록 부분이 곧 비교한 최근 기간이다 */
+.lab-o-report .or-cover {
+  container-type: size;   /* 표지는 높이가 정해져 있다 — 글자 크기를 폭과 높이 둘 다에 맞춘다 */
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--or-mist);
+}
+.lab-o-report .or-cover-word {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  font-size: min(var(--max, 96px), calc(84cqi / var(--len, 4)), calc(30cqb / var(--lines, 1)));
+  overflow-wrap: anywhere;
+}
+.lab-o-report .or-cover-word:lang(ja),
+.lab-o-report .or-cover-word:lang(zh-Hant) {
+  letter-spacing: -0.02em;
+}
+.lab-o-report .or-cover-shape {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46%;
+  pointer-events: none;
+}
+.lab-o-report .or-cover-shape svg { display: block; width: 100%; height: 100%; }
+
+@keyframes or-rise {
+  from { transform: scaleY(0.02); }
+  to { transform: scaleY(1); }
+}
+.lab-o-report .or-rise {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: or-rise 900ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+/* 항목 머리 — 휴대폰은 위에서 아래로(제목 → 그림 → 뜻과 판단), 데스크톱은 그림 | 뜻과 판단.
+   대표 자료가 있으면 제목을 그림 밖(오른쪽 위)에 두고 그림 칸을 좁힌다(유튜브 썸네일은 480px 까지만). */
+.lab-o-report .or-hero {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "figure" "facts";
+}
+.lab-o-report .or-hero-media {
+  gap: 20px;
+  grid-template-areas: "title" "figure" "facts";
+}
+.lab-o-report .or-hero-title { grid-area: title; }
+.lab-o-report .or-hero-figure { grid-area: figure; }
+.lab-o-report .or-hero-facts { grid-area: facts; }
+@media (min-width: 1024px) {
+  .lab-o-report .or-hero {
+    column-gap: 48px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-areas: "figure facts";
+  }
+  .lab-o-report .or-hero-media {
+    row-gap: 20px;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "figure title" "figure facts";
+  }
+}
+
+/* 표 */
+.lab-o-report .or-row {
+  position: relative;
+  border-bottom: 1px solid var(--or-line);
+}
+.lab-o-report .or-row[aria-current="true"] { background: var(--or-mist); }
+.lab-o-report .or-row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--or-petrol);
+}
+.lab-o-report .or-row-link:hover .or-row-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+.lab-o-report .or-tab[aria-selected="true"] {
+  color: var(--or-ink);
+  box-shadow: inset 0 -3px 0 var(--or-petrol);
+}
+
+/* 미리보기: 고른 밈이 바뀌면 한 번 스며든다(사용자 조작에 답하는 움직임) */
+@keyframes or-swap {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.lab-o-report .or-swap { animation: or-swap 180ms ease-out both; }
+
+/* 미리보기가 화면보다 길면 안에서 넘긴다 — 아래쪽이 잘려 보이지 않는 일이 없게. 스크롤 막대는 얇게 */
+.lab-o-report .or-preview { scrollbar-width: thin; scrollbar-color: var(--or-line-strong) transparent; }
+
+/* 가로로 넘기는 표지 줄(휴대폰) — 페이지가 옆으로 밀리지 않게 줄 안에서만 넘친다 */
+.lab-o-report .or-snap {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.lab-o-report .or-snap::-webkit-scrollbar { display: none; }
+.lab-o-report .or-snap > * { scroll-snap-align: start; }
+
+.lab-o-report .or-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lab-o-report .or-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lab-o-report .or-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lab-o-report .or-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-o-report *,
+  .lab-o-report *::before,
+  .lab-o-report *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
