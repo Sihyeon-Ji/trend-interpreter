@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Growth, RiskMark } from "@/components/lab/o-report/bits";
+import { FitName, Growth, RiskMark, RiskNotes } from "@/components/lab/o-report/bits";
 import { SilhouetteShape } from "@/components/lab/o-report/charts";
 import { GenGrid, IndexChart } from "@/components/lab/o-report/entry-charts";
 import { EntryWatch } from "@/components/lab/o-report/entry-watch";
 import type { Locale } from "@/lib/i18n";
-import { fmtDay, readingOf, visualLength, type Silhouette } from "@/lib/lab/o-report";
+import { fmtDay, readingOf, type RiskKey, type Silhouette } from "@/lib/lab/o-report";
 import { spreadWord, stageWord, tr, type CopyKey } from "@/lib/lab/o-report-copy";
 import { loadEntry, parseRegions, type Entry } from "@/lib/lab/o-report-data";
 import { getTermRecord } from "@/lib/data";
@@ -16,7 +16,7 @@ import { getLocale } from "@/lib/locale";
 
 /* 초안 1 밈 항목 — 머리(원문 이름·다른 표기·뜻 한 줄·단계·쓸 때 조심·만들기·지켜보기) → 대표 자료 → 유래 → 이렇게 써요 →
    쓰임 추이 → 나라별 차이 → 출처 → 뜻이 바뀐 기록. 절 제목은 왼쪽 칸, 내용은 오른쪽 칸(리포트의 '숫자는 이렇게 셌어요' 와 같은 틀).
-   예문은 만들지 않는다 — 사전에 실린 쓰임·쉬운 말만. 출처는 위키·기사·영상만, 커뮤니티 글은 건수만. */
+   예문은 만들지 않는다 — 사전에 실린 쓰임·쉬운 말만. 출처는 위키·기사·영상만(같은 기사는 원래 언론사 하나), 커뮤니티 글은 건수만. */
 
 type Params = { params: Promise<{ termId: string }> };
 type Props = Params & { searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -46,7 +46,7 @@ function shapeOf(e: Entry): Silhouette | null {
 }
 
 /** 머리 오른쪽 — 다른 표기, 뜻 한 줄, 단계·퍼진 정도·쓸 때 조심·쓰이는 곳, 할 일. growth 는 표지가 없는 머리(대표 자료)에서만 여기 선다 */
-function Facts({ e, locale, riskKey, makeHref, growth }: { e: Entry; locale: Locale; riskKey: "caution" | "avoid" | "unknown" | "none"; makeHref: string; growth: number | null }) {
+function Facts({ e, locale, riskKey, makeHref, growth }: { e: Entry; locale: Locale; riskKey: RiskKey; makeHref: string; growth: number | null }) {
   const p = e.preview;
   return (
     <div className="flex min-w-0 flex-col">
@@ -75,7 +75,7 @@ function Facts({ e, locale, riskKey, makeHref, growth }: { e: Entry; locale: Loc
           <dt className="text-[12px] text-[var(--or-slate)]">{tr(locale, "risk")}</dt>
           <dd className="mt-1.5 flex flex-wrap items-start gap-x-3 gap-y-1.5">
             <RiskMark risk={riskKey} locale={locale} withNone />
-            <span className="min-w-0 flex-1 text-[14px] leading-[1.55] text-[var(--or-slate)]">{e.riskNote ?? tr(locale, `risk_${riskKey}_why`)}</span>
+            <RiskNotes notes={e.riskNotes} fallback={tr(locale, `risk_${riskKey}_why` as CopyKey)} className="min-w-0 flex-1 basis-[240px] text-[14px] leading-[1.55] text-[var(--or-slate)]" />
           </dd>
         </div>
         {e.regions.length > 0 && (
@@ -88,8 +88,8 @@ function Facts({ e, locale, riskKey, makeHref, growth }: { e: Entry; locale: Loc
 
       {/* 데스크톱: 머리 안의 할 일. 휴대폰: 아래에 붙는 막대 */}
       <div className="mt-6 hidden flex-wrap gap-2 lg:flex">
-        {e.canMake && <Link href={makeHref} className="inline-flex h-12 items-center rounded-[6px] bg-[var(--or-ink)] px-6 text-[16px] font-semibold text-white hover:bg-[var(--or-petrol-deep)]">{tr(locale, "make")}</Link>}
-        <EntryWatch id={e.id} name={e.name} lang={e.lang} locale={locale} big />
+        {e.canMake && <Link href={makeHref} className="inline-flex h-12 items-center justify-center rounded-[6px] bg-[var(--or-ink)] px-6 text-[16px] font-semibold whitespace-nowrap text-white hover:bg-[var(--or-petrol-deep)]">{tr(locale, "make")}</Link>}
+        <EntryWatch id={e.id} name={e.name} lang={e.lang} lifecycle={e.lifecycle} risk={riskKey} locale={locale} big />
       </div>
     </div>
   );
@@ -125,15 +125,14 @@ export default async function OReportEntry({ params, searchParams }: Props) {
   const p = e.preview;
   const backName = !raw ? regionLabel(locale, "KR") : regions.length === 0 ? tr(locale, "region_all") : regions.length === 1 ? regionLabel(locale, regions[0]) : regions.map((r) => regionLabel(locale, r)).slice(0, 2).join(", ");
   const backHref = `/lab/o-report${raw ? `?regions=${encodeURIComponent(raw)}` : ""}`;
-  const len = visualLength(e.name);
-  const lines = len > 7 ? 2 : 1;
-  const eff = lines === 2 ? Math.max(4, len / 1.75) : len;
   const shape = shapeOf(e);
   const reading = readingOf(e.name, p.aliases, locale);
   const growth = e.trend?.growth4 ?? null;
-  const riskKey = (e.risk ?? "none") as "caution" | "avoid" | "unknown" | "none";
+  const riskKey: RiskKey = e.risk ?? "none";
   const makeHref = `/recommend?term=${encodeURIComponent(e.id)}`;
   const kinds: Record<string, CopyKey> = { wiki: "src_wiki", news: "src_news", video: "src_video" };
+  // 표지 낱말 칸의 높이 — 곡선이 있으면 표지의 위 56%, 없으면 거의 전부(읽기 도움 한 줄이 있으면 그만큼 뺀다)
+  const avail = `calc(${shape ? "56cqb - 80px" : "100cqb - 96px"}${reading ? " - 32px" : ""})`;
 
   return (
     <div className="mx-auto max-w-[1320px] px-5 pb-28 sm:px-8 lg:pb-16">
@@ -176,7 +175,7 @@ export default async function OReportEntry({ params, searchParams }: Props) {
         </header>
       ) : (
         <header className="or-hero mt-2 pb-10">
-          <div className={`or-cover or-hero-figure ${shape ? "h-[260px] sm:h-[340px] lg:h-auto lg:min-h-[400px]" : "h-[220px] sm:h-[280px] lg:h-auto lg:min-h-[340px]"}`} style={{ "--len": eff.toFixed(2), "--lines": lines, "--max": "128px" } as React.CSSProperties}>
+          <div className={`or-cover or-hero-figure ${shape ? "h-[260px] sm:h-[340px] lg:h-auto lg:min-h-[400px]" : "h-[220px] sm:h-[280px] lg:h-auto lg:min-h-[340px]"}`} style={{ "--max": "128px", "--avail": avail, "--pad": "68px" } as React.CSSProperties}>
             {growth != null ? (
               <p className="absolute top-0 right-0 z-[1] flex flex-col items-end gap-1 p-5 text-right">
                 <Growth locale={locale} g={growth} size="lg" />
@@ -190,7 +189,7 @@ export default async function OReportEntry({ params, searchParams }: Props) {
               </p>
             ) : null}
             <div className={`absolute inset-x-0 top-[64px] flex flex-col items-start justify-end px-5 pb-3 sm:px-7 ${shape ? "bottom-[44%]" : "bottom-5"}`}>
-              <h1 lang={e.lang} className="or-cover-word">{e.name}</h1>
+              <FitName as="h1" name={e.name} lang={e.lang} splitAbove={5} className="or-cover-word" />
               {reading && <p lang={locale === "ko" ? "ko" : undefined} className="mt-2 text-[18px] font-medium text-[var(--or-slate)]">{reading}</p>}
             </div>
             {shape && <div className="or-cover-shape !h-[44%]"><SilhouetteShape shape={shape} /></div>}
@@ -201,9 +200,10 @@ export default async function OReportEntry({ params, searchParams }: Props) {
         </header>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t border-[var(--or-line)] bg-white px-5 py-3 lg:hidden">
-        {e.canMake && <Link href={makeHref} className="inline-flex h-12 flex-1 items-center justify-center rounded-[6px] bg-[var(--or-ink)] px-4 text-[16px] font-semibold text-white">{tr(locale, "make")}</Link>}
-        <EntryWatch id={e.id} name={e.name} lang={e.lang} locale={locale} big />
+      {/* 휴대폰의 할 일 막대 — 두 단추가 한 줄에 들어가지 않으면 줄을 바꾼다(글자가 단추 안에서 접히지 않게) */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap gap-2 border-t border-[var(--or-line)] bg-white px-5 py-3 lg:hidden">
+        {e.canMake && <Link href={makeHref} className="inline-flex h-12 flex-1 items-center justify-center rounded-[6px] bg-[var(--or-ink)] px-4 text-[16px] font-semibold whitespace-nowrap text-white">{tr(locale, "make")}</Link>}
+        <EntryWatch id={e.id} name={e.name} lang={e.lang} lifecycle={e.lifecycle} risk={riskKey} locale={locale} big />
       </div>
 
       <Section id="origin" title={tr(locale, "sec_origin")}>
@@ -215,7 +215,7 @@ export default async function OReportEntry({ params, searchParams }: Props) {
                 <span className="text-[var(--or-slate)]">{tr(locale, "origin_from")}</span>
                 {p.refs.map((r) => (
                   <a key={r.url} href={r.url} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-8 items-center gap-1.5 text-[var(--or-petrol)] underline-offset-4 hover:underline">
-                    {r.name} <span className="or-num">{fmtDay(r.date, locale, e.updatedAt)}</span><span className="sr-only"> ({tr(locale, "new_tab")})</span>
+                    <span lang={r.nameLang}>{r.name}</span> <span className="or-num">{fmtDay(r.date, locale, e.updatedAt)}</span><span className="sr-only"> ({tr(locale, "new_tab")})</span>
                   </a>
                 ))}
               </p>
@@ -287,9 +287,9 @@ export default async function OReportEntry({ params, searchParams }: Props) {
           <ul className="divide-y divide-[var(--or-line)] border-y border-[var(--or-line)]">
             {e.sources.map((s) => (
               <li key={s.url + s.title}>
-                <a href={s.url} target="_blank" rel="noreferrer noopener" className="group grid gap-1 py-3.5 sm:grid-cols-[150px_minmax(0,1fr)_100px] sm:items-baseline sm:gap-6">
-                  <span className="text-[13px] text-[var(--or-slate)]"><span lang={scriptLang(s.name)}>{s.name}</span> {tr(locale, kinds[s.kind])}</span>
-                  <span lang={scriptLang(s.title)} className="min-w-0 text-[16px] leading-[1.5] group-hover:underline">{s.title}<span className="sr-only"> ({tr(locale, "new_tab")})</span></span>
+                <a href={s.url} target="_blank" rel="noreferrer noopener" className="group grid gap-1 py-3.5 sm:grid-cols-[170px_minmax(0,1fr)_100px] sm:items-baseline sm:gap-6">
+                  <span className="text-[13px] text-[var(--or-slate)]"><span lang={s.nameLang}>{s.name}</span> {tr(locale, kinds[s.kind])}</span>
+                  <span lang={s.titleLang} className="min-w-0 text-[16px] leading-[1.5] group-hover:underline">{s.title}<span className="sr-only"> ({tr(locale, "new_tab")})</span></span>
                   <span className="or-num text-[13px] text-[var(--or-slate)] sm:text-right">{fmtDay(s.date, locale, e.updatedAt)}</span>
                 </a>
               </li>

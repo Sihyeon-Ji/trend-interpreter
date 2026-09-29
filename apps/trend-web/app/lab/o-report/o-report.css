@@ -87,11 +87,13 @@
   border-radius: 4px;
   background: var(--or-mist);
 }
+/* 낱말 크기 = min(상한, 칸 폭 ÷ 가장 긴 줄의 폭(em), 칸 높이 ÷ 줄 수). 줄은 서버가 낱말 사이에서 나눈다(FitName).
+   표지는 크기 컨테이너라 cqi·cqb 가 곧 표지의 폭·높이다. 너무 긴 이름도 22px 밑으로는 줄이지 않는다 */
 .lab-o-report .or-cover-word {
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.04;
-  font-size: min(var(--max, 96px), calc(84cqi / var(--len, 4)), calc(30cqb / var(--lines, 1)));
+  font-size: max(22px, min(var(--max, 96px), calc((100cqi - var(--pad, 52px)) / var(--em, 4)), calc(var(--avail, 30cqb) / (var(--lines, 1) * 1.04))));
   overflow-wrap: anywhere;
 }
 .lab-o-report .or-cover-word:lang(ja),
@@ -150,15 +152,18 @@
   position: relative;
   border-bottom: 1px solid var(--or-line);
 }
-.lab-o-report .or-row[aria-current="true"] { background: var(--or-mist); }
-.lab-o-report .or-row[aria-current="true"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--or-petrol);
+/* 고른 줄 표시는 미리보기가 있는 화면(1024px 이상)에서만 — 휴대폰은 줄이 곧 항목 화면 링크라 '고른' 줄이 없다 */
+@media (min-width: 1024px) {
+  .lab-o-report .or-row[aria-current="true"] { background: var(--or-mist); }
+  .lab-o-report .or-row[aria-current="true"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--or-petrol);
+  }
 }
 .lab-o-report .or-row-link:hover .or-row-name { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 
@@ -174,8 +179,12 @@
 }
 .lab-o-report .or-swap { animation: or-swap 180ms ease-out both; }
 
-/* 미리보기가 화면보다 길면 안에서 넘긴다 — 아래쪽이 잘려 보이지 않는 일이 없게. 스크롤 막대는 얇게 */
-.lab-o-report .or-preview { scrollbar-width: thin; scrollbar-color: var(--or-line-strong) transparent; }
+/* 미리보기의 아래 칸(추이·유래·쓰임)만 안에서 넘긴다 — 이름·뜻·판단·할 일은 늘 보인다. 스크롤 막대는 얇게 */
+.lab-o-report .or-preview-more { scrollbar-width: thin; scrollbar-color: var(--or-line-strong) transparent; }
+
+/* 표로 보기 — 펼침 표시는 브라우저 기본 삼각형 대신 글자 링크만 */
+.lab-o-report .or-table-view > summary { list-style: none; }
+.lab-o-report .or-table-view > summary::-webkit-details-marker { display: none; }
 
 /* 가로로 넘기는 표지 줄(휴대폰) — 페이지가 옆으로 밀리지 않게 줄 안에서만 넘친다 */
 .lab-o-report .or-snap {

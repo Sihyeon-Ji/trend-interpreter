@@ -23,7 +23,7 @@ export function ReportHead({ locale, regionName, globalOnly, options, picked, ke
   cautionHref: string;
 }) {
   // 제목 문장을 지역 자리에서 갈라 그 자리에 조작부를 끼운다
-  const template = locale === "en" && globalOnly ? "Memes rising {r} now" : tr(locale, "head_title", { r: "{r}" });
+  const template = locale === "en" && globalOnly ? "Memes in use {r} now" : tr(locale, "head_title", { r: "{r}" });
   const [before, after] = template.split("{r}");
   const summary = known === 0
     ? tr(locale, "head_summary_empty", { r: regionName })
@@ -39,7 +39,7 @@ export function ReportHead({ locale, regionName, globalOnly, options, picked, ke
             {after}
           </h1>
           <p className="mt-4 max-w-[720px] text-[16px] leading-[1.6] text-[var(--or-slate)] sm:text-[18px]">
-            {summary}
+            {summary}{known === 0 && <> {tr(locale, "empty_body")}</>}
             {/* '무엇을 피해야 하나' 는 주간 계획의 셋째 질문 — 조심할 밈 목록으로 곧장 */}
             {known > 0 && totals.caution > 0 && (
               <> <TabJump tab="caution" href={cautionHref}

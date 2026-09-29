@@ -1,25 +1,15 @@
 "use client";
 
 /* 프레임의 찾기 칸 — '이 밈, 써도 되나' 를 어디서든 몇 초 안에. 사전 색인(확인된 밈만)은 처음 칸을 쓸 때 한 번 받는다.
+   맞추는 규칙은 사전 화면과 같다(lib/lab/o-report.ts matchScore).
    휴대폰에서는 단추를 누르면 화면을 덮는 칸이 열린다(fixed inset-0 + flex, 변형 없이). */
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report-copy";
+import { matchScore, normQuery } from "@/lib/lab/o-report";
 import type { IndexItem } from "@/lib/lab/o-report-data";
 import { RiskMark } from "./bits";
-
-const norm = (s: string) => s.toLowerCase().normalize("NFKC").replace(/[\s·・,.!?'"“”‘’~\-_/]+/g, "");
-
-function score(item: IndexItem, q: string): number {
-  const name = norm(item.name);
-  if (name === q) return 0;
-  if (name.startsWith(q)) return 1;
-  if (name.includes(q)) return 2;
-  if (item.aliases.some((a) => norm(a).includes(q))) return 3;
-  if (norm(item.gloss).includes(q)) return 4;
-  return 99;
-}
 
 type State = { status: "idle" | "loading" | "ready" | "failed"; items: IndexItem[] };
 
@@ -39,21 +29,22 @@ export function SearchBox({ locale }: { locale: Locale }) {
   const load = () => {
     if (index.status === "loading" || index.status === "ready") return;
     setIndex({ status: "loading", items: [] });
-    fetch(`/lab/o-report/search?locale=${locale}`)
+    fetch(`/lab/o-report/api/index?locale=${locale}`)
       .then((r) => (r.ok ? (r.json() as Promise<IndexItem[]>) : Promise.reject(new Error(String(r.status)))))
       .then((items) => setIndex({ status: "ready", items }))
       .catch(() => setIndex({ status: "failed", items: [] }));
   };
 
   const results = useMemo(() => {
-    const n = norm(q);
+    const n = normQuery(q);
     if (!n) return [];
-    return index.items.map((it) => ({ it, s: score(it, n) })).filter((x) => x.s < 99).sort((a, b) => a.s - b.s || a.it.name.length - b.it.name.length).slice(0, 7).map((x) => x.it);
+    return index.items.map((it) => ({ it, s: matchScore(it, n) })).filter((x) => x.s < 99).sort((a, b) => a.s - b.s || a.it.name.length - b.it.name.length).slice(0, 7).map((x) => x.it);
   }, [q, index.items]);
 
   const regions = sp.get("regions");
   const hrefFor = (id: string) => `/lab/o-report/m/${encodeURIComponent(id)}${regions ? `?regions=${encodeURIComponent(regions)}` : ""}`;
-  const allHref = `/dictionary?q=${encodeURIComponent(q.trim())}`;
+  // 전체 결과는 이 초안의 사전 화면으로(09-29 검토: 앱의 예전 화면으로 넘어갔다)
+  const allHref = `/lab/o-report/search?q=${encodeURIComponent(q.trim())}`;
   const options = [...results.map((r) => ({ key: r.id, href: hrefFor(r.id) })), ...(q.trim() ? [{ key: "__all", href: allHref }] : [])];
 
   const go = (href: string) => {
