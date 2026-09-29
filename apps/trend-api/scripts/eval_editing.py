@@ -1,9 +1,11 @@
 """로컬 Gemma 편집 결과의 규칙 지표 (Plan 06 완료 기준 6 · Plan 09 'Gemma 편집 품질'). 모델을 부르지 않는다.
 
 이미 저장된 편집 결과를 산출물·모델별로 잰다. 사람이 판정할 것(근거에 없는 주장·국가별 차이 오류)은 표에 빈칸으로 두고 표본 CSV 로 내보낸다.
-  번역(translations)          원래 뜻에 표제어가 있으면 번역문에도 그대로 있는가 — mentions(), 별칭 제외(옮겨 적거나 번역하면 훼손)
+  번역(translations)          원래 뜻에 표제어가 있으면 번역문에도 그대로 있는가 — mentions(), 별칭 제외(옮겨 적거나 번역하면 훼손).
+                              원래 뜻은 번역한 때 현행이던 판이다(뒤에 뜻이 바뀌어도 남은 번역은 옛 뜻을 옮긴 것 — 따로 센다)
   국가별 해석(topic_notes)     현지 이름이 표제어·별칭 그대로이거나 인용한 근거에 있는가 / 현지 밈이 인용한 근거(evidence_ids)의 문장에 있는가
-                              (보이는 출처인지, 이용자에게 내지 않는 커뮤니티 글에만 있는지 나눈다 — ADR 0003) / evidence_ids 가 있고 근거 표에서 찾아지는가
+                              (보이는 출처인지, 이용자에게 내지 않는 커뮤니티 글에만 있는지 나눈다 — ADR 0003. 해석은 모은 근거의 앞 20개만
+                              인용하므로 인용 밖이지만 그 말의 다른 보이는 근거에 있는 밈은 따로 센다) / evidence_ids 가 있고 근거 표에서 찾아지는가
   근거 분류(evidence_labels)   분류한 문장에 표제어가 있는가, 딴 이야기(offtopic)로 본 몫
   쓰임 낱말(term_fit)          건수와 처리 시간만
   뜻 초안(조사)                게이트 통과, 사람 수정률 — 사람이 정한 초안(승인·제외, 사람이 쓴 새 판으로 바뀜) 가운데 제외·교체한 몫.
@@ -57,6 +59,24 @@ def _evidences(con) -> dict[tuple[str, str], Evidence]:
     return {(eid, tid): Evidence.model_validate_json(j) for eid, tid, j in con.execute("SELECT evidence_id, term_id, json FROM evidences").fetchall()}
 
 
+def _versions(con) -> dict[str, list[tuple]]:
+    """{term_id: [(valid_from, valid_to, 뜻)]} — 편집 결과가 만들어진 때의 뜻을 찾는다."""
+    out: dict[str, list] = defaultdict(list)
+    for tid, start, end, j in con.execute("SELECT term_id, valid_from, valid_to, json FROM meanings").fetchall():
+        out[tid].append((_at(start), _at(end), json.loads(j)))
+    return out
+
+
+def _meaning_at(versions: list[tuple], at: str | None) -> tuple[dict | None, bool]:
+    """(그때 현행이던 뜻, 그 판이 지금도 현행인가). 번역·국가별 해석 단계는 그때의 현행 뜻을 보고 썼다 — 뒤에 뜻이 바뀌어도
+    번역이 남은 것이 있다(원작자 서버 09-16 의 24건). 그때의 판을 못 찾으면 지금의 현행 판."""
+    t = _at(at)
+    for start, end, m in versions:
+        if t and start and start <= t and (end is None or t < end):
+            return m, end is None
+    return next(((m, True) for _, end, m in versions if end is None), (None, False))
+
+
 def seconds_per_item(con, stage: str, rows: list[tuple[str, str]]) -> dict[str, tuple[float, int]]:
     """{모델: (건당 초, 시간을 잰 건수)}. 저장 시각이 든 단계 실행의 시간을 그 실행에서 만든 건수로 나눈다(모델이 섞이면 건수 비율로 나눈다)."""
     runs = [(a, b) for a, b in ((_at(s), _at(f)) for s, f in con.execute(
@@ -79,17 +99,18 @@ def seconds_per_item(con, stage: str, rows: list[tuple[str, str]]) -> dict[str, 
 
 
 def translations(con, terms) -> dict[str, dict]:
-    current = {tid: json.loads(j) for tid, j in con.execute("SELECT term_id, json FROM meanings WHERE valid_to IS NULL").fetchall()}
-    out: dict[str, dict] = defaultdict(lambda: {"rows": 0, "ko": [0, 0], "en": [0, 0], "no_meaning": 0, "lost": []})
+    versions = _versions(con)
+    out: dict[str, dict] = defaultdict(lambda: {"rows": 0, "ko": [0, 0], "en": [0, 0], "no_meaning": 0, "stale": 0, "lost": []})
     rows = con.execute("SELECT term_id, lang, json, updated_at, model FROM translations").fetchall()
-    for tid, lang, j, _, model in rows:
+    for tid, lang, j, at, model in rows:
         g = out[model or "(없음)"]
         g["rows"] += 1
         canon = terms.get(tid, ("", []))[0]
-        m = current.get(tid)
+        m, current = _meaning_at(versions.get(tid, []), at)     # 모델이 옮긴 그 뜻과 견준다
         if not m or not canon:
             g["no_meaning"] += 1
             continue
+        g["stale"] += not current                             # 화면에는 지금 뜻 옆에 옛 뜻의 번역이 나간다
         src = " ".join(str(m.get(k) or "") for k in SOURCE_FIELDS)
         if not mentions(src, canon):
             continue                                      # 원래 뜻에 표제어가 없으면 잴 것이 없다
@@ -107,6 +128,11 @@ def translations(con, terms) -> dict[str, dict]:
 
 def topic_notes(con, terms, evidences) -> dict[str, dict]:
     out: dict[str, dict] = defaultdict(Counter)
+    # topics 단계는 보이는 근거 전부로 밈을 걸렀지만 evidence_ids 에는 앞 20개만 남겼다 — 그 말의 다른 보이는 근거도 따로 본다
+    shown: dict[str, list[str]] = defaultdict(list)
+    for (_, tid), e in evidences.items():
+        if not is_community_post(e):
+            shown[tid].append(f"{e.title} {e.excerpt}")
     rows = con.execute("SELECT term_id, region, json, updated_at, model FROM topic_notes").fetchall()
     for tid, region, j, _, model in rows:
         g = out[model or "(없음)"]
@@ -121,6 +147,7 @@ def topic_notes(con, terms, evidences) -> dict[str, dict]:
         g["ids_found"] += len(cited)
         visible = "\n".join(f"{e.title} {e.excerpt}" for e in cited if not is_community_post(e))
         posts = "\n".join(f"{e.title} {e.excerpt}" for e in cited if is_community_post(e))
+        other = "\n".join(shown[tid])
         name = (n.get("local_name") or "").strip()
         g["name_kept"] += bool(name) and (name == canon or name in aliases or mentions(visible, name))
         for x in n.get("local_memes") or []:
@@ -129,7 +156,8 @@ def topic_notes(con, terms, evidences) -> dict[str, dict]:
                 continue
             g["memes"] += 1
             g["echo"] += same_term(label, canon, aliases)    # 현지 밈 자리에 표제어를 되풀이했다
-            g["visible" if mentions(visible, label) else "community_only" if mentions(posts, label) else "unanchored"] += 1
+            g["visible" if mentions(visible, label) else "visible_uncited" if mentions(other, label)
+              else "community_only" if mentions(posts, label) else "unanchored"] += 1
     result = {m: dict(c) for m, c in out.items()}
     for model, (sec, k) in seconds_per_item(con, STAGE_OF["topic_notes"], [(at, m or "(없음)") for *_, at, m in rows]).items():
         result[model]["seconds"], result[model]["timed"] = round(sec, 2), k
@@ -232,10 +260,11 @@ def table(m: dict) -> str:
     rows = [head]
     for model, g in sorted(m["translations"].items(), key=lambda x: -x[1]["rows"]):
         keep = " · ".join(f"{lang} {_frac(*g[lang])}" for lang in ("ko", "en") if g.get(lang) and g[lang][1])
-        rows.append(f"| 번역 ko·en | `{model}`{MODEL_NOTE.get(model, '')} | {_n(g['rows'])} | {keep or '—'} | — | — | {_sec(g)} | 고치는 화면 없음 |  | — |")
+        count = _n(g["rows"]) + (f" (옛 뜻을 옮긴 것 {_n(g['stale'])})" if g.get("stale") else "")
+        rows.append(f"| 번역 ko·en | `{model}`{MODEL_NOTE.get(model, '')} | {count} | {keep or '—'} | — | — | {_sec(g)} | 고치는 화면 없음 |  | — |")
     for model, g in sorted(m["topic_notes"].items(), key=lambda x: -x[1]["rows"]):
-        memes = (f"현지 밈 {_n(g.get('memes', 0))}: 보이는 근거 {_n(g.get('visible', 0))} · 커뮤니티 글에만 {_n(g.get('community_only', 0))} · "
-                 f"없음 {_n(g.get('unanchored', 0))} (표제어 되풀이 {_n(g.get('echo', 0))})")
+        memes = (f"현지 밈 {_n(g.get('memes', 0))}: 인용한 보이는 근거 {_n(g.get('visible', 0))} · 그 말의 다른 보이는 근거 {_n(g.get('visible_uncited', 0))} · "
+                 f"커뮤니티 글에만 {_n(g.get('community_only', 0))} · 없음 {_n(g.get('unanchored', 0))} (표제어 되풀이 {_n(g.get('echo', 0))})")
         ids = f"있음 {_frac(g.get('with_ids', 0), g['rows'])} · 찾음 {_frac(g.get('ids_found', 0), g.get('ids', 0))}"
         rows.append(f"| 국가별 해석 | `{model}` | {_n(g['rows'])} | 현지 이름 {_frac(g.get('name_kept', 0), g['rows'])} | {memes} | {ids} | "
                     f"{_sec(g, ' (수집 포함)')} | 고치는 화면 없음 |  |  |")
@@ -255,31 +284,31 @@ def table(m: dict) -> str:
 # ---------- 사람이 채울 표본 ----------
 
 def judge_rows(con, per_model: int, seed: int) -> list[dict]:
-    """번역·국가별 해석을 모델마다 per_model 개씩 (팀이 쓴 시드 제외). 사람이 '근거에 없는 주장'·'국가별 차이 오류' 를 채운다."""
+    """번역·국가별 해석을 모델마다 per_model 개씩 (팀이 쓴 시드 제외). 사람이 '근거에 없는 주장'·'국가별 차이 오류' 를 채운다.
+    '원래 뜻' 은 그 결과를 만든 때 현행이던 판이다 — 모델이 본 글과 견준다."""
     rng = random.Random(seed)
-    terms, evidences = _terms(con), _evidences(con)
-    current = {tid: json.loads(j) for tid, j in con.execute("SELECT term_id, json FROM meanings WHERE valid_to IS NULL").fetchall()}
+    terms, evidences, versions = _terms(con), _evidences(con), _versions(con)
     out: list[dict] = []
     by_model: dict[str, list] = defaultdict(list)
-    for tid, lang, j, model in con.execute("SELECT term_id, lang, json, model FROM translations ORDER BY term_id, lang").fetchall():
+    for tid, lang, j, at, model in con.execute("SELECT term_id, lang, json, updated_at, model FROM translations ORDER BY term_id, lang").fetchall():
         if model != "team":
-            by_model[model or "(없음)"].append((tid, lang, j))
+            by_model[model or "(없음)"].append((tid, lang, j, at))
     for model, rows in sorted(by_model.items()):
-        for tid, lang, j in rng.sample(rows, min(per_model, len(rows))):
-            m, text = current.get(tid) or {}, json.loads(j)
+        for tid, lang, j, at in rng.sample(rows, min(per_model, len(rows))):
+            m, text = _meaning_at(versions.get(tid, []), at)[0] or {}, json.loads(j)
             out.append({"산출물": "번역", "모델": model, "term_id": tid, "표제어": terms.get(tid, ("", []))[0], "언어·나라": lang,
                         "원래 뜻": " / ".join(str(m.get(k) or "") for k in SOURCE_FIELDS)[:600],
                         "편집 결과": " / ".join(str(text.get(k) or "") for k in TEXT_FIELDS)[:600], "인용한 근거": ""})
     notes: dict[str, list] = defaultdict(list)
-    for tid, region, j, model in con.execute("SELECT term_id, region, json, model FROM topic_notes ORDER BY term_id, region").fetchall():
-        notes[model or "(없음)"].append((tid, region, j))
+    for tid, region, j, at, model in con.execute("SELECT term_id, region, json, updated_at, model FROM topic_notes ORDER BY term_id, region").fetchall():
+        notes[model or "(없음)"].append((tid, region, j, at))
     for model, rows in sorted(notes.items()):
-        for tid, region, j in rng.sample(rows, min(per_model, len(rows))):
-            n = json.loads(j)
+        for tid, region, j, at in rng.sample(rows, min(per_model, len(rows))):
+            n, m = json.loads(j), _meaning_at(versions.get(tid, []), at)[0] or {}
             cited = [evidences[(e, tid)] for e in n.get("evidence_ids") or [] if (e, tid) in evidences]
             memes = ", ".join(x.get("label", "") for x in n.get("local_memes") or [])
             out.append({"산출물": "국가별 해석", "모델": model, "term_id": tid, "표제어": terms.get(tid, ("", []))[0], "언어·나라": region,
-                        "원래 뜻": str((current.get(tid) or {}).get("definition") or "")[:300],
+                        "원래 뜻": str(m.get("definition") or "")[:300],
                         "편집 결과": f"{(n.get('what_changed') or {}).get('ko', '')} / 현지 이름: {n.get('local_name', '')} / 현지 밈: {memes}"[:600],
                         "인용한 근거": " | ".join(e.title for e in cited if not is_community_post(e))[:600]})
     for r in out:

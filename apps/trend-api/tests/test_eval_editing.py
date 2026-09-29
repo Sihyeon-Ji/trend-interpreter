@@ -38,16 +38,26 @@ def test_editing_metrics_follow_the_rules():
     ds.run_finish(con, rid, 2, "ok")
     _term(con, "t5", "실행밖")
     ds.set_translation(con, "t5", "ko", MeaningText(definition="실행 기록 밖에서 만든 번역", origin="x", nuance="y"), E4B)
+    # 번역은 옮긴 때의 뜻과 견준다 — 뒤에 뜻이 바뀌었는데 남은 번역(원작자 서버의 09-16 24건)은 옛 뜻을 옮긴 것이다
+    _term(con, "t8", "점메추")
+    old = ds.add_meaning(con, "t8", _draft("점메추는 점심 메뉴 추천의 줄임말"), "verified_auto", [])
+    ds.add_meaning(con, "t8", _draft("점심 메뉴를 골라 달라는 말"), "verified_auto", [])      # 지금 뜻에는 표제어가 없다
+    ds.set_translation(con, "t8", "en", MeaningText(definition="A request for a lunch menu pick", origin="x", nuance="y"), E4B)
+    con.execute("UPDATE translations SET updated_at=? WHERE term_id=?", (old.valid_from.isoformat(), "t8"))   # 옛 뜻이 현행이던 때 옮겼다
+    con.commit()
 
-    # 국가별 해석: 현지 밈은 인용한 근거의 문장에 있어야 하고, 보이는 출처(기사)인지 커뮤니티 글에만 있는지 나눈다
+    # 국가별 해석: 현지 밈은 인용한 근거의 문장에 있어야 하고, 보이는 출처(기사)인지 커뮤니티 글에만 있는지 나눈다.
+    # 해석은 모은 근거의 앞 20개만 인용하므로, 그 말의 다른 보이는 근거에 있는 밈은 따로 센다
     ds.add_evidences(con, "t1", [
         Evidence(evidence_id="news", kind="news", url="https://news.example/a", title="日本でも自然な出会い「자만추」", source_domain="news.example",
                  observed_at=now, excerpt=""),
         Evidence(evidence_id="post", kind="community", url="https://bsky.app/p/1", title="자만추 밈 'ジャマンチュ' ㅋㅋ", source_domain="bsky.app",
+                 observed_at=now, excerpt=""),
+        Evidence(evidence_id="later", kind="news", url="https://news.example/b", title="韓国ドラマの「チメク」ブーム", source_domain="news.example",
                  observed_at=now, excerpt="")])
     ds.set_topic_note(con, "t1", "JP", json.dumps({
         "local_name": "자만추", "what_changed": {"ko": "일본에서는…", "en": "In Japan…"}, "self_confidence": 0.8,
-        "local_memes": [{"label": "自然な出会い"}, {"label": "ジャマンチュ"}, {"label": "없는 밈"}, {"label": "자만추"}],
+        "local_memes": [{"label": "自然な出会い"}, {"label": "ジャマンチュ"}, {"label": "없는 밈"}, {"label": "자만추"}, {"label": "チメク"}],
         "evidence_ids": ["news", "post", "gone"]}), E4B)
     ds.set_evidence_labels(con, "t1", [("news", "positive", "none"), ("post", "offtopic", "none")], E4B)
     ds.set_fit(con, "t1", seed.meaning_id, MemeFit(feelings=["joy"], uses=["reaction"], voice="wholesome"), E4B)
@@ -75,11 +85,11 @@ def test_editing_metrics_follow_the_rules():
 
     m = ee.measure(con)
     tr = m["translations"][E4B]
-    assert (tr["rows"], tr["ko"], tr["en"], tr["lost"]) == (3, [1, 1], [0, 1], ["자만추 (en)"])
+    assert (tr["rows"], tr["ko"], tr["en"], sorted(tr["lost"]), tr["stale"]) == (4, [1, 1], [0, 2], ["자만추 (en)", "점메추 (en)"], 1)
     assert tr["timed"] == 2 and tr["seconds"] >= 0                 # 실행 기록 밖에서 만든 것은 시간을 재지 않는다
 
     tn = m["topic_notes"][E4B]
-    assert (tn["memes"], tn["visible"], tn["community_only"], tn["unanchored"], tn["echo"]) == (4, 2, 1, 1, 1)
+    assert (tn["memes"], tn["visible"], tn["visible_uncited"], tn["community_only"], tn["unanchored"], tn["echo"]) == (5, 2, 1, 1, 1, 1)
     assert (tn["with_ids"], tn["ids"], tn["ids_found"], tn["name_kept"]) == (1, 3, 2, 1)
 
     assert (m["evidence_labels"][E4B]["anchored"], m["evidence_labels"][E4B]["offtopic"]) == (2, 1)
@@ -91,10 +101,12 @@ def test_editing_metrics_follow_the_rules():
     assert d["decided_by:reviewer"] == 1 and set(m["drafts"]) == {"offline:" + E4B}   # 사람이 쓴 판(시드)은 초안으로 세지 않는다
 
     md = ee.table(m)
-    assert "ko 1/1 (100%) · en 0/1 (0%)" in md and "보이는 근거 2 · 커뮤니티 글에만 1 · 없음 1 (표제어 되풀이 1)" in md
+    assert "| 4 (옛 뜻을 옮긴 것 1) | ko 1/1 (100%) · en 0/2 (0%) |" in md
+    assert "인용한 보이는 근거 2 · 그 말의 다른 보이는 근거 1 · 커뮤니티 글에만 1 · 없음 1 (표제어 되풀이 1)" in md
     assert "1/1 (100%) 제외·교체 (결정 reviewer 1)" in md
     rows = ee.judge_rows(con, per_model=5, seed=1)
     assert {r["산출물"] for r in rows} == {"번역", "국가별 해석"} and all(r["근거에 없는 주장(개수)"] == "" for r in rows)
+    assert next(r for r in rows if r["term_id"] == "t8")["원래 뜻"].startswith("점메추는 점심 메뉴 추천의 줄임말")   # 사람도 모델이 옮긴 그 뜻과 견준다
     con.close()
 
 
