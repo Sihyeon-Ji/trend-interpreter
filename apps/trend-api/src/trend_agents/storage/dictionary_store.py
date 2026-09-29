@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count
 -- 용어마다 뉴스 검색으로 언급을 마지막으로 잰 때(마이그레이션 006). collect.mentions 가 오래된 것부터 돌아가며 잰다.
 -- region 은 지난번에 잰 나라(마이그레이션 013) — 여러 나라가 쓰는 말은 다음에 다른 나라를 잰다.
 CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT, region TEXT);
+-- 용어마다 뉴스 키워드 검색이 찾은 기사(마이그레이션 013, Plan 04) — 판(region)마다 표제어가 든 기사, 매체(source)와 그 매체의 나라
+-- (home: 그 매체의 머리기사가 거의 다 나온 판, collect.source_homes). 근거가 아닌 기사는 news 에 넣지 않고 여기에만 둔다.
+CREATE TABLE IF NOT EXISTS mention_samples (term_id TEXT, region TEXT, link TEXT, source TEXT, home TEXT, published_at TEXT, PRIMARY KEY(term_id, region, link));
 -- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
 CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
@@ -1034,6 +1037,17 @@ def mention_rotation(con: Connection) -> dict[str, str]:
 
 def mark_mention_sampled(con: Connection, term_id: str, region: str | None = None) -> None:
     con.execute("INSERT OR REPLACE INTO mention_queries VALUES (?,?,?)", (term_id, now_s(), region))
+    con.commit()
+
+
+def add_mention_samples(con: Connection, term_id: str, items: list, homes: dict[str, str]) -> None:
+    """이 용어의 뉴스 키워드 검색이 찾은 기사(표제어가 든 것만 넘긴다)와 매체의 나라(homes). 같은 판의 같은 기사는 새로 본 값으로 바꾼다."""
+    def utc(d: datetime | None) -> str:
+        d = d or now()
+        return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(timezone.utc).isoformat()
+
+    con.executemany("INSERT OR REPLACE INTO mention_samples VALUES (?,?,?,?,?,?)",
+                    [(term_id, n.region, n.link, n.source, homes.get(n.source), utc(n.published_at)) for n in items])
     con.commit()
 
 

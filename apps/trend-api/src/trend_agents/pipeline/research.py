@@ -101,14 +101,10 @@ def web_evidence(term: str, urls: list[str], aliases: list[str] | tuple[str, ...
 def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) -> list[Evidence]:
     key = _norm(term)
     out: list[Evidence] = []
-    # 영어 표제어를 싱가포르·말레이시아·필리핀 영어판에서 잰 결과는 나라별 원본 언급 수(지표)로만 쓴다 — 근거로 보이거나 게이트에 세지 않는다(Plan 04)
-    english = {n for (n,) in con.execute("SELECT norm FROM terms WHERE lang='en'").fetchall()}
     for (j,) in con.execute("SELECT json FROM news").fetchall():
         from ..schemas import NewsItem
 
         n = NewsItem.model_validate_json(j)
-        if n.query and n.region in ENGLISH_EDITIONS and _norm(n.query) in english:
-            continue
         if mentions(n.title, term, aliases):
             out.append(Evidence(evidence_id=ds.new_id("e", n.link), kind="news", url=n.link, title=n.title[:200], source_domain=news_domain(n),
                                 observed_at=n.published_at or datetime.now(timezone.utc), excerpt=n.title))

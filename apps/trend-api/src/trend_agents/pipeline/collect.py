@@ -1,7 +1,7 @@
 """1단계 수집. 키 없는 소스(뉴스 RSS·트렌드 RSS·위키)는 항상, YouTube·BigQuery 는 키·ADC 가 있을 때만."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from ..collectors import google_trends as gt
 from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
@@ -9,10 +9,16 @@ from ..config import ENGLISH_EDITIONS, GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGION
 from ..lifecycle import recheck_interval_days
 from ..storage import dictionary_store as ds
 from ..storage import store as db
+from .match import mentions
 from .runs import stage
 from ..storage.db import Connection
 
 SEARCH_REGIONS_PER_RUN = 4  # search.list 는 100 unit → 하루 쿼터 안에서 집중 국가를 돌려 가며
+# 매체의 나라(Plan 04). 뉴스판(版)이 곧 매체의 나라는 아니다 — 싱가포르판에서 찾은 'vibe' 기사 16건에 싱가포르 매체는 0곳이었고,
+# 홍콩판의 領便當 기사는 LINE TODAY 등 대만·태국 매체였다(2026-09-30 실측). 최근 머리기사의 대부분이 한 판에서 나온 매체만 그 나라 매체로 본다.
+HOME_DAYS = 28
+HOME_SHARE = 0.8
+HOME_ROWS = 10       # 머리기사에 드물게 뜬 매체(한 판에 몇 번 걸린 K-pop·시계 사이트)를 그 나라 매체로 보지 않게
 
 
 def _rotate(items: list[str], k: int) -> list[str]:
@@ -38,14 +44,33 @@ def mention_order(con, terms: list, n: int = 30) -> list:
     return verified[:take] + others[:n - take]
 
 
+def home_edition(t) -> str:
+    """표제어의 나라 뉴스판(광동어는 홍콩, 다른 중국어는 대만). 뉴스판이 없는 나라·언어는 미국판."""
+    region = home_region(t.canonical, t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")
+    return region if region in news_rss.LOCALES else "US"
+
+
 def mention_regions(t, last: str | None = None) -> list[str]:
     """이 표제어의 언급을 잴 뉴스판. 첫째는 표제어의 나라(광동어는 홍콩)의 판이고, 여러 나라가 같이 쓰는 말(중국어)은 지난번 다음 나라 —
-    대만·홍콩을 번갈아 잰다. 뉴스판이 없는 나라면 미국판. 영어는 둘째로 지표용 영어판 하나(싱가포르·말레이시아·필리핀을 돌아가며)."""
+    대만·홍콩을 번갈아 잰다. 영어는 둘째로 싱가포르·말레이시아·필리핀 영어판 하나(돌아가며)."""
     cycle = region_cycle(t.canonical, t.lang)
-    region = next_region(cycle, last) if cycle else home_region(t.canonical, t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")
-    out = [region if region in news_rss.LOCALES else "US"]
+    out = [next_region(cycle, last) if cycle else home_edition(t)]
     if t.lang == "en":
         out.append(next_region(ENGLISH_EDITIONS, last))
+    return out
+
+
+def source_homes(con: Connection) -> dict[str, str]:
+    """매체 → 그 매체의 나라(뉴스판). 최근 HOME_DAYS 일 머리기사의 HOME_SHARE 이상이 한 판에서 나왔고 HOME_ROWS 건 이상인 매체만 —
+    여러 판에 뜨는 매체(BBC 는 영국판 40%)와 머리기사에 드문 매체는 나라가 없다. 실측(09-14~29 머리기사): The Straits Times 93%·CNA 97%
+    싱가포르, The Star 93% 말레이시아, Inquirer.net 100% 필리핀, 香港01 100% 홍콩, 自由時報 99% 대만, LINE TODAY 91% 태국."""
+    since = (datetime.now(timezone.utc) - timedelta(days=HOME_DAYS)).isoformat()
+    out: dict[str, str] = {}
+    for source, by in db.headline_sources(con, since).items():
+        region, n = by.most_common(1)[0]
+        total = sum(by.values())
+        if total >= HOME_ROWS and n >= HOME_SHARE * total:
+            out[source] = region
     return out
 
 
@@ -108,14 +133,22 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
     with stage(con, "collect.mentions") as r:
         terms = ds.list_terms(con, ("verified", "needs_review", "researching"))
         last = ds.mention_rotation(con)
+        homes = source_homes(con)
         n = 0
         for t in mention_order(con, terms, mention_terms):
-            primary, *extra = regions = mention_regions(t, last.get(t.term_id))
+            regions = mention_regions(t, last.get(t.term_id))
+            evidence = {home_edition(t), *(u["region"] for u in ds.get_usage(con, t.term_id))}
             try:
-                n += db.upsert_news(con, news_rss.fetch_news(primary, query=t.canonical, limit=20))
-                ds.mark_mention_sampled(con, t.term_id, regions[-1])   # 결과가 0건이어도 잰 것이다. 번갈아 재는 말은 다음에 다른 나라
-                for region in extra:   # 지표용 영어판 — 미국판 뒤에 받아, 두 판에 다 있는 기사는 미국 것으로 남는다(주소가 같으면 먼저 받은 쪽)
-                    n += db.upsert_news(con, news_rss.fetch_news(region, query=t.canonical, limit=20))
+                for i, region in enumerate(regions):
+                    items = news_rss.fetch_news(region, query=t.canonical, limit=20)
+                    n += len(items)
+                    # 근거(news)는 표제어의 나라 판·조사가 정한 쓰는 나라의 판에서 받은 기사, 그 밖의 판에서는 그 판의 나라 매체가 낸 기사만.
+                    # 다른 나라 매체가 그 판에 뜬 것(싱가포르판의 BBC·Bloomberg)은 근거로 보이거나 게이트에 세지 않고 mention_samples 에만 둔다 —
+                    # news 에 넣으면 같은 기사를 나중에 미국판에서 받아도 주소가 같아 근거가 되지 못했다(검토 09-30)
+                    db.upsert_news(con, [x for x in items if region in evidence or homes.get(x.source) == region])
+                    ds.add_mention_samples(con, t.term_id, [x for x in items if mentions(x.title, t.canonical, t.aliases)], homes)
+                    if i == 0:
+                        ds.mark_mention_sampled(con, t.term_id, regions[-1])   # 결과가 0건이어도 잰 것이다. 돌아가며 재는 판은 다음에 다음 차례
             except Exception as e:
                 r.note += f"{t.canonical}:{type(e).__name__} "
         r.count = n

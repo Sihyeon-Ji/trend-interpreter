@@ -1,15 +1,47 @@
-"""목표 지역 공급(Plan 04) — 광동어는 홍콩, 대만·홍콩 번갈아 재기, 사전이 빈 지역의 조사 칸, 위키 씨앗, 영어판 지표. 네트워크·모델 없이."""
+"""목표 지역 공급(Plan 04) — 광동어는 홍콩, 대만·홍콩 재기, 사전이 빈 지역의 조사 칸, 위키 씨앗, 다른 나라 판과 매체의 나라. 네트워크·모델 없이."""
 import json
 from datetime import datetime, timezone
 
-from trend_agents.schemas import Term
+from trend_agents.schemas import MeaningDraft, NewsItem, Term
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
+
+NOW = datetime.now(timezone.utc)
 
 
 def _term(tid, name, lang, status="verified"):
     now = datetime.now(timezone.utc)
     return Term(term_id=tid, canonical=name, lang=lang, status=status, first_seen=now, last_seen=now)
+
+
+def _verified(con, tid, name, lang, usage):
+    """확인된 용어 — 조사가 정한 쓰는 나라(usage)와 함께."""
+    ds.upsert_term(con, _term(tid, name, lang))
+    ds.add_meaning(con, tid, MeaningDraft(definition="멋있어 보이려고 일부러 폼을 잡는 것", origin="x", nuance="y", generations=["20s"],
+                                          regions=list(usage), self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, tid, [("20s", r, NOW.isoformat(), 1.0) for r in usage])
+
+
+def _news(link, title, source, region="US", query=None, when=None):
+    return NewsItem(title=title, link=link, source=source, published_at=when or NOW, region=region, query=query)
+
+
+def _headlines(con, source, region, k):
+    """그 판의 머리기사(키워드 없이 받은 뉴스) k 건 — 매체의 나라를 정하는 재료."""
+    db.upsert_news(con, [_news(f"h-{source}-{region}-{i}", f"{source} headline {i}", source, region) for i in range(k)])
+
+
+def _collect(con, monkeypatch, results: dict) -> None:
+    """collect.run 을 네트워크 없이. 키워드 검색은 results[(판, 검색어)] 를 그 판의 결과로 돌려주고, 머리기사·트렌드·위키는 비운다."""
+    from trend_agents.pipeline import collect
+
+    monkeypatch.setattr(collect, "YOUTUBE_API_KEY", "")
+    monkeypatch.setattr(collect.gt, "trending_now", lambda *a, **k: [])
+    monkeypatch.setattr(collect.gt, "latest_refresh_date", lambda *a, **k: None)
+    monkeypatch.setattr(collect.wikipedia_top, "top_articles", lambda *a, **k: [])
+    monkeypatch.setattr(collect.news_rss, "fetch_news", lambda region, query=None, limit=30, **k:
+                        [n.model_copy(update={"region": region, "query": query}) for n in results.get((region, query), [])])
+    collect.run(con, mention_terms=30)
 
 
 def test_cantonese_headwords_belong_to_hong_kong():
@@ -112,29 +144,45 @@ def test_english_terms_are_also_counted_in_sg_my_ph_editions():
     assert mention_regions(_term("ms", "LENGKET SEMUA", "ms"), None) == ["MY"]      # 말레이어는 말레이시아판 하나(근거가 되는 판)
 
 
-def test_sg_my_ph_edition_hits_are_usage_counters_not_evidence():
-    """지표용 영어판 결과는 나라별 원본 언급으로 세지만 근거로 만들지 않는다(보이지 않고 게이트에도 세지 않는다).
-    같은 판이라도 그 나라 말(말레이어)을 잰 것, 키워드 없이 받은 머리기사는 그대로 근거다."""
-    from trend_agents.pipeline import track
-    from trend_agents.pipeline.research import first_party_evidence
-    from trend_agents.schemas import NewsItem
+def test_publisher_home_is_the_edition_that_carries_its_headlines():
+    """매체의 나라는 최근 머리기사의 대부분(80% 이상, 10건 이상)이 나온 판 — 여러 판에 뜨는 BBC, 머리기사에 드문 매체는 나라가 없다.
+    키워드 검색 결과는 재료가 아니다(우리가 어느 판에서 무엇을 찾았는지에 따라 달라진다)."""
+    from trend_agents.pipeline import collect
 
     con = db.connect(":memory:")
-    now = datetime.now(timezone.utc)
-    ds.upsert_term(con, _term("en", "aura farming", "en"))
-    ds.upsert_term(con, _term("ms", "lengket semua", "ms"))
-    db.upsert_news(con, [
-        NewsItem(title="What is aura farming?", link="us1", source="CNN", published_at=now, region="US", query="aura farming"),
-        NewsItem(title="Aura farming hits Singapore schools", link="sg1", source="Mothership", published_at=now, region="SG", query="aura farming"),
-        NewsItem(title="Aura farming, explained", link="sg2", source="BBC", published_at=now, region="SG", query="aura farming"),
-        NewsItem(title="Aura farming at the MRT", link="sg3", source="CNA", published_at=now, region="SG", query=None),
-        NewsItem(title="Lengket semua trend viral", link="my1", source="Harian Metro", published_at=now, region="MY", query="lengket semua"),
-    ])
-    assert {e.url for e in first_party_evidence(con, "aura farming")} == {"us1", "sg3"}
-    assert {e.url for e in first_party_evidence(con, "lengket semua")} == {"my1"}
-    by_region: dict = {}
-    track.weekly_counts(con, "aura farming", [], by_region=by_region)
-    assert sum(by_region["SG"].values()) == 3 and sum(by_region["US"].values()) == 1
+    for source, region, k in (("CNA", "SG", 19), ("CNA", "MY", 1), ("BBC", "GB", 8), ("BBC", "US", 6), ("BBC", "SG", 6), ("Tiny", "SG", 3)):
+        _headlines(con, source, region, k)
+    db.upsert_news(con, [_news(f"q{i}", "So shiok", "Mothership", "SG", query="shiok") for i in range(12)])
+    assert collect.source_homes(con) == {"CNA": "SG"}
+
+
+def test_other_editions_give_evidence_only_from_their_own_outlets(monkeypatch):
+    """표제어의 나라 밖 판(영어의 SG·MY·PH)에서 받은 기사는 그 판의 나라 매체가 낸 것만 근거(news)다. 다른 나라 매체가 그 판에 뜬 것
+    (싱가포르판의 BBC·Bloomberg)은 mention_samples 에만 둔다 — news 에 넣었더니 같은 기사를 다른 말의 미국판 검색이나 다음 실행의 미국판에서
+    받아도 주소가 같아 근거가 되지 못했다(검토 09-30). 조사가 그 나라에서 쓴다고 정한 말(싱글리시)은 그 판의 기사가 모두 근거다."""
+    from trend_agents.pipeline.research import first_party_evidence
+
+    con = db.connect(":memory:")
+    _headlines(con, "CNA", "SG", 12)                                                   # CNA 는 싱가포르 매체
+    _verified(con, "af", "aura farming", "en", ["US"])
+    _verified(con, "sk", "skibidi", "en", ["US"])
+    _verified(con, "sh", "shiok", "en", ["SG"])
+    shared = _news("L", "Skibidi and aura farming take over", "BBC")
+    results = {("US", "aura farming"): [_news("U1", "What is aura farming?", "CNN")],
+               ("SG", "aura farming"): [shared, _news("C1", "Aura farming at the MRT", "CNA"), _news("L2", "Aura farming, explained", "Bloomberg")],
+               ("US", "skibidi"): [shared],
+               ("SG", "shiok"): [_news("M1", "So shiok lah", "Mothership")]}
+    _collect(con, monkeypatch, results)
+    assert dict(con.execute("SELECT link, region FROM news WHERE query IS NOT NULL").fetchall()) == {"U1": "US", "C1": "SG", "L": "US", "M1": "SG"}
+    assert "L" in {e.url for e in first_party_evidence(con, "skibidi")}               # 싱가포르판이 먼저 받았어도 미국판의 근거
+    assert {e.url for e in first_party_evidence(con, "aura farming")} == {"U1", "C1", "L"}
+    assert {e.url for e in first_party_evidence(con, "shiok")} == {"M1"}
+    samples = dict(con.execute("SELECT link, home FROM mention_samples WHERE term_id='af' AND region='SG'").fetchall())
+    assert samples == {"L": None, "C1": "SG", "L2": None}                             # 매체의 나라를 함께 적는다
+
+    results[("US", "aura farming")].append(_news("L2", "Aura farming, explained", "Bloomberg"))
+    _collect(con, monkeypatch, results)                                                # 다음 실행: 지난번 싱가포르판에만 있던 기사를 미국판에서 받는다
+    assert "L2" in {e.url for e in first_party_evidence(con, "aura farming")}
 
 
 def test_english_community_research_rotates_sg_my_ph_sites():

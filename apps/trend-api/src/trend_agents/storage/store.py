@@ -5,6 +5,8 @@ video_snapshots 가 조회수 시계열 = 트렌드 곡선의 원천.
 """
 from __future__ import annotations
 
+import json
+from collections import Counter
 from datetime import datetime, timezone
 
 from ..config import DATA_DIR
@@ -73,6 +75,16 @@ def upsert_news(con: Connection, items: list[NewsItem]) -> int:
         )
     con.commit()
     return len(items)
+
+
+def headline_sources(con: Connection, since: str) -> dict[str, Counter]:
+    """since 이후 받은 머리기사(키워드 없이 받은 판별 뉴스)의 매체마다 판별 건수 — 매체의 나라를 가르는 재료(collect.source_homes)."""
+    out: dict[str, Counter] = {}
+    for region, j in con.execute("SELECT region, json FROM news WHERE query IS NULL AND first_seen >= ?", (since,)).fetchall():
+        source = json.loads(j).get("source") or ""
+        if source:
+            out.setdefault(source, Counter())[region] += 1
+    return out
 
 
 def top_videos(con: Connection, n: int = 3, region: str | None = None) -> list[str]:
