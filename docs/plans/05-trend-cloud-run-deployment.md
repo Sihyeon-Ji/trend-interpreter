@@ -101,7 +101,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 구현 순서
 
-1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다. 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
+1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. 기존 로컬 데이터는 `scripts/migrate_sqlite_to_postgres.py` 또는 `pg_dump`로 옮깁니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
 2. `infra/gcp/main.tf`에 Trend용 service account, secret metadata, IAM을 추가하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.

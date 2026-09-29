@@ -1,6 +1,6 @@
 # Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 상태 **대기 — 원본은 원작자 PC(`/home/cytur/trend/data/trend.db`)에 그대로 있어 파일 요청은 필요 없고, 로컬 PostgreSQL 재이관과 기록은 아직 안 함 · 수집을 PostgreSQL 로 옮길지는 사용자/팀 결정 대기** · 선행 **없음** · 목표일 **2026-10-01**
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **이관 검증 완료(09-29, 별도 Compose 프로젝트) — 이관 스크립트에 `--fresh`·`--skip-user-data`, 기본 로컬 볼륨 교체와 수집의 PostgreSQL 전환은 사용자/팀 결정 대기(수집은 10-01 기준 트윈 SQLite 에서 계속)** · 선행 **없음** · 목표일 **2026-10-01**
 
 [계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
 
@@ -9,68 +9,84 @@
 이 저장소에 있던 `trend.db`(2026-09-23자, 용어 613개, 약 21만 행)는 이미 로컬 PostgreSQL로 옮겨 검증했습니다.
 그러나 [인수인계 기록](../트렌드/인수인계-2026-09-15.md)에 따르면 그 뒤로도 다른 Linux PC(`/home/cytur/trend`)에서
 파이프라인이 cron으로 계속 돌았으므로, 그쪽 파일이 더 최신일 가능성이 큽니다. 사전 뜻은 version으로 갱신되기 때문에
-이미 있는 행을 건너뛰는 방식으로는 갱신된 뜻이 반영되지 않습니다. 그래서 **로컬 DB를 비운 뒤 최신 파일 하나로 다시 이관**합니다.
+이미 있는 행을 건너뛰는 방식으로는 갱신된 뜻이 반영되지 않습니다. 그래서 **빈 DB에 최신 파일 하나로 다시 이관**합니다.
 
-## 원작자에게 요청할 것
-
-(2026-09-29 확인: 이 파일은 원작자 PC 에 있고 그 PC 의 cron 이 계속 갱신하므로 별도 요청 없이 복사할 수 있다. 아래 표는 복사할 대상을 정리한 것이다.)
-
-파일 하나면 됩니다. 실행 중인 파이프라인이 있으면 멈춘 상태에서 복사해 달라고 요청합니다.
-
-| 요청 항목 | 경로 | 비고 |
-| --- | --- | --- |
-| SQLite 데이터 파일 | `~/trend/data/trend.db` (또는 옮긴 위치의 `apps/trend-api/data/trend.db`) | 필수. 수집 원본·사전·검수 기록 전부 |
-| 마지막 실행 시각 | `logs/pipeline.log` 끝부분 | 선택. 어느 시점까지의 데이터인지 기록용 |
-
-받은 파일은 Git에 넣지 않고 `apps/trend-api/data/`에 둡니다(`.gitignore` 제외 대상). 전달 경로는 팀 Discord 파일 첨부나
-Google Drive 공유 링크면 충분하며, `.env`나 `data/accounts.txt`는 함께 받지 않습니다.
+2026-09-29부터 원본(트윈 `/home/cytur/trend/data/trend.db`)이 이 저장소와 같은 PC에 있어 원작자에게 파일을 받는 단계는 필요 없습니다.
+트윈 쪽 파일은 읽기만 하고, `.env`·`data/accounts.txt`는 가져오지 않습니다.
 
 ## 절차
 
-1. 현재 로컬 DB를 비웁니다. 볼륨을 지우면 다음 `up`에서 빈 데이터베이스가 새로 만들어집니다.
+1. **스냅숏.** 트윈 cron(매일 9·14·19·23시 :15~:40 KST)이 쓰는 동안은 피하고, 읽기 전용으로 `.backup` 합니다.
 
    ```bash
-   docker compose down
-   docker volume rm 2026-google-ai-builder-cup_postgres_data
-   docker compose up -d --wait
+   sqlite3 -readonly /home/cytur/trend/data/trend.db ".backup 'apps/trend-api/data/trend.db'"
    ```
 
-2. 받은 파일을 API 컨테이너에 넣고 이관합니다. 표마다 복사한 행 수가 출력되고, 마지막에 별칭 표(`term_aliases`)를 다시 만듭니다.
+2. **빈 DB.** 별도 Compose 프로젝트로 띄웁니다. 기본 프로젝트의 `postgres_data` 볼륨(`2026-google-ai-builder-cup_postgres_data`)은
+   지우지 않습니다. 되돌릴 수 없으므로 바꿔야 하면 먼저 `pg_dump`로 보관합니다.
 
    ```bash
-   docker compose cp apps/trend-api/data/trend.db api:/workspace/apps/trend-api/data/trend.db
-   docker compose exec api python scripts/migrate_sqlite_to_postgres.py --sqlite data/trend.db
+   docker compose -p abc-pgimport up -d --wait db
    ```
 
-3. 결과를 확인합니다. `terms` 수가 원작자가 알려 준 값과 같고, 화면이 실데이터로 열려야 합니다.
+3. **이관.** `--fresh`는 대상 `terms`에 행이 있으면 아무것도 옮기지 않고 끝납니다. 이미 있는 행은 새 파일의 값으로 바뀌지 않기 때문입니다.
 
    ```bash
-   docker compose exec db psql -U trend -d trend -c 'SELECT status, COUNT(*) FROM terms GROUP BY status'
-   docker compose exec api python scripts/health_check.py
-   DATA_MODE=api docker compose up -d
+   docker compose -p abc-pgimport run --rm -v "$PWD/apps/trend-api/data:/import:ro" api \
+     python scripts/migrate_sqlite_to_postgres.py --sqlite /import/trend.db --fresh
    ```
 
-4. `apps/trend-api/data/` 에 둔 복사본(`trend.db`, `trend.db.bak-*`)은 이관이 끝나면 지웁니다. 원작자 PC 의 원본 `/home/cytur/trend/data/trend.db` 와 그 `.bak-*` 는 지우지 않습니다. 필요하면 로컬 PostgreSQL에서 `pg_dump`로 다시 내보낼 수 있습니다.
+4. **확인.** 표마다 원본과 건수를 비교하고, 건강 점검과 실데이터 화면을 봅니다. 포트는 다른 checkout과 겹치지 않게 고릅니다.
+   e2e에는 예시 데이터를 전제한 단언이 있어 실데이터에서는 일부가 실패합니다(2026-09-29에는 10건, 아래 결과).
+
+   ```bash
+   docker compose -p abc-pgimport run --rm api python scripts/health_check.py
+   DATA_MODE=api DEV_WEB_PORT=3518 DEV_API_PORT=8518 docker compose -p abc-pgimport up -d --wait
+   DATA_MODE=api DEV_WEB_PORT=3518 DEV_API_PORT=8518 docker compose -p abc-pgimport --profile tools run --rm e2e
+   ```
+
+5. **정리.** 지우는 것은 `apps/trend-api/data/` 아래의 사본뿐입니다. 트윈의 `trend.db`와 `trend.db.bak-*`는 지우지 않습니다.
+
+Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_cache`)과 계정별 설정(`reader_prefs`)을 뺍니다.
+스크립트로 바로 옮기면 `--fresh --skip-user-data`, 로컬 DB에서 내보내면
+`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
 
 ## 완료 기준
 
-- 로컬 PostgreSQL의 용어·근거·검수 기록이 원작자 파일과 같은 시점이다.
-- `docker compose exec api python scripts/health_check.py`에 경고가 없다.
-- 이후 수집은 Compose `db`에만 쌓이고 SQLite 파일은 더 이상 만들어지지 않는다.
+- 로컬 PostgreSQL의 용어·근거·검수 기록이 원본 파일과 같은 시점이다. → 별도 프로젝트에서 확인. 기본 볼륨 교체는 사용자 확인 뒤
+- `health_check.py`에 경고가 없다. → 확인
+- 이후 수집은 Compose `db`에만 쌓이고 SQLite 파일은 더 이상 만들어지지 않는다. → 아직. 트윈(운영)은 SQLite로 돈다
 
-## 현재 상태와 남은 일 (2026-09-29 실측)
+## 결과 (2026-09-29, 23:02 KST 스냅숏 · 19:15 회차 뒤)
 
-완료 기준 셋 모두 아직 충족하지 않았다.
+원본은 32개 표 약 34만 행입니다. 용어 745 · 근거 15,807 · 뜻 767 · 검수 기록 592 · 근거 분류 1,237
+(점검 때 본 19:02 사본은 737 · 15,703 · 755 · 582 · 1,219).
 
-- **1. 같은 시점이 아님.** 팀 저장소 Compose 컨테이너는 떠 있지 않고, 로컬 PostgreSQL 볼륨은 09-28 16:06 에 만들어졌다. 원작자 PC 의 `trend.db` 는 09-29 14:36 실행분(용어 737, 근거 15,703)까지 갱신돼 있다(그 뒤에도 cron 이 하루 4회 계속 쓴다).
-- **2. 건강 점검 미실행.** 컨테이너가 없어 돌리지 못했다. 원작자 PC 쪽 점검은 09-29 10:45 에 '경고 없음' 이었다.
-- **3. 사용자/팀 결정 대기.** 팀 코드에는 SQLite 쓰기 경로가 없지만(`grep` 결과 `scripts/migrate_sqlite_to_postgres.py` 에만 sqlite 가 나온다), 실제 수집은 아직 원작자 PC 의 cron(9·14·19·23시 :15)과 SQLite 에서 돈다. 수집과 :8180 API 를 팀 코드 + PostgreSQL 로 옮길지는 사용자 결정이다.
+**이관에서 드러난 것.** 기존 스크립트로 옮기면 news 표에서 멈췄습니다.
 
-남은 일:
+| 문제 (실측) | 고친 것 |
+| --- | --- |
+| `index row size 2920 exceeds btree version 4 maximum 2704 for index "news_pkey"` — 2,901바이트짜리 Google 뉴스 주소 1건. news 30,000/42,776에서 끝나(exit 1) 별칭 표도 다시 만들지 못했다(0행). 파이프라인 수집(`store.upsert_news`)도 이런 주소가 하나 섞이면 그 나라 뉴스 묶음이 통째로 롤백됐다. PostgreSQL에서만 나는 문제 | 주소가 2,048바이트보다 긴 뉴스는 저장하지도 옮기지도 않는다(`store.NEWS_LINK_MAX`). 이번 파일에서 6건, 그중 근거로 쓰인 것 1건 |
+| `terms.diffusion` 0/745. 마이그레이션 002의 보정은 처음 연결할 때 빈 표에서 돌고, SQLite `terms`에는 이 열이 없다 | 스크립트가 옮긴 뒤 용어 JSON에서 채운다: 247 (태동 152 · 식상 72 · 주류 21 · 확산 2) |
+| 이미 있는 행은 `ON CONFLICT DO NOTHING`으로 건너뛰므로, 옛 DB에 새 파일을 옮기면 옛 값이 조용히 남는다 | `--fresh`. 실데이터가 든 DB(terms 745)에서 아무것도 옮기지 않고 exit 1로 끝나는 것을 확인 |
+| 해석 캐시 66행·계정 설정 1행이 Cloud SQL 사본에 따라간다 | `--skip-user-data`. 실데이터로 새 DB에 옮겨 두 표 0행, 나머지는 같음을 확인 |
 
-1. cron 이 도는 시각(:15~:40)을 피해 `sqlite3 trend.db ".backup ..."` 로 일관된 사본을 떠서 `apps/trend-api/data/` 에 둔다. 현재 볼륨은 지우기 전에 `pg_dump` 한다.
-2. 절차 1~3 을 실행하고, 표마다 복사한 행 수를 SQLite 와 대조한다. `terms.diffusion` 열은 마이그레이션 002 가 빈 표에서 먼저 채워지므로 이관 뒤 `UPDATE terms SET diffusion = json::jsonb->>'diffusion'` 로 다시 채운다.
-3. 사본을 뜬 시각과 표별 행 수를 이 문서에 적는다.
-4. `migrate_sqlite_to_postgres.py` 는 `ON CONFLICT DO NOTHING` 이라 비어 있지 않은 표에 다시 실행하면 낡은 행이 남는다. 비어 있을 때만 돌리도록 막거나 개발 문서의 '다시 실행해도 안전합니다' 를 고친다.
+**고친 스크립트로 다시 옮긴 결과(`--fresh`).** 약 6초 걸렸습니다. 32개 표 중 31개가 건수와 행 내용까지 원본과 같고,
+news만 42,770/42,776(뺀 6건)입니다. 별칭 표는 136행입니다.
 
-이 데이터는 나중에 Cloud SQL이 준비되면 `pg_dump`·`pg_restore`로 옮깁니다(Plan 05).
+| 확인 | 결과 |
+| --- | --- |
+| `health_check.py` | 경고 없음. 검증 153 · 검수 대기 559 · 내린 것 23, 화면에 나가는 뜻 중 쓸 수 없는 것 0, 번역 안 된 것 0, 열린 검수 182 |
+| 규칙 단계(candidates·hunt·track·board·dashboard)를 PostgreSQL에서 다시 실행 | 오류 없음. track 212.6초(트윈 SQLite 188.1초). 용어 745개의 상태·생애주기·확산 단계가 트윈 결과와 모두 같고, 주간 언급이 다른 1칸(42→41)은 뺀 뉴스 1건 때문 |
+| API 모드 웹 + e2e 전체 | 19 통과 · 10 실패 · 2 건너뜀(관리 화면, 세션 비밀값 없음). 그동안 API 로그에 5xx·오류 없음, 웹 로그에도 오류 없음 |
+| Cloud SQL 사본 리허설 | `pg_dump`(두 표의 데이터 제외) 27 MB · 1.4초, 새 DB에 `pg_restore` 1.2초. 건수 같음, 두 표 0행. `schema_migrations` 6행이 그대로라 API가 마이그레이션을 다시 적용하지 않고, 건강 점검 경고 없음 |
+
+e2e 실패 10건은 모두 예시 데이터를 전제한 단언입니다. 예시 건수(`전체 6`), 예시 주제(`오징어 게임`), 실데이터에서 내린 `t_crumbl`,
+실데이터에는 있는 홍콩 밈, 예시 추천의 `럭키비키`(실데이터 순위 상위 5개에 없음, 5건), 사전이 50개씩 나뉘어 2쪽에 있는 `자만추`.
+PostgreSQL 때문에 난 실패는 없었습니다.
+
+PostgreSQL DB의 정렬 규칙은 `en_US.utf8`이라 `ORDER BY canonical` 결과가 SQLite(바이트 순)와 다릅니다.
+사전 화면은 웹이 다시 정렬하므로 보이는 순서에는 영향이 없습니다.
+
+남은 일: 기본 볼륨 교체 여부는 사용자 확인 뒤 정합니다(먼저 `pg_dump`). 이관한 DB는 `abc-pgimport_postgres_data` 볼륨에 남겨
+다른 계획의 실데이터 확인에 씁니다(`DATA_MODE=api docker compose -p abc-pgimport up -d`).
