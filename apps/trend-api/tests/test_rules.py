@@ -954,6 +954,34 @@ def test_evidence_without_the_headword_is_not_usage_nor_a_document():
     assert card.evidences == [] and card.last_used is not None   # 표제어가 든 글은 커뮤니티 글뿐 — 쓰임으로만 세고 근거로 내지 않는다(ADR 0003)
 
 
+def test_documented_means_a_reference_document_as_in_adr_0003():
+    """확산 단계의 '문서가 있다'(태동에서 빼는 기준)는 사전 등재의 참고 문서 규칙(verification.reference_doc)과 같다 — Know Your Meme·
+    pixiv 백과사전·萌娘百科 문서도 문서다. 홈페이지 주소뿐인 근거는 문서가 아니다(원작자 서버의 KYM 근거 8건은 모두 https://knowyourmeme.com/)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import track
+    from trend_agents.schemas import Evidence, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    at = datetime.now(timezone.utc)
+    docs = {"kym": ("Skibidi", "https://knowyourmeme.com/memes/skibidi-toilet", "knowyourmeme.com"),
+            "pixiv": ("推し活", "https://dic.pixiv.net/a/推し活", "dic.pixiv.net"),
+            "moe": ("芭比Q了", "https://zh.moegirl.org.cn/芭比Q了", "zh.moegirl.org.cn"),
+            "home": ("Aura farming", "https://knowyourmeme.com/", "knowyourmeme.com")}
+    for tid, (name, url, dom) in docs.items():
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="en", status="verified", first_seen=at, last_seen=at))
+        ds.add_evidences(con, tid, [Evidence(evidence_id=f"{tid}-post", kind="community", url=f"https://bsky.app/{tid}", title=f"{name} lol",
+                                             source_domain="bsky.app", observed_at=at, excerpt=""),
+                                    Evidence(evidence_id=f"{tid}-doc", kind="web", url=url, title=f"{name} | Know Your Meme", source_domain=dom,
+                                             observed_at=at, excerpt="")])
+    assert {tid: track.usage_kinds(con, tid) for tid in docs} == {"kym": {"community": 1, "documented": 1}, "pixiv": {"community": 1, "documented": 1},
+                                                                  "moe": {"community": 1, "documented": 1}, "home": {"community": 1}}
+    track.run(con)
+    assert {tid: ds.get_term(con, tid).diffusion for tid in docs} == {"kym": None, "pixiv": None, "moe": None, "home": "underground"}
+
+
 def test_topics_store_only_evidence_that_names_the_term(monkeypatch):
     """주제 단계의 검색 결과 가운데 표제어가 든 것만 모델에 주고 근거로 저장한다."""
     import json  # noqa: F401

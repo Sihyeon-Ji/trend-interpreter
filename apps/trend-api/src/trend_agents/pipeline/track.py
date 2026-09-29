@@ -8,6 +8,7 @@ from ..lifecycle import RECENT_DAYS, diffusion, recency_stage, stage as life_sta
 from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
 from .collect import home_edition
+from ..verification import reference_doc
 from .match import evidence_mentions, mentions, same_term
 from .runs import stage
 from ..storage.db import Connection
@@ -55,13 +56,15 @@ def evidence_weeks(con: Connection, term_id: str) -> Counter:
 
 def usage_kinds(con: Connection, term_id: str) -> dict[str, int]:
     """쓰임 근거를 종류별로 센다(네이버 표시 전용 결과 제외). 확산 단계 판정에 쓴다.
-    'documented' 는 백과사전 문서(위키백과·나무위키) 근거 수 — 쓰임은 아니지만 자리 잡은 말인지 가른다."""
+    'documented' 는 참고 문서 근거 수 — 쓰임은 아니지만 자리 잡은 말인지 가른다. 참고 문서는 사전 등재와 같은 규칙(ADR 0003,
+    verification.reference_doc: 나무위키·위키백과·Know Your Meme·pixiv 백과사전·萌娘百科의 문서 주소). 위키백과·나무위키만 보던 때는
+    Know Your Meme 문서가 있는 밈도 '태동' 이 될 수 있었다. 홈페이지 주소나 나무위키 실시간 검색어(datalab)는 문서가 아니다."""
     c: Counter = Counter()
     for e in _evidences(con, term_id):
         if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver"):
             c[e.kind] += 1
-        elif e.kind == "wiki" or (e.kind == "web" and e.source_domain.endswith("wikipedia.org")):
-            c["documented"] += 1   # 나무위키·위키백과 문서. 나무위키 실시간 검색어(datalab)는 문서가 아니다
+        elif reference_doc(e):
+            c["documented"] += 1
     return dict(c)
 
 

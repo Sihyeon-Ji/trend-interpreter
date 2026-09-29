@@ -59,6 +59,24 @@ def test_track_sets_weekly_and_lifecycle():
     assert ds.get_term(con, "t1").lifecycle in ("emerging", "rising", "peak", "steady", "declining")
 
 
+def test_track_stores_diffusion_in_the_term_and_its_column():
+    """확산 단계는 용어 JSON 과 terms.diffusion 열(마이그레이션 002 — 대시보드가 이 열로 거른다)에 같은 값으로 남는다 (Plan 02)."""
+    from trend_agents.schemas import Evidence
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name in (("t1", "태동밈"), ("t2", "주류밈")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", first_seen=now, last_seen=now))
+    ds.add_evidences(con, "t1", [Evidence(evidence_id="c1", kind="community", url="https://theqoo.net/1", title="태동밈 써 봄",
+                                          source_domain="theqoo.net", observed_at=now, excerpt="")])
+    ds.add_evidences(con, "t2", [Evidence(evidence_id=f"n{i}", kind="news", url=f"https://news.example/{i}", title=f"주류밈 기사 {i}",
+                                          source_domain="news.example", observed_at=now, excerpt="") for i in range(3)])
+    assert track.run(con)["track"].count == 2
+    for tid, want in (("t1", "underground"), ("t2", "mainstream")):   # 커뮤니티 글만 → 태동, 뉴스 3건 + 꾸준함 → 주류
+        assert ds.get_term(con, tid).diffusion == want
+        assert con.execute("SELECT diffusion FROM terms WHERE term_id=?", (tid,)).fetchone()[0] == want
+
+
 def test_spike_detection_ranks_focus_regions_and_skips_sports():
     from trend_agents.pipeline import spikes
 
