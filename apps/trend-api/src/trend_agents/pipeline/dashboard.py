@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel
 
 from ..collectors.community import COMMUNITY_SITES, is_community_post
-from ..config import LANG_REGION, REGIONS_FOCUS
+from ..config import REGIONS_FOCUS, home_region
 from ..schemas import Evidence, EvidenceBrief, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
@@ -66,7 +66,8 @@ def term_regions(term: Term, usage_regions: set[str]) -> list[str]:
     known = {r for r in usage_regions if r}              # '' 는 예전 조사가 나라 자리에 남긴 빈 값 — 정보가 없는 것
     regions = [r for r in REGIONS_FOCUS if r in known]
     if not known:
-        home, script = LANG_REGION.get(term.lang), _SCRIPT.get(term.lang)
+        home = home_region(term.canonical, term.lang)    # 광동어는 홍콩, 다른 중국어는 대만
+        script = _SCRIPT.get("zh" if home == "HK" else term.lang)
         if home in REGIONS_FOCUS and ((script and re.search(script, term.canonical)) or term.lang in _LATIN_LANGS):
             regions = [home]
         elif _LATIN_ONLY.match(term.canonical):

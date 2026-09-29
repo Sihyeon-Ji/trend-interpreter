@@ -9,6 +9,7 @@ import json
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+from ..config import CANTONESE_LANGS
 from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, MemeFit, Term, TrendQuery, WikiTop
 from . import db
 from .db import Connection
@@ -149,6 +150,9 @@ def save_classifications(con: Connection, rows: list[dict], model: str) -> int:
 # ---------- 후보 ----------
 
 def upsert_candidate(con: Connection, text: str, lang: str, region: str | None, source: str, note: str = "") -> Candidate:
+    # 광동어 코드(yue·yu)는 중국어로 모은다 — 같은 말이 zh·yu 두 후보로 갈려 목격 수가 나뉘었다(行得㗎啦, 09-28).
+    # 홍콩 말인지는 config.home_region 이 광동어 글자로 가른다.
+    lang = "zh" if (lang or "").lower() in CANTONESE_LANGS else lang
     key = norm(text)
     row = con.execute("SELECT json FROM candidates WHERE norm=? AND lang=?", (key, lang)).fetchone()
     t = now()

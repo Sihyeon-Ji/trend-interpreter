@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from ..collectors import google_trends as gt
 from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
-from ..config import GOOGLE_CLOUD_PROJECT, LANG_REGION, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY
+from ..config import GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY, home_region
 from ..lifecycle import recheck_interval_days
 from ..storage import dictionary_store as ds
 from ..storage import store as db
@@ -98,7 +98,7 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
         terms = ds.list_terms(con, ("verified", "needs_review", "researching"))
         n = 0
         for t in mention_order(con, terms, mention_terms):
-            region = LANG_REGION.get(t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 중국어 표제어는 대만 뉴스에서
+            region = home_region(t.canonical, t.lang) or {"de": "DE", "pt": "BR", "es": "MX"}.get(t.lang, "US")   # 광동어는 홍콩, 다른 중국어는 대만 뉴스에서
             if region not in news_rss.LOCALES:
                 region = "US"
             try:

@@ -15,6 +15,8 @@ from pathlib import Path
 
 import httpx
 
+from ..config import home_region
+
 UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype)"
 TIMEOUT = 15.0
 
@@ -175,6 +177,6 @@ def known_memes(langs: tuple[str, ...] = ("en", "ko", "ja", "id", "zh"), per_cat
         if not t or lang not in langs or (lang, t.lower()) in seen or not is_meme(r.get("description", "")):
             continue
         seen.add((lang, t.lower()))
-        out.append({"term": t, "lang": lang, "region": LANG_REGION.get(lang, "US"),
+        out.append({"term": t, "lang": lang, "region": home_region(t, lang) or LANG_REGION.get(lang, "US"),   # 광동어 제목은 홍콩
                     "source_title": r.get("title", t), "description": r.get("description", "")})
     return out

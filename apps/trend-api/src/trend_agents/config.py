@@ -56,7 +56,19 @@ REGIONS_ALL = [
 REGIONS_FOCUS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"]
 REGIONS = REGIONS_FOCUS  # 기존 참조 호환
 # 표제어 언어 → 그 말을 쓰는 나라. 조사할 곳과, 조사가 나라를 비워 둔 용어를 대시보드에 둘 곳. 중국어는 대만(본토 제외, ADR 0001).
+# 표제어 하나의 나라는 home_region 으로 본다(광동어는 홍콩).
 LANG_REGION = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN", "zh": "TW", "tl": "PH", "fil": "PH", "ms": "MY"}
+# 광동어에만 쓰는 글자. 이런 글자가 든 표제어는 홍콩 말이다 — 중국어를 모두 대만으로 보내 홍콩 말도 대만 뉴스·커뮤니티에서 조사했다(Plan 04).
+CANTONESE_CHARS = frozenset("㗎咗嘅冇佢啲喺嘢嚟唔")
+# 광동어 언어 코드. ISO 639-1 에 없어 모델이 'yue' 를 주거나 두 글자로 잘린 'yu' 가 온다(spot 이 行得㗎啦 를 zh·yu 로 두 번 넣었다, 09-28).
+CANTONESE_LANGS = ("yue", "yu")
+
+
+def home_region(text: str, lang: str | None) -> str | None:
+    """표제어의 나라. 광동어(광동어 글자가 들었거나 언어 코드가 광동어)는 홍콩, 그 밖에는 LANG_REGION(다른 중국어는 대만)."""
+    if (lang or "").lower() in CANTONESE_LANGS or any(ch in CANTONESE_CHARS for ch in text or ""):
+        return "HK"
+    return LANG_REGION.get(lang or "")
 
 
 def require(name: str, value: str) -> str:

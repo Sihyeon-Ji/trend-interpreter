@@ -11,7 +11,7 @@ import httpx
 
 from google.genai import errors
 
-from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, LANG_REGION
+from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, home_region
 from ..interpreters.gemini_research import research_term
 from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo, Term
@@ -368,7 +368,7 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
         try:
             from ..collectors import youtube as yt
 
-            region = LANG_REGION.get(term.lang, "US")
+            region = home_region(term.canonical, term.lang) or "US"
             best = _pick_video(yt.search_shorts(term.canonical, region, hours=24 * 365, max_results=10), term)
             if best and video_is_about(con, term, best.title):
                 ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={best.video_id}",
@@ -481,7 +481,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
 
         first_party += gdelt_context.sentences(term.canonical)
 
-        region = LANG_REGION.get(term.lang, "US")
+        region = home_region(term.canonical, term.lang) or "US"   # 광동어는 홍콩 커뮤니티에서
         first_party += community.gather(term.canonical, region)[0]
         if region == "KR":
             from ..collectors import naver_search
@@ -546,7 +546,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         ds.clear_usage(con, term.term_id)
         rows = []
         # 나라를 비워 두면 표제어 언어의 나라로 (예전 기본값 'KR' 은 일본어 표제어도 한국에 넣었다)
-        regions = draft.regions or [LANG_REGION.get(term.lang, "GLOBAL")]
+        regions = draft.regions or [home_region(term.canonical, term.lang) or "GLOBAL"]
         gens = draft.generations or ["all"]   # 세대를 모르면(연대 '90s' 를 걸러 비면) '모든 세대' 로 — 나라가 저장되지 않던 것(검토 2차)
         share = 1.0 / max(1, len(gens) * len(regions))
         for g in gens:
