@@ -51,13 +51,12 @@ def home_edition(t) -> str:
 
 
 def mention_regions(t, last: str | None = None) -> list[str]:
-    """이 표제어의 언급을 잴 뉴스판. 첫째는 표제어의 나라(광동어는 홍콩)의 판이고, 여러 나라가 같이 쓰는 말(중국어)은 지난번 다음 나라 —
-    대만·홍콩을 번갈아 잰다. 영어는 둘째로 싱가포르·말레이시아·필리핀 영어판 하나(돌아가며)."""
-    cycle = region_cycle(t.canonical, t.lang)
-    out = [next_region(cycle, last) if cycle else home_edition(t)]
-    if t.lang == "en":
-        out.append(next_region(ENGLISH_EDITIONS, last))
-    return out
+    """이 표제어의 언급을 잴 뉴스판. 첫째는 표제어의 나라 판(광동어는 홍콩, 다른 중국어는 대만)으로 매번 잰다 — 생애주기가 보는 틀이다
+    (대만·홍콩을 번갈아 재면 홍콩을 잰 주에는 대만 기사가 비어 '지는 중' 으로 읽힐 수 있었다). 여러 목표 지역이 같이 쓰는 말은 다른 판을 더한다:
+    중국어는 홍콩판, 영어는 싱가포르·말레이시아·필리핀 영어판 하나(지난번 다음 차례)."""
+    home = home_edition(t)
+    others = ENGLISH_EDITIONS if t.lang == "en" else tuple(r for r in region_cycle(t.canonical, t.lang) if r != home)
+    return [home, next_region(others, last)] if others else [home]
 
 
 def source_homes(con: Connection) -> dict[str, str]:

@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
 -- 용어마다 뉴스 검색으로 언급을 마지막으로 잰 때(마이그레이션 006). collect.mentions 가 오래된 것부터 돌아가며 잰다.
--- region 은 지난번에 잰 나라(마이그레이션 013) — 여러 나라가 쓰는 말은 다음에 다른 나라를 잰다.
+-- region 은 돌아가며 재는 판의 지난번 차례(마이그레이션 013) — 영어는 다음에 다른 SG·MY·PH 영어판을 잰다.
 CREATE TABLE IF NOT EXISTS mention_queries (term_id TEXT PRIMARY KEY, last_at TEXT, region TEXT);
 -- 용어마다 뉴스 키워드 검색이 찾은 기사(마이그레이션 013, Plan 04) — 판(region)마다 표제어가 든 기사, 매체(source)와 그 매체의 나라
 -- (home: 그 매체의 머리기사가 거의 다 나온 판, collect.source_homes). 근거가 아닌 기사는 news 에 넣지 않고 여기에만 둔다.
@@ -1049,6 +1049,12 @@ def add_mention_samples(con: Connection, term_id: str, items: list, homes: dict[
     con.executemany("INSERT OR REPLACE INTO mention_samples VALUES (?,?,?,?,?,?)",
                     [(term_id, n.region, n.link, n.source, homes.get(n.source), utc(n.published_at)) for n in items])
     con.commit()
+
+
+def indicator_mentions(con: Connection, term_id: str) -> list[tuple[str, str]]:
+    """근거(news)에 넣지 않은 키워드 검색 기사 — (판, 발행 시각). 같은 기사가 news 에 있으면 그쪽에서 센다(한 번만)."""
+    return con.execute("SELECT m.region, m.published_at FROM mention_samples m WHERE m.term_id=? "
+                       "AND NOT EXISTS (SELECT 1 FROM news n WHERE n.link=m.link)", (term_id,)).fetchall()
 
 
 # ---------- 커뮤니티 조사 차례 (Plan 04) ----------

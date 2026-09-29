@@ -85,18 +85,19 @@ def test_wiki_seeds_send_cantonese_titles_to_hong_kong(tmp_path, monkeypatch):
     assert got == {"行得㗎啦": "HK", "傻眼貓咪": "TW"}
 
 
-def test_chinese_mentions_alternate_between_taiwan_and_hong_kong():
-    """중국어 표제어는 대만·홍콩 뉴스판을 번갈아 잰다 — 대만판만 재서 홍콩 키워드 검색이 0건이었다. 광동어는 홍콩만, 다른 말은 그대로."""
+def test_chinese_mentions_are_taken_in_taiwan_and_hong_kong_each_time():
+    """중국어 표제어는 대만판에 더해 홍콩판도 잰다 — 대만판만 재서 홍콩 키워드 검색이 0건이었다. 대만판은 매번(생애주기의 틀),
+    번갈아 재면 홍콩을 잰 주의 대만 기사가 비었다. 광동어는 홍콩만, 다른 말은 그대로."""
     from trend_agents.pipeline.collect import mention_regions
 
     con = db.connect(":memory:")
     zh, yue, ko = _term("zh", "傻眼貓咪", "zh"), _term("yue", "行得㗎啦", "zh"), _term("ko", "럭키비키", "ko")
     seen = []
     for _ in range(3):
-        [region] = mention_regions(zh, ds.mention_rotation(con).get("zh"))
-        ds.mark_mention_sampled(con, "zh", region)
-        seen.append(region)
-    assert seen == ["TW", "HK", "TW"]
+        got = mention_regions(zh, ds.mention_rotation(con).get("zh"))
+        ds.mark_mention_sampled(con, "zh", got[-1])
+        seen.append(got)
+    assert seen == [["TW", "HK"]] * 3
     assert mention_regions(yue, "HK") == ["HK"] and mention_regions(yue, None) == ["HK"]
     assert mention_regions(ko, None) == ["KR"] and mention_regions(_term("de", "Ehrenmann", "de"), None) == ["DE"]
 
@@ -183,6 +184,34 @@ def test_other_editions_give_evidence_only_from_their_own_outlets(monkeypatch):
     results[("US", "aura farming")].append(_news("L2", "Aura farming, explained", "Bloomberg"))
     _collect(con, monkeypatch, results)                                                # 다음 실행: 지난번 싱가포르판에만 있던 기사를 미국판에서 받는다
     assert "L2" in {e.url for e in first_party_evidence(con, "aura farming")}
+
+
+def test_other_editions_count_per_region_but_not_in_the_total_or_lifecycle():
+    """다른 판에서 잰 기사(그 나라 매체의 근거든, mention_samples 의 지표든)는 나라별 수에만 센다. 전체 수·생애주기에 넣었더니 미국판에서
+    [2]×11 로 '꾸준함' 인 말이 싱가포르판 기사 셋이 든 주에 '오르는 중' 이 됐다(검토 09-30 실측) — 오르는 중은 재검증이 3일마다라 칸도 가져갔다."""
+    from datetime import date, time, timedelta
+
+    from trend_agents.pipeline import track
+
+    con = db.connect(":memory:")
+    ds.upsert_term(con, Term(term_id="t", canonical="aura farming", lang="en", status="verified", first_seen=NOW - timedelta(days=200), last_seen=NOW))
+    monday = date.today() - timedelta(days=date.today().weekday())
+    at = lambda d: datetime.combine(d, time(12), tzinfo=timezone.utc)                      # noqa: E731
+    db.upsert_news(con, [_news(f"us{w}-{i}", f"aura farming {w}-{i}", "CNN", "US", "aura farming", at(monday - timedelta(weeks=w) + timedelta(days=2)))
+                         for w in range(1, 12) for i in range(2)])
+    last_sunday = at(monday - timedelta(days=1))
+    con.execute("INSERT OR REPLACE INTO mention_queries VALUES (?,?,?)", ("t", last_sunday.isoformat(), "SG"))   # 지난주 일요일까지 잼
+    con.commit()
+    track.run(con)
+    assert ds.get_term(con, "t").lifecycle == "steady"
+
+    saturday = last_sunday - timedelta(days=1)
+    db.upsert_news(con, [_news(f"cna{i}", f"Aura farming at the MRT {i}", "CNA", "SG", "aura farming", saturday) for i in range(2)])   # 싱가포르 매체(근거)
+    ds.add_mention_samples(con, "t", [_news("bbc", "Aura farming, explained", "BBC", "SG", "aura farming", saturday)], {})     # 다른 나라 매체(지표)
+    track.run(con)
+    week = (monday - timedelta(weeks=1)).isoformat()
+    assert ds.get_term(con, "t").lifecycle == "steady"
+    assert dict(ds.get_weekly(con, "t"))[week] == 2 and ds.get_weekly_region(con, "t")["SG"][week] == 3
 
 
 def test_english_community_research_rotates_sg_my_ph_sites():

@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from ..lifecycle import RECENT_DAYS, diffusion, recency_stage, stage as life_stage
 from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
+from .collect import home_edition
 from .match import evidence_mentions, mentions, same_term
 from .runs import stage
 from ..storage.db import Connection
@@ -75,14 +76,17 @@ def newest_usage(con: Connection, term_id: str) -> datetime | None:
 
 
 def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str | None = None,
-                  by_region: dict[str, Counter] | None = None, queried: Counter | None = None) -> Counter:
+                  by_region: dict[str, Counter] | None = None, queried: Counter | None = None, home: str | None = None) -> Counter:
     """원본(뉴스 제목·쇼츠 해석·검색어)에서 주별 언급 수. by_region 을 주면 같은 한 번의 훑기로 나라별로도 센다(Plan 04).
-    queried 를 주면 용어별 뉴스 검색(query 가 있는 뉴스)에서 온 것을 따로 센다 — 잰 주에만 몰리는 몫이다."""
+    queried 를 주면 용어별 뉴스 검색(query 가 있는 뉴스)에서 온 것을 따로 센다 — 잰 주에만 몰리는 몫이다.
+    home(표제어의 나라 판)을 주면 이 말을 다른 판에서 키워드로 잰 기사(영어의 SG·MY·PH, 중국어의 홍콩판)는 나라별 수에만 센다 — 전체 수와
+    생애주기의 틀은 표제어의 나라 판이다. 돌아가며 재는 판을 전체에 넣으면 그 판을 잰 주에 '꾸준함' 이 '오르는 중' 으로 튀었다(검토 09-30)."""
     keys = {_norm(term), *(_norm(a) for a in aliases)}
     c: Counter = Counter()
 
-    def add(week: str, region: str | None) -> None:
-        c[week] += 1
+    def add(week: str, region: str | None, total: bool = True) -> None:
+        if total:
+            c[week] += 1
         if by_region is not None and region:
             by_region.setdefault(region, Counter())[week] += 1
 
@@ -90,8 +94,9 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
         n = NewsItem.model_validate_json(j)
         if mentions(n.title, term, aliases):
             d = (n.published_at or datetime.now(timezone.utc)).date()
-            add(_week(d), n.region)
-            if queried is not None and n.query:
+            other = bool(home and n.query and n.region != home and _norm(n.query) in keys)
+            add(_week(d), n.region, total=not other)
+            if queried is not None and n.query and not other:
                 queried[_week(d)] += 1
     for j, vj, created in con.execute("SELECT i.json, v.json, i.created_at FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall():
         it = ShortsInterpretation.model_validate_json(j)
@@ -146,7 +151,9 @@ def run(con: Connection) -> dict:
         for t in ds.list_terms(con, ("verified", "needs_review", "researching")):
             by_region: dict[str, Counter] = {}
             query_hits: Counter = Counter()
-            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region, queried=query_hits)
+            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region, queried=query_hits, home=home_edition(t))
+            for region, at in ds.indicator_mentions(con, t.term_id):   # 근거로 넣지 않은 다른 판의 기사 — 나라별 수에만(Plan 04)
+                by_region.setdefault(region, Counter())[_week(datetime.fromisoformat(at).date())] += 1
             # 주간 언급·마지막 본 때는 원본만. 조사 근거는 조사한 주에 몰려 '최근 조사한 것' 이 '요즘 뜨는 것' 으로
             # 보였다(2026-09-29 검토: 2017년 가즈아·날아다니는 스파게티 괴물이 '10대 유행어' 윗줄). 근거는 처음 본 때와
             # '마지막으로 쓰인 때'(recency_stage) 에만 쓴다.
