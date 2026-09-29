@@ -1,147 +1,257 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { currentMeaning, textFor } from "@/lib/explain";
-import { groupByInitial } from "@/lib/dictionary/index";
-import { t, type Locale } from "@/lib/i18n";
-import { L, fmtDate, joinGens, regionLabel, termLangLabel } from "@/lib/labels";
-import type { Generation, TermRecord } from "@/lib/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { RiskCell, StageCell } from "@/components/term-status";
+import {
+  PAGE_SIZE, aliasHit, inRegions, matchesExceptRegion, sortRows, type DictionaryRow, type Filters, type RiskFilter, type SortKey,
+} from "@/lib/dictionary/rows";
+import { t, type Locale, type StringKey } from "@/lib/i18n";
+import { langTag } from "@/lib/lang";
+import { L, fmtDate, regionLabel, termLangLabel } from "@/lib/labels";
+import { TARGET_REGIONS } from "@/lib/reader";
 import { chipClass } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
-const GENS: Generation[] = ["10s", "20s", "30s", "40s", "50s+"];
-const control = "h-10 rounded-md border border-hairline-strong bg-white px-3 text-[14px] text-ink focus:border-ink focus:outline-none";
+export interface DictionaryState extends Filters { sort: SortKey; page: number }
 
-/* 사전 색인: 도구 줄(검색·필터·분류) → 최근 바뀐 표현 → 첫 글자 색인과 목록. 앱 틀에 왼쪽 메뉴가 있어 필터 칸을 따로 두지 않는다. */
-export function DictionaryList({ records, locale, readerGen = null, updatedAt = null }: { records: TermRecord[]; locale: Locale; readerGen?: string | null; updatedAt?: string | null }) {
-  const [myGenFirst, setMyGenFirst] = useState(!!readerGen);
-  const [gen, setGen] = useState<Generation | "">("");
-  const [region, setRegion] = useState("");
-  const [q, setQ] = useState("");
-  const [lang, setLang] = useState("");
-  const [category, setCategory] = useState("");
+const control = "h-11 w-full rounded-md border border-hairline-strong bg-background px-3 text-[16px] text-ink sm:h-10 sm:text-[14px]";
+const fieldLabel = "mb-1 block text-[13px] text-steel";
+const textButton = "text-[13px] text-link-blue hover:underline";
+const RISKS: Array<{ id: RiskFilter; key: StringKey }> = [
+  { id: "none", key: "risk_none_short" }, { id: "caution", key: "risk_caution" }, { id: "avoid", key: "risk_avoid" },
+  { id: "unknown", key: "risk_unknown" }, { id: "unchecked", key: "risk_not_checked" },
+];
+const REGION_CHIPS = [...TARGET_REGIONS, "GLOBAL"];
+
+function toQuery(s: DictionaryState): string {
+  const q = new URLSearchParams();
+  if (s.q.trim()) q.set("q", s.q.trim());
+  if (s.regions.length) q.set("regions", s.regions.join(","));
+  if (s.kind) q.set("kind", s.kind);
+  if (s.lang) q.set("lang", s.lang);
+  if (s.risk) q.set("risk", s.risk);
+  if (s.sort !== "name") q.set("sort", s.sort);
+  if (s.page > 1) q.set("page", String(s.page));
+  const out = q.toString();
+  return out ? `?${out}` : "";
+}
+
+function Regions({ row, locale }: { row: DictionaryRow; locale: Locale }) {
+  if (!row.regions.length) return <span className="text-steel">—</span>;
+  const names = row.regions.slice(0, 3).map((r) => regionLabel(locale, r)).join(", ");
+  const more = row.regions.length - 3;
+  return <>{names}{more > 0 && ` ${t(locale, "pg_dict_more_regions").replace("{n}", String(more))}`}</>;
+}
+
+function Gloss({ row, locale, q }: { row: DictionaryRow; locale: Locale; q: string }) {
+  const alias = aliasHit(row, q);
+  return (
+    <>
+      {alias && <p className="mt-0.5 text-[12px] text-steel">{t(locale, "pg_dict_also")}: <span lang={langTag(row.lang)}>{alias}</span></p>}
+      <p lang={row.meaning_lang ?? undefined} className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">
+        {row.expansion && <span className="font-medium text-ink">{row.expansion}. </span>}
+        {row.definition ?? t(locale, "dict_pending")}
+      </p>
+    </>
+  );
+}
+
+/* 사전 색인: 지역 칩 → 도구 줄(검색·분류·표제어 언어·쓸 때 조심·정렬) → 표(데스크톱)·한 줄 목록(휴대폰) → 쪽 나눔.
+   행마다 '이 지역에서 지금 써도 되나'(단계·쓰이는 지역·쓸 때 조심)에 답한다. 자세한 것은 사전 항목에서 본다. */
+export function DictionaryList({ rows, locale, readerGen = null, initial }: { rows: DictionaryRow[]; locale: Locale; readerGen?: string | null; initial: DictionaryState }) {
+  const [s, setS] = useState<DictionaryState>(initial);
+  const [open, setOpen] = useState(false);           // 휴대폰에서 필터 펼침
   const labels = L(locale);
-  const regions = useMemo(() => Array.from(new Set(records.flatMap((r) => currentMeaning(r)?.regions ?? []))).sort(), [records]);
-  const langs = useMemo(() => Array.from(new Set(records.map((r) => r.term.lang ?? "ko"))), [records]);
+  const set = (patch: Partial<DictionaryState>) => setS((prev) => ({ ...prev, page: 1, ...patch }));
+
+  // 주소에 둔다. 검색어는 치는 동안 매번 바꾸지 않게 조금 늦춘다. 화면은 다시 불러오지 않는다
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const id = window.setTimeout(() => window.history.replaceState(window.history.state, "", `/dictionary${toQuery(s)}`), 250);
+    return () => window.clearTimeout(id);
+  }, [s]);
+
   const categories = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of records) m.set(r.category, (m.get(r.category) ?? 0) + 1);
+    for (const r of rows) m.set(r.category, (m.get(r.category) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [records]);
-  const recent = useMemo(
-    () => [...records].map((r) => ({ r, at: r.meanings.at(-1)?.valid_from ?? "" })).filter((x) => x.at).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8),
-    [records],
-  );
-  const pendingCount = records.filter((r) => r.term.status === "needs_review").length;
+  }, [rows]);
+  const langs = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.lang, (m.get(r.lang) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rows]);
 
-  const shown = records.filter((r) => {
-    const m = currentMeaning(r);
-    const tx = textFor(r, locale);
-    if (category && r.category !== category) return false;
-    if (lang && (r.term.lang ?? "ko") !== lang) return false;
-    if (gen && !(m?.generations.includes(gen) || m?.generations.includes("all"))) return false;
-    if (region && !m?.regions.includes(region)) return false;
-    if (q) {
-      const hay = [r.term.canonical, ...(r.term.aliases ?? []), tx?.definition ?? "", tx?.expansion ?? "", m?.definition ?? ""].join(" ").toLowerCase();
-      if (!hay.includes(q.toLowerCase())) return false;
-    }
-    return true;
-  });
-  const unfamiliar = (r: TermRecord) => {
-    if (!myGenFirst || !readerGen) return false;
-    const gens = currentMeaning(r)?.generations ?? [];
-    return !!gens.length && !gens.includes("all") && !gens.includes(readerGen as never);
-  };
-  const groups = groupByInitial(shown, locale);
-  const pill = chipClass;
+  const base = useMemo(() => rows.filter((r) => matchesExceptRegion(r, s)), [rows, s]);
+  const shown = useMemo(() => sortRows(base.filter((r) => inRegions(r, s.regions)), s.sort, locale, readerGen), [base, s.regions, s.sort, locale, readerGen]);
+  const regionCount = (code: string) => base.filter((r) => r.regions.includes(code)).length;
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const page = Math.min(s.page, pages);
+  const slice = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const filterCount = [s.kind, s.lang, s.risk].filter(Boolean).length;
+  const anyFilter = !!(s.q.trim() || s.regions.length || filterCount);
+  const clear = () => set({ q: "", regions: [], kind: "", lang: "", risk: "" });
+  const toggleRegion = (r: string) => set({ regions: s.regions.includes(r) ? s.regions.filter((x) => x !== r) : [...s.regions, r] });
+  const outside = s.regions.length ? base.length - shown.length : 0;
+  const oneRegion = s.regions.length === 1;
+
+  const count = anyFilter
+    ? t(locale, "pg_dict_count_of").replace("{total}", String(rows.length)).replace("{n}", String(shown.length))
+    : t(locale, "pg_dict_count").replace("{n}", String(shown.length));
+
+  const filters = (
+    <>
+      <div className="min-w-0 sm:w-[160px]">
+        <label htmlFor="dict-kind" className={fieldLabel}>{t(locale, "dict_categories")}</label>
+        <select id="dict-kind" value={s.kind} onChange={(e) => set({ kind: e.target.value })} className={control}>
+          <option value="">{t(locale, "dict_all")}</option>
+          {categories.map(([c, n]) => <option key={c} value={c}>{labels.category[c as keyof typeof labels.category] ?? c} ({n})</option>)}
+        </select>
+      </div>
+      <div className="min-w-0 sm:w-[160px]">
+        <label htmlFor="dict-lang" className={fieldLabel}>{t(locale, "dict_language")}</label>
+        <select id="dict-lang" value={s.lang} onChange={(e) => set({ lang: e.target.value })} className={control}>
+          <option value="">{t(locale, "dict_all")}</option>
+          {langs.map(([l, n]) => <option key={l} value={l}>{termLangLabel(locale, l)} ({n})</option>)}
+        </select>
+      </div>
+      <div className="min-w-0 sm:w-[160px]">
+        <label htmlFor="dict-risk" className={fieldLabel}>{t(locale, "dash_col_risk")}</label>
+        <select id="dict-risk" value={s.risk} onChange={(e) => set({ risk: e.target.value })} className={control}>
+          <option value="">{t(locale, "dict_all")}</option>
+          {RISKS.map((r) => <option key={r.id} value={r.id}>{t(locale, r.key)}</option>)}
+        </select>
+      </div>
+    </>
+  );
 
   return (
     <div className="space-y-5">
-      {/* 도구 줄: 검색 + 필터 한 줄. 좁은 화면에서는 줄을 바꿔 쌓는다(두 벌을 그리지 않는다) */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="dict-search" className="sr-only">{t(locale, "dict_search")}</label>
-          <input id="dict-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t(locale, "dict_search")}
-            className="h-10 w-full rounded-md border border-hairline-strong bg-white px-3.5 text-[15px] text-ink placeholder:text-steel focus:border-ink focus:outline-none sm:max-w-[420px]" />
-          <select aria-label={t(locale, "dict_language")} value={lang} onChange={(e) => setLang(e.target.value)} className={cn(control, "w-auto")}>
-            <option value="">{t(locale, "dict_language")}: {t(locale, "dict_all")}</option>
-            {langs.map((l) => <option key={l} value={l}>{termLangLabel(locale, l)}</option>)}
-          </select>
-          <select aria-label={t(locale, "dict_generation")} value={gen} onChange={(e) => setGen(e.target.value as Generation | "")} className={cn(control, "w-auto")}>
-            <option value="">{t(locale, "dict_generation")}: {t(locale, "dict_all")}</option>
-            {GENS.map((g) => <option key={g} value={g}>{labels.generation[g]}</option>)}
-          </select>
-          <select aria-label={t(locale, "dict_region")} value={region} onChange={(e) => setRegion(e.target.value)} className={cn(control, "w-auto")}>
-            <option value="">{t(locale, "dict_region")}: {t(locale, "dict_all")}</option>
-            {regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
-          </select>
-          {readerGen && (
-            <label className="flex items-center gap-1.5 text-[13px] text-charcoal"><input type="checkbox" checked={myGenFirst} onChange={(e) => setMyGenFirst(e.target.checked)} />{t(locale, "dict_my_gen_first")}</label>
-          )}
-        </div>
-        <div role="group" aria-label={t(locale, "dict_categories")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-          <button type="button" onClick={() => setCategory("")} aria-pressed={category === ""} className={pill(category === "")}>
-            {t(locale, "dict_all")} <span className="tabular-nums opacity-75">{records.length}</span>
-          </button>
-          {categories.map(([c, n]) => (
-            <button key={c} type="button" onClick={() => setCategory(category === c ? "" : c)} aria-pressed={category === c} className={pill(category === c)}>
-              {labels.category[c as keyof typeof labels.category] ?? c} <span className="tabular-nums opacity-75">{n}</span>
+      {/* 지역 칩 — 대시보드와 같은 지역 규칙, 여러 개를 고를 수 있다. 휴대폰에서는 한 줄로 옆으로 밀어 본다 */}
+      <div role="group" aria-label={t(locale, "dash_regions")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+        <button type="button" onClick={() => set({ regions: [] })} aria-pressed={!s.regions.length} className={chipClass(!s.regions.length)}>
+          {t(locale, "dict_all")} <span className="tabular-nums opacity-75">{base.length}</span>
+        </button>
+        {REGION_CHIPS.map((r) => {
+          const on = s.regions.includes(r);
+          return (
+            <button key={r} type="button" onClick={() => toggleRegion(r)} aria-pressed={on} className={chipClass(on)}>
+              {regionLabel(locale, r)} <span className="tabular-nums opacity-75">{regionCount(r)}</span>
             </button>
-          ))}
-        </div>
-        <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-steel">
-          <span className="tabular-nums">{locale === "ko" ? `표현 ${shown.length}개` : `${shown.length} entries`}</span>
-          {updatedAt && <span>{t(locale, "updates_last_run")} <span className="tabular-nums text-charcoal">{fmtDate(updatedAt)}</span></span>}
-          {pendingCount > 0 && <span>{t(locale, "dict_pending_count")} <span className="tabular-nums text-charcoal">{pendingCount}</span></span>}
-        </p>
+          );
+        })}
       </div>
 
-      {recent.length > 0 && (
-        <section aria-labelledby="dict-recent" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-y border-hairline py-3 text-[13px]">
-          <h2 id="dict-recent" className="text-[13px] font-semibold text-ink">{t(locale, "dict_recent")}</h2>
-          {recent.map(({ r }) => (
-            <Link key={r.term.term_id} href={`/dictionary/${r.term.term_id}`} className="text-charcoal hover:text-ink hover:underline">{r.term.canonical}</Link>
-          ))}
-        </section>
-      )}
+      {/* 도구 줄. 라벨을 컨트롤 위에 보이게 둔다 — 옅은 테두리만으로는 무엇을 거르는 칸인지 드러나지 않았다 */}
+      <div className="space-y-3 border-t border-hairline pt-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="min-w-0 sm:w-[320px]">
+            <label htmlFor="dict-search" className={fieldLabel}>{t(locale, "pg_dict_search_label")}</label>
+            <input id="dict-search" type="search" value={s.q} onChange={(e) => set({ q: e.target.value })} placeholder={t(locale, "dict_search")}
+              className={cn(control, "placeholder:text-steel")} />
+          </div>
+          <div className="flex items-end gap-3 sm:contents">
+            <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="dict-filters"
+              className="inline-flex h-11 shrink-0 items-center rounded-md border border-hairline-strong px-3 text-[14px] text-ink sm:hidden">
+              {t(locale, "pg_dict_filters")}{filterCount > 0 && <span className="ml-1 tabular-nums">{filterCount}</span>}
+            </button>
+            <div className="min-w-0 flex-1 sm:order-last sm:w-[190px] sm:flex-none">
+              <label htmlFor="dict-sort" className={fieldLabel}>{t(locale, "pg_dict_sort")}</label>
+              <select id="dict-sort" value={s.sort} onChange={(e) => set({ sort: e.target.value as SortKey })} className={control}>
+                <option value="name">{t(locale, "pg_dict_sort_name")}</option>
+                <option value="used">{t(locale, "pg_dict_sort_used")}</option>
+                <option value="changed">{t(locale, "pg_dict_sort_changed")}</option>
+                {readerGen && <option value="unfamiliar">{t(locale, "dict_my_gen_first")}</option>}
+              </select>
+            </div>
+          </div>
+          <div id="dict-filters" className={cn("flex-col gap-3 sm:flex sm:flex-row sm:items-end", open ? "flex" : "hidden")}>{filters}</div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p role="status" className="text-[13px] tabular-nums text-charcoal">{count}</p>
+          {anyFilter && <button type="button" onClick={clear} className={textButton}>{t(locale, "pg_dict_clear")}</button>}
+        </div>
+      </div>
 
-      {/* 첫 글자 색인 */}
-      <nav aria-label={t(locale, "dict_index")} className="flex flex-wrap gap-x-3 gap-y-1 text-[14px]">
-        {groups.map((g) => <a key={g.key} href={`#idx-${encodeURIComponent(g.key)}`} className="text-charcoal hover:text-ink hover:underline">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</a>)}
-      </nav>
-      {groups.length === 0 && <p className="rounded-lg border border-hairline px-4 py-8 text-center text-[14px] text-charcoal">{t(locale, "ex_no_result")}</p>}
-      {groups.map((g) => (
-        <section key={g.key} id={`idx-${encodeURIComponent(g.key)}`} aria-labelledby={`idx-h-${encodeURIComponent(g.key)}`} className="scroll-mt-16">
-          <h2 id={`idx-h-${encodeURIComponent(g.key)}`} className="border-b border-hairline pb-2 text-[16px] font-semibold text-ink">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</h2>
-          <ul className="divide-y divide-hairline">
-            {g.items.map((r) => {
-              const m = currentMeaning(r);
-              const tx = textFor(r, locale);
-              return (
-                <li key={r.term.term_id} className="grid gap-x-6 gap-y-1 py-3 md:grid-cols-[minmax(0,1fr)_200px]">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                      <Link href={`/dictionary/${r.term.term_id}`} className="text-[16px] font-semibold text-ink hover:underline">{r.term.canonical}</Link>
-                      {r.term.aliases && r.term.aliases.length > 0 && <span className="text-[13px] text-steel">{r.term.aliases.slice(0, 3).join(", ")}</span>}
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">
-                      {tx?.expansion && <span className="font-medium text-ink">{tx.expansion}. </span>}
-                      {tx?.definition ?? m?.definition ?? t(locale, "dict_pending")}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap content-start items-center gap-x-3 gap-y-1 text-[12px] text-steel md:justify-end">
-                    <span>{labels.category[r.category]}</span>
-                    {m && <span>{joinGens(locale, m.generations)}</span>}
-                    {r.term.status === "needs_review" && <span className="text-charcoal">{t(locale, "dict_pending_short")}</span>}
-                    {unfamiliar(r) && <span className="text-charcoal">{t(locale, "dict_unfamiliar")}</span>}
-                  </div>
-                </li>
-              );
-            })}
+      {shown.length === 0 ? (
+        <div className="rounded-lg border border-hairline px-6 py-6 text-[14px] leading-[1.6] text-charcoal">
+          <p>{s.q.trim() ? t(locale, "pg_dict_no_q_result").replace("{q}", s.q.trim()) : t(locale, "pg_dict_no_filter_result")}</p>
+          {outside > 0 && (
+            <p className="mt-1">
+              {t(locale, "pg_dict_elsewhere").replace("{n}", String(outside))}{" "}
+              <button type="button" onClick={() => set({ regions: [] })} className={textButton}>{t(locale, "pg_dict_all_regions")}</button>
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <button type="button" onClick={clear} className="inline-flex h-10 items-center rounded-md border border-hairline-strong px-3 text-[14px] text-ink hover:border-ink">{t(locale, "pg_dict_clear")}</button>
+            <Link href="/explain" className="text-[14px] text-link-blue hover:underline">{t(locale, "pg_dict_ask")}</Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <table className="w-full table-fixed border-collapse text-left">
+              <caption className="sr-only">{t(locale, "pg_dict_caption")}</caption>
+              <thead>
+                <tr className="border-b border-hairline bg-surface-soft text-[13px] text-steel">
+                  <th scope="col" aria-sort={s.sort === "name" ? "ascending" : undefined} className="px-3 py-2.5 font-medium">{t(locale, "dash_col_keyword")}</th>
+                  <th scope="col" className="w-[170px] px-3 py-2.5 font-medium">{t(locale, "dash_col_stage")}</th>
+                  <th scope="col" className="hidden w-[150px] px-3 py-2.5 font-medium xl:table-cell">{t(locale, "pg_dict_col_regions")}</th>
+                  <th scope="col" aria-sort={s.sort === "used" ? "descending" : undefined} className="w-[110px] px-3 py-2.5 text-right font-medium">{t(locale, "pg_col_last_used")}</th>
+                  <th scope="col" className="w-[130px] px-3 py-2.5 font-medium">{t(locale, "dash_col_risk")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slice.map((r) => (
+                  <tr key={r.term_id} className="border-b border-hairline align-top hover:bg-surface-soft">
+                    <th scope="row" className="px-3 py-3 text-left font-normal">
+                      <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="text-[15px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                      <Gloss row={r} locale={locale} q={s.q} />
+                      {!oneRegion && <p className="mt-0.5 text-[12px] text-steel xl:hidden"><Regions row={r} locale={locale} /></p>}
+                    </th>
+                    <td className="px-3 py-3"><StageCell diffusion={r.diffusion} lifecycle={r.lifecycle} locale={locale} /></td>
+                    <td className="hidden px-3 py-3 text-[13px] text-charcoal xl:table-cell"><Regions row={r} locale={locale} /></td>
+                    <td className="px-3 py-3 text-right text-[13px] tabular-nums text-charcoal">{fmtDate(r.last_used)}</td>
+                    <td className="px-3 py-3"><RiskCell item={r} locale={locale} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <ul className="divide-y divide-hairline border-y border-hairline md:hidden">
+            {slice.map((r) => (
+              <li key={r.term_id} className="py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="min-w-0 text-[16px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                  <RiskCell item={r} locale={locale} />
+                </div>
+                <Gloss row={r} locale={locale} q={s.q} />
+                <dl className="mt-2 space-y-1 text-[12px]">
+                  <div className="flex flex-wrap items-center gap-x-2"><dt className="text-steel">{t(locale, "dash_col_stage")}</dt><dd><StageCell diffusion={r.diffusion} lifecycle={r.lifecycle} locale={locale} /></dd></div>
+                  {!oneRegion && <div className="flex flex-wrap gap-x-2"><dt className="text-steel">{t(locale, "pg_dict_col_regions")}</dt><dd className="text-charcoal"><Regions row={r} locale={locale} /></dd></div>}
+                  <div className="flex flex-wrap gap-x-2"><dt className="text-steel">{t(locale, "pg_col_last_used")}</dt><dd className="tabular-nums text-charcoal">{fmtDate(r.last_used)}</dd></div>
+                </dl>
+              </li>
+            ))}
           </ul>
-        </section>
-      ))}
+
+          {pages > 1 && (
+            <nav aria-label={t(locale, "pg_dict_pages")} className="flex flex-wrap items-center justify-end gap-3 text-[13px]">
+              <span className="tabular-nums text-steel">
+                {t(locale, "pg_dict_range").replace("{total}", String(shown.length)).replace("{from}", String((page - 1) * PAGE_SIZE + 1)).replace("{to}", String(Math.min(page * PAGE_SIZE, shown.length)))}
+              </span>
+              <button type="button" disabled={page <= 1} onClick={() => { setS((p) => ({ ...p, page: page - 1 })); window.scrollTo({ top: 0 }); }}
+                className="inline-flex h-11 items-center rounded-md border border-hairline-strong px-3 text-ink disabled:text-steel sm:h-9">{t(locale, "pg_dict_prev")}</button>
+              <span className="tabular-nums text-charcoal" aria-current="page">{page} / {pages}</span>
+              <button type="button" disabled={page >= pages} onClick={() => { setS((p) => ({ ...p, page: page + 1 })); window.scrollTo({ top: 0 }); }}
+                className="inline-flex h-11 items-center rounded-md border border-hairline-strong px-3 text-ink disabled:text-steel sm:h-9">{t(locale, "pg_dict_next")}</button>
+            </nav>
+          )}
+        </>
+      )}
     </div>
   );
 }

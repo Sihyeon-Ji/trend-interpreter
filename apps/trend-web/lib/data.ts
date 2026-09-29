@@ -39,6 +39,17 @@ export async function getTermRecords(): Promise<TermRecord[]> {
   return isSampleMode ? SAMPLE_RECORDS : apiOr<TermRecord[]>("/terms", SAMPLE_RECORDS);
 }
 
+/** 사전 색인용. 서버가 실패하면 예시 데이터로 바꿔 넣지 않고 실패를 알린다 — 운영 사용자가 예시 52개를 실제 사전으로
+ *  보게 되던 것(2026-09-29 검토). 예시 모드도 공개 사전처럼 확인된 표현만 싣는다. */
+export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: boolean }> {
+  if (isSampleMode) return { records: SAMPLE_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
+  try {
+    return { records: await api<TermRecord[]>("/terms"), ok: true };
+  } catch {
+    return { records: [], ok: false };
+  }
+}
+
 export async function getTermRecord(termId: string): Promise<TermRecord | null> {
   const sample = SAMPLE_RECORDS.find((r) => r.term.term_id === termId) ?? null;
   if (isSampleMode) return sample;

@@ -30,3 +30,15 @@ export function parseReader(raw: string | undefined): Reader {
 }
 
 export const hasReader = (r: Reader) => !!(r.nick || r.gen || r.region);
+
+/** 로그인 뒤 돌아갈 주소. 같은 사이트의 경로만 받는다(열린 리다이렉트 방지) — '/' 로 시작하고 '//'·'/\' 가 아니며,
+ *  로그인 화면이나 API 로 되돌아가지 않는다. 받을 수 없으면 null — 부르는 쪽이 계정에 맞는 기본값을 고른다. */
+export function safeNext(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
+  if ([...next].some((c) => c.charCodeAt(0) < 32)) return null;   // 줄바꿈·제어 문자를 끼운 주소
+  if (/^\/(login|api)(\/|\?|#|$)/.test(next)) return null;
+  return next;
+}
+
+/** 로그인한 뒤 갈 곳: 요청한 주소가 있으면 그곳, 없으면 검수자는 관리 화면, 그 밖의 계정은 첫 화면. */
+export const afterLogin = (next: string | null, reviewer: boolean) => next ?? (reviewer ? "/admin" : "/");

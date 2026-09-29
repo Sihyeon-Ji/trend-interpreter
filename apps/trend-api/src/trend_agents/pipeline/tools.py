@@ -152,11 +152,18 @@ def _romanized_find(ctx: "Ctx", q: str):
     return t
 
 
+def _status_codes(t) -> dict:
+    """화면이 대시보드와 같은 말로 단계·쓸 때 조심을 붙이도록 코드를 함께 싣는다(이름은 화면 언어로 화면이 만든다).
+    'lifecycle' 에 든 한국어 이름은 모델 근거와 예전 화면을 위해 그대로 둔다."""
+    return {"lifecycle_code": t.lifecycle, "diffusion": t.diffusion, "risk_level": t.risk_level,
+            "risk_checked_at": t.risk_checked_at.isoformat() if t.risk_checked_at else None, "lang": t.lang}
+
+
 def _term_card(con, t, m) -> dict:
     return {"type": "term", "term_id": t.term_id, "canonical": t.canonical,
             "definition": _clean(m.definition) if m else "", "origin": _clean(m.origin) if m else "",
             "status": t.status, "lifecycle": LIFECYCLE.get(t.lifecycle, t.lifecycle),
-            "category": CATEGORY.get(t.category, t.category),
+            "category": CATEGORY.get(t.category, t.category), **_status_codes(t),
             "evidence_count": con.execute("SELECT COUNT(*) FROM evidences WHERE term_id=?", (t.term_id,)).fetchone()[0],
             "media": ds.get_media(con, t.term_id)}
 
@@ -168,7 +175,7 @@ def _list_card(con, title: str, rows: list) -> dict:
         items.append({"term_id": t.term_id, "canonical": t.canonical,
                       "definition": (_clean(m.definition)[:90] if m else ""),
                       "origin": (_clean(m.origin)[:120] if m and m.origin and m.origin != "unknown" else ""),
-                      "lifecycle": LIFECYCLE.get(t.lifecycle, t.lifecycle), "status": t.status})
+                      "lifecycle": LIFECYCLE.get(t.lifecycle, t.lifecycle), "status": t.status, **_status_codes(t)})
     return {"type": "list", "title": title, "items": items}
 
 
