@@ -8,6 +8,15 @@ from trend_agents.schemas import Evidence, MeaningDraft, MemeFit, ProductBrief, 
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
 
+@pytest.fixture(autouse=True)
+def _no_models(monkeypatch):
+    """시험은 모델을 부르지 않는다 — 이 서버처럼 로컬 Gemma 가 떠 있으면 이유 쓰기가 실제로 돌아 느리고 결과가 흔들렸다.
+    모델 경로를 보는 시험은 스스로 다시 바꾼다."""
+    monkeypatch.setattr(recommend, "local_ok", lambda: False)
+    monkeypatch.setattr(recommend, "configured", lambda: False)
+    monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)
+
+
 LATTE = ProductBrief(product="아이스 라떼", category="food_drink", feelings=["joy", "comfort"], values=["시원함"], scene="카페")
 
 
