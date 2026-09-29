@@ -65,8 +65,14 @@ def save_interpretations(con: Connection, items: list[ShortsInterpretation], mod
     return len(items)
 
 
+# 뉴스 주소는 기본키다. PostgreSQL 기본키(btree) 색인은 한 항목이 2,704바이트까지라 그보다 긴 Google 뉴스 주소가 하나 섞이면
+# 그 묶음이 통째로 롤백됐다(2026-09-29 트윈 이관 실측: 42,776건 중 2,901바이트 1건). 이보다 긴 주소의 뉴스는 저장하지 않는다.
+NEWS_LINK_MAX = 2048  # UTF-8 바이트
+
+
 def upsert_news(con: Connection, items: list[NewsItem]) -> int:
     now = _now()
+    items = [it for it in items if len(it.link.encode()) <= NEWS_LINK_MAX]
     for it in items:
         con.execute(
             "INSERT OR IGNORE INTO news VALUES (?,?,?,?,?,?)",

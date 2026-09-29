@@ -14,16 +14,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.config import DATA_DIR, DATABASE_URL  # noqa: E402
-from trend_agents.storage import db, dictionary_store, store  # noqa: E402,F401  (DDL 등록)
+from trend_agents.storage import db, dictionary_store, store  # noqa: E402  (DDL 등록)
 
 SKIP = {"term_aliases", "schema_migrations"}  # 이관 뒤 다시 만들거나 이 DB 가 관리하는 표
 RENAMED = {"reader_prefs": {"user": "reader"}}
+# PostgreSQL 기본키 색인에 들어가지 않는 행. 파이프라인도 저장하지 않는다(store.upsert_news)
+WHERE = {"news": f"length(CAST(link AS BLOB)) <= {store.NEWS_LINK_MAX}"}
 BATCH = 1000
 
 
-def migrate(sqlite_path: Path, url: str) -> None:
+def migrate(sqlite_path: Path, dst: db.Connection) -> None:
     src = sqlite3.connect(str(sqlite_path))
-    dst = db.connect(url=url)
     have = {r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     for name, table in db.TABLES.items():
         if name in SKIP:
@@ -40,16 +41,17 @@ def migrate(sqlite_path: Path, url: str) -> None:
             continue
         insert = (f"INSERT INTO {name} ({', '.join(d for _, d in pairs)}) VALUES ({','.join('?' * len(pairs))})"
                   " ON CONFLICT DO NOTHING")
-        cur = src.execute(f"SELECT {', '.join(s for s, _ in pairs)} FROM {name}")
+        where = WHERE.get(name)
+        left_out = src.execute(f"SELECT COUNT(*) FROM {name} WHERE NOT ({where})").fetchone()[0] if where else 0
+        cur = src.execute(f"SELECT {', '.join(s for s, _ in pairs)} FROM {name}" + (f" WHERE {where}" if where else ""))
         copied = 0
         while rows := cur.fetchmany(BATCH):
             before = dst.raw.cursor()
             before.executemany(db.translate(insert, True), [tuple(db._param(v) for v in row) for row in rows])
             copied += before.rowcount if before.rowcount >= 0 else 0
             dst.commit()
-        print(f"{name:20} {copied}/{total} 복사")
+        print(f"{name:20} {copied}/{total} 복사" + (f" (기본키 색인에 들어가지 않는 {left_out}건 제외)" if left_out else ""))
     print(f"{'term_aliases':20} {dictionary_store.rebuild_aliases(dst)}건 다시 만듦")
-    dst.close()
 
 
 def main() -> None:
@@ -61,7 +63,11 @@ def main() -> None:
     if not path.exists():
         raise SystemExit(f"SQLite 파일이 없습니다: {path}")
     print(f"{path} → {db.redacted(a.database_url)}")
-    migrate(path, a.database_url)
+    dst = db.connect(url=a.database_url)
+    try:
+        migrate(path, dst)
+    finally:
+        dst.close()
 
 
 if __name__ == "__main__":
