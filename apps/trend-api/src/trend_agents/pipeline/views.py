@@ -265,6 +265,7 @@ class KeywordCard(BaseModel):
     tone: Tone
     evidences: list[EvidenceBrief]     # 최근 근거 5건
     last_seen: datetime | None = None
+    last_used: datetime | None = None  # 고른 지역에서 가장 최근에 쓰인 글(커뮤니티·뉴스·쇼츠)의 때 — 원본 언급이 0 인 말의 순서와 표시
 
 
 class KeywordBoard(BaseModel):

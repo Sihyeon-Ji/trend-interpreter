@@ -41,6 +41,7 @@ function toCard(r: TermRecord): KeywordCard {
     search: [], gen_peaks: [], communities, tone: { positive: 0, neutral: 0, negative: 0 },
     evidences: recent.map((e) => ({ kind: e.kind, source_domain: e.source_domain, title: e.title ?? e.excerpt ?? "", url: e.url, observed_at: e.observed_at })),
     last_seen: r.term.last_seen ?? null,
+    last_used: recent.find((e) => ["community", "news", "short"].includes(e.kind))?.observed_at ?? null,
   };
 }
 
@@ -53,14 +54,17 @@ export function sampleKeywordBoard(regions: string[]): KeywordBoard {
   const picked = chosen.length ? chosen : TARGET_REGIONS;
   const inView = cards.filter((c) => c.regions.some((r) => picked.includes(r)));
   const byMentions = (a: KeywordCard, b: KeywordCard) => b.mentions_4w - a.mentions_4w;
+  // 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
+  const recent = (c: KeywordCard) => [c.last_used, c.last_seen].filter(Boolean).sort().at(-1) ?? "";
+  const byRecent = (a: KeywordCard, b: KeywordCard) => recent(b).localeCompare(recent(a));
   return {
     generated_at: "2026-09-13T21:10:00Z",
     regions: picked,
     counts: Object.fromEntries(known.map((r) => [r, cards.filter((c) => c.regions.includes(r)).length])),
     rising: inView.filter((c) => !fading(c) && c.risk_level !== "avoid")
-      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b))
+      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b))
       .slice(0, LIST_MAX),
-    fading: inView.filter((c) => fading(c) && c.risk_level !== "avoid").sort((a, b) => (b.last_seen ?? "").localeCompare(a.last_seen ?? "")).slice(0, LIST_MAX),
+    fading: inView.filter((c) => fading(c) && c.risk_level !== "avoid").sort(byRecent).slice(0, LIST_MAX),
     caution: inView.filter((c) => c.risk_level === "caution" || c.risk_level === "avoid")
       .sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b)).slice(0, LIST_MAX),
   };

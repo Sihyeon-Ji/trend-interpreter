@@ -75,10 +75,14 @@ def _is_fading(c: KeywordCard) -> bool:
 
 def split(cards: list[KeywordCard]) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
     """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈). 사용 자제는 쓰이는·식는 목록에 넣지 않고 주의 목록에만 둔다."""
+    # 원본 언급(뉴스 제목·쇼츠·검색어)에 밈 이름이 오르는 일은 드물어 대부분 0 이다 — 그다음은 가장 최근에 쓰인 글 순
+    # (0 끼리 이름순으로 서서 'Nice boat'·'TBT' 가 맨 앞이던 것, 2026-09-29).
+    def recent(c: KeywordCard) -> float:
+        return max((d.timestamp() for d in (c.last_used, c.last_seen) if d), default=0.0)
+
     rising = sorted((c for c in cards if not _is_fading(c) and c.risk_level != "avoid"),
-                    key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w))
-    fading = sorted((c for c in cards if _is_fading(c) and c.risk_level != "avoid"),
-                    key=lambda c: -(c.last_seen.timestamp() if c.last_seen else 0))
+                    key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w, -recent(c)))
+    fading = sorted((c for c in cards if _is_fading(c) and c.risk_level != "avoid"), key=lambda c: -recent(c))
     caution = sorted((c for c in cards if c.risk_level in ("caution", "avoid")),
                      key=lambda c: (c.risk_level != "avoid", -c.mentions_4w))
     return rising[:LIST_MAX], fading[:LIST_MAX], caution[:LIST_MAX]
@@ -127,6 +131,7 @@ class Stored(BaseModel):
     communities: dict[str, dict[str, int]] = {}     # 나라별 커뮤니티 도메인 건수
     tone: dict[str, dict[str, int]] = {}            # 나라별 뉘앙스 수
     evidences: dict[str, list[EvidenceBrief]] = {}  # 나라별 최근 쓰임 근거. "" = 나라를 가를 수 없는 문서(위키 등)
+    last_used: dict[str, datetime] = {}             # 나라별 가장 최근에 쓰인 글의 때
 
 
 class _Regions:
@@ -175,9 +180,12 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
     communities: dict[str, Counter] = {}
     tone: dict[str, Counter] = {}
     examples: dict[str, list[EvidenceBrief]] = {}
+    last_used: dict[str, datetime] = {}
     per_domain: Counter = Counter()
     for e in evs:
         r = regions_of.of(e)
+        if e.kind in USAGE_KINDS and (r not in last_used or e.observed_at > last_used[r]):
+            last_used[r] = e.observed_at
         if e.kind == "community":
             communities.setdefault(r, Counter())[e.source_domain] += 1
         p = labels.get(e.evidence_id, (None, None))[0]
@@ -194,7 +202,7 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
         communities=[], tone=Tone(), evidences=[], last_seen=t.last_seen)
     return Stored(card=card, weeks=weeks, weekly=weekly, communities={r: dict(c) for r, c in communities.items()},
-                  tone={r: dict(c) for r, c in tone.items()}, evidences=examples)
+                  tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used)
 
 
 def view(s: Stored, chosen: list[str]) -> KeywordCard:
@@ -213,6 +221,7 @@ def view(s: Stored, chosen: list[str]) -> KeywordCard:
         "communities": [SourceCount(domain=d, count=n) for d, n in comm.most_common(5)],
         "tone": Tone(positive=tone["positive"], neutral=tone["neutral"], negative=tone["negative"]),
         "evidences": evs,
+        "last_used": max((s.last_used[r] for r in chosen if r in s.last_used), default=None),
     })
 
 

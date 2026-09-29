@@ -103,6 +103,7 @@ export interface KeywordCard {
   tone: Tone;
   evidences: EvidenceBrief[];
   last_seen?: string | null;
+  last_used?: string | null;      // 고른 지역에서 가장 최근에 쓰인 글의 때
 }
 
 export interface KeywordBoard {

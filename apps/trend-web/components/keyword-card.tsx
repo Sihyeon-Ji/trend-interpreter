@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Sparkline } from "@/components/sparkline";
 import { t, type Locale } from "@/lib/i18n";
-import { L, fmtInt, listJoin, regionLabel, sourceName } from "@/lib/labels";
+import { L, fmtDate, fmtInt, listJoin, regionLabel, sourceName } from "@/lib/labels";
 import type { GenPeak, KeywordCard, SearchHit } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +52,7 @@ export function KeywordCardView({ card, locale }: { card: KeywordCard; locale: L
       </div>
       <p className="line-clamp-2 text-[14px] leading-[1.55] text-charcoal">{locale === "ko" ? card.gloss_ko : card.gloss_en}</p>
       <p className="text-[12px] text-steel">{stage}</p>
+      {!card.weekly.some((p) => p.count > 0) && card.last_used && <p className="text-[12px] text-steel">{t(locale, "dash_last_used")} <span className="tabular-nums text-charcoal">{fmtDate(card.last_used)}</span></p>}
       {card.weekly.some((p) => p.count > 0) && (
         <div className="flex items-end gap-3">
           <Sparkline points={card.weekly} width={120} height={28} label={t(locale, "spark_label").replace("{n}", String(card.weekly.length)).replace("{last}", String(card.weekly.at(-1)?.count ?? 0)).replace("{max}", String(Math.max(0, ...card.weekly.map((p) => p.count))))} />

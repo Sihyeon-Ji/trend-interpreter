@@ -626,3 +626,27 @@ def test_rechecks_repair_blank_region_usage(monkeypatch):
     ds.clear_usage(con, "t1")
     ds.set_usage(con, "t1", [("20s", "JP", datetime.now(timezone.utc).isoformat(), 1.0)])
     assert [u["region"] for u in ds.get_usage(con, "t1")] == ["JP"]
+
+
+def test_rising_orders_by_recent_use_when_raw_mentions_are_zero():
+    """원본 언급이 모두 0 이면 이름순이 아니라 가장 최근에 쓰인 글 순 — 그 지역의 글만 본다."""
+    from datetime import datetime, timedelta, timezone
+
+    from trend_agents.pipeline import dashboard
+    from trend_agents.schemas import Evidence, MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name, days_ago in (("a", "가나다", 20), ("b", "하하하", 1)):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", lifecycle="steady", first_seen=now, last_seen=None))
+        ds.add_meaning(con, tid, MeaningDraft(definition="뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"], self_confidence=0.9),
+                       "verified_auto", [])
+        ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
+        ds.add_evidences(con, tid, [Evidence(evidence_id=f"e{tid}", kind="community", url=f"u{tid}", title=f"{name} 글", source_domain="theqoo.net",
+                                             observed_at=now - timedelta(days=days_ago), excerpt=name)])
+    dashboard.run(con)
+    rising = dashboard.board(con, ["KR"]).rising
+    assert [c.term_id for c in rising] == ["b", "a"] and rising[0].last_used is not None
+    assert dashboard.board(con, ["JP"]).rising == []           # 한국 글은 일본 순서에 쓰이지 않는다(카드도 없다)
