@@ -85,7 +85,7 @@ def main() -> None:
             print(f"제외 실패(없음): {name}"); continue
         if m:
             ds.set_verification(con, m.meaning_id, "rejected", BY)
-        t.status = "retired"; ds.upsert_term(con, t); ds.decide_review(con, t.term_id, "reject", BY)
+        t.status = "retired"; ds.upsert_term(con, t, human=True); ds.decide_review(con, t.term_id, "reject", BY)
         print(f"제외: {name} → retired")
     for name in [x.strip() for x in a.downgrade.split("|") if x.strip()]:
         t = by_name.get(name)
@@ -93,7 +93,7 @@ def main() -> None:
         if not t or not m:
             print(f"강등 실패(없음): {name}"); continue
         ds.set_verification(con, m.meaning_id, "unverified", BY)
-        t.status = "needs_review"; ds.upsert_term(con, t)
+        t.status = "needs_review"; ds.upsert_term(con, t, human=True)
         ds.queue_review(con, t.term_id, MeaningDraft(**m.model_dump(include=set(MeaningDraft.model_fields))), ["표현인지 불확실 — 사람이 판단"], ds_count(con, t.term_id))
         print(f"강등: {name} → needs_review")
 
@@ -119,7 +119,7 @@ def main() -> None:
             if a.apply:
                 if not human:  # 상태와 검증이 어긋나지 않게. 사람이 확인한 뜻은 기록을 지우지 않는다 — 아래 재승격 경로가 그 표시를 본다
                     ds.set_verification(con, m.meaning_id, "unverified", BY)
-                t.status = "needs_review"; ds.upsert_term(con, t)
+                t.status = "needs_review"; ds.upsert_term(con, t, human=True)
                 ds.queue_review(con, t.term_id, draft, bl, len(evs))
     # 강등돼 있던 '사람이 확인한 뜻' 이 근거 보강으로 통과하면 다시 verified
     for t in ds.list_terms(con, ("needs_review",)):
@@ -131,7 +131,7 @@ def main() -> None:
         v, reasons = gate(t.canonical, draft, for_model(evs), None, aliases=t.aliases)
         if not blocking(reasons, True):
             if a.apply:
-                t.status = "verified"; ds.upsert_term(con, t); ds.decide_review(con, t.term_id, "approve", BY)
+                t.status = "verified"; ds.upsert_term(con, t, human=True); ds.decide_review(con, t.term_id, "approve", BY)
             print(f"  복귀 {t.canonical}: 근거 통과{' → verified' if a.apply else ''}")
     print(f"\n확인된 항목 {len(verified)}개 중 근거가 약한 것 {len(weak)}개{' → needs_review 로 강등' if a.apply else ''}")
     for t, bl in weak:

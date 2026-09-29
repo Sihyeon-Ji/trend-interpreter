@@ -159,7 +159,7 @@ def main() -> None:
                 t.status = "retired"
             else:
                 t.status = "needs_review"
-            ds.upsert_term(con, t)
+            ds.upsert_term(con, t, human=True)
             if m:
                 ds.queue_review(con, t.term_id, m, [a.reason], 0)
                 ds.decide_review(con, t.term_id, "reject" if a.reject else "", "audit")
@@ -173,7 +173,7 @@ def main() -> None:
         down = [(t, m, f) for t, m, f in hit if any(x.split("(")[0] in DEMOTE for x in f)]
         for t, m, f in down:
             t.status = "needs_review"
-            ds.upsert_term(con, t)
+            ds.upsert_term(con, t, human=True)
             if m:
                 ds.queue_review(con, t.term_id, m, [f"전수 검토: {', '.join(f)}"], 0)
         con.commit()
