@@ -397,10 +397,12 @@ def trends_why(region: str | None = None):
 
 @app.get("/meta")
 def meta():
-    """갱신 시각: 마지막 파이프라인 종료, 보드 생성 시각, 용어 수."""
+    """갱신 시각: 마지막 정상 게시(last_run, 지도·대시보드 게시가 모두 성공한 때)와 그게 STALE_AFTER_HOURS(12시간)보다 오래됐는지(stale),
+    보드 생성 시각, 용어 수. last_run 은 이름만 예전 그대로다 — 어느 단계든 끝난 때를 쓰면 수집만 돌아도 새 자료로 보였다."""
     cached = ds.cache_get(_con, "board")
-    return {"last_run": ds.last_finished(_con), "board_generated_at": cached[1] if cached else None, "terms": len(ds.list_terms(_con, ("verified", "needs_review"))),
-            "explanations": len(ds.explanations_by_region(_con))}
+    published = ds.last_published(_con)
+    return {"last_run": published, "stale": ds.is_stale(published), "board_generated_at": cached[1] if cached else None,
+            "terms": len(ds.list_terms(_con, ("verified", "needs_review"))), "explanations": len(ds.explanations_by_region(_con))}
 
 
 @app.get("/updates")

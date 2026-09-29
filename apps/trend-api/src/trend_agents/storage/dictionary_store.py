@@ -946,9 +946,28 @@ def update_feed(con: Connection, hours: int = 48, kinds: tuple[str, ...] = USER_
     return {"items": rows[:limit], "counts": counts, "total": len(rows)}
 
 
-def last_finished(con: Connection) -> str | None:
-    row = con.execute("SELECT MAX(finished_at) FROM pipeline_runs WHERE status IN ('ok','zero','skipped')").fetchone()
-    return row[0] if row else None
+# 이용자가 읽는 게시본을 다시 쓰는 단계. 파이프라인 끝의 지도(board)·키워드 대시보드(dashboard)가 그때까지의 편집 결과를 모아
+# 공개 캐시를 새로 만든다 — 수집·중간 단계만 끝난 실행은 게시본을 바꾸지 않는다(ADR 0001 '마지막 정상 갱신', Plan 05·06).
+PUBLISH_STAGES = ("board", "dashboard")
+# 게시가 이보다 오래되면 오래된 자료다. 23:15 실행 뒤 다음 날 09:15 실행까지 게시가 10시간 빈다(09-17~09-28 실측 10.0~10.5시간).
+STALE_AFTER_HOURS = 12
+
+
+def last_published(con: Connection) -> str | None:
+    """마지막 정상 게시 시각: 게시 단계마다 마지막으로 성공('ok')한 때 중 이른 것. 한 번도 성공하지 않은 단계가 있으면 None.
+    전에는 어느 단계든 끝난 때(0건·건너뜀 포함)라 수집만 돌아도 새 자료로 보였다 — 09-28 지도 단계가 19:33·23:33(한국 시각)에
+    실패해 지도가 14:27 것이었는데도 23:33 을 냈다."""
+    marks = ",".join("?" * len(PUBLISH_STAGES))
+    last = dict(con.execute(f"SELECT stage, MAX(finished_at) FROM pipeline_runs WHERE status='ok' AND stage IN ({marks}) GROUP BY stage",
+                            PUBLISH_STAGES).fetchall())
+    if not all(last.get(s) for s in PUBLISH_STAGES):
+        return None
+    return min(last.values(), key=datetime.fromisoformat)
+
+
+def is_stale(published: str | None) -> bool:
+    """게시가 없거나 STALE_AFTER_HOURS 보다 오래됐나."""
+    return not published or now() - datetime.fromisoformat(published) > timedelta(hours=STALE_AFTER_HOURS)
 
 
 # ---------- 로그인한 사람의 설정 (세대·나라) ----------

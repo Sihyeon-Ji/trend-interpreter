@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -11,7 +12,21 @@ from google.genai import errors
 
 from trend_agents import config, logging_setup, model_client
 from trend_agents.pipeline import gemini
-from trend_agents.storage import db
+from trend_agents.storage import db, dictionary_store as ds
+
+
+def _ran(con, stage: str, status: str, hours_ago: float, count: int = 1) -> str:
+    """끝난 실행 하나를 hours_ago 시간 전 것으로 남기고 그 끝난 시각을 돌려준다."""
+    rid = ds.run_start(con, stage)
+    ds.run_finish(con, rid, count, status)
+    when = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+    con.execute("UPDATE pipeline_runs SET started_at=?, finished_at=? WHERE run_id=?", (when, when, rid))
+    con.commit()
+    return when
+
+
+def _ago(hours: float) -> str:
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
 
 @contextmanager
@@ -36,6 +51,49 @@ def _one_event(out: str) -> dict:
 
 def _calls(caplog) -> list[dict]:
     return [r.fields for r in caplog.records if getattr(r, "event", None) == "gemini_call"]
+
+
+# ---------- 게시 시각과 오래된 자료 ----------
+
+def test_meta_freshness_comes_from_publication_not_from_collectors(monkeypatch):
+    """수집만 끝난 실행은 갱신이 아니다. /meta 의 last_run 은 지도·대시보드 게시가 모두 성공한 때이고 12시간보다 오래면 stale —
+    전에는 어느 단계든 끝난 때(0건·건너뜀 포함)라, 09-28 지도 단계가 19:33·23:33(한국 시각)에 실패한 동안에도 23:33 을 새 자료로 냈다."""
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    con = db.connect(":memory:")
+    board30 = _ran(con, "board", "ok", 30)
+    dash30 = _ran(con, "dashboard", "ok", 30)
+    _ran(con, "collect.news", "ok", 1)
+    _ran(con, "collect.retention", "ok", 1)
+    _ran(con, "board", "zero", 1)          # 빈 지도로 덮은 것은 정상 게시가 아니다
+    _ran(con, "dashboard", "skipped", 1)
+    monkeypatch.setattr(api, "_con", con)
+    c = TestClient(api.app)
+    body = c.get("/meta").json()
+    assert body["last_run"] == board30 and body["stale"] is True
+
+    board2 = _ran(con, "board", "ok", 2)   # 지도만 새로 — 대시보드는 아직 30시간 전 것
+    body = c.get("/meta").json()
+    assert body["last_run"] == dash30 and body["stale"] is True
+    _ran(con, "dashboard", "ok", 2)
+    body = c.get("/meta").json()
+    assert body["last_run"] == board2 and body["stale"] is False
+
+
+def test_nothing_published_is_stale():
+    con = db.connect(":memory:")
+    _ran(con, "collect.youtube", "ok", 0.5)
+    _ran(con, "board", "ok", 0.5)          # 대시보드는 한 번도 성공하지 않았다
+    assert ds.last_published(con) is None and ds.is_stale(None)
+
+
+def test_the_overnight_gap_is_not_stale_but_a_missed_run_is():
+    """23:15 실행 뒤 다음 날 09:15 실행까지 게시가 10시간 빈다(09-17~09-28 실측 10.0~10.5시간) — 8시간 한계는 밤마다 울린다."""
+    assert ds.STALE_AFTER_HOURS >= 12
+    assert not ds.is_stale(_ago(10.5))
+    assert ds.is_stale(_ago(ds.STALE_AFTER_HOURS + 0.5))
 
 
 # ---------- PC 없이 도는 유지보수 ----------
