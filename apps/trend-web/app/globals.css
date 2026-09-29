@@ -5,6 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
+   토큰 (docs/트렌드/디자인-개편.md, 2026-09-29). 이름은 예전(Notion DESIGN.md 에서 온 것) 그대로, 값만 새 팔레트:
+   먹 #17191C · 짙은 회색 #4B525C · 회색 #646B76 · 선 #E4E7EB · 옅은 바탕 #F6F7F9 · 파랑 #1D5BD6, 상태 셋(주의·사용 자제·오름).
    Notion DESIGN.md (design/Notion/DESIGN.md) → Tailwind v4 토큰.
    앱 화면은 문서의 '조용한' 쪽만 쓴다: 흰 바탕, 검정 글자, hairline, button-dark(검정) 를 primary 로.
    파스텔 틴트·navy 밴드·보라 CTA 는 마케팅 표면용이라 앱에서는 쓰지 않는다 (docs/FRONTEND.md).
@@ -91,6 +93,12 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --color-caution: var(--caution);
+  --color-caution-line: var(--caution-line);
+  --color-avoid: var(--avoid);
+  --color-avoid-line: var(--avoid-line);
+  --color-good: var(--good);
+  --color-good-line: var(--good-line);
 
   /* 모서리: shadcn 컴포넌트 관례(버튼 rounded-lg, 카드 rounded-xl)에 Notion 값을 맞춤 */
   --radius-sm: 0.25rem;   /* 4px  태그 칩 */
@@ -115,43 +123,43 @@
 
   /* shadcn 시맨틱 ← Notion */
   --background: #ffffff;
-  --foreground: #1a1a1a;
+  --foreground: #17191c;
   --card: #ffffff;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #17191c;
   --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #1a1a1a;
+  --popover-foreground: #17191c;
+  --primary: #17191c;
   --primary-foreground: #ffffff;
-  --secondary: #f6f5f4;
-  --secondary-foreground: #1a1a1a;
-  --muted: #f6f5f4;
-  --muted-foreground: #787671;
-  --accent: #f6f5f4;
-  --accent-foreground: #1a1a1a;
-  --destructive: #e03131;
-  --border: #e5e3df;
-  --input: #c8c4be;
-  --ring: #1a1a1a;
+  --secondary: #f6f7f9;
+  --secondary-foreground: #17191c;
+  --muted: #f6f7f9;
+  --muted-foreground: #646b76;
+  --accent: #eef0f3;
+  --accent-foreground: #17191c;
+  --destructive: #b3261e;
+  --border: #e4e7eb;
+  --input: #cbd0d6;
+  --ring: #1d5bd6;
   --chart-1: #5645d4;
   --chart-2: #0075de;
   --chart-3: #1aae39;
   --chart-4: #dd5b00;
   --chart-5: #a4a097;
-  --sidebar: #f6f5f4;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #1a1a1a;
+  --sidebar: #f6f7f9;
+  --sidebar-foreground: #17191c;
+  --sidebar-primary: #17191c;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0eeec;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: #e5e3df;
-  --sidebar-ring: #1a1a1a;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #17191c;
+  --sidebar-border: #e4e7eb;
+  --sidebar-ring: #1d5bd6;
 
   /* Notion 팔레트 원본 */
   --navy: #0a1530;
   --navy-deep: #070f24;
   --navy-mid: #1a2a52;
-  --link-blue: #0075de;
-  --link-blue-pressed: #005bab;
+  --link-blue: #1d5bd6;
+  --link-blue-pressed: #1747aa;
   --brand-orange: #dd5b00;
   --brand-orange-deep: #793400;
   --brand-pink: #ff64c8;
@@ -172,23 +180,30 @@
   --tint-yellow-bold: #f9e79f;
   --tint-cream: #f8f5e8;
   --tint-gray: #f0eeec;
-  --surface: #f6f5f4;
-  --surface-soft: #fafaf9;
-  --hairline: #e5e3df;
-  --hairline-soft: #ede9e4;
-  --hairline-strong: #c8c4be;
+  --surface: #f6f7f9;
+  --surface-soft: #fafbfc;
+  --hairline: #e4e7eb;
+  --hairline-soft: #eef0f3;
+  --hairline-strong: #cbd0d6;
   --ink-deep: #000000;
-  --ink: #1a1a1a;
-  --charcoal: #37352f;
-  --slate: #5d5b54;
-  --steel: #787671;
-  --stone: #a4a097;
-  --faint: #bbb8b1;
+  --ink: #17191c;
+  --charcoal: #4b525c;
+  --slate: #4b525c;
+  --steel: #646b76;
+  --stone: #8a919b;
+  --faint: #b4bac2;
   --on-dark: #ffffff;
   --on-dark-muted: #a4a097;
-  --success: #1aae39;
-  --warning: #dd5b00;
-  --error: #e03131;
+  --success: #16734d;
+  --warning: #8f5500;
+  --error: #b3261e;
+  /* 상태 (디자인 개편 09-29): 글자 + 테두리로만 — 칸을 칠하지 않는다 */
+  --caution: #8f5500;
+  --caution-line: #e7c48c;
+  --avoid: #b3261e;
+  --avoid-line: #edb2ad;
+  --good: #16734d;
+  --good-line: #a9d8c2;
 }
 
 @layer base {
@@ -208,6 +223,10 @@
   h1, h2, h3, h4 {
     @apply font-semibold text-ink;
     letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 

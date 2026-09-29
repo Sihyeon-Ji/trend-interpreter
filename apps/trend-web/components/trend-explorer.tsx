@@ -162,7 +162,7 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
   return (
     <>
       <section className="border-b border-hairline">
-        <div className="flex min-h-[560px] flex-col lg:h-[calc(100dvh-57px)] lg:flex-row">
+        <div className="flex min-h-[560px] flex-col lg:h-[calc(100dvh-40px)] lg:flex-row">
           {/* 패널 */}
           <aside className="order-2 flex w-full flex-col border-t border-hairline lg:order-1 lg:w-[400px] lg:shrink-0 lg:border-r lg:border-t-0">
             <div className="border-b border-hairline px-5 pb-3 pt-4">
@@ -242,7 +242,7 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
                   <div className="mt-2 flex items-baseline justify-between gap-2">
                     <h2 className="text-[20px] font-semibold text-ink">{regionLabel(locale, region)}</h2>
                     <span className="flex gap-3 whitespace-nowrap">
-                      {TARGET_REGIONS.includes(region) && <Link href={`/trends?regions=${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "dash_open_country")}</Link>}
+                      {TARGET_REGIONS.includes(region) && <Link href={`/?regions=${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "dash_open_country")}</Link>}
                       <Link href={`/country/${region}`} className="text-[13px] text-link-blue hover:underline">{t(locale, "country_page")}</Link>
                     </span>
                   </div>
@@ -316,7 +316,8 @@ export function TrendExplorer({ board, locale, initialRegion = null, initialTopi
           </aside>
 
           {/* 지구 */}
-          <div className="relative order-1 h-[54vh] min-h-[360px] w-full lg:order-2 lg:h-auto lg:min-h-0 lg:flex-1">
+          {/* min-w-0·overflow-hidden: 지구본 캔버스가 처음 잰 폭(창 전체)을 고집해 왼쪽 메뉴가 생긴 뒤 페이지가 옆으로 1840px 로 넘쳤다 */}
+          <div className="relative order-1 h-[54vh] min-h-[360px] w-full min-w-0 overflow-hidden lg:order-2 lg:h-auto lg:min-h-0 lg:flex-1">
             <TrendGlobe regionsWithData={regionsWithData} highlighted={highlighted} selected={region} bubbles={bubbles} arcs={arcs} rings={rings} focus={focus}
               onSelect={openRegion} apiRef={api} loadingLabel={t(locale, "ex_loading")} />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-3">

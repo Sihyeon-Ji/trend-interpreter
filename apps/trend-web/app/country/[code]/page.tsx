@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { WhyCard } from "@/components/why-card";
 import { getCountryPage } from "@/lib/data";
 import { t } from "@/lib/i18n";
 import { L, fmtDateTime, regionLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
+import { TARGET_REGIONS } from "@/lib/reader";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { TREND_CATEGORIES } from "@/lib/trends/types";
 
@@ -20,11 +22,10 @@ export default async function CountryPage({ params }: { params: Promise<{ code: 
   return (
     <PageShell>
       <div className="space-y-10">
-        <header>
-          <p className="text-[13px] text-steel"><Link href="/map" className="hover:underline">{t(locale, "nav_map")}</Link> › {regionLabel(locale, region)}</p>
-          <h1 className="mt-1 text-[24px] font-semibold text-ink">{regionLabel(locale, region)}</h1>
-          {page.updated_at && <p className="mt-1 text-[13px] text-steel">{t(locale, "updates_last_run")} {fmtDateTime(page.updated_at, locale)}</p>}
-        </header>
+        <PageHeader title={regionLabel(locale, region)}
+          crumbs={<><Link href="/map" className="hover:text-ink hover:underline">{t(locale, "nav_map")}</Link> › {regionLabel(locale, region)}</>}
+          meta={page.updated_at ? <span>{t(locale, "updates_last_run")} <span className="tabular-nums text-charcoal">{fmtDateTime(page.updated_at, locale)}</span></span> : undefined}
+          actions={TARGET_REGIONS.includes(region) ? <Link href={`/?regions=${region}`} className="text-[14px] text-link-blue hover:underline">{t(locale, "dash_open_country")}</Link> : undefined} />
 
         <section>
           <h2 className="text-[18px] font-semibold text-ink">{t(locale, "country_trending")}</h2>

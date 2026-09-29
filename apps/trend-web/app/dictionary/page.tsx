@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { DictionaryList } from "@/components/dictionary-list";
 import { getMeta, getTermRecords } from "@/lib/data";
@@ -10,10 +11,7 @@ export default async function DictionaryPage() {
   return (
     <PageShell>
     <div className="space-y-6">
-      <header>
-        <h1 className="text-[24px] font-semibold text-ink">{t(locale, "dict_title")}</h1>
-        <p className="mt-1 text-[15px] text-charcoal">{t(locale, "dict_intro")}</p>
-      </header>
+      <PageHeader title={t(locale, "dict_title")} description={t(locale, "dict_intro")} />
       <DictionaryList records={records} locale={locale} readerGen={reader.gen ?? null} updatedAt={meta?.last_run ?? null} />
     </div>
     </PageShell>

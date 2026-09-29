@@ -2,13 +2,14 @@ import Link from "next/link";
 import { TermMediaBlock } from "@/components/term-media";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
+import { StatusBadge } from "@/components/status-badge";
 import { ChangeHistory } from "@/components/history";
 import { Sparkline } from "@/components/sparkline";
 import { TermTimeline } from "@/components/term-timeline";
 import { GenerationCurves } from "@/components/generation-curves";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { getGenerationCurves, getTermRecord, getTermRecords, getTermSignals, getTrendBoard } from "@/lib/data";
-import { riskOf, searchLine } from "@/components/keyword-card";
+import { riskOf, searchLine } from "@/lib/keyword";
 import { t, type Locale } from "@/lib/i18n";
 import { L, fmtDate, joinGens, joinRegions, regionLabel, sourceName, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
@@ -24,12 +25,9 @@ function trendSentence(locale: Locale, lifecycle: string, last4: number, prev4: 
   return `${lifecycle[0].toUpperCase()}${lifecycle.slice(1)}. Mentioned ${last4} times in the last four weeks${cmp || "."}`;
 }
 
-function SectionHeading({ id, num, title }: { id: string; num: number; title: string }) {
-  return (
-    <h2 id={id} className="scroll-mt-4 border-b border-hairline pb-1 text-[18px] font-semibold text-ink">
-      <span className="mr-2 text-steel">{num}.</span>{title}
-    </h2>
-  );
+/* 절 제목 — 번호를 붙이지 않는다(절들은 순서가 아니다, docs/트렌드/디자인-개편.md 원칙 5) */
+function SectionHeading({ id, title }: { id: string; title: string }) {
+  return <h2 id={id} className="scroll-mt-20 border-b border-hairline pb-2 text-[18px] font-semibold text-ink lg:scroll-mt-6">{title}</h2>;
 }
 
 function RefLink({ n }: { n: number }) {
@@ -88,30 +86,24 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
     { id: "refs", title: t(locale, "term_refs"), show: refs.length > 0 },
     { id: "history", title: t(locale, "term_history"), show: record.meanings.length > 0 },
   ].filter((s) => s.show);
-  const heading = (id: string) => <SectionHeading id={id} num={sections.findIndex((s) => s.id === id) + 1} title={sections.find((s) => s.id === id)?.title ?? ""} />;
+  const heading = (id: string) => <SectionHeading id={id} title={sections.find((s) => s.id === id)?.title ?? ""} />;
 
   return (
     <PageShell>
       <article>
         <nav className="text-[13px] text-steel"><Link href="/dictionary" className="hover:text-ink">{t(locale, "dict_title")}</Link> › {record.term.canonical}</nav>
-        <h1 className="mt-2 text-[30px] font-semibold text-ink">{record.term.canonical}</h1>
-        <p className="mt-1 text-[14px] text-steel">
-          {labels.category[record.category]} · {labels.verification[m?.verification ?? "unverified"]}
-          {record.term.aliases && record.term.aliases.length > 0 && <> · {t(locale, "term_other_spellings")}: {record.term.aliases.join(", ")}</>}
-        </p>
+        <h1 lang={record.term.lang === "zh" ? "zh-Hant" : record.term.lang ?? undefined} className="mt-2 text-[30px] leading-[1.25] font-semibold text-ink">{record.term.canonical}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] text-charcoal">
+          <StatusBadge>{labels.verification[m?.verification ?? "unverified"]}</StatusBadge>
+          <span>{labels.category[record.category]}</span>
+          {record.term.aliases && record.term.aliases.length > 0 && <span className="text-steel">{t(locale, "term_other_spellings")}: <span className="text-charcoal">{record.term.aliases.join(", ")}</span></span>}
+        </div>
         {record.term.status === "needs_review" && (
           <p className="mt-4 border border-hairline p-3 text-[14px] text-charcoal"><span className="font-medium text-ink">{t(locale, "term_pending")}</span> {t(locale, "term_pending_more")}</p>
         )}
 
-        <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="min-w-0 space-y-10">
-            {/* 목차 */}
-            <nav aria-label={t(locale, "term_toc")} className="inline-block border border-hairline px-5 py-3 text-[14px]">
-              <p className="font-semibold text-ink">{t(locale, "term_toc")}</p>
-              <ol className="mt-1.5 space-y-0.5">
-                {sections.map((s, i) => <li key={s.id}><a href={`#${s.id}`} className="text-link-blue hover:underline"><span className="mr-1.5 text-steel">{i + 1}.</span>{s.title}</a></li>)}
-              </ol>
-            </nav>
+        <div className="mt-6 grid gap-10 border-t border-hairline pt-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="min-w-0 max-w-[760px] space-y-10">
 
             {m && tx && (
               <section className="space-y-3">
@@ -287,10 +279,10 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
             )}
           </div>
 
-          {/* 정보상자 */}
-          <aside className="lg:sticky lg:top-4 lg:self-start">
-            <div className="border border-hairline">
-              <p className="border-b border-hairline bg-[#f6f7f8] px-4 py-2 text-[14px] font-semibold text-ink">{record.term.canonical}</p>
+          {/* 요약과 목차 — 데스크톱에서는 따라 내려온다. 휴대폰에서는 본문 아래 */}
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <div className="rounded-lg border border-hairline">
+              <p className="border-b border-hairline bg-surface px-4 py-2.5 text-[14px] font-semibold text-ink">{t(locale, "term_summary")}</p>
               <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2 px-4 py-3 text-[13px]">
                 <dt className="text-steel">{t(locale, "dict_categories")}</dt><dd className="text-charcoal">{labels.category[record.category]}</dd>
                 <dt className="text-steel">{t(locale, "term_info_lang")}</dt><dd className="text-charcoal">{termLangLabel(locale, record.term.lang ?? "ko")}</dd>
@@ -332,6 +324,12 @@ export default async function TermPage({ params }: { params: Promise<{ termId: s
                 <dt className="text-steel">{t(locale, "term_info_evidence")}</dt><dd className="text-charcoal tabular-nums">{record.evidences.length}</dd>
               </dl>
             </div>
+            <nav aria-label={t(locale, "term_toc")} className="hidden rounded-lg border border-hairline px-4 py-3 text-[14px] lg:block">
+              <p className="text-[13px] font-semibold text-ink">{t(locale, "term_toc")}</p>
+              <ul className="mt-1.5 space-y-1">
+                {sections.map((s) => <li key={s.id}><a href={`#${s.id}`} className="text-charcoal hover:text-ink hover:underline">{s.title}</a></li>)}
+              </ul>
+            </nav>
           </aside>
         </div>
       </article>

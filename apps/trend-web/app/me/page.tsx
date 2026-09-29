@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { ReaderForm } from "@/components/reader-form";
 import { SignOut } from "@/components/sign-out";
@@ -10,21 +11,15 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
   const locale = await getLocale();
   const [reader, viewer, sp] = await Promise.all([getReader(), getViewer(), searchParams]);
   return (
-    <PageShell>
+    <PageShell width="narrow">
       <div className="space-y-6">
-        <header>
-          <div className="flex items-baseline justify-between gap-4">
-            <h1 className="text-[24px] font-semibold text-ink">{t(locale, "me_title")}</h1>
-            <div className="flex items-baseline gap-3 whitespace-nowrap">
-              {viewer && <span className="text-[13px] text-steel">{viewer.user}</span>}
-              <SignOut label={t(locale, "admin_sign_out")} />
-            </div>
-          </div>
-          <p className="mt-1 max-w-[560px] text-[15px] text-charcoal">{t(locale, "me_intro")}</p>
+        <PageHeader title={t(locale, "me_title")} description={t(locale, "me_intro")}
+          meta={viewer ? <span className="text-charcoal">{viewer.user}</span> : undefined}
+          actions={<SignOut label={t(locale, "admin_sign_out")} />}>
           {sp.denied === "review" && (
-            <p role="alert" className="mt-3 border-l-2 border-hairline-strong pl-3 text-[14px] text-charcoal">{t(locale, "me_denied_review")}</p>
+            <p role="alert" className="rounded-md border border-hairline-strong px-3 py-2 text-[14px] text-charcoal">{t(locale, "me_denied_review")}</p>
           )}
-        </header>
+        </PageHeader>
         <ReaderForm initial={reader} locale={locale} />
         {viewer?.reviewer && (
           <p className="border-t border-hairline pt-4 text-[13px]">

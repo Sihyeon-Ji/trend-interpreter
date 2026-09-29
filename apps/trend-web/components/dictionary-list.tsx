@@ -10,9 +10,9 @@ import type { Generation, TermRecord } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const GENS: Generation[] = ["10s", "20s", "30s", "40s", "50s+"];
-const control = "h-9 w-full rounded-[4px] border border-hairline bg-white px-2.5 text-[13px] text-ink focus:border-ink focus:outline-none";
+const control = "h-10 rounded-md border border-hairline-strong bg-white px-3 text-[14px] text-ink focus:border-ink focus:outline-none";
 
-/* 위키식 사전 색인: 큰 검색창, 왼쪽에 분류·필터·최근 바뀐 문서, 오른쪽에 첫 글자 색인. */
+/* 사전 색인: 도구 줄(검색·필터·분류) → 최근 바뀐 표현 → 첫 글자 색인과 목록. 앱 틀에 왼쪽 메뉴가 있어 필터 칸을 따로 두지 않는다. */
 export function DictionaryList({ records, locale, readerGen = null, updatedAt = null }: { records: TermRecord[]; locale: Locale; readerGen?: string | null; updatedAt?: string | null }) {
   const [myGenFirst, setMyGenFirst] = useState(!!readerGen);
   const [gen, setGen] = useState<Generation | "">("");
@@ -53,150 +53,95 @@ export function DictionaryList({ records, locale, readerGen = null, updatedAt = 
     return !!gens.length && !gens.includes("all") && !gens.includes(readerGen as never);
   };
   const groups = groupByInitial(shown, locale);
+  const pill = (on: boolean) => cn("inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] whitespace-nowrap",
+    on ? "border-ink bg-ink text-white" : "border-hairline-strong bg-background text-charcoal hover:border-ink hover:text-ink");
 
   return (
-    <div className="space-y-6">
-      {/* 검색 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <input id="dict-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t(locale, "dict_search")}
-          className="h-12 w-full max-w-[640px] rounded-[6px] border border-hairline-strong bg-white px-4 text-[16px] text-ink focus:border-ink focus:outline-none" />
-        <span className="text-[13px] text-steel tabular-nums">
-          {locale === "ko" ? `표현 ${shown.length}개` : `${shown.length} entries`}{updatedAt && <> · {t(locale, "updates_last_run")} {fmtDate(updatedAt)}</>}
-        </span>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* 왼쪽: 분류·필터·최근 — 좁은 화면에서는 접어 둔다 */}
-        <details className="text-[13px] lg:hidden">
-          <summary className="cursor-pointer font-semibold text-ink">{t(locale, "dict_categories")} · {t(locale, "dict_language")} · {t(locale, "dict_generation")} · {t(locale, "dict_region")}</summary>
-          <div className="mt-3 space-y-6">
-          <section>
-            <h2 className="mb-1.5 font-semibold text-ink">{t(locale, "dict_categories")}</h2>
-            <ul className="space-y-0.5">
-              <li><button type="button" onClick={() => setCategory("")} className={cn("flex w-full justify-between hover:text-ink", category === "" ? "font-medium text-ink" : "text-charcoal")}><span>{t(locale, "dict_all")}</span><span className="tabular-nums text-steel">{records.length}</span></button></li>
-              {categories.map(([c, n]) => (
-                <li key={c}><button type="button" onClick={() => setCategory(category === c ? "" : c)} className={cn("flex w-full justify-between hover:text-ink", category === c ? "font-medium text-ink" : "text-charcoal")}><span>{labels.category[c as keyof typeof labels.category] ?? c}</span><span className="tabular-nums text-steel">{n}</span></button></li>
-              ))}
-              {pendingCount > 0 && <li className="pt-1 text-steel">{t(locale, "dict_pending_count")} {pendingCount}</li>}
-            </ul>
-          </section>
-          <section className="space-y-2">
-            <label className="block text-steel">{t(locale, "dict_language")}
-              <select value={lang} onChange={(e) => setLang(e.target.value)} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {langs.map((l) => <option key={l} value={l}>{termLangLabel(locale, l)}</option>)}
-              </select>
-            </label>
-            <label className="block text-steel">{t(locale, "dict_generation")}
-              <select value={gen} onChange={(e) => setGen(e.target.value as Generation | "")} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {GENS.map((g) => <option key={g} value={g}>{labels.generation[g]}</option>)}
-              </select>
-            </label>
-            <label className="block text-steel">{t(locale, "dict_region")}
-              <select value={region} onChange={(e) => setRegion(e.target.value)} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
-              </select>
-            </label>
-            {readerGen && (
-              <label className="flex items-center gap-1.5 text-charcoal"><input type="checkbox" checked={myGenFirst} onChange={(e) => setMyGenFirst(e.target.checked)} />{t(locale, "dict_my_gen_first")}</label>
-            )}
-          </section>
-          {recent.length > 0 && (
-            <section>
-              <h2 className="mb-1.5 font-semibold text-ink">{t(locale, "dict_recent")}</h2>
-              <ul className="space-y-1">
-                {recent.map(({ r, at }) => (
-                  <li key={r.term.term_id} className="flex justify-between gap-2"><Link href={`/dictionary/${r.term.term_id}`} className="truncate text-charcoal hover:text-ink hover:underline">{r.term.canonical}</Link><span className="shrink-0 tabular-nums text-steel">{fmtDate(at).slice(5)}</span></li>
-                ))}
-              </ul>
-            </section>
+    <div className="space-y-5">
+      {/* 도구 줄: 검색 + 필터 한 줄. 좁은 화면에서는 줄을 바꿔 쌓는다(두 벌을 그리지 않는다) */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="dict-search" className="sr-only">{t(locale, "dict_search")}</label>
+          <input id="dict-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t(locale, "dict_search")}
+            className="h-10 w-full rounded-md border border-hairline-strong bg-white px-3.5 text-[15px] text-ink placeholder:text-steel focus:border-ink focus:outline-none sm:max-w-[420px]" />
+          <select aria-label={t(locale, "dict_language")} value={lang} onChange={(e) => setLang(e.target.value)} className={cn(control, "w-auto")}>
+            <option value="">{t(locale, "dict_language")}: {t(locale, "dict_all")}</option>
+            {langs.map((l) => <option key={l} value={l}>{termLangLabel(locale, l)}</option>)}
+          </select>
+          <select aria-label={t(locale, "dict_generation")} value={gen} onChange={(e) => setGen(e.target.value as Generation | "")} className={cn(control, "w-auto")}>
+            <option value="">{t(locale, "dict_generation")}: {t(locale, "dict_all")}</option>
+            {GENS.map((g) => <option key={g} value={g}>{labels.generation[g]}</option>)}
+          </select>
+          <select aria-label={t(locale, "dict_region")} value={region} onChange={(e) => setRegion(e.target.value)} className={cn(control, "w-auto")}>
+            <option value="">{t(locale, "dict_region")}: {t(locale, "dict_all")}</option>
+            {regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
+          </select>
+          {readerGen && (
+            <label className="flex items-center gap-1.5 text-[13px] text-charcoal"><input type="checkbox" checked={myGenFirst} onChange={(e) => setMyGenFirst(e.target.checked)} />{t(locale, "dict_my_gen_first")}</label>
           )}
-          </div>
-        </details>
-        <aside className="hidden space-y-6 text-[13px] lg:block">
-          <section>
-            <h2 className="mb-1.5 font-semibold text-ink">{t(locale, "dict_categories")}</h2>
-            <ul className="space-y-0.5">
-              <li><button type="button" onClick={() => setCategory("")} className={cn("flex w-full justify-between hover:text-ink", category === "" ? "font-medium text-ink" : "text-charcoal")}><span>{t(locale, "dict_all")}</span><span className="tabular-nums text-steel">{records.length}</span></button></li>
-              {categories.map(([c, n]) => (
-                <li key={c}><button type="button" onClick={() => setCategory(category === c ? "" : c)} className={cn("flex w-full justify-between hover:text-ink", category === c ? "font-medium text-ink" : "text-charcoal")}><span>{labels.category[c as keyof typeof labels.category] ?? c}</span><span className="tabular-nums text-steel">{n}</span></button></li>
-              ))}
-              {pendingCount > 0 && <li className="pt-1 text-steel">{t(locale, "dict_pending_count")} {pendingCount}</li>}
-            </ul>
-          </section>
-          <section className="space-y-2">
-            <label className="block text-steel">{t(locale, "dict_language")}
-              <select value={lang} onChange={(e) => setLang(e.target.value)} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {langs.map((l) => <option key={l} value={l}>{termLangLabel(locale, l)}</option>)}
-              </select>
-            </label>
-            <label className="block text-steel">{t(locale, "dict_generation")}
-              <select value={gen} onChange={(e) => setGen(e.target.value as Generation | "")} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {GENS.map((g) => <option key={g} value={g}>{labels.generation[g]}</option>)}
-              </select>
-            </label>
-            <label className="block text-steel">{t(locale, "dict_region")}
-              <select value={region} onChange={(e) => setRegion(e.target.value)} className={cn(control, "mt-1")}>
-                <option value="">{t(locale, "dict_all")}</option>
-                {regions.map((r) => <option key={r} value={r}>{regionLabel(locale, r)}</option>)}
-              </select>
-            </label>
-            {readerGen && (
-              <label className="flex items-center gap-1.5 text-charcoal"><input type="checkbox" checked={myGenFirst} onChange={(e) => setMyGenFirst(e.target.checked)} />{t(locale, "dict_my_gen_first")}</label>
-            )}
-          </section>
-          {recent.length > 0 && (
-            <section>
-              <h2 className="mb-1.5 font-semibold text-ink">{t(locale, "dict_recent")}</h2>
-              <ul className="space-y-1">
-                {recent.map(({ r, at }) => (
-                  <li key={r.term.term_id} className="flex justify-between gap-2"><Link href={`/dictionary/${r.term.term_id}`} className="truncate text-charcoal hover:text-ink hover:underline">{r.term.canonical}</Link><span className="shrink-0 tabular-nums text-steel">{fmtDate(at).slice(5)}</span></li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </aside>
-
-        {/* 오른쪽: 첫 글자 색인 */}
-        <div className="min-w-0">
-          <nav aria-label={t(locale, "dict_index")} className="flex flex-wrap gap-x-2.5 gap-y-1 border-b border-hairline pb-3 text-[13px]">
-            {groups.map((g) => <a key={g.key} href={`#idx-${encodeURIComponent(g.key)}`} className="text-charcoal hover:text-ink hover:underline">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</a>)}
-          </nav>
-          {groups.length === 0 && <p className="py-6 text-[14px] text-steel">{t(locale, "ex_no_result")}</p>}
-          {groups.map((g) => (
-            <section key={g.key} id={`idx-${encodeURIComponent(g.key)}`} className="scroll-mt-4 py-4">
-              <h2 className="text-[18px] font-semibold text-ink">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</h2>
-              <ul className="mt-2 divide-y divide-hairline-soft">
-                {g.items.map((r) => {
-                  const m = currentMeaning(r);
-                  const tx = textFor(r, locale);
-                  return (
-                    <li key={r.term.term_id} className="py-2.5">
-                      <div className="flex flex-wrap items-baseline gap-x-2">
-                        <Link href={`/dictionary/${r.term.term_id}`} className="text-[16px] font-semibold text-ink hover:underline">{r.term.canonical}</Link>
-                        {r.term.aliases && r.term.aliases.length > 0 && <span className="text-[13px] text-steel">{r.term.aliases.slice(0, 3).join(", ")}</span>}
-                        <span className="ml-auto text-[12px] text-steel">
-                          {labels.category[r.category]}{m && <> · {joinGens(locale, m.generations)}</>}
-                          {r.term.status === "needs_review" && <> · {t(locale, "dict_pending_short")}</>}
-                          {unfamiliar(r) && <> · {t(locale, "dict_unfamiliar")}</>}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 line-clamp-2 text-[14px] text-charcoal">
-                        {tx?.expansion && <span className="font-medium text-ink">{tx.expansion}. </span>}
-                        {tx?.definition ?? m?.definition ?? t(locale, "dict_pending")}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+        </div>
+        <div role="group" aria-label={t(locale, "dict_categories")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+          <button type="button" onClick={() => setCategory("")} aria-pressed={category === ""} className={pill(category === "")}>
+            {t(locale, "dict_all")} <span className="tabular-nums opacity-75">{records.length}</span>
+          </button>
+          {categories.map(([c, n]) => (
+            <button key={c} type="button" onClick={() => setCategory(category === c ? "" : c)} aria-pressed={category === c} className={pill(category === c)}>
+              {labels.category[c as keyof typeof labels.category] ?? c} <span className="tabular-nums opacity-75">{n}</span>
+            </button>
           ))}
         </div>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-steel">
+          <span className="tabular-nums">{locale === "ko" ? `표현 ${shown.length}개` : `${shown.length} entries`}</span>
+          {updatedAt && <span>{t(locale, "updates_last_run")} <span className="tabular-nums text-charcoal">{fmtDate(updatedAt)}</span></span>}
+          {pendingCount > 0 && <span>{t(locale, "dict_pending_count")} <span className="tabular-nums text-charcoal">{pendingCount}</span></span>}
+        </p>
       </div>
+
+      {recent.length > 0 && (
+        <section aria-labelledby="dict-recent" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-y border-hairline py-3 text-[13px]">
+          <h2 id="dict-recent" className="text-[13px] font-semibold text-ink">{t(locale, "dict_recent")}</h2>
+          {recent.map(({ r }) => (
+            <Link key={r.term.term_id} href={`/dictionary/${r.term.term_id}`} className="text-charcoal hover:text-ink hover:underline">{r.term.canonical}</Link>
+          ))}
+        </section>
+      )}
+
+      {/* 첫 글자 색인 */}
+      <nav aria-label={t(locale, "dict_index")} className="flex flex-wrap gap-x-3 gap-y-1 text-[14px]">
+        {groups.map((g) => <a key={g.key} href={`#idx-${encodeURIComponent(g.key)}`} className="text-charcoal hover:text-ink hover:underline">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</a>)}
+      </nav>
+      {groups.length === 0 && <p className="rounded-lg border border-hairline px-4 py-8 text-center text-[14px] text-charcoal">{t(locale, "ex_no_result")}</p>}
+      {groups.map((g) => (
+        <section key={g.key} id={`idx-${encodeURIComponent(g.key)}`} aria-labelledby={`idx-h-${encodeURIComponent(g.key)}`} className="scroll-mt-16">
+          <h2 id={`idx-h-${encodeURIComponent(g.key)}`} className="border-b border-hairline pb-2 text-[16px] font-semibold text-ink">{g.key === "#" ? t(locale, "dict_other_scripts") : g.key}</h2>
+          <ul className="divide-y divide-hairline">
+            {g.items.map((r) => {
+              const m = currentMeaning(r);
+              const tx = textFor(r, locale);
+              return (
+                <li key={r.term.term_id} className="grid gap-x-6 gap-y-1 py-3 md:grid-cols-[minmax(0,1fr)_200px]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      <Link href={`/dictionary/${r.term.term_id}`} className="text-[16px] font-semibold text-ink hover:underline">{r.term.canonical}</Link>
+                      {r.term.aliases && r.term.aliases.length > 0 && <span className="text-[13px] text-steel">{r.term.aliases.slice(0, 3).join(", ")}</span>}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">
+                      {tx?.expansion && <span className="font-medium text-ink">{tx.expansion}. </span>}
+                      {tx?.definition ?? m?.definition ?? t(locale, "dict_pending")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap content-start items-center gap-x-3 gap-y-1 text-[12px] text-steel md:justify-end">
+                    <span>{labels.category[r.category]}</span>
+                    {m && <span>{joinGens(locale, m.generations)}</span>}
+                    {r.term.status === "needs_review" && <span className="text-charcoal">{t(locale, "dict_pending_short")}</span>}
+                    {unfamiliar(r) && <span className="text-charcoal">{t(locale, "dict_unfamiliar")}</span>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { RecommendForm } from "@/components/recommend-form";
 import { t } from "@/lib/i18n";
@@ -13,10 +14,7 @@ export default async function RecommendPage() {
   return (
     <PageShell>
       <div className="space-y-6">
-        <header>
-          <h1 className="text-[24px] font-semibold text-ink">{t(locale, "rec_title")}</h1>
-          <p className="mt-1 max-w-[640px] text-[15px] text-charcoal">{t(locale, "rec_intro")}</p>
-        </header>
+        <PageHeader title={t(locale, "rec_title")} description={t(locale, "rec_intro")} />
         {/* 화면 언어를 바꾸면 새로 시작한다 — 추천·결과물의 설명은 요청한 때의 언어로 쓰여 한국어 설명이 영어 화면에 남았다(검토 3차) */}
         <RecommendForm key={locale} locale={locale} initialRegions={initial} />
       </div>

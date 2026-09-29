@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (await readSession((await cookies()).get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET ?? "")) redirect(next);
 
   return (
-    <main className="flex flex-1 items-start justify-center px-4 py-16 sm:py-24">
+    <main id="main" className="flex flex-1 items-start justify-center px-4 py-16 sm:py-24">
       <div className="w-full max-w-[352px]">
         <h1 className="text-[20px] font-semibold text-ink">{t(locale, "login_title")}</h1>
         <p className="mt-2 mb-8 text-[14px] leading-relaxed text-steel">{t(locale, "login_intro")}</p>
