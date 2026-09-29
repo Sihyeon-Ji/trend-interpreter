@@ -10,36 +10,43 @@ const ko = {
   search_placeholder: "밈 이름이나 뜻으로 찾기",
   search_label: "밈 찾기",
   search_button: "찾기",
+  search_filter_list: "목록에서 거르기",
+  search_none: "사전에 없는 말입니다.",
+  search_loading: "사전을 불러오는 중",
+  search_results: "찾은 밈",
   skip: "본문으로 건너뛰기",
 
   // 머리
   headline_prefix: "지금",
   headline_suffix: "에서 쓰이는 밈",
-  headline_all: "목표 지역 전체",
+  headline_all: "모든 시장",
   count_unit: "개",
   updated: "갱신",
-  window_note: "최근 4주 기준",
-  regions_label: "지역 고르기",
-  regions_hint: "여러 곳을 고를 수 있습니다. 아무것도 고르지 않으면 목표 지역 전체입니다.",
-  regions_clear: "전체",
+  window_note: "검색 추이는 최근 4주와 그 전 4주를 견줍니다",
+  regions_label: "시장 고르기",
+  regions_all: "모든 시장",
+  region_global: "전 세계",
 
   // 지난 방문
-  since_first: "이번이 첫 방문입니다. 다음부터는 그사이 바뀐 것을 여기에 모아 드립니다.",
   since_prefix: "지난 방문",
   since_after: "이후",
+  since_week: "이번 주",
+  since_first: "처음 오셨네요. 이번 주에 바뀐 것부터 보여 드립니다.",
   since_verified: "새로 오른 밈",
   since_changed: "뜻이 바뀐 밈",
   since_spike: "검색 급증",
   since_spike_note: "검색어라서 밈이 아닐 수 있습니다",
-  since_none: "그사이 사전에 바뀐 것이 없습니다.",
+  since_none: "그사이 바뀐 것이 없어요. 이번 주에는",
+  since_scope: "고른 시장 기준",
+  since_week_only: "최근 7일까지만 모아 둡니다",
   since_all: "최근 변화 전체 보기",
-  since_dismiss: "닫기",
 
   // 주목
   spotlight_title: "이번 주 주목",
-  spotlight_by_growth: "최근 4주 검색 관심이 가장 많이 늘어난 밈입니다.",
-  spotlight_by_rank: "검색 추이 자료가 없어 목록 앞의 밈을 보입니다.",
+  spotlight_by_growth: "검색 관심이 가장 많이 늘어난 밈입니다. 곡선의 진한 부분이 최근 4주, 옅은 부분이 그 전 4주입니다.",
+  spotlight_by_rank: "이 시장은 검색 추이 자료가 없어 목록 앞의 밈을 보입니다.",
   spotlight_growth: "최근 4주",
+  spotlight_fading: "쓰임은 식는데 검색은 늘어남",
   spotlight_video: "영상 보기",
 
   // 목록
@@ -48,17 +55,21 @@ const ko = {
   tab_caution: "조심할",
   col_rank: "순위",
   col_name: "표현",
-  col_trend: "쓰임 추이",
+  col_trend: "검색 추이",
   col_change: "변화",
   col_stage: "단계",
+  col_last: "마지막 쓰임",
+  sort_label: "정렬",
   sort_default: "기본 순",
   sort_growth: "늘어난 순",
-  sort_label: "정렬",
+  sort_default_note: "퍼진 정도와 단계 순",
+  sort_growth_note: "검색 관심이 늘어난 순. 셀 수 없는 밈은 뒤에",
   new_mark: "새로 올라옴",
-  no_curve_row: "자료 없음",
-  no_curve_list: "이 지역은 검색 추이 자료가 아직 없습니다. 네이버 데이터랩은 한국 검색만 잽니다.",
+  no_curve_list: "이 시장은 검색 추이 자료가 아직 없습니다. 네이버 데이터랩은 한국 검색만 잽니다.",
+  no_curve_some: "검색 추이는 한국에서 검색된 밈에만 있습니다. 나머지는 마지막으로 쓰인 날을 보입니다.",
+  stale_note: "검색 자료가 오래돼 변화를 세지 않았습니다",
   list_empty: "이 조건에 맞는 밈이 없습니다.",
-  list_empty_hint: "지역을 바꾸거나 검색어를 지워 보세요.",
+  list_empty_hint: "시장을 바꾸거나 검색어를 지워 보세요.",
   search_result: "검색 결과",
   search_more: "사전 전체에서 찾기",
   search_clear: "검색 지우기",
@@ -66,9 +77,11 @@ const ko = {
   prev_page: "이전 쪽",
   page_of: "쪽",
   flat: "변화 없음",
+  no_data: "자료 없음",
 
   // 미리보기
   preview_pick: "왼쪽 목록에서 밈을 고르면 여기에 뜻과 유래가 보입니다.",
+  preview_of: "미리보기",
   preview_open: "자세히 보기",
   make: "이 밈으로 만들기",
   make_blocked: "사용 자제 밈은 만들기 대상이 아닙니다.",
@@ -88,19 +101,28 @@ const ko = {
   risk_unknown: "아직 살펴보지 않음",
   regions: "쓰는 나라",
   last_seen: "마지막 확인",
+  last_used: "마지막 쓰임",
   sources: "출처",
   interest: "검색 관심",
   interest_note: "네이버 데이터랩, 나이대별. 각 나이대의 최고점이 100입니다.",
   interest_none: "검색 추이 자료가 없습니다. 네이버 데이터랩은 한국에서 검색된 말만 잽니다.",
+  interest_thin: "검색이 드물어 변화를 세지 않았습니다. 나이대마다 두 창 모두 검색이 있던 날이 20일은 돼야 셉니다.",
+  interest_method: "최근 28일과 그 전 28일의 검색 지수 합을 견줍니다. 두 창 모두 검색이 있던 날이 20일 미만인 나이대는 세지 않습니다.",
+  interest_counted: "센 나이대",
   growth_vs: "최근 4주, 그 전 4주 대비",
   loading_more: "유래를 불러오는 중",
   aliases: "다른 표기",
+  not_counted: "자료 부족",
 
   // 지켜보기
   watchlist_title: "내가 지켜보는 밈",
   watchlist_empty: "미리보기나 항목 화면의 '지켜보기'를 누르면 여기에 모입니다.",
-  watchlist_not_here: "고른 지역 목록에는 없습니다",
+  watchlist_not_here: "고른 시장 목록에는 없습니다",
+  watchlist_saved: "저장할 때",
+  watchlist_now: "지금",
+  watchlist_same: "저장할 때와 같음",
   watchlist_remove: "빼기",
+  watchlist_loading: "지금 상태를 불러오는 중",
 
   // 항목 화면
   entry_back: "리포트로",
@@ -129,6 +151,7 @@ const ko = {
   entry_missing_hint: "주소가 틀렸거나 사전에서 내려간 항목입니다.",
   entry_first_seen: "처음 확인",
   entry_expansion: "풀어 쓰면",
+  entry_under_review: "확인 중",
   media_license: "출처",
   video_open: "YouTube 에서 보기",
   peak: "정점",
@@ -139,7 +162,7 @@ const ko = {
   error_retry: "다시 불러오기",
   loading: "불러오는 중",
   footer_sources: "자료: 네이버 데이터랩(한국 검색), 나무위키·위키백과, 기사, 영상. 커뮤니티 글은 집계에만 쓰고 화면에 내지 않습니다.",
-  footer_draft: "디자인 시안 f-report — 트렌드 리포트형",
+  footer_draft: "디자인 시안 f-report, 트렌드 리포트형",
 
   // 값 라벨
   stage_emerging: "새로 퍼지는 중",
@@ -163,7 +186,7 @@ const ko = {
   cat_product: "제품",
   cat_other: "표현",
   gen_10s: "10대", gen_20s: "20대", gen_30s: "30대", gen_40s: "40대", "gen_50s+": "50대 이상",
-  kind_wiki: "위키", kind_news: "기사", kind_short: "영상", kind_web: "문서",
+  kind_wiki: "문서", kind_news: "기사", kind_short: "영상",
 };
 
 const en: typeof ko = {
@@ -175,33 +198,40 @@ const en: typeof ko = {
   search_placeholder: "Find a meme by name or meaning",
   search_label: "Find a meme",
   search_button: "Find",
+  search_filter_list: "Filter the list for",
+  search_none: "Not in the dictionary.",
+  search_loading: "Loading the dictionary",
+  search_results: "Memes found",
   skip: "Skip to content",
 
   headline_prefix: "memes in use now in",
   headline_suffix: "",
-  headline_all: "all target markets",
+  headline_all: "all markets",
   count_unit: "",
   updated: "updated",
-  window_note: "last 4 weeks",
+  window_note: "search trends compare the last 4 weeks with the 4 before",
   regions_label: "Choose markets",
-  regions_hint: "Pick several. With nothing picked you see all target markets.",
-  regions_clear: "All",
+  regions_all: "All markets",
+  region_global: "Worldwide",
 
-  since_first: "This is your first visit. From now on, changes since your last visit are gathered here.",
   since_prefix: "Since your last visit",
   since_after: "",
+  since_week: "This week",
+  since_first: "First time here. Here is what changed this week.",
   since_verified: "new memes",
   since_changed: "changed meanings",
   since_spike: "search spikes",
   since_spike_note: "search terms, not necessarily memes",
-  since_none: "Nothing in the dictionary changed since then.",
+  since_none: "nothing changed. This week:",
+  since_scope: "for the chosen markets",
+  since_week_only: "changes are kept for 7 days",
   since_all: "See all recent changes",
-  since_dismiss: "Dismiss",
 
   spotlight_title: "This week's picks",
-  spotlight_by_growth: "Memes whose search interest grew the most in the last 4 weeks.",
+  spotlight_by_growth: "Memes whose search interest grew the most. The dark part of the curve is the last 4 weeks, the pale part the 4 before.",
   spotlight_by_rank: "No search-trend data for this market, so the top of the list is shown.",
   spotlight_growth: "last 4 weeks",
+  spotlight_fading: "use is fading, but searches are up",
   spotlight_video: "Watch the video",
 
   tab_rising: "In use",
@@ -212,12 +242,16 @@ const en: typeof ko = {
   col_trend: "Search trend",
   col_change: "Change",
   col_stage: "Stage",
+  col_last: "Last used",
+  sort_label: "Sort",
   sort_default: "Default order",
   sort_growth: "Fastest growing",
-  sort_label: "Sort",
+  sort_default_note: "by reach, then stage",
+  sort_growth_note: "by search growth; memes we cannot count come last",
   new_mark: "New",
-  no_curve_row: "no data",
   no_curve_list: "No search-trend data for this market yet. Naver DataLab only measures searches in Korea.",
+  no_curve_some: "Search trends exist only for memes searched in Korea. The others show when they were last used.",
+  stale_note: "search data is too old to count a change",
   list_empty: "No memes match.",
   list_empty_hint: "Change the markets or clear the search.",
   search_result: "results for",
@@ -227,8 +261,10 @@ const en: typeof ko = {
   prev_page: "Previous page",
   page_of: "page",
   flat: "no change",
+  no_data: "no data",
 
   preview_pick: "Pick a meme in the list to see its meaning and origin here.",
+  preview_of: "Preview",
   preview_open: "Open the full entry",
   make: "Make with this meme",
   make_blocked: "Memes marked 'avoid' cannot be used for content.",
@@ -248,18 +284,27 @@ const en: typeof ko = {
   risk_unknown: "Not checked yet",
   regions: "Used in",
   last_seen: "Last seen",
+  last_used: "Last used",
   sources: "Sources",
   interest: "Search interest",
   interest_note: "Naver DataLab by age group; each group's peak is 100.",
   interest_none: "No search-trend data. Naver DataLab only covers terms searched in Korea.",
+  interest_thin: "Searches are too sparse to count a change. An age group counts only when both windows have 20 searched days.",
+  interest_method: "We compare the sum of the search index over the last 28 days with the 28 days before. Age groups with fewer than 20 searched days in either window are not counted.",
+  interest_counted: "Age groups counted",
   growth_vs: "last 4 weeks vs the 4 before",
   loading_more: "Loading the origin",
   aliases: "Also written",
+  not_counted: "too sparse",
 
   watchlist_title: "Memes I'm watching",
   watchlist_empty: "Press 'Watch' in the preview or on an entry to collect memes here.",
   watchlist_not_here: "not in the current market list",
+  watchlist_saved: "when saved",
+  watchlist_now: "now",
+  watchlist_same: "unchanged since saved",
   watchlist_remove: "Remove",
+  watchlist_loading: "Loading the current state",
 
   entry_back: "Back to the report",
   entry_media: "Featured scene",
@@ -287,6 +332,7 @@ const en: typeof ko = {
   entry_missing_hint: "The address may be wrong, or the entry was taken down.",
   entry_first_seen: "First seen",
   entry_expansion: "Spelled out",
+  entry_under_review: "under review",
   media_license: "Source",
   video_open: "Watch on YouTube",
   peak: "peak",
@@ -296,7 +342,7 @@ const en: typeof ko = {
   error_retry: "Reload",
   loading: "Loading",
   footer_sources: "Data: Naver DataLab (Korean search), Namuwiki and Wikipedia, news articles, videos. Community posts are counted only and never shown.",
-  footer_draft: "Design draft f-report — trend report",
+  footer_draft: "Design draft f-report, trend report",
 
   stage_emerging: "just spreading",
   stage_rising: "on the rise",
@@ -319,7 +365,7 @@ const en: typeof ko = {
   cat_product: "product",
   cat_other: "expression",
   gen_10s: "teens", gen_20s: "20s", gen_30s: "30s", gen_40s: "40s", "gen_50s+": "50s+",
-  kind_wiki: "wiki", kind_news: "news", kind_short: "video", kind_web: "doc",
+  kind_wiki: "wiki", kind_news: "news", kind_short: "video",
 };
 
 export type CopyKey = keyof typeof ko;
@@ -334,18 +380,32 @@ export const kindLabel = (locale: Locale, k: string) => COPY[locale][`kind_${k}`
 export const riskLabel = (locale: Locale, r: string | null | undefined) =>
   r === "avoid" ? COPY[locale].risk_avoid : r === "caution" ? COPY[locale].risk_caution : r === "none" ? COPY[locale].risk_none : COPY[locale].risk_unknown;
 
-export const REGIONS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"];
+/** 칩 순서: 목표 시장 열 곳, 그리고 목표 시장 밖에서 널리 쓰이는 밈(GLOBAL) */
+export const TARGET = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"];
+export const REGIONS = [...TARGET, "GLOBAL"];
 const REGION_NAME: Record<Locale, Record<string, string>> = {
   ko: { KR: "한국", JP: "일본", TW: "대만", HK: "홍콩", TH: "태국", VN: "베트남", ID: "인도네시아", PH: "필리핀", MY: "말레이시아", SG: "싱가포르", GLOBAL: "전 세계", US: "미국", GB: "영국", CN: "중국", IN: "인도", AU: "호주", RU: "러시아", DE: "독일", FR: "프랑스", BR: "브라질", MX: "멕시코", CA: "캐나다" },
   en: { KR: "Korea", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", TH: "Thailand", VN: "Vietnam", ID: "Indonesia", PH: "Philippines", MY: "Malaysia", SG: "Singapore", GLOBAL: "worldwide", US: "United States", GB: "United Kingdom", CN: "China", IN: "India", AU: "Australia", RU: "Russia", DE: "Germany", FR: "France", BR: "Brazil", MX: "Mexico", CA: "Canada" },
 };
 export const regionName = (locale: Locale, code: string) => REGION_NAME[locale][code] ?? code;
 
+/** ?regions= 값 → 시장 코드. 없으면 한국(사용자 다수), 'all' 이면 모든 시장([]). 모르는 코드는 버린다. */
+export function parseRegions(raw: string | string[] | undefined): string[] {
+  const v = [raw].flat().filter(Boolean).join(",").trim();
+  if (!v) return ["KR"];
+  if (v.toLowerCase() === "all") return [];
+  const asked = new Set(v.split(",").map((s) => s.trim().toUpperCase()));
+  const picked = REGIONS.filter((r) => asked.has(r));
+  return picked.length ? picked : ["KR"];
+}
+/** 시장 코드 → 주소 값. 한국만이면 비운다(기본값), 아무것도 없으면 'all'. */
+export const regionsParam = (codes: string[]) => (codes.length === 0 ? "all" : codes.length === 1 && codes[0] === "KR" ? "" : codes.join(","));
+
 /** "한국과 일본" / "Korea and Japan" — 머리 문장용 */
 export function regionSentence(locale: Locale, codes: string[]) {
   const names = codes.map((r) => regionName(locale, r));
   if (!names.length) return COPY[locale].headline_all;
-  if (locale === "ko") return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")}과 ${names.at(-1)}`.replace(/([가-힣])과 /, (m, ch) => (hasBatchim(ch) ? `${ch}과 ` : `${ch}와 `));
+  if (locale === "ko") return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")}${hasBatchim(names.at(-2)!.at(-1)!) ? "과" : "와"} ${names.at(-1)}`;
   return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
-const hasBatchim = (ch: string) => (ch.charCodeAt(0) - 0xac00) % 28 !== 0;
+const hasBatchim = (ch: string) => { const code = ch.charCodeAt(0) - 0xac00; return code >= 0 && code < 11172 ? code % 28 !== 0 : false; };

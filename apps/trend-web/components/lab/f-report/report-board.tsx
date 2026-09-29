@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, use, useMemo, useState, useSyncExternalStore } from "react";
+import { Suspense, use, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
-import { c, categoryLabel, diffusionLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report-copy";
-import { fmtDay, type Row, type SourceRef } from "@/lib/lab/f-report";
-import type { TermDetail } from "@/lib/lab/f-report-detail";
+import { c, categoryLabel, diffusionLabel, kindLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report-copy";
+import { fitClass, fmtDay, type RiskNote, type Row, type SourceRef } from "@/lib/lab/f-report";
 import type { KeywordList } from "@/lib/types";
 import { GenCurves, Sparkline, growthText } from "./charts";
+import { loadDetail, useMounted } from "./detail-client";
 import { WatchButton } from "./watch-button";
 
 interface Props {
@@ -19,28 +19,40 @@ interface Props {
   pageSize: number;
   initialList: KeywordList;
   q: string;
-  regions: string[];
-  hasCurves: boolean;
+  regionsParam: string;
+  hasCurves: boolean;      // 이 리포트에 검색 곡선이 하나라도 있나(한국이 들어 있을 때만)
 }
 
 const LISTS: KeywordList[] = ["rising", "fading", "caution"];
 const entryHref = (id: string) => `/lab/f-report/m/${encodeURIComponent(id)}`;
 
-/** 순위 목록 + (넓은 화면) 미리보기. 행은 링크다 — 넓은 화면에서 보통 클릭은 미리보기에 띄우고, 새 탭·휴대폰은 항목 화면으로 간다. */
-export function ReportBoard({ locale, lists, totals, page, pageSize, initialList, q, regions, hasCurves }: Props) {
+/** 순위 목록 + (넓은 화면) 미리보기. 행은 링크다 — 넓은 화면에서 보통 클릭은 미리보기에 띄우고, 새 탭·휴대폰은 항목 화면으로 간다.
+ *  순위 숫자는 '늘어난 순' 일 때만 — 기본 순은 백엔드 규칙(퍼진 정도 → 단계 → 언급 → 최근 쓰임)의 순서라 순위라 부르지 않는다. */
+export function ReportBoard({ locale, lists, totals, page, pageSize, initialList, q, regionsParam, hasCurves }: Props) {
   const [list, setList] = useState<KeywordList>(initialList);
   const [sort, setSort] = useState<"default" | "growth">("default");
   const [selected, setSelected] = useState<string | null>(lists[initialList][0]?.id ?? null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const rows = useMemo(() => {
     const base = lists[list];
     if (sort !== "growth") return base;
     return base.map((r, i) => ({ r, i })).sort((a, b) => (b.r.pct ?? -Infinity) - (a.r.pct ?? -Infinity) || a.i - b.i).map((x) => x.r);
   }, [lists, list, sort]);
-  const rankOf = useMemo(() => new Map(lists[list].map((r, i) => [r.id, (page - 1) * pageSize + i + 1])), [lists, list, page, pageSize]);
+  const ranked = sort === "growth" && hasCurves;
+  const rankOf = useMemo(() => { let n = 0; return new Map(rows.map((r) => [r.id, r.pct === null ? null : ++n])); }, [rows]);
   const all = useMemo(() => new Map(LISTS.flatMap((l) => lists[l]).map((r) => [r.id, r])), [lists]);
   const current = selected ? all.get(selected) ?? null : null;
+  const someMissing = hasCurves && rows.some((r) => !r.spark);
 
   const pick = (l: KeywordList) => { setList(l); setSelected(lists[l][0]?.id ?? null); };
+  const onTabKey = (e: React.KeyboardEvent, i: number) => {
+    const n = LISTS.length;
+    const j = e.key === "ArrowRight" ? (i + 1) % n : e.key === "ArrowLeft" ? (i - 1 + n) % n : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
+    if (j < 0) return;
+    e.preventDefault();
+    pick(LISTS[j]);
+    tabRefs.current[j]?.focus();
+  };
   const onRow = (e: React.MouseEvent, id: string) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     if (!window.matchMedia("(min-width: 1024px)").matches) return;
@@ -50,10 +62,10 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
 
   const qs = (extra: Record<string, string>) => {
     const p = new URLSearchParams();
-    if (regions.length) p.set("regions", regions.join(","));
+    if (regionsParam) p.set("regions", regionsParam);
     if (q) p.set("q", q);
-    for (const [k, v] of Object.entries(extra)) p.set(k, v);
-    return `/lab/f-report?${p}`;
+    for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v); else p.delete(k);
+    return `/lab/f-report${p.size ? `?${p}` : ""}`;
   };
   const totalPages = Math.max(1, Math.ceil((totals[list] ?? 0) / pageSize));
 
@@ -62,8 +74,9 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
       <section aria-labelledby="fr-list-h">
         <h2 id="fr-list-h" className="sr-only">{c(locale, "col_name")}</h2>
         <div className="fr-tabs" role="tablist" aria-label={c(locale, "col_name")}>
-          {LISTS.map((l) => (
-            <button key={l} type="button" role="tab" id={`fr-tab-${l}`} aria-selected={list === l} aria-controls="fr-panel" className="fr-tab" onClick={() => pick(l)}>
+          {LISTS.map((l, i) => (
+            <button key={l} type="button" role="tab" id={`fr-tab-${l}`} aria-selected={list === l} aria-controls="fr-panel" tabIndex={list === l ? 0 : -1}
+              ref={(el) => { tabRefs.current[i] = el; }} className="fr-tab" onClick={() => pick(l)} onKeyDown={(e) => onTabKey(e, i)}>
               {c(locale, `tab_${l}`)}<span className="fr-num">{totals[l] ?? 0}</span>
             </button>
           ))}
@@ -73,26 +86,30 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
             <span>
               <b className="text-[var(--fr-ink)] font-medium">‘{q}’</b> {c(locale, "search_result")} <span className="fr-num">{rows.length}</span>
               <span className="mx-2" aria-hidden>|</span>
-              <Link href={qs({ q: "" }).replace(/[?&]q=(&|$)/, "$1").replace(/\?$/, "")} className="fr-link">{c(locale, "search_clear")}</Link>
+              <Link href={qs({ q: "" })} className="fr-link">{c(locale, "search_clear")}</Link>
               <span className="mx-2" aria-hidden>|</span>
               <Link href={`/dictionary?q=${encodeURIComponent(q)}`} className="fr-link">{c(locale, "search_more")}</Link>
             </span>
           ) : (
-            <span>{hasCurves ? c(locale, "growth_vs") : null}</span>
+            <span>{hasCurves ? (sort === "growth" ? c(locale, "sort_growth_note") : c(locale, "sort_default_note")) : null}</span>
           )}
           {hasCurves && (
-            <span className="flex items-center gap-2">
+            <span className="fr-sort">
               <span className="sr-only">{c(locale, "sort_label")}</span>
-              <button type="button" className="fr-toggle" aria-pressed={sort === "default"} onClick={() => setSort("default")}>{c(locale, "sort_default")}</button>
-              <button type="button" className="fr-toggle" aria-pressed={sort === "growth"} onClick={() => setSort("growth")}>{c(locale, "sort_growth")}</button>
+              <button type="button" aria-pressed={sort === "default"} onClick={() => setSort("default")}>{c(locale, "sort_default")}</button>
+              <button type="button" aria-pressed={sort === "growth"} onClick={() => setSort("growth")}>{c(locale, "sort_growth")}</button>
             </span>
           )}
         </div>
-        {!hasCurves && rows.length > 0 && <p className="fr-note">{c(locale, "no_curve_list")}</p>}
-        <div id="fr-panel" role="tabpanel" aria-labelledby={`fr-tab-${list}`} className={hasCurves ? undefined : "no-curves"}>
+        {rows.length > 0 && !hasCurves && <p className="fr-note">{c(locale, "no_curve_list")}</p>}
+        {rows.length > 0 && someMissing && <p className="fr-note">{c(locale, "no_curve_some")}</p>}
+        <div id="fr-panel" role="tabpanel" aria-labelledby={`fr-tab-${list}`} className={`${hasCurves ? "" : "no-curves"}${ranked ? " has-rank" : ""}`}>
           {rows.length > 0 && (
             <div className="fr-cols" aria-hidden>
-              <span className="text-right">{c(locale, "col_rank")}</span><span>{c(locale, "col_name")}</span><span>{hasCurves ? c(locale, "col_trend") : ""}</span><span>{hasCurves ? c(locale, "col_change") : ""}</span><span>{c(locale, "col_stage")}</span>
+              {ranked && <span className="text-right">{c(locale, "col_rank")}</span>}
+              <span>{c(locale, "col_name")}</span>
+              {hasCurves ? <><span>{c(locale, "col_trend")}</span><span className="text-right">{c(locale, "col_change")}</span></> : <span>{c(locale, "col_last")}</span>}
+              <span>{c(locale, "col_stage")}</span>
             </div>
           )}
           {rows.length === 0 ? (
@@ -101,11 +118,12 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
             <ol className="fr-list">
               {rows.map((r) => {
                 const g = growthText(r.pct, locale);
-                const sparkClass = `fr-spark ${g.dir === "down" ? "fr-steel" : "fr-signal"}`;
+                const last = r.lastUsed ? fmtDay(r.lastUsed) : "";
+                const spark = r.spark ? <Sparkline values={r.spark} recent={r.sparkRecent} className={`fr-spark is-${g.dir}`} label={`${c(locale, "interest")} ${g.text}`} /> : null;
                 return (
                   <li key={r.id}>
                     <Link href={entryHref(r.id)} className="fr-row" aria-current={selected === r.id ? "true" : undefined} onClick={(e) => onRow(e, r.id)} prefetch={false}>
-                      <span className="fr-rank fr-num">{rankOf.get(r.id)}</span>
+                      {ranked && <span className="fr-rank fr-num">{rankOf.get(r.id) ?? ""}</span>}
                       <span className="fr-name-cell">
                         <span className="fr-name">
                           <span lang={langTag(r.lang)}>{r.name}</span>
@@ -113,16 +131,22 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
                           {r.risk === "caution" && <span className="fr-mark is-caution">{c(locale, "risk_caution")}</span>}
                           {r.risk === "avoid" && <span className="fr-mark is-avoid">{c(locale, "risk_avoid")}</span>}
                         </span>
-                        <span className="fr-gloss">{r.gloss}</span>
+                        <span className="fr-gloss" lang={r.glossLang}>{r.gloss}</span>
                       </span>
                       <span className="fr-row-desk">
-                        <span>{r.spark && r.spark.length > 1 ? <Sparkline values={r.spark} className={sparkClass} label={`${c(locale, "interest")} ${g.text}`} /> : null}</span>
-                        <span className={`fr-change fr-num is-${g.dir}`}>{hasCurves ? g.text : ""}</span>
+                        {hasCurves ? (
+                          <>
+                            <span>{spark ?? <span className="fr-last fr-num" title={r.stale ? c(locale, "stale_note") : undefined}>{last && `${c(locale, "last_used")} ${last}`}</span>}</span>
+                            <span className={`fr-change fr-num is-${g.dir}`}>{g.text}</span>
+                          </>
+                        ) : (
+                          <span className="fr-last fr-num">{last}</span>
+                        )}
                         <span className="fr-stage">{stageLabel(locale, r.stage)}</span>
                       </span>
                       <span className="fr-row-mobile">
-                        {r.spark && r.spark.length > 1 ? <Sparkline values={r.spark} className={`${sparkClass} !h-[22px] !w-[76px]`} label={`${c(locale, "interest")} ${g.text}`} /> : null}
-                        {hasCurves && g.dir !== "none" && <span className={`fr-change fr-num is-${g.dir}`}>{g.text}</span>}
+                        {spark ? <Sparkline values={r.spark!} recent={r.sparkRecent} className={`fr-spark is-${g.dir} !h-[22px] !w-[76px]`} label={`${c(locale, "interest")} ${g.text}`} /> : null}
+                        {g.dir !== "none" ? <span className={`fr-change fr-num is-${g.dir}`}>{g.text}</span> : last ? <span className="fr-last fr-num">{last}</span> : null}
                         <span className="fr-stage-mobile">{stageLabel(locale, r.stage)}</span>
                       </span>
                     </Link>
@@ -140,27 +164,25 @@ export function ReportBoard({ locale, lists, totals, page, pageSize, initialList
           )}
         </div>
       </section>
-      <aside className="fr-preview" aria-live="polite" aria-label={c(locale, "preview_open")}>
+      <aside className="fr-preview" aria-label={c(locale, "preview_of")}>
+        <p className="sr-only" aria-live="polite">{current ? `${c(locale, "preview_of")}: ${current.name}` : ""}</p>
         {current ? <Preview row={current} locale={locale} /> : <p className="fr-preview-empty m-0">{c(locale, "preview_pick")}</p>}
       </aside>
     </div>
   );
 }
 
-/* ---- 미리보기: 카드가 이미 아는 것은 바로, 유래·쓰임·대표 장면은 항목 요약을 받아 채운다(약속을 id 마다 한 번만 만들어 use() 로 읽는다) ---- */
-const detailPromises = new Map<string, Promise<TermDetail | null>>();
-function loadDetail(id: string) {
-  let p = detailPromises.get(id);
-  if (!p) {
-    p = fetch(`/lab/f-report/api/term/${encodeURIComponent(id)}`).then((r) => (r.ok ? (r.json() as Promise<TermDetail>) : null)).catch(() => null);
-    detailPromises.set(id, p);
-  }
-  return p;
+/** 쓸 때 조심의 이유 — 사전 뜻풀이의 주의점은 인용으로(사전의 글이다) */
+export function RiskNotes({ notes }: { notes: RiskNote[] }) {
+  if (!notes.length) return null;
+  return (
+    <ul className="fr-risk-notes">
+      {notes.map((n) => <li key={n.text + (n.quote ?? "")}>{n.text}{n.quote && <q className="fr-risk-quote" lang="ko">{n.quote}</q>}</li>)}
+    </ul>
+  );
 }
-const noop = () => () => {};
-/** 서버 렌더에서는 요약을 부르지 않는다(상대 주소 fetch 불가) — 물을 붙인 뒤에만 */
-const useMounted = () => useSyncExternalStore(noop, () => true, () => false);
 
+/* ---- 미리보기: 카드가 이미 아는 것은 바로, 유래·쓰임·대표 장면은 항목 요약을 받아 채운다 ---- */
 function Preview({ row, locale }: { row: Row; locale: Locale }) {
   const mounted = useMounted();
   const g = growthText(row.pct, locale);
@@ -173,34 +195,36 @@ function Preview({ row, locale }: { row: Row; locale: Locale }) {
         {row.risk === "caution" && <span className="fr-mark is-caution">{c(locale, "risk_caution")}</span>}
         {row.risk === "avoid" && <span className="fr-mark is-avoid">{c(locale, "risk_avoid")}</span>}
       </div>
-      <h3 className="fr-preview-name" lang={langTag(row.lang)}>{row.name}</h3>
-      <p className="fr-preview-gloss">{row.gloss}</p>
+      <h3 className={`fr-preview-name ${fitClass(row.name)}`} lang={langTag(row.lang)}>{row.name}</h3>
+      <p className="fr-preview-gloss" lang={row.glossLang}>{row.gloss}</p>
       <div className="fr-preview-actions">
         {canMake ? <Link href={`/recommend?term=${encodeURIComponent(row.id)}`} className="fr-btn is-primary">{c(locale, "make")}</Link> : null}
-        <WatchButton item={{ id: row.id, name: row.name, lang: row.lang }} locale={locale} />
+        <WatchButton item={{ id: row.id, name: row.name, lang: row.lang, stage: row.stage, risk: row.risk }} locale={locale} />
         <Link href={entryHref(row.id)} className="fr-btn" prefetch={false}>{c(locale, "preview_open")}</Link>
       </div>
       {!canMake && <p className="fr-steel m-0 mt-2 text-[13px]">{c(locale, "make_blocked")}</p>}
 
       <dl className="fr-facts">
         <dt>{c(locale, "stage")}</dt>
-        <dd>{stageLabel(locale, row.stage)}{diffusionLabel(locale, row.diffusion) ? <span className="fr-steel"> · {diffusionLabel(locale, row.diffusion)}</span> : null}</dd>
+        <dd>{stageLabel(locale, row.stage)}</dd>
+        {diffusionLabel(locale, row.diffusion) && <><dt>{c(locale, "spread")}</dt><dd>{diffusionLabel(locale, row.diffusion)}</dd></>}
         <dt>{c(locale, "risk")}</dt>
-        <dd>
-          {riskLabel(locale, row.risk)}
-          {row.riskReasons.length > 0 && <ul className="m-0 mt-1 list-disc pl-4 text-[13px] leading-[1.5] fr-steel">{row.riskReasons.map((r) => <li key={r}>{r}</li>)}</ul>}
-        </dd>
+        <dd>{riskLabel(locale, row.risk)}<RiskNotes notes={row.riskNotes} /></dd>
         <dt>{c(locale, "regions")}</dt>
         <dd>{row.regions.length ? row.regions.map((r) => regionName(locale, r)).join(", ") : "—"}</dd>
-        <dt>{c(locale, "last_seen")}</dt>
-        <dd className="fr-num">{row.lastSeen ? fmtDay(row.lastSeen) : "—"}</dd>
-        {!row.byGen && <><dt>{c(locale, "interest")}</dt><dd className="fr-steel">{c(locale, "no_curve_row")}</dd></>}
+        <dt>{c(locale, "last_used")}</dt>
+        <dd className="fr-num">{row.lastUsed ? fmtDay(row.lastUsed) : "—"}</dd>
+        {!row.byGen && <><dt>{c(locale, "interest")}</dt><dd className="fr-steel">{c(locale, "no_data")}</dd></>}
       </dl>
 
       {row.byGen && (
         <div className="fr-block">
           <h3>{c(locale, "interest")}</h3>
-          <p className="fr-num"><span className={g.dir === "up" ? "fr-signal font-semibold" : "font-semibold"}>{g.text}</span> <span className="fr-steel text-[13px]">{c(locale, "growth_vs")}</span></p>
+          {row.pct !== null ? (
+            <p className="fr-num"><span className={`font-semibold is-${g.dir} fr-change`}>{g.text}</span> <span className="fr-steel text-[13px]">{c(locale, "growth_vs")}</span></p>
+          ) : (
+            <p className="fr-steel text-[13.5px]">{row.stale ? c(locale, "stale_note") : c(locale, "interest_thin")}</p>
+          )}
           <GenCurves byGen={row.byGen} locale={locale} />
           <p className="fr-steel mt-2 text-[12.5px]">{c(locale, "interest_note")}</p>
         </div>
@@ -223,7 +247,7 @@ function PreviewLoading({ locale }: { locale: Locale }) {
 
 /** 나중에 오는 부분: 다른 표기·유래·이렇게 써요·대표 장면·출처 */
 function PreviewDetail({ row, locale }: { row: Row; locale: Locale }) {
-  const detail = use(loadDetail(row.id));
+  const detail = use(loadDetail(row.id, locale));
   const text = detail ? (locale === "en" ? detail.en ?? detail.ko : detail.ko ?? detail.en) : null;
   const sources = mergeSources(row.sources, detail?.sources ?? []).slice(0, 5);
   const media = detail?.video ?? null;
@@ -272,8 +296,9 @@ export function SourceList({ sources, locale }: { sources: SourceRef[]; locale: 
     <ul className="fr-src">
       {sources.map((s) => (
         <li key={s.url}>
-          <span className="fr-kind">{c(locale, `kind_${s.kind}` as "kind_wiki")}</span>
-          <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.title}>{s.title || s.domain}</a>
+          <span className="fr-kind">{kindLabel(locale, s.kind)}</span>
+          <a href={s.url} target="_blank" rel="noopener noreferrer" title={s.title}>{s.title}</a>
+          <span className="fr-src-name">{s.name}{s.license ? ` (${s.license})` : ""}</span>
           <time className="fr-num" dateTime={s.at}>{fmtDay(s.at)}</time>
         </li>
       ))}

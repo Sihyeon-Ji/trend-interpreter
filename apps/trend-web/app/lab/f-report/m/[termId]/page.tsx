@@ -1,12 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AreaCurve, GenCurves, growthText } from "@/components/lab/f-report/charts";
-import { SourceList } from "@/components/lab/f-report/report-board";
+import { GenCurves, Ground, growthText } from "@/components/lab/f-report/charts";
+import { RiskNotes, SourceList } from "@/components/lab/f-report/report-board";
 import { WatchButton } from "@/components/lab/f-report/watch-button";
-import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic } from "@/lib/data";
+import { getGenerationCurves, getMeta, getTermRecord, getTermSignals, getTermTopic } from "@/lib/data";
 import { langTag, scriptLang } from "@/lib/lang";
 import { c, categoryLabel, diffusionLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report-copy";
-import { cleanRiskReasons, combineCurves, fmtDay, visibleEvidence } from "@/lib/lab/f-report";
+import { combineCurves, fitClass, fmtDay, riskNotes } from "@/lib/lab/f-report";
 import { toDetail } from "@/lib/lab/f-report-detail";
 import { getLocale } from "@/lib/locale";
 import type { Meaning } from "@/lib/types";
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 const VERIF: Record<string, "entry_reviewed" | "entry_auto"> = { verified_human: "entry_reviewed", verified_auto: "entry_auto" };
 
-/** 밈 항목 — 머리(낱말 타일) → 대표 장면 → 유래 → 이렇게 써요 → 쓰임 추이 → 나라별 차이 → 출처 → 뜻이 바뀐 기록 */
+/** 밈 항목 — 머리(낱말이 제 곡선 위에) → 대표 장면 → 유래 → 이렇게 써요 → 쓰임 추이 → 나라별 차이 → 출처 → 뜻이 바뀐 기록 */
 export default async function MemeEntry({ params }: Params) {
   const [{ termId }, locale] = await Promise.all([params, getLocale()]);
   const record = await getTermRecord(termId);
@@ -34,25 +34,25 @@ export default async function MemeEntry({ params }: Params) {
       </div>
     );
   }
-  const [signals, curves, topic] = await Promise.all([getTermSignals(termId), getGenerationCurves(termId), getTermTopic(termId, record.term.canonical)]);
-  const d = toDetail(record);
+  const [signals, curves, topic, meta] = await Promise.all([getTermSignals(termId), getGenerationCurves(termId), getTermTopic(termId, record.term.canonical), getMeta().catch(() => null)]);
+  const d = toDetail(record, locale);
   const text = locale === "en" ? d.en ?? d.ko : d.ko ?? d.en;
-  const trend = combineCurves(curves);
+  const trend = combineCurves(curves, meta?.board_generated_at ?? null);
   const g = growthText(trend?.pct ?? null, locale);
-  const stage = signals?.lifecycle ?? record.term.lifecycle ?? "unknown";
-  const diffusion = signals?.diffusion ?? record.term.diffusion ?? null;
+  const stage = signals?.lifecycle ?? d.stage;
+  const diffusion = signals?.diffusion ?? d.diffusion;
   const risk = record.term.risk_level ?? signals?.risk_level ?? null;
-  const riskReasons = cleanRiskReasons(record.term.risk_reasons ?? signals?.risk_reasons, locale);
+  const notes = riskNotes(record.term.risk_reasons ?? signals?.risk_reasons, locale);
   const regions = signals?.regions?.length ? signals.regions : [...new Set(record.meanings.flatMap((m) => m.regions ?? []))];
   const verified = d.status === "verified";
   const canMake = verified && risk !== "avoid";
   const lede = text?.definition ?? "";
   const plain = text?.plain && text.plain !== text.definition ? text.plain : null;
-  const sources = visibleEvidence(record.evidences).map((e) => ({ kind: e.kind, domain: e.source_domain, title: e.title ?? e.source_domain, url: e.url, at: e.observed_at }));
+  const sources = d.sources;
   const originSources = sources.filter((s) => s.kind !== "short").slice(0, 2);
   const history = [...record.meanings].sort((a, b) => b.version - a.version);
   // 근거가 모자란 나라(what_changed 가 '근거 부족')는 빼고, 그 나라에서 생긴 말은 짧은 이름꼴만(문장·해시태그는 커뮤니티 글일 수 있다)
-  const variants = (topic?.variants ?? []).filter((v) => !/^근거 부족/.test(v.what_changed.ko) && !/^Insufficient/i.test(v.what_changed.en));
+  const variants = (topic?.variants ?? []).filter((v) => v.region && !/^근거 부족/.test(v.what_changed.ko) && !/^Insufficient/i.test(v.what_changed.en));
   const shortMemes = (labels: { label: string }[]) => labels.map((m) => m.label.trim()).filter((l) => l.length <= 24 && l.split(/\s+/).length <= 3 && !/[#\n]/.test(l));
   const sections = [
     text?.origin || originSources.length ? ["origin", c(locale, "entry_origin")] : null,
@@ -62,31 +62,35 @@ export default async function MemeEntry({ params }: Params) {
     ["sources", c(locale, "entry_sources")],
     history.length ? ["history", c(locale, "entry_history")] : null,
   ].filter((s): s is [string, string] => !!s);
+  const hasGround = !!trend && trend.smooth.length > 1 && trend.pct !== null;
 
   return (
     <>
       <p className="fr-crumb m-0"><Link href="/lab/f-report">{c(locale, "entry_back")}</Link></p>
       <header className="fr-hero">
-        <div className="fr-hero-body">
-          <p className="fr-hero-kind m-0">{categoryLabel(locale, d.category)}{!verified && <> · {locale === "ko" ? "확인 중" : "under review"}</>}</p>
-          <h1 className="fr-hero-name" lang={langTag(d.lang)}>{d.name}</h1>
-          {d.aliases.length > 0 && <p className="fr-hero-alias"><span lang={langTag(d.lang)}>{d.aliases.join(", ")}</span></p>}
-          {lede && <p className="fr-hero-lede">{lede}</p>}
-          <div className="fr-hero-marks">
-            <span>{stageLabel(locale, stage)}{diffusionLabel(locale, diffusion) ? <span className="fr-steel"> · {diffusionLabel(locale, diffusion)}</span> : null}</span>
-            {risk === "caution" && <span className="fr-mark is-caution">{c(locale, "risk_caution")}</span>}
-            {risk === "avoid" && <span className="fr-mark is-avoid">{c(locale, "risk_avoid")}</span>}
-            {risk === "none" && <span className="fr-steel">{c(locale, "risk_none")}</span>}
-          </div>
-          <div className="fr-hero-actions">
-            {canMake && <Link href={`/recommend?term=${encodeURIComponent(d.id)}`} className="fr-btn is-primary">{c(locale, "make")}</Link>}
-            <WatchButton item={{ id: d.id, name: d.name, lang: d.lang }} locale={locale} />
-          </div>
-          {trend && g.dir !== "none" && (
-            <p className="fr-hero-growth m-0"><b className="fr-num">{g.text}</b><span>{c(locale, "interest")}, {c(locale, "growth_vs")}</span></p>
-          )}
+        <p className="fr-hero-kind m-0">{categoryLabel(locale, d.category)}{!verified && <span className="fr-steel"> — {c(locale, "entry_under_review")}</span>}</p>
+        <h1 className={`fr-hero-name ${fitClass(d.name)}`} lang={langTag(d.lang)}>{d.name}</h1>
+        {d.aliases.length > 0 && <p className="fr-hero-alias"><span lang={langTag(d.lang)}>{d.aliases.join(", ")}</span></p>}
+        {lede && <p className="fr-hero-lede">{lede}</p>}
+        <div className="fr-hero-marks">
+          <span>{stageLabel(locale, stage)}</span>
+          {diffusionLabel(locale, diffusion) && <span className="fr-steel">{diffusionLabel(locale, diffusion)}</span>}
+          {risk === "caution" && <span className="fr-mark is-caution">{c(locale, "risk_caution")}</span>}
+          {risk === "avoid" && <span className="fr-mark is-avoid">{c(locale, "risk_avoid")}</span>}
+          {risk === "none" && <span className="fr-steel">{c(locale, "risk_none")}</span>}
         </div>
-        {trend && trend.smooth.length > 1 ? <AreaCurve values={trend.smooth} className="fr-hero-chart fr-signal" label={`${c(locale, "interest")} ${g.text}`} /> : <div className="fr-hero-pad" />}
+        <div className="fr-hero-actions">
+          {canMake && <Link href={`/recommend?term=${encodeURIComponent(d.id)}`} className="fr-btn is-primary">{c(locale, "make")}</Link>}
+          <WatchButton item={{ id: d.id, name: d.name, lang: d.lang, stage, risk }} locale={locale} />
+        </div>
+        {hasGround ? (
+          <div className="fr-hero-ground">
+            {g.dir !== "none" && <p className="fr-hero-growth m-0"><b className={`fr-num is-${g.dir}`}>{g.text}</b><span>{c(locale, "interest")}, {c(locale, "growth_vs")}</span></p>}
+            <Ground values={trend!.smooth} recent={trend!.recentDays} base={trend!.baseDays} className="fr-hero-chart" label={`${c(locale, "interest")} ${g.text}`} />
+          </div>
+        ) : (
+          <div className="fr-hero-floor" />
+        )}
       </header>
 
       <div className="fr-entry">
@@ -100,7 +104,7 @@ export default async function MemeEntry({ params }: Params) {
                     {/* eslint-disable-next-line @next/next/no-img-element -- 자유 라이선스 그림의 원래 주소만 쓴다 */}
                     <img src={d.media.url} alt={d.media.title} loading="lazy" />
                   </a>
-                  <figcaption className="fr-media-cap">{d.media.title} — {d.media.attribution}, {d.media.license}</figcaption>
+                  <figcaption className="fr-media-cap">{d.media.title}. {d.media.attribution}, {d.media.license}</figcaption>
                 </figure>
               ) : d.video ? (
                 <figure className="m-0">
@@ -108,10 +112,10 @@ export default async function MemeEntry({ params }: Params) {
                     {/* eslint-disable-next-line @next/next/no-img-element -- 유튜브 썸네일은 밖의 주소만 쓰고 저장하지 않는다 */}
                     <img src={d.video.thumb} alt={d.video.title} loading="lazy" />
                   </a>
-                  <figcaption className="fr-media-cap">{d.video.title} · <a href={d.video.url} className="fr-link" target="_blank" rel="noopener noreferrer">{c(locale, "video_open")}</a></figcaption>
+                  <figcaption className="fr-media-cap">{d.video.title} <a href={d.video.url} className="fr-link" target="_blank" rel="noopener noreferrer">{c(locale, "video_open")}</a></figcaption>
                 </figure>
               ) : d.media ? (
-                <p><a href={d.media.page_url} className="fr-link" target="_blank" rel="noopener noreferrer">{d.media.title}</a> <span className="fr-muted">— {d.media.attribution}, {d.media.license}</span></p>
+                <p><a href={d.media.page_url} className="fr-link" target="_blank" rel="noopener noreferrer">{d.media.title}</a> <span className="fr-muted">{d.media.attribution}, {d.media.license}</span></p>
               ) : null}
             </section>
           )}
@@ -137,9 +141,13 @@ export default async function MemeEntry({ params }: Params) {
             <h2 id="fr-trend-h">{c(locale, "entry_trend")}</h2>
             {trend ? (
               <>
-                <p className="fr-num">{g.dir !== "none" ? <><b className={g.dir === "up" ? "fr-signal" : ""}>{g.text}</b> <span className="fr-muted">{c(locale, "growth_vs")}</span></> : null}</p>
+                {trend.pct !== null ? (
+                  <p className="fr-num"><b className={`fr-change is-${g.dir}`}>{g.text}</b> <span className="fr-muted">{c(locale, "growth_vs")}. {c(locale, "interest_counted")} {trend.counted}/{trend.byGen.length}</span></p>
+                ) : (
+                  <p className="fr-muted">{trend.stale ? c(locale, "stale_note") : c(locale, "interest_thin")}</p>
+                )}
                 <GenCurves byGen={trend.byGen} locale={locale} large />
-                <p className="fr-muted mt-3"><span className="fr-num">{fmtDay(trend.from)} – {fmtDay(trend.to)}</span>. {c(locale, "interest_note")}</p>
+                <p className="fr-muted mt-3"><span className="fr-num">{fmtDay(trend.from)} – {fmtDay(trend.to)}</span>. {c(locale, "interest_note")} {c(locale, "interest_method")}</p>
               </>
             ) : (
               <p className="fr-muted">{c(locale, "interest_none")}</p>
@@ -167,7 +175,7 @@ export default async function MemeEntry({ params }: Params) {
 
           <section aria-labelledby="fr-src-h" id="sources">
             <h2 id="fr-src-h">{c(locale, "entry_sources")}</h2>
-            {sources.length ? <SourceList sources={sources.slice(0, 12)} locale={locale} /> : <p className="fr-muted">{c(locale, "entry_no_sources")}</p>}
+            {sources.length ? <SourceList sources={sources} locale={locale} /> : <p className="fr-muted">{c(locale, "entry_no_sources")}</p>}
           </section>
 
           {history.length > 0 && (
@@ -189,26 +197,22 @@ export default async function MemeEntry({ params }: Params) {
         </article>
 
         <aside className="fr-rail">
-          <div className="fr-rail-box">
-            <dl className="fr-facts">
-              <dt>{c(locale, "stage")}</dt>
-              <dd>{stageLabel(locale, stage)}{diffusionLabel(locale, diffusion) ? <span className="fr-steel"> · {diffusionLabel(locale, diffusion)}</span> : null}</dd>
-              <dt>{c(locale, "risk")}</dt>
-              <dd>
-                {riskLabel(locale, risk)}
-                {riskReasons.length > 0 && <ul className="m-0 mt-1 list-disc pl-4 text-[13px] leading-[1.5] fr-steel">{riskReasons.map((r) => <li key={r}>{r}</li>)}</ul>}
-              </dd>
-              <dt>{c(locale, "regions")}</dt>
-              <dd>{regions.length ? regions.map((r) => regionName(locale, r)).join(", ") : "—"}</dd>
-              <dt>{c(locale, "entry_first_seen")}</dt>
-              <dd className="fr-num">{d.firstSeen ? fmtDay(d.firstSeen) : "—"}</dd>
-              <dt>{c(locale, "last_seen")}</dt>
-              <dd className="fr-num">{fmtDay(signals?.last_seen ?? record.term.last_seen) || "—"}</dd>
-            </dl>
-            <ul className="fr-toc">
-              {sections.map(([id, label]) => <li key={id}><a href={`#${id}`}>{label}</a></li>)}
-            </ul>
-          </div>
+          <dl className="fr-facts">
+            <dt>{c(locale, "stage")}</dt>
+            <dd>{stageLabel(locale, stage)}</dd>
+            {diffusionLabel(locale, diffusion) && <><dt>{c(locale, "spread")}</dt><dd>{diffusionLabel(locale, diffusion)}</dd></>}
+            <dt>{c(locale, "risk")}</dt>
+            <dd>{riskLabel(locale, risk)}<RiskNotes notes={notes} /></dd>
+            <dt>{c(locale, "regions")}</dt>
+            <dd>{regions.length ? regions.map((r) => regionName(locale, r)).join(", ") : "—"}</dd>
+            <dt>{c(locale, "entry_first_seen")}</dt>
+            <dd className="fr-num">{d.firstSeen ? fmtDay(d.firstSeen) : "—"}</dd>
+            <dt>{c(locale, "last_seen")}</dt>
+            <dd className="fr-num">{fmtDay(signals?.last_seen ?? d.lastSeen) || "—"}</dd>
+          </dl>
+          <ul className="fr-toc">
+            {sections.map(([id, label]) => <li key={id}><a href={`#${id}`}>{label}</a></li>)}
+          </ul>
         </aside>
       </div>
     </>
