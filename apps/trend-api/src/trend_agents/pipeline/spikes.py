@@ -141,8 +141,9 @@ def gather(con: Connection, term: str, region: str, lang: str, use_youtube: bool
 
 
 def explain(con: Connection, term: str, region: str, d: str, evs: list[Evidence]) -> TrendExplanation:
-    model_evs = naver_search.for_model(evs)  # 네이버 검색 결과는 화면 표시 전용(약관)
-    lines = [f"- [{e.kind}] {e.source_domain} ({e.observed_at.date()}): {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in model_evs[:30]]
+    # 네이버 검색 결과는 화면 표시 전용(약관), 커뮤니티·SNS 글은 건수만(ADR 0003) — 급증 이유는 기사·영상·문서로 쓴다
+    model_evs, posts = community.for_prompt(naver_search.for_model(evs))
+    lines = [f"- [{e.kind}] {e.source_domain} ({e.observed_at.date()}): {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in model_evs[:30]] + ([posts] if posts else [])
     parsed, model = structured(con, PROMPT.format(term=term, region=region, date=d, notes="\n".join(lines) or "- (근거 없음)"), ExplanationDraft, temperature=0.2)
     draft = parsed if isinstance(parsed, ExplanationDraft) else ExplanationDraft.model_validate(parsed)
     corpus = _norm(" ".join(e.title + " " + e.excerpt for e in model_evs))

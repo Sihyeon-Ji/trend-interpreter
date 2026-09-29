@@ -84,7 +84,8 @@ def run(con: Connection) -> dict:
             evs = [e for e in for_model(gather(con, t.canonical, reg) + first_party_evidence(con, t.canonical, t.aliases))
                    if evidence_mentions(e, t.canonical, t.aliases)]
             m = ds.current_meaning(con, t.term_id)
-            lines = [f"- [{e.kind}] {e.source_domain}: {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in evs[:25]]
+            shown, posts = community.for_prompt(evs)   # 커뮤니티·SNS 글은 건수만 — 현지 밈의 앵커도 보이는 출처에서만(ADR 0003)
+            lines = [f"- [{e.kind}] {e.source_domain}: {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in shown[:25]] + ([posts] if posts else [])
             try:
                 parsed, model = structured(con, PROMPT.format(term=t.canonical, region=reg, definition=(m.definition if m else ""), notes="\n".join(lines) or "- (근거 없음)"), VariantNote, temperature=0.2)
             except BudgetExhausted as e:
@@ -94,9 +95,9 @@ def run(con: Connection) -> dict:
                 r.note += f"{t.canonical}@{reg}:{type(e).__name__} "
                 continue
             v = parsed if isinstance(parsed, VariantNote) else VariantNote.model_validate(parsed)
-            corpus = "\n".join(f"{e.title} {e.excerpt}" for e in evs)
+            corpus = "\n".join(f"{e.title} {e.excerpt}" for e in shown)
             v.local_memes = [x for x in v.local_memes if x.get("label") and mentions(corpus, x["label"])]  # 앵커: 근거 원문에 실재하는 밈만 (match.mentions 한 규칙)
-            if not evs:
+            if not shown:
                 v.self_confidence = min(v.self_confidence, 0.2)
             payload = v.model_dump()
             payload["evidence_ids"] = [e.evidence_id for e in evs[:20]]

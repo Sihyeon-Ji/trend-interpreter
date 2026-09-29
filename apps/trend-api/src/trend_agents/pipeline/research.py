@@ -314,9 +314,12 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
 
 
 def offline_notes(evidences: list[Evidence], limit: int = 25) -> str:
-    lines = []
-    for e in evidences[:limit]:
-        lines.append(f"- [{e.kind}] {e.source_domain}: {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else ""))
+    from ..collectors.community import for_prompt
+
+    shown, posts = for_prompt(evidences)   # 커뮤니티·SNS 글은 건수만(ADR 0003)
+    lines = [f"- [{e.kind}] {e.source_domain}: {e.title}" + (f" — {e.excerpt}" if e.excerpt and e.excerpt != e.title else "") for e in shown[:limit]]
+    if posts:
+        lines.append(posts)
     return "\n".join(lines) or "- (근거 없음)"
 
 

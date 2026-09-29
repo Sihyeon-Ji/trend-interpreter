@@ -1,4 +1,4 @@
-"""네이버 검색 API (뉴스·카페·블로그·지식iN) — NAVER API HUB.
+"""네이버 검색 API (뉴스·블로그. 카페·지식iN 은 09-29 부터 부르지 않는다 — ADR 0003) — NAVER API HUB.
 
 약관(2026-09-07 개정): 검색 API 결과는 '앱에서 네이버 검색 결과를 보여 주는 용도'로만. → 이 근거들은 **화면에 링크로 보여 주기만** 하고,
 모델 프롬프트에 넣지 않으며 검증 게이트의 독립 출처로도 세지 않는다. source_domain 이 "naver:" 로 시작하면 그 규칙이 적용된다.
@@ -63,7 +63,8 @@ def search(api: str, query: str, display: int = 10, sort: str = "date") -> list[
 def gather(term: str, per_api: int = 5) -> tuple[list[Evidence], list[str]]:
     evs: list[Evidence] = []
     notes: list[str] = []
-    for api in ("news", "cafearticle", "kin", "blog"):
+    # 카페·지식iN 은 커뮤니티 글이라 화면에 내지 않고(ADR 0003) 약관상 세지도 않는다 — 쓸 곳이 없어 2026-09-29 부터 부르지 않는다
+    for api in ("news", "blog"):
         try:
             evs += search(api, term, display=per_api)
         except Exception as e:

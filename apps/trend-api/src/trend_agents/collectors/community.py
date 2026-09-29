@@ -53,6 +53,14 @@ def is_community_post(e) -> bool:
     return domain in POST_NAMES or any(h == s or h.endswith("." + s) for h in hosts if h for s in POST_HOSTS)
 
 
+def for_prompt(evs: list) -> tuple[list, str]:
+    """모델에게 보일 근거와 한 줄 알림. 커뮤니티·SNS 글은 뜻의 근거가 아니라 쓰였다는 신호라(ADR 0003) 내용은 넣지 않고 몇 건인지만 알린다 —
+    사용자 결정(09-29): 'AI 가 얼마나 쓰는지만 지표로 보게'. 리스크 판정(pipeline/risk.py)은 백엔드 판단이라 따로 원문을 본다."""
+    posts = sum(1 for e in evs if is_community_post(e))
+    note = f"- (커뮤니티·SNS 글 {posts}건 — 쓰였다는 신호일 뿐 뜻의 근거가 아니어서 내용은 넣지 않았다)" if posts else ""
+    return [e for e in evs if not is_community_post(e)], note
+
+
 def _ev(kind: str, url: str, title: str, domain: str, when: datetime | None, excerpt: str) -> Evidence:
     from ..storage.dictionary_store import new_id
 
