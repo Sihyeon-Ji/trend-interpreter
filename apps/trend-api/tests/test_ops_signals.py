@@ -12,9 +12,11 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 from google.genai import errors
+from psycopg_pool import ConnectionPool
 
 from trend_agents import config, logging_setup, model_client
 from trend_agents.pipeline import gemini
+from trend_agents.schemas import MeaningDraft, Term
 from trend_agents.storage import db, dictionary_store as ds
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -222,9 +224,50 @@ def test_each_gemini_attempt_logs_one_event_without_content(monkeypatch, caplog)
         assert _calls(caplog) == [want | ({"code": code} if code else {})]
 
 
+def test_explain_rewrite_borrows_its_own_connection_in_the_api(monkeypatch, caplog):
+    """/explain 의 '쉽게 풀어 쓰면' 은 작업 스레드에서 Gemini 를 부른다. 요청 연결(api._con)은 그 요청의 맥락에서만 쓸 수 있어,
+    넘겨받은 요청 연결로 부르면 RuntimeError 가 나고 그 오류를 삼켜 재작성이 늘 비었다(호출 0회, gemini_call 도 0).
+    api._con 을 바꾸지 않고 진짜 요청 연결과 db.session() 을 거친다 — 풀만 이 시험의 임시 스키마를 가리킨다."""
+    from fastapi.testclient import TestClient
+
+    from trend_agents.pipeline import explain
+
+    with _logging_restored():          # 처음 가져올 때 configure() 가 caplog 의 처리기까지 갈아 끼운다
+        from trend_agents.api import app as api
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t_rv1", canonical="럭키비키", lang="ko", status="verified", first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t_rv1", MeaningDraft(definition="안 좋은 일도 좋게 받아들이는 태도", origin="x", nuance="y", generations=["20s"],
+                                              regions=["KR"], self_confidence=0.9), "verified_auto", [])
+    sent: list[str] = []
+
+    class Fake:
+        def generate_content(self, model, contents, config):
+            sent.append(model)
+            return SimpleNamespace(text="REWRITTEN")
+
+    monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=Fake()))
+    monkeypatch.setattr(gemini, "local_ok", lambda: False)
+    monkeypatch.setattr(explain, "USE_LOCAL_GEMMA", False)
+    schema = con.execute("SELECT current_schema()").fetchone()[0]
+    pool = ConnectionPool(config.DATABASE_URL, min_size=1, max_size=2, kwargs={"options": f"-c search_path={schema}"}, open=True)
+    monkeypatch.setattr(db, "_pool", pool)
+    caplog.set_level(logging.INFO, logger="trend.gemini")
+    try:
+        body = TestClient(api.app).post("/explain", json={"text": "오늘 완전 럭키비키잖아", "lang": "ko"}).json()
+    finally:
+        pool.close()
+    assert body == {"term_ids": ["t_rv1"], "plain": "REWRITTEN"} and len(sent) == 1
+    assert [e["outcome"] for e in _calls(caplog)] == ["ok"]
+    assert gemini.budget_left(con) == gemini.GEMINI_DAILY_BUDGET - 1           # 장부도 이 스키마에 남았다
+    assert ds.explain_cache_get(con, "ko", "오늘 완전 럭키비키잖아") == (["t_rv1"], "REWRITTEN")
+
+
 def test_disabled_requests_log_no_call_and_spend_no_budget(monkeypatch, caplog):
     """MODEL_REQUESTS_ENABLED=false 면 장부를 깎기 전에 끝난다 — 이벤트가 0 이어야 로그 지표가 '호출 0회' 를 보인다.
-    전에는 장부를 먼저 깎고 클라이언트에서 막혀, 보내지도 않은 요청이 하루 예산을 썼다(/explain 재작성은 configured() 를 보지 않고 부른다)."""
+    전에는 장부를 먼저 깎고 클라이언트에서 막혀, 보내지도 않은 요청이 하루 예산을 썼다(/ask·/ask/stream 의 목록 간추리기 ask._sum_list 와
+    지금 찾아보기 live.look_up 은 configured() 를 보지 않고 부른다. /explain 재작성도 보지 않지만 연결 문제로 장부까지 가지 못했다 — 위 시험)."""
     monkeypatch.setattr(config, "MODEL_PROVIDER", "vertex")
     monkeypatch.setattr(config, "MODEL_REQUESTS_ENABLED", False)
     monkeypatch.setattr(gemini, "local_ok", lambda: False)

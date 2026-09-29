@@ -7,6 +7,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 
 from ..config import USE_LOCAL_GEMMA
 from ..schemas import Term
+from ..storage import db
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, generate
 from .match import term_pattern  # noqa: F401  (tests 와 다른 단계가 여기서 가져간다)
@@ -39,7 +40,15 @@ REWRITE_TIMEOUT_S = 12  # 로컬 Gemma 가 파이프라인 배치에 밀려 있�
 _pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="rewrite")
 
 
-def rewrite(con: Connection, text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S) -> str | None:
+def _generate_apart(prompt: str):
+    """작업 스레드에는 요청 맥락이 없어 요청 연결(api._con)을 쓸 수 없다. 맥락을 복사해 넘겨도 시간 초과로 요청이 먼저 끝나면 그 연결은
+    풀에 돌아가 다른 요청이 쓴다. 그래서 /ask/stream 처럼 풀에서 따로 빌린다 — 풀이 차 있으면 기다리는 사이 요청이 먼저 끝나 매칭 결과만 나간다.
+    전에는 요청 연결을 넘겨 장부를 읽기도 전에 RuntimeError 가 났고, 그 오류를 삼켜 API 에서 재작성이 늘 비었다(호출 0회)."""
+    with db.session() as con:
+        return generate(con, prompt)
+
+
+def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S) -> str | None:
     if not glossary:
         return None
     g = "\n".join(f"- {t}: {m}" for t, m in glossary)
@@ -55,7 +64,7 @@ def rewrite(con: Connection, text: str, lang: str, glossary: list[tuple[str, str
     aud = ""
     if reader and (reader.get("gen") or reader.get("region")):
         aud = f" The reader is in their {reader.get('gen') or 'unknown age'} and lives in {reader.get('region') or 'an unknown country'}; choose comparisons they would know."
-    fut = _pool.submit(generate, con, REWRITE.format(lang={"ko": "Korean", "en": "English"}.get(lang, lang), glossary=g, text=text, audience=aud))
+    fut = _pool.submit(_generate_apart, REWRITE.format(lang={"ko": "Korean", "en": "English"}.get(lang, lang), glossary=g, text=text, audience=aud))
     try:
         resp, _ = fut.result(timeout=timeout_s)
         return (resp.text or "").strip() or None
@@ -76,7 +85,7 @@ def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -
         meaning = (tr.plain or tr.definition) if tr else (m.definition if m else "")
         if meaning and t.status == "verified":
             glossary.append((t.canonical, meaning))
-    plain = rewrite(con, text, lang, glossary, reader)
+    plain = rewrite(text, lang, glossary, reader)
     ids = [t.term_id for t in terms]
     if not terms:
         ds.log_lookup_miss(con, text, lang)  # 사전에 없는 표현일 수 있다 → 발굴(spot) 단계 재료
