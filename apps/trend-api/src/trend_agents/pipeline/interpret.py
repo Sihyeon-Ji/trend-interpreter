@@ -46,6 +46,7 @@ def run(con: Connection, max_batches: int = 2) -> dict:
                 res = interpret_shorts(chunk, model=GEMINI_FALLBACK_MODEL)
             n += db.save_interpretations(con, res.items, used)
             r.detail.setdefault("models", []).append(used)
+            r.models.add(used)   # 영상 해석은 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서 적는다
             if res.dropped:  # 영상에 붙일 수 없는 해석 — 그 영상은 다음 실행에서 다시 시도된다
                 r.note += f"batch{b // BATCH}: 귀속 불가 {res.dropped}건 버림 "
         r.count = n

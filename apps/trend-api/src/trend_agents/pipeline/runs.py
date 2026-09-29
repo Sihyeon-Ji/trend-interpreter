@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import traceback
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from ..storage import dictionary_store as ds
@@ -16,12 +17,25 @@ class Result:
     status: str = "ok"
     note: str = ""
     detail: dict = field(default_factory=dict)
+    models: set[str] = field(default_factory=set)   # 이 실행이 부른 모델 ID — record_model() 이 채우고 실행 기록에 남는다
+
+
+_current: ContextVar[Result | None] = ContextVar("pipeline_stage", default=None)
+
+
+def record_model(model: str) -> None:
+    """지금 도는 단계 실행이 이 모델을 불렀다고 적는다(Plan 06 완료 기준 1: 로컬 편집 결과를 모델에 묶는다).
+    모델 호출이 성공한 곳(pipeline/gemini.py 등)이 부른다. 단계 밖(이용자 요청)에서는 아무것도 하지 않는다."""
+    r = _current.get()
+    if r is not None and model:
+        r.models.add(model)
 
 
 @contextmanager
 def stage(con: Connection, name: str):
     rid = ds.run_start(con, name)
     res = Result(stage=name)
+    token = _current.set(res)
     try:
         yield res
         if res.count == 0 and res.status == "ok" and not res.note:
@@ -32,4 +46,5 @@ def stage(con: Connection, name: str):
         res.note = f"{type(e).__name__}: {str(e)[:300]}"
         res.detail["trace"] = traceback.format_exc()[-1500:]
     finally:
-        ds.run_finish(con, rid, res.count, res.status, res.note)
+        _current.reset(token)
+        ds.run_finish(con, rid, res.count, res.status, res.note, sorted(res.models))

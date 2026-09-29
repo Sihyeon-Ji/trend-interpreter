@@ -16,7 +16,7 @@
 
 [대회 요건](https://aibuildercup.com/themes.html)은 Google AI 모델(Gemini **또는** Gemma 등)의 활용을 허용한다. Gemma나 로컬 LLM을 반드시 써야 한다는 규정은 없다. 심사는 모델 수보다 생성형 AI가 문제를 푸는 방식, 구현, 확장성, 차별성, 사용자 경험을 본다. 따라서 Gemma의 명분은 'GPU 서비스를 하나 더 만들었다'가 아니라 **작은 오픈 모델을 증거 기반의 다국어 편집 공정에 배치해, 한 번 만든 결과를 많은 사용자에게 제공한다**는 데 있다.
 
-[Gemma 4 모델 개요](https://ai.google.dev/gemma/docs/core)는 공개 가중치와 상용 활용·조정 가능성을 설명한다. [모델 카드](https://ai.google.dev/gemma/docs/core/model_card_4)는 요약·다국어·도구 호출 등을 가능한 용도로 들면서도 최신 사실, 풍자와 미묘한 뉘앙스의 오류 가능성을 명시한다. 트렌드의 사실 여부·검증 상태를 Gemma 혼자 판정하지 않고 근거와 규칙 게이트를 쓰는 이유다. [시작 안내](https://ai.google.dev/gemma/docs/get_started)는 E2B를 모바일, 12B를 PC·소형 서버용으로 구분한다. 현재 코드의 기본 `GEMMA_LOCAL_MODEL=gemma4:12b`와 과거 GPU 계획의 `google/gemma-4-E2B-it`는 서로 다른 모델이다. 모델별 품질·속도 실측을 공유한 것처럼 쓰지 않는다.
+[Gemma 4 모델 개요](https://ai.google.dev/gemma/docs/core)는 공개 가중치와 상용 활용·조정 가능성을 설명한다. [모델 카드](https://ai.google.dev/gemma/docs/core/model_card_4)는 요약·다국어·도구 호출 등을 가능한 용도로 들면서도 최신 사실, 풍자와 미묘한 뉘앙스의 오류 가능성을 명시한다. 트렌드의 사실 여부·검증 상태를 Gemma 혼자 판정하지 않고 근거와 규칙 게이트를 쓰는 이유다. [시작 안내](https://ai.google.dev/gemma/docs/get_started)는 E2B를 모바일, 12B를 PC·소형 서버용으로 구분한다. 현재 코드의 기본 `GEMMA_LOCAL_MODEL=gemma4:12b`, 원작자 PC에서 실제로 도는 `gemma4:e4b`, 과거 GPU 계획의 `google/gemma-4-E2B-it`는 서로 다른 모델이다. 모델별 품질·속도 실측을 공유한 것처럼 쓰지 않는다.
 
 Cloud Run GPU + vLLM의 기술적 이점도 있다. [Google Cloud 가이드](https://docs.cloud.google.com/run/docs/run-gemma-on-cloud-run)는 vLLM의 연속 배치 처리·효율적 GPU 메모리 관리·OpenAI 호환 API를 설명한다. 자체 모델 버전과 추론 설정을 통제하고, 요청이 없는 기간에는 인스턴스를 0개로 줄일 수 있다. 하지만 현재 예상 사용량에서 처리량 이점은 실측되지 않았고, 실시간 화면에는 콜드 스타트와 GPU 가동비가 붙는다. 무엇보다 **클라우드 GPU의 모델은 사용자 기기에서 실행되는 모델이 아니다.** 기기 내 오프라인 처리나 원문이 기기 밖으로 나가지 않는다는 가치를 이 구조의 장점으로 주장하지 않는다.
 
@@ -40,7 +40,7 @@ Cloud Run GPU + vLLM의 기술적 이점도 있다. [Google Cloud 가이드](htt
            사용자 요청의 사전 조회·리스크 판정 → 저장 데이터와 규칙 코드
 ```
 
-현재 `pipeline/gemini.py`는 `USE_LOCAL_GEMMA=1`일 때 텍스트 전용 호출을 로컬 모델로 보내고, 영상 입력과 Google Search grounding은 Gemini 경로로 남긴다. `pipeline/translate.py`는 검증된 현행 뜻만 번역하고 사용 모델을 DB에 기록한다. `verification.py`의 검증 게이트와 뜻 버전 이력은 그대로 유지한다. 개발 기본 스택은 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`라 유료 모델을 호출하지 않는다.
+현재 `pipeline/gemini.py`는 `USE_LOCAL_GEMMA=1`일 때 텍스트 전용 호출을 로컬 모델로 보내고, 영상 입력과 Google Search grounding은 Gemini 경로로 남긴다. `pipeline/translate.py`는 검증된 현행 뜻만 번역하고 사용 모델을 DB에 기록한다(2026-09-29부터 `local:<모델>` 꼴의 실제 ID와 단계 실행마다 `pipeline_runs.models`. 그 전 로컬 번역은 `gemma-local`로만 남아 모델을 알 수 없다). `verification.py`의 검증 게이트와 뜻 버전 이력은 그대로 유지한다. 개발 기본 스택은 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`라 유료 모델을 호출하지 않는다.
 
 전체 파이프라인은 현행 `scripts/run_pipeline.py`를 **개발자 PC에서** 실행하는 방향이다. 운영 Cloud SQL에 게시하기 전, 현재 로컬 실행이 운영 DB와 안전하게 연결되는지, 실패한 배치가 공개 데이터를 오염시키지 않는지, 재실행 시 중복이 없는지는 별도로 구현·검증해야 한다. 원자료·초안과 공개 승인 자료의 구분, 게시 시점·모델 ID·근거·검수자 기록도 확인 대상이다. Cloud SQL 접속은 [Cloud SQL Auth Proxy 안내](https://docs.cloud.google.com/sql/docs/postgres/connect-auth-proxy)를 참고하되, 운영 DB의 공개 IP 또는 광범위한 쓰기 권한을 편의상 열지 않는다. Proxy는 인증·암호화를 제공하지만 private IP에 대한 네트워크 경로를 새로 만들지는 않는다.
 

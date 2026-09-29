@@ -204,3 +204,17 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 - 무료 GPU(16 GB)에서 12B 전체 가중치 학습을 완료하는 것은 목표가 아니다. QLoRA도 실측 전 완료 시간·품질을 보장하지 않는다.
 - 팀원이 같은 세션이나 모델 메모리를 공유한다고 가정하지 않는다. 각자 실행하고 승인된 입력·결과·체크포인트만 공유한다.
 - 모델 크기·GPU·프롬프트가 다른 실험의 품질·비용·속도를 동일한 결과로 취급하지 않는다.
+
+## 구현 기록
+
+### 완료 기준 1 — 모델 ID 추적 (2026-09-29)
+
+- 로컬 번역(`pipeline/translate.py`)이 `gemma-local` 대신 실제 ID `local:<GEMMA_LOCAL_MODEL>`(`gemini.generate`와 같은 꼴)을 `translations.model`에 남긴다.
+  국가별 해석(`topic_notes`)·쓰임 낱말(`term_fit`)·근거 분류(`evidence_labels`)·조사 초안(`research_log`)은 이미 `local:<모델>`을 남기고 있었다.
+- 단계 실행마다 부른 모델을 `pipeline_runs.models`에 남긴다(마이그레이션 011, 쉼표로 이음, 부르지 않은 실행은 NULL). `pipeline/gemini.py`가 호출이 성공할 때
+  `runs.record_model`로 적고, `gemini.py`를 거치지 않는 영상 해석·검색 grounding 조사·로컬 번역은 그 자리에서 적는다. `run_pipeline.py` 로그 줄에도 `models=`로 보인다.
+  테스트 `tests/test_model_ids.py`.
+- 원작자 서버 사본(2026-09-29 23시) 기준: 번역 374건 중 `gemma-local` 278건(09-15~09-29)·`team` 96건(팀이 쓴 시드). `gemma-local`은 모델이 남지 않았고,
+  같은 시기 다른 표에 `local:gemma4:12b`(09-15 01~04시 UTC)·`local:gpt-oss`(09-15 06시)·`local:gemma4:e4b`(그 뒤)가 섞여 있어 추정으로 채우지 않았다.
+  국가별 해석 112건은 e4b 88·12b 18·gpt-oss 6, 쓰임 낱말 154건과 근거 분류 1,237건은 모두 e4b다.
+- 문서의 모델 이름을 바로잡았다. 원작자 PC는 12B가 아니라 `gemma4:e4b`로 돈다(Plan 03의 234초 분류도 E4B).

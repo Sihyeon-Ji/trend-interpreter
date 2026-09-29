@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS wiki_catalog (term_id TEXT, source TEXT, title TEXT, 
 CREATE TABLE IF NOT EXISTS audit_log (term_id TEXT, meaning_id TEXT, checked_at TEXT, verdict TEXT, reasons_json TEXT, model TEXT, action TEXT, PRIMARY KEY(term_id, meaning_id));
 -- 일괄 등재의 실패(오류·문서에 닿지 못함). scripts/catalog_import.py --retry-failed 가 다시 돈다.
 CREATE TABLE IF NOT EXISTS catalog_failed (source TEXT, title TEXT, reason TEXT, at TEXT, PRIMARY KEY(source, title));
-CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
+-- models: 그 실행이 부른 모델 ID(쉼표, 마이그레이션 011). 부르지 않았으면 NULL.
+CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT, models TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
 CREATE TABLE IF NOT EXISTS trend_explanations (
@@ -661,13 +662,16 @@ def last_researched(con: Connection, term_id: str, ok_only: bool = False) -> dat
 
 def run_start(con: Connection, stage: str) -> str:
     rid = new_id("r")
-    con.execute("INSERT INTO pipeline_runs VALUES (?,?,?,?,?,?,?)", (rid, stage, now_s(), None, 0, "running", ""))
+    con.execute("INSERT INTO pipeline_runs (run_id, stage, started_at, finished_at, count, status, note) VALUES (?,?,?,?,?,?,?)",
+                (rid, stage, now_s(), None, 0, "running", ""))
     con.commit()
     return rid
 
 
-def run_finish(con: Connection, run_id: str, count: int, status: str, note: str = "") -> None:
-    con.execute("UPDATE pipeline_runs SET finished_at=?, count=?, status=?, note=? WHERE run_id=?", (now_s(), count, status, note[:500], run_id))
+def run_finish(con: Connection, run_id: str, count: int, status: str, note: str = "", models: list[str] | tuple[str, ...] = ()) -> None:
+    """models: 그 실행이 부른 모델 ID(Plan 06 완료 기준 1). 쉼표로 이어 두고, 부르지 않았으면 NULL."""
+    con.execute("UPDATE pipeline_runs SET finished_at=?, count=?, status=?, note=?, models=? WHERE run_id=?",
+                (now_s(), count, status, note[:500], ",".join(sorted(models)) or None, run_id))
     con.commit()
 
 

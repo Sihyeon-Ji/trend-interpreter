@@ -40,7 +40,8 @@ def once(names: list[str]) -> None:
         for key, r in results.items():
             mark = {"ok": "✓", "zero": "○", "error": "✗", "skipped": "–"}.get(r.status, "?")
             extra = " ".join(f"{k}={v}" for k, v in r.detail.items() if k not in ("trace",) and not isinstance(v, str) or k in ("pending", "topics", "regions", "verified_auto", "new_candidates"))
-            log.info(f"  {mark} {key:<22} {r.count:>5}  {time.time() - t0:5.1f}s  {r.note[:90]} {extra}")
+            models = f" models={','.join(sorted(r.models))}" if r.models else ""   # 실행 기록(pipeline_runs.models)과 같은 값
+            log.info(f"  {mark} {key:<22} {r.count:>5}  {time.time() - t0:5.1f}s  {r.note[:90]} {extra}{models}")
             if r.status == "error" and "trace" in r.detail:
                 log.info("     " + r.detail["trace"].strip().splitlines()[-1][:160])
     log.info(f"[{datetime.now():%m-%d %H:%M}] 끝 · 예산 남음 {budget_left(con)}")

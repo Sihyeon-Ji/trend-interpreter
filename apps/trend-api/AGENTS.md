@@ -18,7 +18,7 @@
 - 사람이 쓴 문장을 저장하는 표는 보존 기간을 둔다. 해석 캐시 7일, 미해결 질문 30일(`prune_user_text`).
 - `data/`, `*.db`, `*.zip` 은 커밋하지 않는다.
 - 새 데이터 소스는 `collectors/`, 모델 호출은 `interpreters/`, 저장은 `storage/`, ADK 에이전트는 `agents/`. 단계별 실행 스크립트는 `scripts/test_*.py` 로, 키가 없으면 `SystemExit` 메시지로 안내하고 죽는다.
-- 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, `gemma4:12b`(Ollama, `think=False`).
+- 모델 ID 는 `config.py` 상수만 쓴다. 현재 `gemini-3.8-flash`, 로컬 기본값 `gemma4:12b`(Ollama, `think=False`) — 원작자 PC(공용 GPU)는 `.env` 의 `GEMMA_LOCAL_MODEL=gemma4:e4b` 로 돈다. 결과 표의 `model` 과 실행 기록 `pipeline_runs.models` 에는 실제로 부른 ID 를 남긴다(로컬은 `local:<모델>`).
 - 영상은 URL 만 저장, 파일로 받지 않는다 (저작권).
 - 문서는 한국어. 제출물(README 최종본·덱·영상)만 영어.
 - 이 저장소 밖으로 나가는 작업(GCP 리소스 생성, 배포, 결제)은 사용자 확인 후.

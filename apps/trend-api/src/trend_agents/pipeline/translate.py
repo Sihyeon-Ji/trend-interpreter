@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 
-from ..config import USE_LOCAL_GEMMA
+from ..config import GEMMA_LOCAL_MODEL, USE_LOCAL_GEMMA
 from ..schemas import Meaning, MeaningText
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, structured
-from .runs import stage
+from .runs import record_model, stage
 from ..storage.db import Connection
 
 LANG_NAME = {"ko": "Korean", "en": "English"}
@@ -31,7 +31,10 @@ def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[Mean
 
         if gemma_local.is_available():
             base = MeaningText(**_entry(m))
-            return gemma_translate.translate_meaning(base, term, target), "gemma-local"
+            # 실제 모델 ID 를 gemini.generate 와 같은 꼴(local:<모델>)로 — 예전 'gemma-local' 은 어느 모델이 썼는지 남지 않았다(Plan 06 완료 기준 1)
+            text, model = gemma_translate.translate_meaning(base, term, target, model=GEMMA_LOCAL_MODEL), f"local:{GEMMA_LOCAL_MODEL}"
+            record_model(model)
+            return text, model
     parsed, model = structured(con, PROMPT.format(term=term, target=LANG_NAME.get(target, target), **_entry(m)), MeaningText, temperature=0.2)
     return (parsed if isinstance(parsed, MeaningText) else MeaningText.model_validate(parsed)), model
 

@@ -21,7 +21,7 @@ from ..verification import anchor_hit, gate, normalize_url, reference_doc
 from .gemini import BudgetExhausted, budget_left, local_ok, note_call, note_quota, structured
 from .gemini import models as gemini_models
 from .match import mentions, same_term
-from .runs import stage
+from .runs import record_model, stage
 from ..storage.db import Connection
 
 MIN_CANDIDATE_COUNT = 2  # 소스 두 번 이상 등장했거나 쇼츠에서 나온 후보만
@@ -520,6 +520,7 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
             note_call(con, model, 2)
             draft, urls, notes = research_term(term.canonical, model=model)
             method = model
+            record_model(model)   # 검색 grounding 조사는 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서
             break
         except errors.APIError as e:
             if e.code not in (429, 503):

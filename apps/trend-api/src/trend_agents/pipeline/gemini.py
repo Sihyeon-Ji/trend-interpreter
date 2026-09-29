@@ -17,6 +17,7 @@ from .. import model_client
 from ..logging_setup import event
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
+from .runs import record_model
 
 log = logging.getLogger("trend.gemini")
 
@@ -141,7 +142,9 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
     if allow_local and local_ok() and isinstance(contents, str):
         from . import local_llm
 
-        return local_llm.generate(contents), f"local:{__import__('trend_agents.config', fromlist=['GEMMA_LOCAL_MODEL']).GEMMA_LOCAL_MODEL}"
+        out, name = local_llm.generate(contents), f"local:{__import__('trend_agents.config', fromlist=['GEMMA_LOCAL_MODEL']).GEMMA_LOCAL_MODEL}"
+        record_model(name)
+        return out, name
     if budget_left(con, request) <= 0:
         raise BudgetExhausted(f"오늘 Gemini 예산 {REQUEST_GEMINI_DAILY if request else GEMINI_DAILY_BUDGET}회 소진")
     grounded = bool(config and any(getattr(t, "google_search", None) for t in (config.tools or [])))
@@ -190,6 +193,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                 _called(m, ledger, "error")
                 raise
             _called(m, ledger, "ok")
+            record_model(m)
             return resp, m
     assert last is not None
     raise last
@@ -216,7 +220,9 @@ def structured(con: Connection, prompt: str, schema: Any, temperature: float = 0
         from . import local_llm
         from ..config import GEMMA_LOCAL_MODEL
 
-        return local_llm.structured(prompt, schema, temperature, image=image), f"local:{GEMMA_LOCAL_MODEL}"
+        parsed = local_llm.structured(prompt, schema, temperature, image=image)
+        record_model(f"local:{GEMMA_LOCAL_MODEL}")
+        return parsed, f"local:{GEMMA_LOCAL_MODEL}"
     contents: Any = [types.Part.from_bytes(data=image[0], mime_type=image[1]), prompt] if image else prompt
     resp, used = generate(con, contents, types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=temperature),
                           model=model, request=request)
