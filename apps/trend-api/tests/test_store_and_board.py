@@ -260,6 +260,33 @@ def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
     assert risk.judge(con, t2)[0] is None                  # 근거가 모자라면 판단 보류
 
 
+def test_risk_avoids_profane_headwords_and_videos_with_a_bad_origin():
+    """사용 자제 규칙 둘은 근거 문장 분류 없이도 선다(Plan 03 규칙표): 표제어 자체가 욕설·성적 표현, 영상 해석이 비하·혐오 기원을 지적(risk_flags).
+    정치 같은 다른 깃발이나 다른 밈의 영상은 이 규칙에 걸리지 않는다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import risk
+    from trend_agents.schemas import MemeRef, ShortsInterpretation, Term
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+
+    def term(tid, name):
+        t = Term(term_id=tid, canonical=name, lang="ko", status="verified", first_seen=now, last_seen=now)
+        ds.upsert_term(con, t)
+        return t
+
+    def video(vid, name, flags):
+        return ShortsInterpretation(url=f"https://www.youtube.com/shorts/{vid}", language="ko", summary="s", why_viral="w", explain_for_outsider="e",
+                                    memes=[MemeRef(name=name, kind="meme", origin_hypothesis="unknown", confidence=0.8)], target_generation=["10s"],
+                                    risk_flags=flags)
+
+    assert risk.judge(con, term("t1", "아헤가오")) == ("avoid", ["표제어 자체가 욕설·성적 표현이다."])
+    db.save_interpretations(con, [video("v1", "원숭이 춤", ["비하 기원", "정치"]), video("v2", "정치밈", ["정치"]), video("v3", "다른밈", ["혐오 기원"])], "test")
+    assert risk.judge(con, term("t2", "원숭이춤")) == ("avoid", ["영상 해석이 지적한 기원: 비하 기원"])   # 띄어쓰기만 다른 이름도 같은 밈
+    assert risk.judge(con, term("t3", "정치밈"))[0] is None                                           # 정치 깃발만 — 근거가 없어 판단 보류
+
+
 def test_human_risk_level_overrides_rules_until_cleared():
     """검수자가 정한 리스크 수준이 규칙보다 우선하고, 지우면 규칙 판정으로 돌아간다 (Plan 03 5번)."""
     from datetime import datetime, timezone
