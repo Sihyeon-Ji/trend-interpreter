@@ -948,6 +948,10 @@ def update_feed(con: Connection, hours: int = 48, kinds: tuple[str, ...] = USER_
 
 # 이용자가 읽는 게시본을 다시 쓰는 단계. 파이프라인 끝의 지도(board)·키워드 대시보드(dashboard)가 그때까지의 편집 결과를 모아
 # 공개 캐시를 새로 만든다 — 수집·중간 단계만 끝난 실행은 게시본을 바꾸지 않는다(ADR 0001 '마지막 정상 갱신', Plan 05·06).
+# 그래서 '게시가 멈췄나' 만 잰다. 두 단계는 저장된 행으로 다시 만들어 수집원이 모두 실패해도 'ok' 다 — 수집원 실패는
+# 관리 화면 '수집 현황'(/pipeline/stages)과 health_check 의 '하루 안에 실패한 단계' 가 본다.
+# 운영 게시 방법(Plan 06 1단계)이 무엇이든 운영 pipeline_runs 에 이 단계들의 'ok' 행을 남겨야 한다. 게시 단계를 따로 두면 그 이름을
+# 여기에 더한다 — 아니면 운영 /meta 는 last_run=None·stale 을 계속 내고 유지보수 Job 은 매번 2 로 끝난다.
 PUBLISH_STAGES = ("board", "dashboard")
 # 게시가 이보다 오래되면 오래된 자료다. 23:15 실행 뒤 다음 날 09:15 실행까지 게시가 10시간 빈다(09-17~09-28 실측 10.0~10.5시간).
 STALE_AFTER_HOURS = 12

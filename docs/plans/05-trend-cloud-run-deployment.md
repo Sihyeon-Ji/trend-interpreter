@@ -168,6 +168,11 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
   - 09-28 19:33·23:33(한국 시각) 지도 단계가 `KeyError: 'namu_rank'`로 실패해 지도가 14:27 것으로 19.1시간 남았다. 그동안 옛 계산은 23:33:06을 냈고,
     새 계산은 14:27을 내며 09-29 02:27에 `stale`이 된다.
   - 화면(사전·최근 변화의 '갱신' 시각, 관리 화면 머리의 '마지막 실행')은 코드 변경 없이 새 `last_run`을 보인다. `stale` 표시는 프론트 결정 뒤에 붙인다.
+  - `stale`은 게시가 멈춘 것만 뜻한다. 지도·대시보드는 저장된 행으로 다시 만들어 수집원이 모두 실패해도 성공한다. 운영 DB는 PC 밖(Cloud SQL)에 있어
+    PC가 네트워크를 잃으면 게시도 멈춰 `stale`로 잡히지만, PC는 게시하는데 수집원만 실패하는 경우(자격 증명 만료 등)는 잡지 않는다.
+    그런 실패는 관리 화면 '수집 현황'과 `health_check.py`의 '하루 안에 실패한 단계'가 본다.
+  - 운영 게시 방법([Plan 06](06-gemma-on-cloud-run-gpu.md) 1단계)이 무엇이든 운영 `pipeline_runs`에 `board`·`dashboard`의 `ok` 행을 남겨야 한다.
+    그러지 않으면 운영 `/meta`의 `stale`이 계속 참이고 유지보수 작업이 매번 2로 끝난다.
 - **Gemini 호출 이벤트.** `pipeline/gemini.py`가 Vertex에 요청을 보낼 때마다 `event=gemini_call`(`model`·`ledger`·`outcome`·`code`) 한 줄을 남긴다.
   Cloud Run 서비스와 Job은 JSON 로그라 `jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있다([AI 호출 제어](../운영/AI-호출-제어.md)).
   호출이 꺼져 있으면(`MODEL_REQUESTS_ENABLED=false`) 장부를 깎기 전에 끝나 이벤트가 0이다. 전에는 보내지 않은 요청이 호출마다 장부를 1씩 깎았다(시험에서 36→35, 12→11).

@@ -398,7 +398,8 @@ def trends_why(region: str | None = None):
 @app.get("/meta")
 def meta():
     """갱신 시각: 마지막 정상 게시(last_run, 지도·대시보드 게시가 모두 성공한 때)와 그게 STALE_AFTER_HOURS(12시간)보다 오래됐는지(stale),
-    보드 생성 시각, 용어 수. last_run 은 이름만 예전 그대로다 — 어느 단계든 끝난 때를 쓰면 수집만 돌아도 새 자료로 보였다."""
+    보드 생성 시각, 용어 수. last_run 은 이름만 예전 그대로다 — 어느 단계든 끝난 때를 쓰면 수집만 돌아도 새 자료로 보였다.
+    stale 은 게시가 멈춘 것이지 수집원이 멈춘 것이 아니다 — 수집원이 모두 실패해도 저장된 행으로 게시는 성공한다(ds.PUBLISH_STAGES)."""
     cached = ds.cache_get(_con, "board")
     published = ds.last_published(_con)
     return {"last_run": published, "stale": ds.is_stale(published), "board_generated_at": cached[1] if cached else None,
