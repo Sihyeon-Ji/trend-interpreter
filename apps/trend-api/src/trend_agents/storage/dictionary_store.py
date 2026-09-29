@@ -632,35 +632,58 @@ def get_topic_notes(con: Connection, term_id: str) -> dict[str, dict]:
     return {r: json.loads(j) for r, j in con.execute("SELECT region, json FROM topic_notes WHERE term_id=?", (term_id,)).fetchall()}
 
 
-def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[dict]:
-    """최근 변화: 새 용어, 확인된 뜻, 바뀐 뜻, 급증 설명, 재조사, 검수 결정."""
+# 이용자 피드('최근 변화')에 내는 종류. 나머지(new_term 검증 전·recheck·candidate_meaning·reviewed)는 작업 기록이라 관리 화면용이다(화면 개편 2차 검토).
+USER_UPDATE_KINDS = ("verified", "meaning_changed", "spike")
+UPDATE_KINDS = ("new_term", "verified", "meaning_changed", "candidate_meaning", "spike", "recheck", "reviewed")
+
+
+def recent_updates(con: Connection, hours: int = 48, limit: int | None = 60, kinds: tuple[str, ...] | None = None) -> list[dict]:
+    """최근 변화: 새 용어, 확인된 뜻, 바뀐 뜻, 급증 설명, 재조사, 검수 결정. kinds 를 주면 그 종류만(한도는 거른 뒤에 적용)."""
+    want = set(kinds) if kinds is not None else set(UPDATE_KINDS)
     since = (now() - timedelta(hours=hours)).isoformat()
     rows: list[dict] = []
-    for tid, canonical, first in con.execute("SELECT term_id, canonical, first_seen FROM terms WHERE first_seen>=?", (since,)).fetchall():
-        rows.append({"kind": "new_term", "at": first, "label": canonical, "term_id": tid})
-    for tid, ver, vf, version in con.execute("SELECT term_id, verification, valid_from, version FROM meanings WHERE valid_from>=?", (since,)).fetchall():
-        t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
-        if not t:
-            continue
-        kind = "meaning_changed" if version > 1 else ("verified" if ver.startswith("verified") else "candidate_meaning")
-        rows.append({"kind": kind, "at": vf, "label": t[0], "term_id": tid, "detail": ver})
-    for term, region, created, updated, trig in con.execute("SELECT term, region, created_at, updated_at, trigger FROM trend_explanations WHERE updated_at>=?", (since,)).fetchall():
-        rows.append({"kind": "spike", "at": updated, "label": term, "region": region, "detail": trig})
+    if "new_term" in want:
+        for tid, canonical, first in con.execute("SELECT term_id, canonical, first_seen FROM terms WHERE first_seen>=?", (since,)).fetchall():
+            rows.append({"kind": "new_term", "at": first, "label": canonical, "term_id": tid})
+    if want & {"verified", "meaning_changed", "candidate_meaning"}:
+        for tid, ver, vf, version in con.execute("SELECT term_id, verification, valid_from, version FROM meanings WHERE valid_from>=?", (since,)).fetchall():
+            # 확인 전 뜻은 새 version 이라도 '뜻이 바뀐 밈' 이 아니다 — 이용자 피드에는 게이트를 통과한 뜻만
+            kind = ("meaning_changed" if version > 1 else "verified") if ver.startswith("verified") else "candidate_meaning"
+            if kind not in want:
+                continue
+            t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
+            if not t:
+                continue
+            row = {"kind": kind, "at": vf, "label": t[0], "term_id": tid, "detail": ver}
+            if kind == "meaning_changed":
+                # 이전 뜻 — 번역은 지금 뜻에만 있으므로 원문 그대로 준다(화면이 표제어 언어로 lang 을 단다)
+                prev = con.execute("SELECT json FROM meanings WHERE term_id=? AND version<? ORDER BY version DESC LIMIT 1", (tid, version)).fetchone()
+                row["previous"] = (json.loads(prev[0]).get("definition") or None) if prev else None
+            rows.append(row)
+    if "spike" in want:
+        for term, region, _created, updated, trig, j in con.execute(
+                "SELECT term, region, created_at, updated_at, trigger, json FROM trend_explanations WHERE updated_at>=?", (since,)).fetchall():
+            x = json.loads(j) if j else {}
+            # 급증 이유 한 문장을 함께 준다 — 이름과 시각뿐이면 무엇이 일어났는지 알 수 없다(화면 개편 2차 검토)
+            reason = {"ko": x.get("why_now") or "", "en": x.get("why_now_en") or x.get("why_now") or ""} if trig != "unknown" else None
+            rows.append({"kind": "spike", "at": updated, "label": term, "region": region, "detail": trig, "reason": reason})
     # 실패한 조사('error')는 이용자 피드에 낼 변화가 아니다
-    for tid, at, ver in con.execute("SELECT term_id, researched_at, verification FROM research_log WHERE researched_at>=? AND verification != 'error'", (since,)).fetchall():
-        t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
-        if t:
-            rows.append({"kind": "recheck", "at": at, "label": t[0], "term_id": tid, "detail": ver})
+    if "recheck" in want:
+        for tid, at, ver in con.execute("SELECT term_id, researched_at, verification FROM research_log WHERE researched_at>=? AND verification != 'error'", (since,)).fetchall():
+            t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
+            if t:
+                rows.append({"kind": "recheck", "at": at, "label": t[0], "term_id": tid, "detail": ver})
     # 게이트가 스스로 닫은 것(decided_by='gate')은 검수 결정이 아니다 — 공개 피드에는 사람의 결정만
-    for tid, decision, at in con.execute("SELECT term_id, decision, decided_at FROM review_queue WHERE decided_at>=? AND decision IS NOT NULL "
-                                         "AND COALESCE(decided_by,'') != 'gate'", (since,)).fetchall():
-        t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
-        if t:
-            rows.append({"kind": "reviewed", "at": at, "label": t[0], "term_id": tid, "detail": decision})
+    if "reviewed" in want:
+        for tid, decision, at in con.execute("SELECT term_id, decision, decided_at FROM review_queue WHERE decided_at>=? AND decision IS NOT NULL "
+                                             "AND COALESCE(decided_by,'') != 'gate'", (since,)).fetchall():
+            t = con.execute("SELECT canonical FROM terms WHERE term_id=?", (tid,)).fetchone()
+            if t:
+                rows.append({"kind": "reviewed", "at": at, "label": t[0], "term_id": tid, "detail": decision})
     from ..pipeline.match import unsafe
 
     def shown(r: dict) -> bool:
-        # 공개 '오늘의 변화' 도 둘러보는 목록이다 — 욕설 표제어는 내지 않는다. 검수자가 '문제 없음' 으로 푼 것은 낸다(대시보드·나라 화면과 같게, 검토 3차)
+        # 공개 '최근 변화' 도 둘러보는 목록이다 — 욕설 표제어는 내지 않는다. 검수자가 '문제 없음' 으로 푼 것은 낸다(대시보드·나라 화면과 같게, 검토 3차)
         if not unsafe(r.get("label") or ""):
             return True
         t = get_term(con, r["term_id"]) if r.get("term_id") else None
@@ -669,6 +692,28 @@ def recent_updates(con: Connection, hours: int = 48, limit: int = 60) -> list[di
     rows = [r for r in rows if shown(r)]
     rows.sort(key=lambda r: r["at"] or "", reverse=True)
     return rows[:limit]
+
+
+def update_feed(con: Connection, hours: int = 48, kinds: tuple[str, ...] = USER_UPDATE_KINDS, limit: int = 100) -> dict:
+    """'최근 변화' 화면용. 이용자 종류는 한 표현에 하루 한 행(가장 중요한 변화 하나)으로 줄이고, 종류별 합계는 자르기 전에 센다 —
+    한도에 잘린 조각을 세면 건수가 전부인지 알 수 없다(화면 개편 2차 검토). 작업 기록 종류는 그대로 둔다(관리 화면에서 기록으로 본다)."""
+    rank = {k: i for i, k in enumerate(("meaning_changed", "verified", "spike"))}
+    best: dict[tuple, dict] = {}
+    rest: list[dict] = []
+    for r in recent_updates(con, hours=hours, limit=None, kinds=kinds):
+        if r["kind"] not in rank:
+            rest.append(r)
+            continue
+        key = (r.get("term_id") or f"{norm(r['label'])}|{r.get('region') or ''}", (r["at"] or "")[:10])
+        cur = best.get(key)
+        # 같은 날 같은 표현이면 중요한 종류가, 같은 종류면 늦은 것이 남는다(시각순으로 들어오므로 먼저 온 것이 늦은 것)
+        if cur is None or rank[r["kind"]] < rank[cur["kind"]]:
+            best[key] = r
+    rows = sorted([*best.values(), *rest], key=lambda r: r["at"] or "", reverse=True)
+    counts = {k: 0 for k in kinds}
+    for r in rows:
+        counts[r["kind"]] = counts.get(r["kind"], 0) + 1
+    return {"items": rows[:limit], "counts": counts, "total": len(rows)}
 
 
 def last_finished(con: Connection) -> str | None:

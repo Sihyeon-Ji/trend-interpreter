@@ -1,43 +1,96 @@
 import Link from "next/link";
+import { ListTabs } from "@/components/list-tabs";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
-import { getMeta, getUpdates } from "@/lib/data";
-import { t, type StringKey } from "@/lib/i18n";
+import { StatePanel } from "@/components/state-panel";
+import { rowRegions, UpdatesTable } from "@/components/updates-table";
+import { getUpdateFeed } from "@/lib/data";
+import { t } from "@/lib/i18n";
 import { fmtDateTime, regionLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
+import { TARGET_REGIONS } from "@/lib/reader";
+import { chipClass } from "@/lib/ui";
 
-const ORDER = ["new_term", "verified", "meaning_changed", "spike", "reviewed", "recheck", "candidate_meaning"];
+/* 최근 변화 — 이용자에게 보일 변화만: 새로 확인된 밈, 뜻이 바뀐 밈, 검색 급증. 다시 확인·뜻 제안·검수 결정 같은 작업 기록은
+   관리 화면의 몫이다(백엔드 GET /updates?kinds=all). 종류와 지역은 주소(?kind=, ?regions=)에만 둔다. */
+const KINDS = ["verified", "meaning_changed", "spike"] as const;
+type Kind = (typeof KINDS)[number] | "all";
 
-export default async function UpdatesPage() {
-  const [locale, updates, meta] = await Promise.all([getLocale(), getUpdates(48), getMeta()]);
-  const groups = ORDER.map((k) => [k, updates.filter((u) => u.kind === k)] as const).filter(([, l]) => l.length);
+export default async function UpdatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [locale, sp, feed] = await Promise.all([getLocale(), searchParams, getUpdateFeed(48)]);
+  const kind: Kind = KINDS.includes(String(sp.kind) as (typeof KINDS)[number]) ? (String(sp.kind) as Kind) : "all";
+  const asked = [sp.regions].flat().filter(Boolean).join(",").split(",").map((s) => s.trim().toUpperCase());
+  const regions = TARGET_REGIONS.filter((r) => asked.includes(r));
+  const href = (next: { kind?: Kind; regions?: string[] }) => {
+    const q = new URLSearchParams();
+    const rs = next.regions ?? regions;
+    const k = next.kind ?? kind;
+    if (rs.length) q.set("regions", rs.join(","));
+    if (k !== "all") q.set("kind", k);
+    return q.size ? `/updates?${q}` : "/updates";
+  };
+  const header = (chips?: React.ReactNode) => (
+    <PageHeader title={t(locale, "updates_title")} description={t(locale, "updates_intro")}
+      meta={feed?.updated_at ? <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(feed.updated_at, locale)}</span></span> : undefined}
+      actions={<Link href="/" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>
+      {chips}
+    </PageHeader>
+  );
+
+  if (!feed) {
+    return (
+      <PageShell>
+        <div className="space-y-6">
+          {header()}
+          <StatePanel role="alert" action={<Link href={href({})} className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_retry")}</Link>}>
+            {t(locale, "feeds_load_failed")}
+          </StatePanel>
+        </div>
+      </PageShell>
+    );
+  }
+
+  const inRegion = regions.length ? feed.items.filter((r) => rowRegions(r).some((x) => regions.includes(x))) : feed.items;
+  // 지역을 고르지 않았으면 서버가 자르기 전에 센 합계를, 골랐으면 받은 목록에서 센다
+  const counts = regions.length ? Object.fromEntries(KINDS.map((k) => [k, inRegion.filter((r) => r.kind === k).length])) : feed.counts;
+  const total = regions.length ? inRegion.length : feed.total;
+  const rows = kind === "all" ? inRegion : inRegion.filter((r) => r.kind === kind);
+  const tabs = [
+    { id: "all", label: t(locale, "updates_all"), count: total, href: href({ kind: "all" }) },
+    ...KINDS.map((k) => ({ id: k, label: t(locale, `updates_kind_${k}`), count: counts[k] ?? 0, href: href({ kind: k }) })),
+  ];
+  const perRegion = (r: string) => feed.items.filter((x) => rowRegions(x).includes(r)).length;
+  const toggle = (r: string) => (regions.includes(r) ? regions.filter((x) => x !== r) : [...regions, r]);
+
   return (
     <PageShell>
-      <div className="space-y-8">
-        <PageHeader title={t(locale, "updates_title")} description={t(locale, "updates_intro")}
-          meta={meta?.last_run ? (
-            <span className="flex flex-wrap gap-x-4">
-              <span>{t(locale, "updates_last_run")} <span className="tabular-nums text-charcoal">{fmtDateTime(meta.last_run, locale)}</span></span>
-              <span className="tabular-nums">{locale === "ko" ? `표현 ${meta.terms}개` : `${meta.terms} expressions`}</span>
-            </span>
-          ) : undefined} />
-        {groups.length === 0 && <p className="rounded-lg border border-hairline px-4 py-8 text-center text-[14px] text-charcoal">{t(locale, "updates_none")}</p>}
-        {groups.map(([kind, list]) => (
-          <section key={kind}>
-            <h2 className="text-[15px] font-semibold text-ink">{t(locale, `updates_kind_${kind}` as StringKey)} <span className="ml-1 text-[13px] font-normal text-steel">{list.length}</span></h2>
-            <ul className="mt-2 divide-y divide-hairline border-y border-hairline text-[14px]">
-              {list.slice(0, 30).map((u, i) => (
-                <li key={i} className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 py-2.5 sm:grid-cols-[150px_minmax(0,1fr)]">
-                  <span className="text-steel tabular-nums">{fmtDateTime(u.at, locale)}</span>
-                  <span className="text-ink">
-                    {u.term_id ? <Link href={`/dictionary/${u.term_id}`} className="hover:underline">{u.label}</Link> : u.region ? <Link href={`/country/${u.region}`} className="hover:underline">{u.label}</Link> : u.label}
-                    {u.region && <span className="ml-1.5 text-[12px] text-steel">{regionLabel(locale, u.region)}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+      <div className="space-y-6">
+        {header(
+        <nav aria-label={t(locale, "dash_regions")} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+          <Link href={href({ regions: [] })} className={chipClass(!regions.length)} aria-current={!regions.length ? "true" : undefined}>{t(locale, "updates_regions_all")}</Link>
+          {TARGET_REGIONS.map((r) => {
+            const on = regions.includes(r);
+            return (
+              <Link key={r} href={href({ regions: toggle(r) })} className={chipClass(on)} aria-current={on ? "true" : undefined}>
+                {regionLabel(locale, r)} <span className="tabular-nums opacity-75">{perRegion(r)}</span>
+              </Link>
+            );
+          })}
+        </nav>)}
+        <section aria-labelledby="updates-list" className="space-y-3">
+          <h2 id="updates-list" className="sr-only">{tabs.find((x) => x.id === kind)?.label}</h2>
+          <ListTabs items={tabs} current={kind} label={t(locale, "updates_kinds")} />
+          {feed.total === 0 ? (
+            <StatePanel action={<Link href="/" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>{t(locale, "updates_none")}</StatePanel>
+          ) : rows.length === 0 ? (
+            <StatePanel action={<Link href="/updates" className="text-[14px] text-link-blue hover:underline">{t(locale, "updates_regions_all")}</Link>}>{t(locale, "updates_none_filtered")}</StatePanel>
+          ) : (
+            <UpdatesTable rows={rows} locale={locale} now={new Date().toISOString()} />
+          )}
+          {feed.total > feed.items.length && (
+            <p className="text-[13px] text-steel">{t(locale, "updates_truncated").replace("{n}", String(feed.total)).replace("{m}", String(feed.items.length))}</p>
+          )}
+        </section>
       </div>
     </PageShell>
   );

@@ -1,13 +1,15 @@
 /* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
-import type { GenerationCurve, Meta, TrendBoard, TrendWhy, UpdateItem } from "./trends/types";
+import type { GenerationCurve, Meta, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
 import type { KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
 import { explainMessage, type ExplainResult } from "./explain";
 import { sampleKeywordBoard, sampleSignals } from "./sample/keyword-board";
+import { SAMPLE_WHY, sampleUpdateFeed } from "./sample/updates";
+import { TARGET_REGIONS } from "./reader";
 
 export const isSampleMode = process.env.DATA_MODE !== "api";
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
@@ -88,23 +90,74 @@ export async function getMeta(): Promise<Meta | null> {
   return isSampleMode ? null : apiOr<Meta | null>("/meta", null, 30);
 }
 
-export async function getUpdates(hours = 48): Promise<UpdateItem[]> {
-  return isSampleMode ? [] : apiOr<UpdateItem[]>(`/updates?hours=${hours}`, [], 30);
+/** 실패를 null 로 알린다 — 예시 데이터로 바꿔 치지 않는다(실데이터 화면에 예시가 섞이면 알아챌 수 없다, 화면 개편 2차 검토). */
+async function apiOrNull<T>(path: string, revalidate: number | false = 60): Promise<T | null> {
+  try {
+    const res = await fetch(`${API}${path}`, revalidate === false ? { cache: "no-store" } : { next: { revalidate } });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
 }
 
+/** 최근 변화 목록(이용자 종류만) — 지도 화면의 '최근 변화 n건' 링크가 쓴다. 서버가 없으면 빈 목록. */
+export async function getUpdates(hours = 48): Promise<UpdateItem[]> {
+  if (isSampleMode) return sampleUpdateFeed().items;
+  return (await apiOrNull<UpdateFeed>(`/updates?hours=${hours}`, 30))?.items ?? [];
+}
+
+/** 최근 변화 한 줄 + 대시보드 카드(뜻·단계·리스크·지역). 대시보드에 없는 표현은 card 가 없다 → 칸은 '—'. */
+export type UpdateRow = UpdateItem & { card?: KeywordCard };
+export interface UpdatePage { items: UpdateRow[]; counts: Record<string, number>; total: number; updated_at: string | null }
+
+const cardIndex = (b: KeywordBoard | null) => new Map((b ? [...b.rising, ...b.fading, ...b.caution] : []).map((c) => [c.term_id, c]));
+
+/** '최근 변화' 화면. 서버가 목록을 못 주면 null(화면이 '불러오지 못했습니다'). 대시보드 카드는 붙이기만 하므로 없어도 목록은 보인다. */
+export async function getUpdateFeed(hours = 48): Promise<UpdatePage | null> {
+  if (isSampleMode) {
+    const feed = sampleUpdateFeed();
+    const cards = cardIndex(sampleKeywordBoard([]));
+    return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: SAMPLE_BOARD.generated_at };
+  }
+  const [feed, board, meta] = await Promise.all([
+    apiOrNull<UpdateFeed>(`/updates?hours=${hours}&limit=300`, 30),
+    apiOrNull<KeywordBoard>("/dashboard", false),   // getKeywordBoard 와 같은 이유로 Next 데이터 캐시에 넣지 않는다
+    getMeta(),
+  ]);
+  if (!feed || !Array.isArray(feed.items)) return null;   // 예전 백엔드(목록만 주던 /updates)도 '불러오지 못했습니다' 로
+  const cards = cardIndex(board);
+  return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: meta?.last_run ?? null };
+}
+
+/** 백엔드 pipeline/views.py CountryPage 와 1:1 */
 export interface CountryPage { region: string; items: TrendBoard["items"]; why: TrendWhy[]; terms: TermRecord[]; generation_share: Record<string, number>; updated_at: string | null }
 
-export async function getCountryPage(region: string): Promise<CountryPage> {
+/** 나라 화면. 밈 목록은 대시보드와 같은 카드(board — 목표 지역만), 이유는 최근 7일에서 원인을 찾은 것만(뺀 건수는 why_hidden). */
+export interface CountryView { region: string; items: TrendBoard["items"]; why: TrendWhy[]; why_hidden: number; board: KeywordBoard | null; updated_at: string | null }
+
+const WHY_DAYS = 7;
+
+function recentWhy(all: TrendWhy[], region: string, ref: string | null) {
+  const end = ref ? Date.parse(ref) : NaN;
+  const from = Number.isNaN(end) ? null : new Date(end - WHY_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const recent = all.filter((w) => w.region === region && (!from || String(w.date).slice(0, 10) >= from));
+  const shown = recent.filter((w) => w.trigger !== "unknown").sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return { why: shown, why_hidden: recent.length - shown.length };
+}
+
+/** 실패하면 null — 빈 페이지·1970년 갱신 시각으로 '자료 없음' 처럼 보이게 하지 않는다. */
+export async function getCountryPage(region: string): Promise<CountryView | null> {
+  const target = TARGET_REGIONS.includes(region);
   if (isSampleMode) {
     const items = SAMPLE_BOARD.items.filter((i) => i.region === region);
-    const terms = SAMPLE_RECORDS.filter((r) => r.usage.some((u) => u.segment.region === region));
-    const share: Record<string, number> = {};
-    for (const r of terms) for (const u of r.usage) if (u.segment.region === region) share[u.segment.generation] = (share[u.segment.generation] ?? 0) + u.share;
-    const total = Object.values(share).reduce((a, b) => a + b, 0) || 1;
-    for (const k of Object.keys(share)) share[k] = Math.round((share[k] / total) * 1000) / 1000;
-    return { region, items, why: [], terms, generation_share: share, updated_at: SAMPLE_BOARD.generated_at };
+    return { region, items, ...recentWhy(SAMPLE_WHY, region, SAMPLE_BOARD.generated_at), board: target ? sampleKeywordBoard([region]) : null, updated_at: SAMPLE_BOARD.generated_at };
   }
-  return apiOr<CountryPage>(`/countries/${encodeURIComponent(region)}`, { region, items: [], why: [], terms: [], generation_share: {}, updated_at: new Date(0).toISOString() } as CountryPage, 30);  // 백엔드가 꺼져 있으면 500 대신 빈 페이지 (getTrendBoard 등과 같은 폴백)
+  const [page, board] = await Promise.all([
+    apiOrNull<CountryPage>(`/countries/${encodeURIComponent(region)}`, 30),
+    target ? apiOrNull<KeywordBoard>(`/dashboard?regions=${encodeURIComponent(region)}`, false) : Promise.resolve(null),
+  ]);
+  if (!page || (target && !board)) return null;
+  return { region, items: page.items, ...recentWhy(page.why ?? [], region, page.updated_at), board, updated_at: page.updated_at };
 }
 
 export async function getGenerationCurves(termId: string): Promise<GenerationCurve[]> {

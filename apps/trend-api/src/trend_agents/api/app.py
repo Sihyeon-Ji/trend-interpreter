@@ -317,9 +317,16 @@ def meta():
 
 
 @app.get("/updates")
-def updates(hours: int = 48):
-    """최근 변화 피드 (새 용어·확인·뜻 변경·급증 설명·재조사·검수 결정)."""
-    return ds.recent_updates(_con, hours=hours)
+def updates(hours: int = 48, kinds: str | None = None, limit: int = 100):
+    """최근 변화 피드 {items, counts, total}. 기본은 이용자에게 보일 종류(새로 확인·뜻 바뀜·검색 급증)만.
+    kinds=all 이면 작업 기록(새로 포착·재조사·뜻 제안·검수 결정)까지, 쉼표로 골라 받을 수도 있다 — 관리 화면용."""
+    if kinds == "all":
+        wanted = ds.UPDATE_KINDS
+    elif kinds:
+        wanted = tuple(k for k in ds.UPDATE_KINDS if k in kinds.split(","))
+    else:
+        wanted = ds.USER_UPDATE_KINDS
+    return ds.update_feed(_con, hours=max(1, min(hours, 168)), kinds=wanted, limit=max(1, min(limit, 300)))
 
 
 @app.get("/countries/{region}", response_model=views.CountryPage)

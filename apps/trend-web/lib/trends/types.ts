@@ -63,7 +63,10 @@ export interface TrendWhy {
   updated_at: string;
 }
 
-export interface UpdateItem { kind: string; at: string; label: string; region?: string | null; term_id?: string | null; detail?: string | null }
+/* '최근 변화' 한 줄 — 백엔드 dictionary_store.recent_updates 와 1:1. previous 는 뜻 바뀜의 이전 뜻(원문), reason 은 검색 급증의 이유(원인 미확인이면 null) */
+export interface UpdateItem { kind: string; at: string; label: string; region?: string | null; term_id?: string | null; detail?: string | null; previous?: string | null; reason?: Text2 | null }
+/* GET /updates — counts 는 한도로 자르기 전의 종류별 48시간 합계, total 은 그 합 */
+export interface UpdateFeed { items: UpdateItem[]; counts: Record<string, number>; total: number }
 export interface GenerationCurve { generation: string; points: [string, number][]; peak_date: string | null }
 export interface Meta { last_run: string | null; board_generated_at: string | null; terms: number; explanations: number }
 

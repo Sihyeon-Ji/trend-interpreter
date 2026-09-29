@@ -30,7 +30,7 @@ export function WhyCard({ w, locale, showRegion = false }: { w: TrendWhy; locale
             {w.evidence.map((e) => (
               <li key={e.url} className="truncate">
                 <span className="text-steel">{labels.evidenceKind[e.kind as keyof typeof labels.evidenceKind] ?? e.kind} · {sourceName(locale, e.source_domain)} · {fmtDate(e.observed_at)}</span>{" "}
-                <Link href={e.url} target="_blank" rel="noreferrer" className="text-link-blue hover:underline">{e.title}</Link>
+                <Link href={e.url} target="_blank" rel="noreferrer" className="text-link-blue hover:underline">{e.title}<span className="sr-only"> {t(locale, "feeds_new_window")}</span></Link>
               </li>
             ))}
           </ul>

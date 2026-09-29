@@ -157,7 +157,8 @@ def country_page(con: Connection, region: str) -> CountryPage:
     from .match import unsafe
 
     # 둘러보는 목록이다 — 표제어 자체가 욕설·성적 표현인 것은 내지 않는다(검수자가 '문제 없음' 으로 푼 것은 낸다, 대시보드와 같은 규칙)
-    recs = [term_record(con, t) for t in ds2.list_terms(con, ("verified", "needs_review"))
+    # 확인된 것만 — 공개 사전(/terms)과 같은 규칙. 확인 전 표현이 '확인된 표현' 으로 섞여 나왔다(화면 개편 2차 검토)
+    recs = [term_record(con, t) for t in ds2.list_terms(con, ("verified",))
             if any(u["region"] == region for u in ds2.get_usage(con, t.term_id)) and (not unsafe(t.canonical) or t.risk_level == "none")]
     share: dict[str, float] = {}
     for r in recs:
