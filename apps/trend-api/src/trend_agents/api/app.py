@@ -9,7 +9,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.formparsers import MultiPartParser
@@ -448,9 +448,10 @@ def generate(body: GenerateIn):
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)
-def keyword_dashboard(regions: str = ""):
-    """키워드 대시보드 (Plan 04). regions 는 쉼표로 (KR,JP,GLOBAL). 없거나 모르는 값뿐이면 목표 지역 전체."""
-    return dashboard.board(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
+def keyword_dashboard(regions: str = "", page: int = Query(1, ge=1, le=10_000)):
+    """키워드 대시보드 (Plan 04). regions 는 쉼표로 (KR,JP,GLOBAL). 없거나 모르는 값뿐이면 목표 지역 전체.
+    page 는 목록마다 몇째 쪽(30개씩)인지 — 건수는 totals 에 있다."""
+    return dashboard.board(_con, [r.strip().upper() for r in regions.split(",") if r.strip()], page)
 
 
 @app.get("/terms/{term_id}/signals", response_model=views.KeywordCard | None)

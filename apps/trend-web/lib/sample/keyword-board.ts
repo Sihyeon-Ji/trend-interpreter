@@ -8,7 +8,9 @@ const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: 
 // 표제어 언어의 나라로 두는 것은 그 나라 글자로 쓴 말만 (백엔드 dashboard.term_regions 와 같은 규칙)
 const SCRIPT: Record<string, RegExp> = { ko: /[가-힣]/, ja: /[\u3040-\u30ff\u4e00-\u9fff]/, zh: /[\u4e00-\u9fff]/, th: /[\u0e00-\u0e7f]/ };
 const LATIN_ONLY = /^[\x00-\x7f\u00c0-\u024f\s]+$/;
-const LIST_MAX = 30;
+const LIST_MAX = 30;       // 한 쪽에 보이는 수 (백엔드 dashboard.LIST_MAX)
+const STALE_DAYS = 90;     // 12주 언급이 0 이고 마지막 쓰임이 이보다 오래되면 '식어 가는' (백엔드 dashboard.STALE_DAYS)
+const GENERATED_AT = "2026-09-13T21:10:00Z";
 const DIFFUSION_ORDER: Record<string, number> = { spreading: 0, underground: 1, mainstream: 2 };
 const LIFECYCLE_ORDER: Record<string, number> = { emerging: 0, rising: 0, peak: 1, steady: 2 };
 
@@ -48,9 +50,16 @@ function toCard(r: TermRecord): KeywordCard {
   };
 }
 
-const fading = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant";
+// 마지막 쓰임은 화면의 '마지막 쓰임' 칸과 같은 값. 기준 시각은 예시의 갱신 시각 — 날이 지나도 예시 목록이 바뀌지 않게
+const stale = (c: KeywordCard) => {
+  const last = c.last_used ?? c.last_seen;
+  return !c.weekly.some((p) => p.count) && !!last && Date.parse(GENERATED_AT) - Date.parse(last) > STALE_DAYS * 86_400_000;
+};
+const fading = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
+const flagged = (c: KeywordCard) => c.risk_level === "caution" || c.risk_level === "avoid";
 
-export function sampleKeywordBoard(regions: string[]): KeywordBoard {
+/** 백엔드 dashboard.board 와 같다: 세 목록은 겹치지 않고(주의·사용 자제는 주의 목록에만), 목록마다 전체 건수와 page 쪽만 싣는다. */
+export function sampleKeywordBoard(regions: string[], page = 1): KeywordBoard {
   const cards = SAMPLE_RECORDS.filter((r) => r.term.status === "verified").map(toCard).filter((c) => c.regions.length);
   const known = [...TARGET_REGIONS, "GLOBAL"];
   const chosen = known.filter((r) => regions.includes(r));
@@ -60,16 +69,23 @@ export function sampleKeywordBoard(regions: string[]): KeywordBoard {
   // 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
   const recent = (c: KeywordCard) => [c.last_used, c.last_seen].filter(Boolean).sort().at(-1) ?? "";
   const byRecent = (a: KeywordCard, b: KeywordCard) => recent(b).localeCompare(recent(a));
+  const rest = inView.filter((c) => !flagged(c));
+  const lists = {
+    rising: rest.filter((c) => !fading(c))
+      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b)),
+    fading: rest.filter(fading).sort(byRecent),
+    caution: inView.filter(flagged).sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b) || byRecent(a, b)),
+  };
+  const p = Math.max(1, page);
+  const cut = (l: KeywordCard[]) => l.slice((p - 1) * LIST_MAX, p * LIST_MAX);
   return {
-    generated_at: "2026-09-13T21:10:00Z",
+    generated_at: GENERATED_AT,
     regions: picked,
-    counts: Object.fromEntries(known.map((r) => [r, cards.filter((c) => c.regions.includes(r)).length])),
-    rising: inView.filter((c) => !fading(c) && c.risk_level !== "avoid")
-      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b))
-      .slice(0, LIST_MAX),
-    fading: inView.filter((c) => fading(c) && c.risk_level !== "avoid").sort(byRecent).slice(0, LIST_MAX),
-    caution: inView.filter((c) => c.risk_level === "caution" || c.risk_level === "avoid")
-      .sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b)).slice(0, LIST_MAX),
+    counts: { ...Object.fromEntries(known.map((r) => [r, cards.filter((c) => c.regions.includes(r)).length])),
+      ALL: cards.filter((c) => c.regions.some((r) => TARGET_REGIONS.includes(r))).length },
+    totals: { rising: lists.rising.length, fading: lists.fading.length, caution: lists.caution.length },
+    page: p, page_size: LIST_MAX,
+    rising: cut(lists.rising), fading: cut(lists.fading), caution: cut(lists.caution),
   };
 }
 

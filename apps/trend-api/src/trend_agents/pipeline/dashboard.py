@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel
@@ -25,7 +25,8 @@ from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, SearchHit, 
 
 GLOBAL = "GLOBAL"
 CACHE_KEY = "dashboard"
-LIST_MAX = 30
+LIST_MAX = 30          # 한 쪽에 보이는 수 — 목록은 자르지 않고 쪽으로 나눈다(totals 가 전체 건수)
+STALE_DAYS = 90        # 12주 언급이 0 이고 마지막 쓰임이 이보다 오래되면 '지금 쓰이는' 이 아니라 '식어 가는'
 SEARCH_DAYS = 14
 WEEKS = 12
 DIFFUSION_ORDER = {"spreading": 0, "underground": 1, "mainstream": 2}
@@ -74,23 +75,39 @@ def term_regions(term: Term, usage_regions: set[str]) -> list[str]:
     return regions
 
 
-def _is_fading(c: KeywordCard) -> bool:
-    return c.diffusion == "fading" or c.lifecycle in ("declining", "dormant")
+def _utc(d: datetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
-def split(cards: list[KeywordCard]) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
-    """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈). 사용 자제는 쓰이는·식는 목록에 넣지 않고 주의 목록에만 둔다."""
+def _stale(c: KeywordCard, now: datetime) -> bool:
+    """12주 동안 언급이 없고, 마지막 쓰임(화면의 '마지막 쓰임' 과 같은 값)이 STALE_DAYS 보다 오래됐다.
+    몇 년 전에 쓰인 말이 '지금 쓰이는 밈' 에 섞여 있었다(디자인 개편 검토 09-29: 간 때문이야 2021.02.03)."""
+    last = c.last_used or c.last_seen
+    return not any(p.count for p in c.weekly) and last is not None and _utc(last) < _utc(now) - timedelta(days=STALE_DAYS)
+
+
+def _is_fading(c: KeywordCard, now: datetime) -> bool:
+    return c.diffusion == "fading" or c.lifecycle in ("declining", "dormant") or _stale(c, now)
+
+
+def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
+    """(지금 쓰이는 밈, 식어 가는 밈, 주의가 필요한 밈) — 셋은 겹치지 않는다. 주의·사용 자제가 붙은 것은 단계와 상관없이 주의 목록에만
+    (사용 자제 먼저), 나머지를 쓰이는·식는 목록으로 나눈다. 그래서 세 목록 건수의 합이 지역 건수와 같다(디자인 개편 검토 09-29:
+    주의 목록이 위 두 목록을 되풀이했다). 자르지 않는다 — 쪽 나누기는 board 가 한다. now 는 카드를 만든 때(갱신 시각)."""
+    now = now or datetime.now(timezone.utc)
+
     # 원본 언급(뉴스 제목·쇼츠·검색어)에 밈 이름이 오르는 일은 드물어 대부분 0 이다 — 그다음은 가장 최근에 쓰인 글 순
     # (0 끼리 이름순으로 서서 'Nice boat'·'TBT' 가 맨 앞이던 것, 2026-09-29).
     def recent(c: KeywordCard) -> float:
         return max((d.timestamp() for d in (c.last_used, c.last_seen) if d), default=0.0)
 
-    rising = sorted((c for c in cards if not _is_fading(c) and c.risk_level != "avoid"),
+    flagged = [c for c in cards if c.risk_level in ("caution", "avoid")]
+    rest = [c for c in cards if c.risk_level not in ("caution", "avoid")]
+    rising = sorted((c for c in rest if not _is_fading(c, now)),
                     key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w, -recent(c)))
-    fading = sorted((c for c in cards if _is_fading(c) and c.risk_level != "avoid"), key=lambda c: -recent(c))
-    caution = sorted((c for c in cards if c.risk_level in ("caution", "avoid")),
-                     key=lambda c: (c.risk_level != "avoid", -c.mentions_4w))
-    return rising[:LIST_MAX], fading[:LIST_MAX], caution[:LIST_MAX]
+    fading = sorted((c for c in rest if _is_fading(c, now)), key=lambda c: -recent(c))
+    caution = sorted(flagged, key=lambda c: (c.risk_level != "avoid", -c.mentions_4w, -recent(c)))
+    return rising, fading, caution
 
 
 def _recent_queries(con: Connection) -> list[tuple]:
@@ -344,17 +361,22 @@ def cards(con: Connection, regions: list[str] | None = None) -> list[KeywordCard
     return [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
 
 
-def board(con: Connection, regions: list[str] | None = None) -> KeywordBoard:
+def board(con: Connection, regions: list[str] | None = None, page: int = 1) -> KeywordBoard:
     """고른 지역의 대시보드. regions 가 없으면 목표 지역 전체(전 세계 묶음은 빼고).
-    표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙)."""
+    표제어 자체가 욕설·성적 표현인 것은 둘러보는 목록에 내지 않는다(사전에서 직접 찾으면 나온다 — tools.list_terms 와 같은 규칙).
+    목록마다 전체 건수(totals)를 주고, page 쪽(LIST_MAX 개씩)만 싣는다 — 30개에서 말없이 잘리던 것(디자인 개편 검토 09-29)."""
     stored, generated_at = _loaded(con)
     known = [*REGIONS_FOCUS, GLOBAL]
     chosen = chosen_regions(regions)
     picked = [view(s, chosen) for s in stored if set(s.card.regions) & set(chosen)]
-    rising, fading, caution = split(picked)
-    return KeywordBoard(generated_at=generated_at, regions=chosen,
-                        counts={r: sum(1 for s in stored if r in s.card.regions) for r in known},
-                        rising=rising, fading=fading, caution=caution)
+    rising, fading, caution = split(picked, generated_at)
+    page = max(1, page)
+    cut = slice((page - 1) * LIST_MAX, page * LIST_MAX)
+    counts = {r: sum(1 for s in stored if r in s.card.regions) for r in known}
+    counts["ALL"] = sum(1 for s in stored if set(s.card.regions) & set(REGIONS_FOCUS))   # '전체' 칩 — 목표 지역 어디든(전 세계만인 것은 빼고)
+    return KeywordBoard(generated_at=generated_at, regions=chosen, counts=counts,
+                        totals={"rising": len(rising), "fading": len(fading), "caution": len(caution)}, page=page, page_size=LIST_MAX,
+                        rising=rising[cut], fading=fading[cut], caution=caution[cut])
 
 
 def card(con: Connection, term_id: str) -> KeywordCard | None:

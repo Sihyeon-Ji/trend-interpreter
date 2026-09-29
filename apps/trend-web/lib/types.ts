@@ -111,11 +111,16 @@ export interface KeywordCard {
   last_used?: string | null;      // 고른 지역에서 가장 최근에 쓰인 글의 때
 }
 
+export type KeywordList = "rising" | "fading" | "caution";
+
 export interface KeywordBoard {
   generated_at: string;
   regions: string[];
-  counts: Record<string, number>;
-  rising: KeywordCard[];
+  counts: Record<string, number>;       // 지역마다 카드 수, 'ALL' 은 목표 지역 어디든(전 세계만인 것은 빼고)
+  totals: Record<KeywordList, number>;  // 목록마다 전체 건수 — 셋은 겹치지 않아 합이 고른 지역의 건수다
+  page: number;                         // 아래 세 목록에 실린 쪽 (1부터)
+  page_size: number;
+  rising: KeywordCard[];                // 그 쪽만
   fading: KeywordCard[];
   caution: KeywordCard[];
 }

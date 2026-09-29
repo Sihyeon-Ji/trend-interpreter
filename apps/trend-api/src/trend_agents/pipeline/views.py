@@ -283,10 +283,13 @@ class KeywordCard(BaseModel):
 class KeywordBoard(BaseModel):
     generated_at: datetime
     regions: list[str]                 # 고른 지역
-    counts: dict[str, int]             # 지역마다 카드 수 (지역 고르기 버튼에 쓴다)
-    rising: list[KeywordCard]          # 지금 뜨는 밈
-    fading: list[KeywordCard]          # 식어 가는 밈
-    caution: list[KeywordCard]         # 주의가 필요한 밈
+    counts: dict[str, int]             # 지역마다 카드 수 (지역 고르기 버튼에 쓴다). 'ALL' 은 목표 지역 어디든(전 세계만인 것은 빼고)
+    totals: dict[str, int] = {}        # 목록마다 전체 건수 {rising, fading, caution} — 셋은 겹치지 않아 합이 고른 지역의 건수다
+    page: int = 1                      # 아래 세 목록에 실린 쪽 (1부터)
+    page_size: int = 30
+    rising: list[KeywordCard]          # 지금 쓰이는 밈 (그 쪽만)
+    fading: list[KeywordCard]          # 식어 가는 밈 (그 쪽만)
+    caution: list[KeywordCard]         # 주의가 필요한 밈 (그 쪽만)
 
 
 # ---------- 밈 추천 (Plan 07) — 값은 pipeline/recommend.py 규칙이 채운다 ----------

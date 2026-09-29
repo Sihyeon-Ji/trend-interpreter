@@ -123,19 +123,18 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return api<ReviewStats>("/review/stats");
 }
 
-/** 키워드 대시보드 (Plan 04). regions 가 비면 목표 지역 전체. 지역 판정과 목록 나누기는 백엔드 규칙이 한다. */
-export async function getKeywordBoard(regions: string[]): Promise<KeywordBoard> {
-  const fallback = sampleKeywordBoard(regions);
-  if (isSampleMode) return fallback;
-  const q = regions.length ? `?regions=${regions.map(encodeURIComponent).join(",")}` : "";
+/** 키워드 대시보드 (Plan 04). regions 가 비면 목표 지역 전체, page 는 목록마다 몇째 쪽(30개씩). 지역 판정과 목록 나누기는 백엔드 규칙이 한다.
+ *  api 모드에서 서버가 실패하면 예외를 던진다 — 예시 데이터를 실제처럼 보여 주지 않고 화면이 '불러오지 못했다' 고 알린다(디자인 개편 검토 09-29). */
+export async function getKeywordBoard(regions: string[], page = 1): Promise<KeywordBoard> {
+  if (isSampleMode) return sampleKeywordBoard(regions, page);
+  const q = new URLSearchParams();
+  if (regions.length) q.set("regions", regions.join(","));
+  if (page > 1) q.set("page", String(page));
   // Next 의 데이터 캐시에 넣지 않는다 — 지역 조합마다 30만 바이트짜리 항목이 쌓이고 지워지지 않는다(2026-09-29 검토).
   // 백엔드가 이미 캐시(board_cache)에서 내준다.
-  try {
-    const res = await fetch(`${API}/dashboard${q}`, { cache: "no-store" });
-    return res.ok ? ((await res.json()) as KeywordBoard) : fallback;
-  } catch {
-    return fallback;
-  }
+  const res = await fetch(`${API}/dashboard${q.size ? `?${q}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new ApiError("/dashboard", res.status);
+  return (await res.json()) as KeywordBoard;
 }
 
 /** 용어 하나의 쓰임 신호 (사전 화면). 서버가 없으면 신호 칸을 내지 않는다. */
