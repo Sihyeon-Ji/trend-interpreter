@@ -5,6 +5,8 @@ import sqlite3
 import string
 from pathlib import Path
 
+import pytest
+
 from trend_agents.schemas import NewsItem, Term
 from trend_agents.storage import db, dictionary_store as ds, store
 
@@ -60,6 +62,18 @@ def test_diffusion_column_is_filled_from_the_term_json(tmp_path):
     con.close()
 
 
+def test_fresh_refuses_a_database_that_already_has_terms(tmp_path):
+    con = db.connect(":memory:")
+    ds.upsert_term(con, Term(term_id="t1", canonical="럭키비키", status="needs_review"))
+    path = _twin(tmp_path, Term(term_id="t1", canonical="럭키비키", status="verified"))
+    with pytest.raises(SystemExit):
+        mig.migrate(path, con, fresh=True)
+    assert con.execute("SELECT COUNT(*) FROM explain_cache").fetchone()[0] == 0  # 아무것도 옮기지 않았다
+    mig.migrate(path, con)  # --fresh 없이는 이미 있는 행을 건너뛴다 — 새 파일의 값이 아니라 옛 값이 남는다
+    assert ds.get_term(con, "t1").status == "needs_review"
+    con.close()
+
+
 def test_news_links_too_long_for_the_primary_key_index_are_left_out(tmp_path):
     # PostgreSQL 기본키(btree) 색인은 한 항목 2,704바이트까지 — 트윈의 2,901바이트 주소 하나에 이관이 news 에서 멈췄다(2026-09-29)
     con = db.connect(":memory:")
@@ -75,3 +89,16 @@ def test_pipeline_skips_news_whose_link_does_not_fit_the_index():
     assert store.upsert_news(con, [_news("https://a.example/1"), _news(_long_link()), _news("https://a.example/2")]) == 2
     assert sorted(r[0] for r in con.execute("SELECT link FROM news").fetchall()) == ["https://a.example/1", "https://a.example/2"]
     con.close()
+
+
+def test_user_data_stays_out_of_a_copy_for_cloud_sql(tmp_path):
+    path = _twin(tmp_path)
+    local, cloud = db.connect(":memory:"), db.connect(":memory:")
+    mig.migrate(path, local)
+    assert local.execute("SELECT reader FROM reader_prefs").fetchall() == [("reader1",)]  # 열 이름 user → reader
+    assert local.execute("SELECT COUNT(*) FROM explain_cache").fetchone()[0] == 1
+    mig.migrate(path, cloud, skip_user_data=True)
+    assert cloud.execute("SELECT COUNT(*) FROM explain_cache").fetchone()[0] == 0
+    assert cloud.execute("SELECT COUNT(*) FROM reader_prefs").fetchone()[0] == 0
+    local.close()
+    cloud.close()
