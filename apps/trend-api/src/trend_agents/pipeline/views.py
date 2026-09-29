@@ -10,6 +10,7 @@ from ..lifecycle import recheck_interval_days
 from ..schemas import (CampaignTone, Diffusion, Evidence, EvidenceBrief, Feeling, Lifecycle, Meaning, MeaningText, ProductBrief, RiskLevel,
                        Segment, ShortScript, SocialCopy, Term, Text2, ThumbnailPlan)
 from ..storage import dictionary_store as ds
+from .match import evidence_mentions
 from ..storage.db import Connection
 
 CATEGORY_MAP = {"slang": "slang", "meme": "meme", "song": "song", "drama": "other", "dance": "other", "news": "other", "geopolitics": "other", "product": "other", "other": "other"}
@@ -77,6 +78,12 @@ STAGE_LABELS = {
 }
 
 
+def shown_evidences(con: Connection, t: Term) -> list[Evidence]:
+    """사전 화면·질문 답에 낼 근거 — 표제어가 든 것만(검색 지수 datalab 은 문장이 아니라 그대로 둔다). 검색이 끌어온 딴 글
+    ('오살힘' 에 2022년 '오살 의식' 기사)이 인용으로 나갔다(2026-09-29 원작자 서버 근거 9,738건 중 1,882건, match.evidence_mentions)."""
+    return [e for e in ds.list_evidences(con, t.term_id) if e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases)]
+
+
 def term_record(con: Connection, t: Term) -> TermRecord:
     meanings = ds.list_meanings(con, t.term_id)
     ko = ds.get_translation(con, t.term_id, "ko")
@@ -86,7 +93,7 @@ def term_record(con: Connection, t: Term) -> TermRecord:
     weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
     reasons = ds.gate_reasons(con, t.term_id) if t.status == "needs_review" else None
     return TermRecord(term=t, category=CATEGORY_MAP.get(t.category, "other"), plain=(ko.plain if ko and ko.plain else ""), ko=ko, en=en,
-                      meanings=meanings, evidences=ds.list_evidences(con, t.term_id), usage=usage, weekly=weekly,
+                      meanings=meanings, evidences=shown_evidences(con, t), usage=usage, weekly=weekly,
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
                       gate_reasons=reasons or None)

@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 
 from ..lifecycle import recheck_interval_days  # noqa: F401  (생애주기 라벨과 같은 모듈을 쓴다는 표시)
 from ..storage import dictionary_store as ds
-from .match import keywords, loose_key, strip_particle, unsafe
+from .match import evidence_mentions, keywords, loose_key, strip_particle, unsafe
 from ..storage.db import Connection
 
 LIFECYCLE = {"emerging": "막 뜨는 중", "rising": "오르는 중", "peak": "절정", "steady": "꾸준함",
@@ -272,7 +272,7 @@ def lookup_term(ctx: Ctx, args: dict) -> str:
     ctx.offer(t.canonical, _clean(m.definition) if m else "")   # 모델이 "없다" 고 해도 이걸 내보낸다
     if m:
         ctx.offer(t.canonical, _clean(m.definition))
-    evs = ds.list_evidences(ctx.con, t.term_id)
+    evs = [e for e in ds.list_evidences(ctx.con, t.term_id) if e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases)]   # 딴 글의 출처를 대지 않는다
     doms = sorted({e.source_domain for e in evs})[:4]
     if not m:
         return f"'{t.canonical}' 는 사전에 있지만 뜻이 아직 정리되지 않았습니다."

@@ -1072,3 +1072,24 @@ def test_namu_recheck_backs_off_after_a_failure(monkeypatch):
     namu.run(con)
     namu.run(con)
     assert calls == ["t1"]                                                   # 두 번째 실행은 쉰다
+
+
+def test_dictionary_page_shows_only_evidence_that_names_the_term():
+    """사전 화면의 근거 목록도 표제어가 든 것만 — 검색 지수(datalab)는 문장이 아니라 그대로 둔다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import views
+    from trend_agents.schemas import Evidence, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    at = datetime.now(timezone.utc)
+    t = ds.upsert_term(con, Term(term_id="t1", canonical="오살힘", lang="ko", status="verified", first_seen=at, last_seen=at))
+
+    def ev(eid, kind, text):
+        return Evidence(evidence_id=eid, kind=kind, url=f"https://x.example/{eid}", title=text, source_domain="x.example", observed_at=at, excerpt=text)
+
+    ds.add_evidences(con, "t1", [ev("ok", "community", "오늘도 오살힘 충전"), ev("off", "news", "소가죽 굿판 vs 오살 의식"),
+                                 ev("lab", "datalab", "검색 추이 · 연령대별 20대 2026-03 피크")])
+    assert {e.evidence_id for e in views.term_record(con, t).evidences} == {"ok", "lab"}
