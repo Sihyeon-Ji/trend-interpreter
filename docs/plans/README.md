@@ -24,7 +24,7 @@ Cloud SQL 30일 체험 종료 전 비용 판단과 수동 전환 절차는 [Plan
 | [09](09-generation-quality-evaluation.md) | 전체 | 추천·생성 품질 평가와 제출 데모 준비 | 07, 08 | 10-15 |
 | [10](10-term-relation-graph.md) | 선택 | 용어 간 관계 그래프 | 07 | 여유 시 |
 | [11](11-public-repository-release-protection.md) | 제출 | 공개 저장소 전환과 GCP 배포 승인 | 09 | 10-17 |
-| [12](12-dictionary-crosscheck.md) | 데이터 | 확인된 사전 항목의 참고 위키 전수 대조와 새 말의 '문서 대조' 단계 | — | 10-04 (문서 없는 항목은 사용자 확인 뒤) |
+| [12](12-dictionary-crosscheck.md) | 데이터 | 확인된 사전 항목의 참고 위키 전수 대조와 새 말의 '문서 대조' 단계 — 구현, 전수조사 결과 반영 대기(Know Your Meme 은 약관 결정 전까지 꺼짐) | — | 10-04 (문서 없는 항목은 사용자 확인 뒤) |
 | [13](13-cloud-sql-trial-to-paid-transition.md) | 운영 | Cloud SQL 체험 종료 전 비용 검토·수동 유료 전환 | 05 | 10-26 |
 
 순서를 정한 기준은 다음과 같습니다.

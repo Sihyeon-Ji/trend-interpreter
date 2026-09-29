@@ -1,6 +1,6 @@
 # Plan 12. 사전 전수 대조: 확인된 항목을 참고 위키와 맞춰 보기
 
-작성일 **2026-09-29** · 상태 **대기** · 근거 [ADR 0003](../adr/0003-사전-등재-기준.md) · 목표일 **2026-10-04** (문서 없는 항목의 처리는 사용자 확인 뒤)
+작성일 **2026-09-29** · 상태 **구현 (전수조사 결과 반영 대기)** · 근거 [ADR 0003](../adr/0003-사전-등재-기준.md) · 목표일 **2026-10-04** (문서 없는 항목의 처리는 사용자 확인 뒤)
 
 ## 목표
 
@@ -59,6 +59,117 @@
 - 판정·적용 규칙은 위 2·3과 같습니다. 게이트는 이미 참고 문서를 요구하므로, 이 단계는 실린 뜻이 문서와 어긋나는 것을 검수 큐로 보내는 일을 합니다.
 - Know Your Meme 수집기는 조사 단계의 근거 모으기에도 붙입니다. 지금은 Search grounding이 없는 오프라인 조사에서 위키백과·나무위키만 찾아, 영어·일본어 밈이 문서가 있어도 검수 대기로 가기 쉽습니다.
 - 모델이 없는 기본 개발 환경에서는 '문서 없음' 판정만 하고 나머지는 건너뜁니다.
+
+## 구현 (2026-09-29)
+
+계획의 1~4를 코드로 옮겼습니다. 확인된 항목 전부의 전수조사는 파이프라인 밖에서 따로 돌리고, 그 결과를 아래 `import` 로 가져옵니다.
+판정별 건수와 표본은 결과를 가져온 뒤 이 문서의 결과 절에 기록합니다.
+
+| 부분 | 위치 |
+| --- | --- |
+| 검수 큐의 제안 종류 | `storage/dictionary_store.py`(`queue_review(kind=, docs=)`·`pending_review`·`publish_fix`), `storage/migrations/007_review_kinds.sql`, `pipeline/views.py`(`ReviewItem`·`ReviewDoc`), `api/app.py`(`POST /review/{term_id}`) |
+| 문서 대조 | `pipeline/crosscheck.py` — 참고 문서 모으기, '문서 없음' 규칙, 로컬 Gemma 제안, 검수 큐 올리기, 전수조사 결과 가져오기 |
+| '문서 대조' 단계 | `crosscheck.run`, `scripts/run_pipeline.py`의 research 다음. 기록 표 `crosscheck_log`(판정·문서 주소·모델만) |
+| 전수 대조 스크립트 | `scripts/crosscheck_dictionary.py` (`collect`·`import`·`judge`) |
+| Know Your Meme 수집기 | `collectors/knowyourmeme.py` — **기본 꺼짐**(`KNOWYOURMEME_ENABLED`), 아래 참고 |
+| 관리 화면 | `apps/trend-web/components/review-table.tsx`, `app/api/review/[termId]/route.ts`, `lib/types.ts`, `lib/i18n.ts`, 예시 `lib/sample/dictionary.ts` |
+| 시험 | `tests/test_review_kinds.py`, `tests/test_crosscheck.py`, `e2e/map-admin.spec.ts`(예시 화면에서 고칠 안 승인) |
+
+### 검수 큐의 제안 종류
+
+`review_queue`에 `kind`와 `docs_json`(제안의 근거 문서 `[{wiki, url, summary, proposal}]`)을 더했습니다. 기존 줄은 마이그레이션에서 모두 `new`입니다.
+표제어마다 한 줄이라, 사람이 볼 제안이 이미 있는 말에는 새 제안을 올리지 않습니다.
+
+| 종류 | 화면 이름 | 제안이 올라와 있는 동안 | 승인 | 거절 |
+| --- | --- | --- | --- | --- |
+| `new` | 새 말 (새 뜻·뜻이 바뀜·추세) | 조사 결과 그대로(지금 판이 제안된 뜻) | 지금 판을 `verified_human` | 제외(`retired`, 뜻 `rejected`) |
+| `correction` | 고칠 안 | 지금 뜻이 **공개된 그대로**. `draft_json`이 고칠 안 | 고칠 안을 새 판(`verified_human`)으로 싣고 이전 판의 `valid_to`를 닫는다 | 제안만 닫는다 |
+| `conflict` | 위키끼리 다름 | 지금 뜻 그대로. `docs_json`이 문서마다의 설명 | 고른 설명(`choice`)의 고칠 안을 `correction`과 같은 길로. `choice: "keep"`이면 지금 뜻 그대로 두고 닫는다 | 제안만 닫는다 |
+| `retire` | 사전에서 뺄지 | 지금 뜻 그대로 | 사람이 제외한다(`retired`, 뜻 `rejected`) | 아무것도 바꾸지 않는다 |
+
+- `views.review_items`는 `correction`·`conflict`·`retire`에서 지금 실린 뜻을 `current`로, 고칠 안을 `draft`로, 문서들을 `docs`로 보입니다.
+  예전처럼 지금 뜻을 제안으로 보이지 않으므로 제안을 올려도 항목이 공개 사전에서 빠지지 않습니다.
+- `POST /review/{term_id}` 본문은 `{decision: approve|reject, by, meaning_id, kind, choice}`입니다. `meaning_id`(검수자가 본 지금 뜻)가 바뀌었거나
+  `kind`가 대기 중인 제안과 다르면 409입니다. `new` 밖의 제안에는 `kind`를 반드시 적습니다 — `retire`의 승인은 제외라서, 종류를 모르는 예전 화면이
+  잘못 승인하지 않게 합니다. `conflict` 승인에 `choice`가 없거나 고칠 안이 없는 문서를 고르면 400입니다.
+- 유래·뉘앙스만 고친 안도 새 판이 됩니다(`publish_fix`). `add_meaning`의 같은 뜻 판정은 정의·풀이만 봐서 그런 안을 버렸습니다.
+- 조사 단계는 문서 대조의 제안을 사람이 보는 동안 그 말을 다시 조사하지 않고(`research.under_review`), 스스로 닫는 줄도 `new`뿐입니다.
+
+### '문서 대조' 단계와 판정
+
+- 대상: 확인된 말 가운데 한 번도 대조하지 않은 것, 로컬 모델이 생긴 뒤의 '판정 안 함', 마지막 대조 뒤 참고 문서가 바뀐 것(그때 보지 못한 참고 문서 근거가
+  생겼거나, 나무위키 문서의 수정 시각이 마지막 대조보다 늦음 — 실행마다 20개까지 묻는다). 실행마다 8개까지이며 사람이 볼 제안이 있는 말은 건너뜁니다.
+- 참고 문서는 §1의 언어별 순서로 모읍니다(`crosscheck.sources`). 표제어가 든 문서는 짧은 발췌·링크로 wiki 근거에 더합니다(나무위키·위키백과 수집기와 같은 방식).
+- '문서 없음'은 규칙입니다: 저장된 근거와 새로 찾은 문서 가운데 표제어가 든 참고 문서(`verification.reference_doc`)가 없을 때. 기록만 하고 아무것도 바꾸지 않습니다.
+  수집기는 '없다'와 '닿지 못했다'를 가르지 않으므로(실측: 위키백과 429 로 `推し活`이 문서 없음) '문서 없음'과 모델의 판정 실패는 7일 뒤 다시 봅니다.
+- 로컬 Gemma가 있으면(`USE_LOCAL_GEMMA=1`과 모델이 떠 있음) `keep`·`fix`·`conflict`·`not_a_meme`와 한두 문장 이유, 고칠 안을 제안받습니다
+  (`schemas.CrosscheckJudgement`, 스키마는 프롬프트에). `fix`→`correction`, `conflict`→`conflict`, `not_a_meme`→`retire`로 검수 큐에 올리고, `keep`은 기록만 합니다.
+  고칠 안은 지금 뜻 위에 뜻·유래·뉘앙스만 얹습니다(풀이·세대·나라는 그대로).
+- 모델이 없는 기본 개발 환경(`MODEL_PROVIDER=mock`, 로컬 모델 없음)에서는 모델을 부르지 않고 '문서 없음'만 판정합니다. 문서가 있는 말은 '판정 안 함'으로 남습니다.
+- 검수 화면의 사유는 판정 이름·문서와 다른 점·참고 문서 주소입니다. 예: `문서 대조: 고칠 것`, `유래가 문서와 다름`, `참고 문서: https://…`.
+
+### Know Your Meme — 기본 꺼짐 (사용자 결정 대기)
+
+수집기(`collectors/knowyourmeme.py`)는 만들었지만 `KNOWYOURMEME_ENABLED=false`가 기본입니다. [파이프라인 기록](../트렌드/파이프라인.md)의 '약관 확인 전까지 쓰지 않음' 결정과 같고,
+이용 약관(운영사 Cheezburger)을 읽은 결과 제품에 쓸지는 사용자가 정해야 합니다.
+
+1. 자동 접근은 사람과 비슷한 요청 속도로만 허락합니다.
+2. 내용은 정보·개인적 이용만 되며, 사전 서면 동의 없이 내려받기·복제·재생산·배포·게시할 수 없습니다.
+3. 사전 서면 허락 없이 상업적으로 이용하지 않는다는 데 동의해야 합니다.
+
+- 꺼져 있으면 조사·문서 대조·스크립트가 수집기를 부르지 않고(요청 0건), 전수조사 결과의 Know Your Meme 발췌도 근거로 받지 않습니다.
+  그동안 나무위키·위키백과 문서가 없는 영어·일본어 밈은 사람 검수로 갑니다([ADR 0003](../adr/0003-사전-등재-기준.md)의 예외 길).
+- 켜면 흔적을 최소로 둡니다. `/memes/<slug>` 문서만 열고(robots.txt가 `/search`를 막는다) 표제어·로마자 별칭으로 최대 세 번, 요청 사이 2초 넘게,
+  정직한 User-Agent. 제목과 'About' 절에 표제어가 있는지 그 자리에서 `mentions()`로만 보고, 근거에는 **문서 주소와 제목만** 남깁니다(발췌 없음).
+  하루 캐시에도 찾았나·주소·제목만 둡니다.
+
+### 실행
+
+`apps/trend-api`에서 `uv run`으로 돌립니다(Compose 개발 스택이면 `docker compose exec api python scripts/crosscheck_dictionary.py …`).
+어느 모드도 확인 상태·뜻을 바꾸지 않습니다. 모든 제안은 검수 큐로 갑니다.
+
+```bash
+uv run scripts/crosscheck_dictionary.py                                   # collect: 확인된 말마다 찾은 참고 문서를 보고만
+uv run scripts/crosscheck_dictionary.py collect --store                   # 찾은 문서(짧은 발췌·링크)를 wiki 근거로 더한다
+uv run scripts/crosscheck_dictionary.py collect --terms "럭키비키|aura farming" --limit 20
+uv run scripts/crosscheck_dictionary.py import --from audit.json          # 전수조사 결과: 판정별 건수와 올릴 제안만 보고
+uv run scripts/crosscheck_dictionary.py import --from audit.json --queue  # fix·conflict·not_a_meme → 검수 큐 (+ 대조 기록)
+uv run scripts/crosscheck_dictionary.py import --from audit.json --store-evidence   # 발췌를 wiki 근거로
+uv run scripts/crosscheck_dictionary.py judge                             # 같은 판정을 로컬 Gemma 로 — 보고만
+uv run scripts/crosscheck_dictionary.py judge --queue [--store]           # 제안을 검수 큐에 (+ 대조 기록)
+uv run scripts/run_pipeline.py --stages crosscheck                        # '문서 대조' 단계만
+```
+
+- `import`는 판정 목록(JSON 배열)을 받습니다. 한 줄의 모양:
+
+  ```json
+  {"term_id": "t_…", "verdict": "keep | fix | conflict | no_doc | not_a_meme",
+   "problems": ["사전과 문서가 다른 점"], "sources": ["https://…"],
+   "proposal": {"definition": "…", "origin": "…", "nuance": "…"},
+   "alternatives": [{"wiki": "…", "url": "https://…", "summary": "…", "proposal": {"definition": "…"}}],
+   "excerpt": {"url": "https://…", "title": "…", "text": "…"}}
+  ```
+
+  `proposal`(fix)·`alternatives[].proposal`(conflict)의 빈 칸은 지금 뜻 그대로이고, `proposal`·`excerpt`는 `null`이어도 됩니다.
+  fix인데 고칠 안이 없거나 지금 뜻과 같으면 올리지 않고 보고합니다. 형식이 틀린 줄은 건너뛰고 보고합니다.
+- `--store-evidence`는 발췌의 주소가 참고 문서 도메인의 문서(`verification.reference_doc`)이고 발췌에 표제어가 있을 때만(`match.mentions`) 200자 안으로 잘라 wiki 근거로 더합니다.
+- `no_doc`은 어느 모드도 아무것도 바꾸지 않고 목록만 보입니다. 사용자가 그 목록을 확인한 뒤에만 `scripts/audit_dictionary.py --apply`로 검수 대기로 돌립니다(§3).
+- 사람이 승인한 뜻(`verified_human`)도 제안은 받지만 큐로만 갑니다. 다시 돌려도 근거·대기 제안·대조 기록이 겹치지 않습니다 — 대기 중인 제안이 있는 말은 건너뛰고 보고합니다.
+  확인된 항목(`verified`)이 아닌 말에는 올리지 않습니다.
+- `judge`는 로컬 모델이 없으면(`USE_LOCAL_GEMMA=1`과 로컬 서버의 `GEMMA_LOCAL_MODEL`이 필요) 안내만 하고 아무것도 하지 않고 끝납니다. Gemini는 쓰지 않습니다.
+
+### SQLite 쪽으로 옮길 때
+
+코드의 SQL은 `storage/db.py`를 거치는 모양(`?`, 열 이름을 적은 `INSERT OR REPLACE`, `COALESCE(kind, 'new')`)이라 그대로 옮길 수 있습니다.
+마이그레이션 007의 `ALTER TABLE … ADD COLUMN IF NOT EXISTS`는 PostgreSQL 문법이라, SQLite에서는 열이 있는지 확인한 뒤 `ADD COLUMN`으로 쓰고
+`UPDATE review_queue SET kind='new' WHERE kind IS NULL`을 함께 돌립니다.
+
+### 남은 일
+
+- 전수조사 결과를 `import`로 가져와 판정별 건수와 표본 10개를 결과 절에 기록하고, '문서 없음' 목록을 사용자가 확인합니다.
+- Know Your Meme 사용 여부(위 약관 세 가지)는 사용자가 정합니다. Search grounding을 쓰는 조사(`research.web_evidence`)는 모델이 든 웹 주소를 받아 발췌를 남기므로,
+  그 주소가 Know Your Meme 문서일 때의 처리도 같이 정합니다(이 계획 전부터 있던 길).
+- 萌娘百科·pixiv 백과사전 수집기는 없습니다. 대만·홍콩 표제어는 위키백과만 찾습니다.
 
 ## 완료 기준
 
