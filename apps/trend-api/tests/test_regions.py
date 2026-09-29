@@ -149,3 +149,42 @@ def test_english_community_research_rotates_sg_my_ph_sites():
         ds.log_research(con, "en", "test", "", [], "unverified", [])
     assert got == ["SG", "MY", "PH", "SG"]
     assert all("reddit.com" in COMMUNITY_SITES[r] for r in ("SG", "MY", "PH"))
+
+
+def test_term_joins_a_region_when_its_raw_mentions_there_reach_n():
+    """조사가 정하지 않은 목표 지역도 12주 원본 언급(뉴스·쇼츠·검색어)이 N 번이면 그 지역 용어로 본다. N 보다 적으면 우연으로 본다."""
+    from trend_agents.pipeline import dashboard
+
+    n = dashboard.REGION_MIN_MENTIONS
+    en = _term("en", "aura farming", "en")
+    assert dashboard.term_regions(en, {"KR"}, {"SG": n, "MY": n - 1, "GLOBAL": 50}) == ["KR", "SG"]
+    assert dashboard.term_regions(en, {"US"}, {"PH": n}) == ["PH"]              # 미국에서만 쓰던 영어 말도 필리핀에서 N 번이면 필리핀
+    assert dashboard.term_regions(en, {"US"}, {"PH": n - 1}) == ["GLOBAL"]
+    cake = _term("cake", "The cake is a lie", "ja")                              # 나라 정보가 없는 로마자 표제어
+    assert dashboard.term_regions(cake, set(), {"SG": n}) == ["SG"] and dashboard.term_regions(cake, set(), {}) == ["GLOBAL"]
+    assert dashboard.term_regions(_term("zh", "傻眼貓咪", "zh"), set(), {"HK": n}) == ["TW", "HK"]
+    assert dashboard.term_regions(_term("de", "Ehrenmann", "de"), {"DE"}, {"SG": n - 1}) == []
+
+
+def test_dashboard_and_dictionary_share_the_mention_region_rule():
+    """싱가포르판에서 N 번 쓰인 말은 대시보드 싱가포르 목록에 들고, 사전 항목(API)의 지역도 같은 규칙으로 싱가포르다."""
+    from trend_agents.pipeline import dashboard, track, views
+    from trend_agents.schemas import MeaningDraft, NewsItem
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, _term("t1", "aura farming", "en"))
+    ds.add_meaning(con, "t1", MeaningDraft(definition="멋있어 보이려고 일부러 폼을 잡는 것", origin="x", nuance="y", generations=["20s"],
+                                           regions=["US"], self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "t1", [("20s", "US", now.isoformat(), 1.0)])
+    track.run(con)
+    dashboard.run(con)
+    assert dashboard.card(con, "t1").regions == ["GLOBAL"] and views.term_record(con, ds.get_term(con, "t1")).regions == ["GLOBAL"]
+
+    db.upsert_news(con, [NewsItem(title=f"Aura farming story {i}", link=f"sg{i}", source="x", published_at=now, region="SG", query="aura farming")
+                         for i in range(dashboard.REGION_MIN_MENTIONS)])
+    track.run(con)
+    dashboard.run(con)
+    sg = dashboard.board(con, ["SG"])
+    assert [c.term_id for c in sg.rising + sg.fading] == ["t1"] and sg.rising[0].mentions_4w == dashboard.REGION_MIN_MENTIONS
+    assert dashboard.card(con, "t1").regions == ["SG"] == views.term_record(con, ds.get_term(con, "t1")).regions

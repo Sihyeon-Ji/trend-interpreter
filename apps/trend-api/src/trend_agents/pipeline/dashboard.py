@@ -33,6 +33,10 @@ WEEKS = 12
 DIFFUSION_ORDER = {"spreading": 0, "underground": 1, "mainstream": 2}
 LIFECYCLE_ORDER = {"emerging": 0, "rising": 0, "peak": 1, "steady": 2}
 USAGE_KINDS = ("community", "news", "short")
+# 조사가 쓰는 나라로 정하지 않은 목표 지역도 원본 언급(뉴스·쇼츠·검색어, 12주)이 이만큼이면 그 지역 용어로 본다(Plan 04).
+# 실측(09-29): 미국판에 없던 싱가포르판 기사는 전 세계에 퍼진 밈 3~10건, 미국에서만 쓰는 밈 0~1건. 조사가 정한 나라의 원본 언급은
+# 26쌍 중 17쌍이 3 이상이고, 정하지 않은 나라는 7쌍 중 1쌍뿐이다.
+REGION_MIN_MENTIONS = 3
 
 # 표제어 언어의 나라로 둘 때는 그 나라 글자로 쓴 말만. 위키 언어판(ja)에서 받은 영어 제목 'The cake is a lie' 가 일본 카드가 됐다(2026-09-29 검토).
 _SCRIPT = {"ko": r"[가-힣]", "ja": r"[\u3040-\u30ff\u4e00-\u9fff]", "zh": r"[\u4e00-\u9fff]", "th": r"[\u0e00-\u0e7f]",
@@ -59,18 +63,20 @@ def domain_region(domain: str) -> str:
     return next((r for tld, r in _TLD_REGION.items() if d.endswith(tld)), GLOBAL)
 
 
-def term_regions(term: Term, usage_regions: set[str]) -> list[str]:
-    """이 용어를 보여 줄 지역. 조사가 정한 쓰는 나라(usage) 가운데 목표 지역 → 목표 지역 밖(미국 등)에서만 쓰이는 영어 표현은 '전 세계'.
-    쓰는 나라 정보가 아예 없으면: 그 나라 글자로 쓴 말만 표제어 언어의 나라, 로마자로만 쓴 말은 '전 세계'.
+def term_regions(term: Term, usage_regions: set[str], mentioned: dict[str, int] | None = None) -> list[str]:
+    """이 용어를 보여 줄 지역. 조사가 정한 쓰는 나라(usage) 가운데 목표 지역과, 12주 원본 언급(mentioned)이 REGION_MIN_MENTIONS 번 넘은
+    목표 지역 → 목표 지역 밖(미국 등)에서만 쓰이는 영어 표현은 '전 세계'.
+    쓰는 나라 정보가 아예 없으면: 그 나라 글자로 쓴 말만 표제어 언어의 나라, 로마자로만 쓴 말은 (언급으로 든 지역이 없을 때) '전 세계'.
     목표 지역 밖 한 나라에서만 쓰는 말(독일의 Ehrenmann)은 빼고, 나라 목록에 '전 세계' 를 섞지 않는다."""
     known = {r for r in usage_regions if r}              # '' 는 예전 조사가 나라 자리에 남긴 빈 값 — 정보가 없는 것
-    regions = [r for r in REGIONS_FOCUS if r in known]
+    seen = {r for r, n in (mentioned or {}).items() if n >= REGION_MIN_MENTIONS}
+    regions = [r for r in REGIONS_FOCUS if r in known or r in seen]
     if not known:
         home = home_region(term.canonical, term.lang)    # 광동어는 홍콩, 다른 중국어는 대만
         script = _SCRIPT.get("zh" if home == "HK" else term.lang)
         if home in REGIONS_FOCUS and ((script and re.search(script, term.canonical)) or term.lang in _LATIN_LANGS):
-            regions = [home]
-        elif _LATIN_ONLY.match(term.canonical):
+            regions = [r for r in REGIONS_FOCUS if r == home or r in seen]
+        elif _LATIN_ONLY.match(term.canonical) and not regions:
             return [GLOBAL]
     if GLOBAL in known or (not regions and known and term.lang == "en"):
         regions.append(GLOBAL)
@@ -211,10 +217,27 @@ def _usage_ok(e: Evidence, t: Term) -> bool:
             and mentions(f"{e.title or ''} {e.excerpt or ''}", t.canonical, t.aliases))
 
 
+def raw_by_region(con: Connection, term_id: str, weeks: list[str]) -> dict[str, list[int]]:
+    """나라별 원본 주간 언급(track 단계가 센 것). 목표 지역 밖 나라는 GLOBAL 로 모은다."""
+    weekly: dict[str, list[int]] = {}
+    for r, cnt in ds.get_weekly_region(con, term_id).items():
+        row = weekly.setdefault(r if r in REGIONS_FOCUS else GLOBAL, [0] * len(weeks))
+        for i, w in enumerate(weeks):
+            row[i] += cnt.get(w, 0)
+    return weekly
+
+
+def regions_for(con: Connection, t: Term, weekly: dict[str, list[int]] | None = None) -> list[str]:
+    """용어의 지역(term_regions) — 조사가 정한 쓰는 나라와 12주 원본 언급으로. 대시보드 카드와 사전 항목(API)이 같이 쓴다."""
+    weekly = raw_by_region(con, t.term_id, _weeks()) if weekly is None else weekly
+    return term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)}, {r: sum(v) for r, v in weekly.items()})
+
+
 def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regions, weeks: list[str], *,
                outside: bool = False) -> Stored | None:
     """카드 재료 하나. 목표 지역 밖 용어는 대시보드에 없으므로 None — outside 면 지역을 비운 채 만든다(사전 화면용)."""
-    regions = term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)})
+    weekly = raw_by_region(con, t.term_id, weeks)
+    regions = regions_for(con, t, weekly)
     if not regions and not outside:
         return None
     m = ds.current_meaning(con, t.term_id)
@@ -227,11 +250,6 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
                                    and mentions(f"{e.title or ''} {e.excerpt or ''}", t.canonical, t.aliases)))
            and _has_path(e.url)]
     labels = ds.evidence_labels(con, t.term_id)
-    weekly: dict[str, list[int]] = {}
-    for r, cnt in ds.get_weekly_region(con, t.term_id).items():
-        row = weekly.setdefault(r if r in REGIONS_FOCUS else GLOBAL, [0] * len(weeks))
-        for i, w in enumerate(weeks):
-            row[i] += cnt.get(w, 0)
     tone: dict[str, Counter] = {}
     examples: dict[str, list[EvidenceBrief]] = {}
     last_used: dict[str, datetime] = {}

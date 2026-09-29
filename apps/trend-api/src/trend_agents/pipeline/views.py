@@ -53,6 +53,7 @@ class TermRecord(BaseModel):
     recheck_days: int
     media: list[TermMedia] = []
     gate_reasons: list[str] | None = None
+    regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.term_regions: 쓰는 나라 + 12주 원본 언급)
 
 
 class PipelineStage(BaseModel):
@@ -124,6 +125,8 @@ def shown_evidences(con: Connection, t: Term) -> list[Evidence]:
 
 
 def term_record(con: Connection, t: Term) -> TermRecord:
+    from .dashboard import regions_for   # dashboard 가 이 모듈의 뷰 모델을 쓴다 — 순환을 피해 여기서
+
     meanings = ds.list_meanings(con, t.term_id)
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
@@ -135,7 +138,7 @@ def term_record(con: Connection, t: Term) -> TermRecord:
                       meanings=meanings, evidences=shown_evidences(con, t), usage=usage, weekly=weekly,
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
-                      gate_reasons=reasons or None)
+                      gate_reasons=reasons or None, regions=regions_for(con, t))
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",)) -> list[TermRecord]:
