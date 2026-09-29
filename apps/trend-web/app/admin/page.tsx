@@ -22,6 +22,7 @@ export default async function AdminReviewPage({ searchParams }: { searchParams: 
     [t(locale, "admin_ratio"), n(stats?.verified_auto), stats && total ? `${Math.round((stats.verified_auto / total) * 100)}%` : undefined],
     [t(locale, "admin_ratio_manual"), n(stats?.verified_human)],
     [t(locale, "admin_ratio_pending"), n(stats?.needs_review)],
+    [t(locale, "admin_ratio_proposals"), n(stats?.proposals ?? 0)],   // 문서 대조의 제안 — 이미 실린 말이라 위 비율에 넣지 않는다
     [t(locale, "admin_ratio_rejected"), n(stats?.rejected)],
   ];
   return (

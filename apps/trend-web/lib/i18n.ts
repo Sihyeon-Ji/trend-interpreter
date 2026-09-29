@@ -181,6 +181,7 @@ const ko = {
   admin_ratio: "자동으로 실림",
   admin_ratio_manual: "검수로 실림",
   admin_ratio_pending: "검수 대기",
+  admin_ratio_proposals: "문서 대조 제안",
   admin_ratio_rejected: "제외",
 
   ex_what_changed: "무엇이 달라졌나",
@@ -903,6 +904,7 @@ const en = {
   admin_ratio: "Published automatically",
   admin_ratio_manual: "Published after review",
   admin_ratio_pending: "Waiting for review",
+  admin_ratio_proposals: "Wiki check proposals",
   admin_ratio_rejected: "Rejected",
 
   ex_what_changed: "What changed",

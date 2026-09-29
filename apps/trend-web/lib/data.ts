@@ -114,6 +114,7 @@ function sampleQueue(): ReviewItem[] {
       ? (rec?.meanings.filter((m) => m.version < (q.proposed?.version ?? 0) && (m.verification === "verified_auto" || m.verification === "verified_human")) ?? []).at(-1)
       : rec?.meanings.find((m) => m.valid_to == null);
     return { ...q, lang: rec?.term.lang ?? null, current: cur ?? null, meaning_id: q.kind === "new" ? q.proposed?.meaning_id ?? null : cur?.meaning_id ?? null,
+      token: q.token ?? `sample-${q.term_id}`,
       evidences: (rec?.evidences ?? []).filter((e) => e.kind !== "datalab").slice(0, 5), weekly: rec?.weekly ?? [] };
   });
 }
@@ -227,14 +228,17 @@ export async function getGenerationCurves(termId: string): Promise<GenerationCur
   return isSampleMode ? [] : apiOr<GenerationCurve[]>(`/terms/${encodeURIComponent(termId)}/generations`, [], 300);
 }
 
-export interface ReviewStats { verified_auto: number; verified_human: number; needs_review: number; rejected: number }
+/** views.ReviewStats — needs_review 는 새 말(조사 결과) 검수 대기, proposals 는 문서 대조의 제안(이미 실린 말이라 비율에 넣지 않는다) */
+export interface ReviewStats { verified_auto: number; verified_human: number; needs_review: number; rejected: number; proposals?: number }
 
 /** 자동 확인 vs 사람 검수 비율 — 관리자 화면의 '자동화 정도' 표시. */
 export async function getReviewStats(): Promise<ReviewStats> {
   if (isSampleMode) {
     const cur = SAMPLE_RECORDS.map((r) => r.meanings.find((m) => !m.valid_to) ?? r.meanings.at(-1)).filter(Boolean);
     const count = (v: string) => cur.filter((m) => m!.verification === v).length;
-    return { verified_auto: count("verified_auto"), verified_human: count("verified_human"), needs_review: SAMPLE_QUEUE.length, rejected: count("rejected") };
+    const fresh = SAMPLE_QUEUE.filter((q) => q.kind === "new").length;
+    return { verified_auto: count("verified_auto"), verified_human: count("verified_human"), needs_review: fresh, rejected: count("rejected"),
+      proposals: SAMPLE_QUEUE.length - fresh };
   }
   return apiNoStore<ReviewStats>("/review/stats");
 }

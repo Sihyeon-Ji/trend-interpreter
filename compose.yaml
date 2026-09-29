@@ -9,6 +9,9 @@ x-development: &development
   init: true
 
 x-database-url: &database_url postgresql://trend:trend@db:5432/trend
+# Not a secret: a fixed session key for the loopback-only development stack, so the admin e2e specs can sign a reviewer cookie.
+# The development web has no FRONTEND_API_TOKEN, so an admin session here cannot write to the API.
+x-dev-session-secret: &dev_session_secret dev-only-session-secret-not-a-secret
 
 services:
   db:
@@ -59,6 +62,7 @@ services:
       DATA_MODE: ${DATA_MODE:-sample}
       TREND_API_URL: http://api:8000
       WATCHPACK_POLLING: "true"
+      SESSION_SECRET: *dev_session_secret
     ports:
       - "127.0.0.1:${DEV_WEB_PORT:-3000}:3000"
     volumes:
@@ -109,6 +113,7 @@ services:
     shm_size: 1gb
     environment:
       PLAYWRIGHT_BASE_URL: http://web:3000
+      PLAYWRIGHT_SESSION_SECRET: *dev_session_secret
     depends_on:
       web:
         condition: service_healthy

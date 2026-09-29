@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 /* 검수 대기 목록 (docs/트렌드/디자인-개편.md, 관리 화면 검토 09-29).
    행에는 (검토) 하나만 두고, 펼친 한 항목 안에서 근거·지금 실린 뜻을 본 뒤 결정한다 — 한 번에 하나만 펼치므로 검정 버튼도 하나다.
-   승인·제외는 6초 동안 되돌릴 수 있고, 그 뒤에 본 뜻의 id·제안 종류와 함께 보낸다(그사이 바뀌었으면 서버가 409 로 막는다).
+   승인·제외는 6초 동안 되돌릴 수 있고, 그 뒤에 본 뜻의 id·제안 종류·제안의 표(token)와 함께 보낸다(그사이 바뀌었으면 서버가 409 로 막는다).
    건너뛰기는 아무것도 기록하지 않는다.
    제안 종류(Plan 12): 새 말(조사 결과)은 예전처럼 새 뜻·뜻이 바뀜·추세로 나누고, 문서 대조의 제안 — 고칠 안·위키끼리 다름·사전에서 뺄지 —
    은 지금 실린 뜻을 그대로 둔 채 올라온다. 승인의 뜻이 종류마다 다르다(고칠 안은 새 판, 뺄지는 제외). */
@@ -27,7 +27,8 @@ const TAB_KEY = { new: "adm_kind_new", changed: "adm_kind_changed", trend: "adm_
   conflict: "adm_kind_conflict", retire: "adm_kind_retire" } as const;
 
 type Sort = "oldest" | "newest" | "evidence";
-type Decision = { d: "approve" | "reject"; choice?: number | "keep" };
+// choice: 위키끼리 다름에서 고른 문서의 주소, 또는 "keep"(지금 뜻 그대로). 번호로 보내지 않는다 — 서버가 모양이 틀린 문서를 빼고 보내면 번호가 밀린다
+type Decision = { d: "approve" | "reject"; choice?: string };
 const UNDO_MS = 6000;
 const PAGE = 50;
 const DAY = 86_400_000;
@@ -193,7 +194,8 @@ export function ReviewTable({ items, live = false, locale, kind }: { items: Revi
     try {
       const res = await fetch(`/api/review/${encodeURIComponent(job.item.term_id)}`, {
         method: "POST", headers: { "content-type": "application/json" }, keepalive,
-        body: JSON.stringify({ decision: job.decision.d, meaning_id: job.item.meaning_id ?? null, kind: job.item.kind, choice: job.decision.choice ?? null }),
+        body: JSON.stringify({ decision: job.decision.d, meaning_id: job.item.meaning_id ?? null, kind: job.item.kind, token: job.item.token ?? null,
+          choice: job.decision.choice ?? null }),
       });
       if (!res.ok) throw new Error(String(res.status));
       finish(id);
@@ -378,7 +380,7 @@ function CurrentBlock({ it, locale }: { it: ReviewItem; locale: Locale }) {
 }
 
 /** 위키끼리 다를 때 문서 하나의 설명. 고칠 안이 있는 것만 고를 수 있다 — 고르면 그 안이 새 판이 된다. */
-function DocChoice({ d, i, it, locale, onPick }: { d: ReviewDoc; i: number; it: ReviewItem; locale: Locale; onPick: (i: number) => void }) {
+function DocChoice({ d, it, locale, onPick }: { d: ReviewDoc; it: ReviewItem; locale: Locale; onPick: (url: string) => void }) {
   const name = docName(d, locale);
   return (
     <div className="min-w-0 space-y-2">
@@ -390,7 +392,7 @@ function DocChoice({ d, i, it, locale, onPick }: { d: ReviewDoc; i: number; it: 
       {d.proposal ? (
         <>
           <MeaningBlock m={d.proposal} locale={locale} title={t(locale, "adm_fix_title")} />
-          <button type="button" onClick={() => onPick(i)} aria-label={fill(t(locale, "adm_action_aria"), { term: it.canonical, action: `${name} ${t(locale, "adm_pick")}` })}
+          <button type="button" onClick={() => onPick(d.url)} aria-label={fill(t(locale, "adm_action_aria"), { term: it.canonical, action: `${name} ${t(locale, "adm_pick")}` })}
             className={BTN_OUTLINE}>{t(locale, "adm_pick")}</button>
         </>
       ) : <p className="text-[13px] text-steel">{t(locale, "adm_alt_no_proposal")}</p>}
@@ -449,7 +451,7 @@ function Detail({ it, tab, lang, locale, onDecide, onSkip }: { it: ReviewItem; t
         <div className="space-y-3">
           <div className="grid gap-5 md:grid-cols-2">
             <CurrentBlock it={it} locale={locale} />
-            {(it.docs ?? []).map((d, i) => <DocChoice key={`${i}-${d.url}`} d={d} i={i} it={it} locale={locale} onPick={(n) => onDecide({ d: "approve", choice: n })} />)}
+            {(it.docs ?? []).map((d, i) => <DocChoice key={`${i}-${d.url}`} d={d} it={it} locale={locale} onPick={(url) => onDecide({ d: "approve", choice: url })} />)}
           </div>
           <p className="text-[13px] text-steel">{t(locale, "adm_conflict_note")}</p>
         </div>

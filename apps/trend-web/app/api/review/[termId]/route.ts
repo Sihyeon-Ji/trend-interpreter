@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { reviewDecision } from "@/lib/review-decision";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
-const KINDS = ["new", "correction", "conflict", "retire"];   // 검수 제안의 종류(Plan 12) — 승인의 뜻이 종류마다 달라 백엔드가 대기 제안과 맞춰 본다
 
 /** 검수 결정을 백엔드에 기록한다. 브라우저는 백엔드를 직접 부르지 않는다 —
- *  로그인과 검수 권한을 여기서 확인하고, 쓰기 토큰은 서버에만 둔다. 결정한 사람 이름도 세션에서 가져온다. */
+ *  로그인과 검수 권한을 여기서 확인하고, 쓰기 토큰은 서버에만 둔다. 결정한 사람 이름도 세션에서 가져온다.
+ *  본문(결정·본 뜻·제안 종류·제안의 표·고른 문서)은 lib/review-decision.ts 가 거른 모양 그대로 넘긴다. */
 export async function POST(req: Request, { params }: { params: Promise<{ termId: string }> }) {
   const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET ?? "");
   if (!session) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
@@ -16,28 +17,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   const token = process.env.FRONTEND_API_TOKEN;
   if (!token) return NextResponse.json({ error: "서버 설정이 빠졌습니다. 관리자에게 알려 주세요." }, { status: 500 });
 
-  let decision = "";
-  let meaningId: unknown = null;   // 검수자가 본 뜻 — 그사이 새 판이 생겼으면 백엔드가 409 로 막는다
-  let kind: unknown = null;        // 검수자가 본 제안의 종류 — 대기 중인 제안과 다르면 백엔드가 409 로 막는다
-  let choice: unknown = null;      // 위키끼리 다름: 고른 문서 번호, 또는 "keep"(지금 뜻 그대로)
+  let raw: unknown;
   try {
-    ({ decision = "", meaning_id: meaningId = null, kind = null, choice = null } = await req.json());
+    raw = await req.json();
   } catch {
     return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
   }
-  if (decision !== "approve" && decision !== "reject") {
-    return NextResponse.json({ error: "결정은 승인 또는 제외만 기록합니다." }, { status: 400 });
-  }
-
-  if (meaningId !== null && typeof meaningId !== "string") {
-    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
-  }
-  if (kind !== null && !(typeof kind === "string" && KINDS.includes(kind))) {
-    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
-  }
-  if (choice !== null && choice !== "keep" && !(typeof choice === "number" && Number.isInteger(choice) && choice >= 0)) {
-    return NextResponse.json({ error: "요청 형식이 잘못됐습니다." }, { status: 400 });
-  }
+  const parsed = reviewDecision(raw);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   const { termId } = await params;
   let res: Response;
@@ -45,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
     res = await fetch(`${API}/review/${encodeURIComponent(termId)}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
-      body: JSON.stringify({ decision, by: session.user, meaning_id: meaningId, kind, choice }),
+      body: JSON.stringify({ ...parsed.body, by: session.user }),
       cache: "no-store",
     });
   } catch {

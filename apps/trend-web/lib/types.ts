@@ -94,6 +94,7 @@ export interface ReviewItem {
   canonical: string;
   kind: ReviewKind;
   meaning_id?: string | null;     // 결정과 함께 되돌려 보낼 뜻 — new 는 proposed, 나머지는 current. 그사이 바뀌었으면 서버가 409
+  token?: string;                 // 이 제안의 표(올린 때·내용). 결정과 함께 보내고, 그사이 다른 제안이 올라왔으면 서버가 409
   proposed?: Meaning | null;      // new: 검수할 뜻
   draft?: MeaningDraft | null;    // correction: 고칠 안 (승인하면 새 판)
   reasons: string[];
