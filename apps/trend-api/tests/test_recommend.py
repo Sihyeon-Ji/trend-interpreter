@@ -78,6 +78,7 @@ def test_reason_in_the_wrong_language_is_dropped():
 
 def test_sample_brief_only_when_no_model_is_configured(monkeypatch):
     con = db.connect(":memory:")
+    monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)   # 이 서버의 .env 와 상관없이 '아무 모델도 설정되지 않음'
     monkeypatch.setattr(recommend, "local_ok", lambda: False)
     monkeypatch.setattr(recommend, "configured", lambda: False)
     assert recommend.understand(con, "아무 문구") == (recommend.SAMPLE_BRIEF, "sample")
@@ -108,6 +109,7 @@ def test_recommend_api_checks_input_before_any_model_call(monkeypatch):
     from trend_agents.api import app as api
 
     monkeypatch.setattr(api, "_con", _con())
+    monkeypatch.setattr(recommend, "USE_LOCAL_GEMMA", False)
     monkeypatch.setattr(recommend, "local_ok", lambda: False)
     monkeypatch.setattr(recommend, "configured", lambda: False)     # 모델 없는 개발 환경 → 고정 예시 설명
     c = TestClient(api.app)
