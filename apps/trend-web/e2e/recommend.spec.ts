@@ -60,6 +60,51 @@ test("tells when the input changed after suggestions", async ({ page }) => {
   await expect(page.getByText(/입력이 바뀌었습니다/)).toBeVisible();
 });
 
+// 1×1 PNG — 서버 라우트와 백엔드는 형식을 바이트 머리로 본다
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+
+test("a photo alone is enough: it is previewed and sent with the request", async ({ page }) => {
+  await page.goto("/recommend");
+  await page.locator("#rec-photo").setInputFiles({ name: "latte.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByRole("img", { name: "올린 제품 사진" })).toBeVisible();
+  await expect(page.getByText("latte.png")).toBeVisible();
+  await expect(page.getByRole("button", { name: "사진 빼기" })).toBeVisible();
+
+  // 홍보 문구 없이 사진만 보낸다 — 서버 라우트는 사진(빈 파일 제외)도 문구도 없으면 400 이므로, 200 이면 사진을 받은 것이다
+  const answered = page.waitForResponse((r) => r.url().endsWith("/api/recommend") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "밈 추천받기" }).click();
+  const res = await answered;
+  expect(res.status()).toBe(200);
+  expect(res.request().headers()["content-type"]).toContain("multipart/form-data");
+  await expect(page.getByRole("heading", { name: /추천 밈 \d+개/ })).toBeFocused();
+  await expect(page.getByRole("checkbox", { name: "럭키비키 고르기" })).toBeVisible();
+});
+
+test("a draft left out by the checks shows only its reason, never its text", async ({ page }) => {
+  const kept = "여름 한정이라 더 럭키비키. 이번 주까지!";
+  const leftOut = "최저가 보장 럭키비키 라떼";   // 백엔드의 reason 은 운영 기록용 설명이라 걸린 글을 담을 수 있다 — 화면은 code 로만 쓴다
+  await page.route("**/api/generate", async (route) => {
+    const req = route.request().postDataJSON() as { region: string; tone: string };
+    await route.fulfill({
+      json: {
+        region: req.region, language: "ko", tone: req.tone, memes: ["럭키비키"], model_calls: 2, source: "gemini", script: null, thumbnail: null,
+        copies: [{ platform: "x", text: kept, hashtags: [], note_ko: "마감 강조" }],
+        dropped: [{ id: "copy2", code: "avoid_word", reason: `제품 설명이 피하라고 한 표현이 들어 있음: ${leftOut}` }],
+      },
+    });
+  });
+  await page.goto("/recommend");
+  await page.getByLabel(/홍보 문구/).fill("여름 한정 아이스 라떼");
+  await page.getByRole("button", { name: "밈 추천받기" }).click();
+  await page.getByRole("checkbox", { name: "럭키비키 고르기" }).check();
+  await page.getByRole("button", { name: "카피·대본 만들기" }).click();
+  await expect(page.getByRole("heading", { name: /만든 결과물/ })).toBeFocused();
+  await expect(page.getByText(kept)).toBeVisible();
+  await expect(page.getByText("검사에서 뺀 안 1건")).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: /^제품 설명이 피하라고 한 표현이 들어 있음$/ })).toBeVisible();
+  await expect(page.getByText(leftOut)).toHaveCount(0);
+});
+
 test("drafting shows elapsed time and can be stopped", async ({ page }) => {
   // 예시 모드는 바로 끝나므로 요청을 붙잡아 둔다 — 실제로는 10~85초
   await page.route("**/api/generate", async (route) => { await new Promise((r) => setTimeout(r, 4000)); await route.continue().catch(() => {}); });

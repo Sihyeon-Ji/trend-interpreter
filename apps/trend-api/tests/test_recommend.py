@@ -1,4 +1,5 @@
 """밈 추천(Plan 07) — 후보·순위·이유 거르기는 규칙이다. 모델 없이 인메모리 DB 로."""
+import base64
 from datetime import datetime, timezone
 
 import pytest
@@ -158,6 +159,35 @@ def test_recommend_api_checks_input_before_any_model_call(monkeypatch):
     body = r.json()
     assert body["brief_source"] == "sample" and body["items"][0]["term_id"] == "good"
     assert "bad" not in {i["term_id"] for i in body["items"]}
+
+
+# 1×1 PNG — 바이트 머리(\x89PNG)로 형식을 본다
+PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+
+
+def test_photo_alone_goes_through_to_suggestions(monkeypatch):
+    """사진만 올려도 추천까지 간다(Plan 07 완료 기준 1의 사진 입력). 모델 없는 개발 환경이라 제품 설명은 고정 예시지만, 사진은 PNG 로 읽혀
+    그대로(메모리의 바이트와 형식) 이해 단계까지 넘어간다."""
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    monkeypatch.setattr(api, "_con", _con())
+    monkeypatch.setattr(api, "_recommend_limit", recommend.RateLimit())
+    seen = []
+    real = recommend.understand
+
+    def spy(con, text="", image=None, lang="ko"):
+        seen.append((text, image))
+        return real(con, text, image, lang)
+
+    monkeypatch.setattr(recommend, "understand", spy)
+    r = TestClient(api.app).post("/recommend", files={"image": ("latte.png", PNG, "image/png")}, data={"regions": "KR", "tone": "friendly"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["brief_source"] == "sample" and [i["term_id"] for i in body["items"]][:2] == ["good", "ok"]
+    assert all(i["evidences"] for i in body["items"])                   # 근거 링크 없는 추천은 없다(ADR 0001)
+    assert seen == [("", (PNG, "image/png"))]
 
 
 def test_fit_stage_tags_only_new_or_changed_meanings(monkeypatch):
