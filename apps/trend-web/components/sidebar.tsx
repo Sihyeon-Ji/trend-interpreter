@@ -14,6 +14,7 @@ const MORE: Item[] = [
   { href: "/dictionary", key: "nav_dictionary" },
   { href: "/explain", key: "nav_explain" },
   { href: "/map", key: "nav_map" },
+  { href: "/graph", key: "nav_graph" },
   { href: "/updates", key: "updates_title" },
 ];
 

@@ -2,7 +2,8 @@
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
-import type { KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
+import { SAMPLE_GRAPH, SAMPLE_GRAPH_CONTENTS } from "./sample/graph";
+import type { GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
@@ -275,4 +276,21 @@ export async function getMapData(): Promise<{ keywords: KeywordBoard; board: Tre
     keywords: keywords.summary ? { ...keywords, rising: [], fading: [], caution: [] } : keywords,
     board: { ...board, items: [], why: [] },
   };
+}
+
+/** 콘텐츠 목록. 못 받으면 null — 예시로 바꾸지 않는다(화면이 '불러오지 못했습니다' 를 낸다). */
+export async function getGraphContents(): Promise<GraphContentSummary[] | null> {
+  if (isSampleMode) return SAMPLE_GRAPH_CONTENTS;
+  return apiOrNull<GraphContentSummary[]>("/graph/contents", 300);
+}
+
+/** 콘텐츠 하나의 나라별 파생 항목. 없으면(404) null, 서버가 답하지 않으면 던진다 → app/graph/[key]/error.tsx. */
+export async function getGraphContent(key: string): Promise<GraphContent | null> {
+  if (isSampleMode) return SAMPLE_GRAPH[key] ?? null;
+  try {
+    return await api<GraphContent>(`/graph/content/${encodeURIComponent(key)}`, 300);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
 }

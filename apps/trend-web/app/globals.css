@@ -258,3 +258,8 @@
 .globe-bubble.is-strong { background: var(--ink); color: #fff; border-color: var(--ink); }
 .globe-bubble.is-strong::after { border-color: var(--ink); }
 .globe-bubble.is-strong .globe-bubble__region { color: #cfd4da; }
+
+/* 콘텐츠별 나라 화면: 지도에서 나라를 누르면 아래 칸으로 부드럽게 이동 — 움직임 줄이기 설정이면 바로 이동 */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
