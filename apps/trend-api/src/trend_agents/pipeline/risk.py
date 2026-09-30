@@ -42,6 +42,11 @@ _NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸�
                           # '성적' 은 낱말 앞머리일 때 '성적으로·성적인·성적 ○○(농담·표현·대상화…)' 만 — 이성적·감성적·시험 성적은 아니다(검토 2·3차)
                           r"(?<![가-힣])성적(?:으로|인|\s*(?:농담|표현|의미|함의|뉘앙스|대상|행위|묘사|암시|은어|금욕|코드|맥락|희롱|드립|비하|수치|착취))|"
                           r"profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)   # '이성적'·'차별화'·'시험 성적' 은 경고가 아니다(검토 2차)
+# 민감한 소재(2026-09-30): 위키에서 들어온 말은 쓰임 문장이 없어 판단 보류로만 남았다 — 'Diddy Heil Epstein'(나치 경례·성범죄 소재)
+# 같은 것도. 뜻 칸까지 보고 이 소재면 '주의'. 소재를 다룬다는 뜻일 뿐 표현이 나쁘다는 판정은 아니다.
+_SENSITIVE = re.compile(r"나치|히틀러|홀로코스트|학살|테러|가자|팔레스타인|이스라엘|우크라이나 침공|성범죄|성폭력|아동 성|인종차별|혐오|정치인|대통령|선거|"
+                        r"nazi|hitler|holocaust|genocide|terror|gaza|palestin|sex offender|epstein|racis", re.I)   # '전쟁' 하나로는 잡지 않는다(きのこたけのこ戦争)
+SENSITIVE_GENRES = {"정치 및 사회", "종교", "정치인", "종교인"}      # 나무위키가 이렇게 분류한 밈 — 브랜드가 쓰기 조심스러운 소재
 _NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
 _NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'
 RISK_KO = {"hate": "혐오·차별", "mockery": "조롱", "gender": "성별 갈등", "politics": "정치", "sexual": "선정성"}
@@ -119,6 +124,18 @@ def _bad_origin(con: Connection, term) -> str:
     return ""
 
 
+def sensitive_genres(con: Connection, term_id: str) -> list[str]:
+    """위키 밈 분류(wiki_catalog) 가운데 민감한 소재의 것 — 나무위키 '인터넷 밈/정치 및 사회' 등. 분류 이름에서만 읽는다."""
+    import json
+
+    from .catalog import meta
+
+    out: set[str] = set()
+    for (cats,) in con.execute("SELECT categories_json FROM wiki_catalog WHERE term_id=?", (term_id,)).fetchall():
+        out |= set(meta(json.loads(cats or "[]"))["genres"]) & SENSITIVE_GENRES
+    return sorted(out)
+
+
 def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     """(수준, 이유들). 이유는 걸린 기사·쇼츠 문장을 인용하고, 커뮤니티 글은 건수로만 적는다."""
     labels = ds.evidence_labels(con, term.term_id)
@@ -147,6 +164,12 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     m = ds.current_meaning(con, term.term_id)
     warned = nuance_warning(f"{m.nuance} {m.origin}" if m else "")
     reasons = [f"사전 뜻풀이에 적힌 주의점: “{warned}”"] if warned else []
+    genres = sensitive_genres(con, term.term_id)
+    if genres:
+        reasons.append(f"위키 분류가 {'·'.join(genres)} 소재의 밈이라고 적었다 — 브랜드가 쓰기 조심스럽다.")
+    topic = _SENSITIVE.search(f"{m.definition} {m.origin} {m.nuance}" if m else "")
+    if topic and not warned:
+        reasons.append(f"뜻풀이가 민감한 소재('{topic.group(0)}')를 다룬다.")
     if len(labeled) < MIN_LABELED:
         if reasons:                    # 근거 문장이 모자라도 사전이 이미 경고한 말은 주의
             return "caution", reasons

@@ -1381,3 +1381,29 @@ def test_research_counts_reference_documents_already_stored(monkeypatch):
     ds.upsert_term(con, t)
     ds.add_evidences(con, "t_tw", [ev("wiki", "pttpedia.fandom.com", "PTT鄉民百科: 多蛙", "多蛙 起源於 2020 年 股票板", url="https://pttpedia.fandom.com/zh/wiki/多蛙")])
     assert research.research_one(con, t, lean=True) == ("verified_auto", [])
+
+
+def test_risk_catches_sensitive_topics_without_usage_sentences():
+    """위키에서 들어온 말은 쓰임 문장이 없어 판단 보류로만 남았다. 뜻풀이가 민감한 소재를 다루거나 위키 분류가 정치·종교 밈이면 '주의'(09-30).
+    과자 논쟁 같은 '전쟁' 은 잡지 않는다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import catalog, risk
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+
+    def put(tid, name, definition):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="en", status="verified", aliases=[], first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition=definition, origin="x", nuance="y", generations=["20s"], regions=["US"], self_confidence=0.9), "verified_auto", [])
+        return ds.get_term(con, tid)
+
+    assert risk.judge(con, put("a", "Heil meme", "나치 경례를 흉내 내는 밈"))[0] == "caution"
+    assert risk.judge(con, put("b", "Kinoko war", "과자 두 종류를 두고 벌이는 전쟁 같은 논쟁"))[0] is None
+    t = put("c", "Some slogan", "어떤 구호를 따라 하는 밈")
+    catalog.record(con, "c", "Some slogan", "namu", ["인터넷 밈/정치 및 사회"])
+    level, reasons = risk.judge(con, t)
+    assert level == "caution" and "정치 및 사회" in reasons[0]

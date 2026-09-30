@@ -496,6 +496,10 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     try:
         from ..collectors import community, wiktionary
 
+        # 일괄 등재가 그 말을 데려온 문서를 이미 붙였다(Plan 16) — 이름으로 다시 찾으면 괄호를 뗀 이름이 다른 문서로 간다
+        # (09-30: 'ライラック'(노래)에 꽃 라일락 문서가 붙었다). 그런 말은 붙인 문서만 본다.
+        if lean and term.canonical in WIKI_CONTEXT:
+            raise StopIteration
         first_party += wiktionary.lookup(term.canonical, term.lang)  # 사전이 이미 아는 표현이면 뜻풀이가 앵커가 된다
         first_party += _wikipedia_evidence(term.canonical, term.lang)
         # 한국어 유행어는 나무위키가 사실상 표준 문서다(2026-09-28 실측 13/14). 짧은 발췌·링크·수정 시각만 쓴다.
@@ -536,8 +540,12 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     if draft is None:  # 무료 등급: grounding 불가 → 오프라인 조사 (표시 전용 근거는 제외)
         notes = offline_notes(for_model(first_party))
         if WIKI_CONTEXT.get(term.canonical):
-            notes += "\n\n위키백과 본문에서 이 표현이 나온 문장:\n" + "\n".join(
+            notes += "\n\n위키 문서에서 이 표현이 나온 문장:\n" + "\n".join(
                 f"- {x}" for x in WIKI_CONTEXT.pop(term.canonical))
+        if lean:
+            notes += ("\n\n이 표현은 위키의 '인터넷 밈·유행어' 분류에 든 것이다. definition 에는 대상(노래·작품·인물·물건)의 소개가 아니라 "
+                      "**인터넷에서 밈으로 어떻게 쓰이는지**를 써라(어떤 장면·말투로, 무엇을 뜻하며 쓰나). 근거에 밈 쓰임이 없으면 "
+                      "대상 소개 한 문장에 근거가 말하는 만큼만 덧붙여라. 제목을 번역만 해서 뜻이라 하지 마라. origin 은 어디서 언제 시작했는지이고, 사이트 이름을 쓰지 마라.")
         parsed, method = structured(con, OFFLINE_PROMPT.format(term=term.canonical, notes=notes), MeaningDraft)
         draft = parsed if isinstance(parsed, MeaningDraft) else MeaningDraft.model_validate(parsed)
         method = f"offline:{method}"
@@ -546,6 +554,8 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     # 화면 뜻 앞에 붙어 나왔다(사용자 지적 09-16). 풀이 길이를 넘어서면 뜻이지 풀이가 아니다.
     if draft.expansion and (len(draft.expansion) > 40 or len(draft.expansion.split()) > 8 or "." in draft.expansion[:-1]):
         draft.expansion = None
+    if re.fullmatch(r"(https?://)?[\w.-]+\.(org|com|net|wiki|jp|kr|cn|tw)(/\S*)?", (draft.origin or "").strip()):
+        draft.origin = "unknown"      # 유래 칸에 출처 사이트 이름만 쓴 것(09-30: 'wikipedia.org') — 유래가 아니다
     evidences = (web_evidence(term.canonical, urls, term.aliases) if not method.startswith("offline") else []) + first_party
     # 이미 저장된 참고 문서(일괄 등재가 미리 붙인 PTT鄉民百科·위키데이터 링크, 예전 조사가 찾은 문서)도 판정에 넣는다 —
     # 이번 조사가 다시 찾지 않은 문서가 빠져 문서가 있는 말이 떨어졌다(2026-09-30, '多蛙、空蛙').

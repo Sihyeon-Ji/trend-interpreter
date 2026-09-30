@@ -24,6 +24,7 @@ COUNTRY = {"한국": "KR", "대한민국": "KR", "일본": "JP", "대만": "TW",
 PERSON = {"가수", "배우", "기업인", "기자", "교육인", "기타 인물", "농구 감독", "농구 선수", "만화가", "성우", "스포츠 감독", "야구 감독", "야구 선수",
           "예능인", "요리사", "운동선수", "인물", "인터넷 방송인", "정치인", "종교인", "체육인", "축구 감독", "축구 선수", "프로게이머", "게임 개발자"}
 SKIP_GENRES = PERSON | {"성인물"}
+MEME_CUE = re.compile(r"밈|유행|패러디|짤|드립|합성|챌린지|틱톡|유튜브|쇼츠|커뮤니티|인터넷|meme|ミーム|梗|迷因", re.I)
 CLUB = re.compile(r".+ FC$")
 
 
@@ -168,9 +169,11 @@ def prepare(con: Connection, t: Term, title: str) -> bool:
         ds.add_evidences(con, t.term_id, ev)
     body = namuwiki.page_text(title) or ""
     i = body.find("개요")
-    lead = re.sub(r"\s+", " ", body[i + 2:] if i >= 0 else body)
-    lead = re.sub(r"\[\d+\]|\[편집\]", "", lead)[:900]
-    sents = [x.strip() for x in re.split(r"(?<=[.!?다])\s", lead) if len(x.strip()) > 10][:6]
+    text = re.sub(r"\[\d+\]|\[편집\]", "", re.sub(r"\s+", " ", body[i + 2:] if i >= 0 else body))
+    all_sents = [x.strip() for x in re.split(r"(?<=[.!?다])\s", text) if 10 < len(x.strip()) < 300]
+    # 개요 앞 세 문장 + 밈으로 쓰인 이야기(노래·작품 문서는 개요가 작품 설명이고 밈 이야기는 뒤쪽 절에 있다, 09-30)
+    meme = [x for x in all_sents[3:] if MEME_CUE.search(x)][:6]
+    sents = all_sents[:3] + meme
     if sents:
         research.WIKI_CONTEXT[t.canonical] = sents
     return bool(ev or sents)
