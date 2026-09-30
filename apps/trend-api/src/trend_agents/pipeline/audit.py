@@ -98,7 +98,9 @@ def documents(term: Term, evidences: list[Evidence]) -> list[tuple[Evidence, str
 
     docs = sorted({e.url: e for e in evidences if reference_doc(e)}.values(), key=lambda e: crosscheck._home_rank(term, e.url))
     # 제목이 표제어인 문서만 — 근거에 붙은 딴 문서('점메추' 에 나무위키 '메뉴')를 보이면 감사관이 뜻이 아니라 근거를 탓한다(09-30 채점)
-    titled = [e for e in docs if crosscheck.titled_by_term(term, e.url.split("?", 1)[0])]
+    from ..verification import doc_titled
+
+    titled = [e for e in docs if doc_titled(term.canonical, e, term.aliases)]
     out = []
     for e in titled:
         text = crosscheck.doc_text(e) if "fandom.com" not in e.url else _fandom_text(e)
@@ -134,6 +136,12 @@ def check(con: Connection, term: Term, meaning: Meaning, docs: list[tuple[Eviden
     lines = "\n\n".join(f"{i}. [{crosscheck.wiki_name(e.url)}] {e.title}\n{t}" for i, (e, t) in enumerate(docs, 1))
     prompt = PROMPT.format(term=term.canonical, definition=meaning.definition or "(없음)", origin=meaning.origin or "(없음)",
                            nuance=meaning.nuance or "(없음)", docs=lines)
+    if model == "audit":                    # 파이프라인의 감사관 — config.AUDIT_MODEL, AUDIT_OLLAMA_HOST(다른 GPU 서버 가능)
+        from ..config import AUDIT_MODEL, AUDIT_OLLAMA_HOST
+        from ..interpreters import local_chat
+
+        c = local_chat.structured(prompt, AuditCheck, temperature=temperature, model=AUDIT_MODEL, host=AUDIT_OLLAMA_HOST or None)
+        return (c if isinstance(c, AuditCheck) else AuditCheck.model_validate(c)), f"local:{AUDIT_MODEL}"
     if model.startswith("gemini"):          # "gemini" 은 기본 모델, "gemini:<모델 ID>" 는 그 모델(예: gemini:gemini-3.5-flash-lite)
         from .gemini import structured
 
@@ -170,3 +178,104 @@ def check_voted(con: Connection, term: Term, meaning: Meaning, docs: list[tuple[
     fixes = [w for v, w in got if v == "fix"]
     v = "fix" if len(fixes) * 2 > votes else "ok"
     return v, (fixes[0] if fixes and v == "fix" else []), f"{len(fixes)}/{votes}"
+
+
+
+# ---------- 파이프라인 '감사' 단계 (2026-09-30) ----------
+# 자동으로 실린 뜻(verified_auto)을 뜻 판마다 한 번 감사한다. '고칠 것' 이면 감사관의 까닭을 붙여 한 번 다시 쓰고 다시 감사한다.
+# 그래도 '고칠 것' 이면 표시만 남긴다(audit_log.action='flagged') — 자동으로 내리지 않는다. 사람이 확인한 뜻은 감사하지 않는다.
+# 감사관의 채점: 전수조사 32문제 정확도 0.66, 일괄 등재 20문제 0.70(정밀도 0.72·0.83, Plan 16).
+
+AUDIT_PER_RUN = 20
+
+
+def _ensure(con: Connection) -> None:
+    con.execute("CREATE TABLE IF NOT EXISTS audit_log (term_id TEXT, meaning_id TEXT, checked_at TEXT, verdict TEXT, reasons_json TEXT, model TEXT, "
+                "action TEXT, PRIMARY KEY(term_id, meaning_id))")
+    con.commit()
+
+
+def _log(con, term_id: str, meaning_id: str, verdict_: str, reasons: list[str], model: str, action: str) -> None:
+    import json
+    from datetime import datetime, timezone
+
+    con.execute("INSERT OR REPLACE INTO audit_log VALUES (?,?,?,?,?,?,?)",
+                (term_id, meaning_id, datetime.now(timezone.utc).isoformat(), verdict_, json.dumps(reasons, ensure_ascii=False), model, action))
+    con.commit()
+
+
+def targets(con: Connection, limit: int = AUDIT_PER_RUN) -> list[Term]:
+    """아직 감사하지 않은 자동 확인 뜻 — 위키 분류에서 일괄로 들어온 것과 새것부터."""
+    from ..storage import dictionary_store as ds
+
+    _ensure(con)
+    done = set(con.execute("SELECT term_id, meaning_id FROM audit_log").fetchall())
+    cat = {r[0] for r in con.execute("SELECT DISTINCT term_id FROM wiki_catalog").fetchall()}
+    rows = []
+    for t in ds.list_terms(con, ("verified",)):
+        m = ds.current_meaning(con, t.term_id)
+        if m and m.verification == "verified_auto" and (t.term_id, m.meaning_id) not in done:
+            rows.append((t.term_id not in cat, -m.valid_from.timestamp(), t))
+    return [t for *_, t in sorted(rows, key=lambda x: (x[0], x[1]))][:limit]
+
+
+def audit_one(con: Connection, term: Term) -> str:
+    """한 말을 감사한다. 돌려주는 것: ok · fixed(다시 써서 통과) · flagged(다시 써도 고칠 것) · no_doc · error."""
+    from ..storage import dictionary_store as ds
+    from . import research
+
+    m = ds.current_meaning(con, term.term_id)
+    docs = documents(term, ds.list_evidences(con, term.term_id))
+    if not docs:
+        _log(con, term.term_id, m.meaning_id, "no_doc", [], "", "no_doc")
+        return "no_doc"
+    c, used = check(con, term, m, docs, model="audit")
+    v, why = verdict(c)
+    if v == "ok":
+        _log(con, term.term_id, m.meaning_id, "ok", [], used, "ok")
+        return "ok"
+    # 다시 쓴다 — 감사관의 까닭과 문서 글(메모리에서만)을 조사 모델에게 보인다
+    sents = [x.strip() for e, t in docs for x in t.replace("\n", " ").split(". ") if len(x.strip()) > 10][:6]
+    research.WIKI_CONTEXT[term.canonical] = [f"(감사관이 지난 뜻에서 지적한 것) {w}" for w in why] + sents
+    try:
+        research.research_one(con, term, lean=True)
+    except Exception:
+        research.WIKI_CONTEXT.pop(term.canonical, None)
+        _log(con, term.term_id, m.meaning_id, "fix", why, used, "error")
+        return "error"
+    m2 = ds.current_meaning(con, term.term_id)
+    if not m2 or m2.meaning_id == m.meaning_id:
+        _log(con, term.term_id, m.meaning_id, "fix", why, used, "flagged")
+        return "flagged"
+    c2, _ = check(con, term, m2, docs, model="audit")
+    v2, why2 = verdict(c2)
+    _log(con, term.term_id, m.meaning_id, "fix", why, used, "rewritten")
+    _log(con, term.term_id, m2.meaning_id, v2, why2, used, "ok" if v2 == "ok" else "flagged")
+    return "fixed" if v2 == "ok" else "flagged"
+
+
+def run(con: Connection) -> dict:
+    from collections import Counter
+
+    from ..config import AUDIT_MODEL, AUDIT_OLLAMA_HOST
+    from ..interpreters import local_chat
+    from .runs import stage
+
+    with stage(con, "audit") as r:
+        try:
+            names = {x.model for x in local_chat._client(AUDIT_OLLAMA_HOST or None).list().models}
+        except Exception:
+            names = set()
+        if AUDIT_MODEL not in names:
+            r.status, r.note = "skipped", f"감사관 모델 없음({AUDIT_MODEL})"
+        else:
+            counts: Counter = Counter()
+            for t in targets(con):
+                try:
+                    counts[audit_one(con, t)] += 1
+                except Exception as e:           # 한 말의 형식 실패가 나머지를 막지 않는다
+                    counts["error"] += 1
+                    r.note += f"{t.canonical}:{type(e).__name__} "
+                r.count += 1
+            r.detail = dict(counts)
+    return {"audit": r}

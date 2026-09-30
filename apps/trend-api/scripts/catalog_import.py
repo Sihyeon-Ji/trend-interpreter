@@ -1,5 +1,6 @@
 """위키 밈 분류 일괄 넣기 (Plan 16). data/work/catalog/namu.json({문서: [분류]})을 읽어 표제어를 세우고 가벼운 조사를 돌린다.
-파이프라인과 겹치지 않게 cron 창(9·14·19·23시 15분부터 한 시간)·잠금 중·새벽 2~8시(MCTI)는 쉰다. 멈췄다 다시 돌려도 이어서 한다.
+파이프라인과 겹치지 않게 cron 창(9·14·19·23시 15분부터 한 시간)·잠금 중에는 쉰다. 실패(오류·문서에 닿지 못함)는 catalog_failed 에 남기고
+--retry-failed 로 다시 돈다. 멈췄다 다시 돌려도 이어서 한다.
   uv run scripts/catalog_import.py --limit 50          # 50개만
   uv run scripts/catalog_import.py --dry               # 세울 것만 센다
 """
@@ -24,10 +25,21 @@ from trend_agents.storage import store as db  # noqa: E402
 LOCK = "/tmp/trend-pipeline.lock"
 
 
+def failed(con, source: str, title: str, reason: str) -> None:
+    con.execute("CREATE TABLE IF NOT EXISTS catalog_failed (source TEXT, title TEXT, reason TEXT, at TEXT, PRIMARY KEY(source, title))")
+    con.execute("INSERT OR REPLACE INTO catalog_failed VALUES (?,?,?,?)", (source, title, reason[:200], datetime.now().isoformat()))
+    con.commit()
+
+
+def cleared(con, source: str, title: str) -> None:
+    con.execute("CREATE TABLE IF NOT EXISTS catalog_failed (source TEXT, title TEXT, reason TEXT, at TEXT, PRIMARY KEY(source, title))")
+    con.execute("DELETE FROM catalog_failed WHERE source=? AND title=?", (source, title))
+    con.commit()
+
+
 def busy() -> bool:
     now = datetime.now()
-    if 2 <= now.hour < 8:
-        return True
+    # 새벽(MCTI 시간)에도 쉬지 않는다 — 2026-09-30 사용자 결정. 파이프라인이 도는 창만 비킨다.
     if now.hour in (9, 14, 19, 23) and now.minute >= 15 or now.hour in (10, 15, 20, 0) and now.minute < 15:
         return True
     with open(LOCK, "a") as f:
@@ -65,24 +77,63 @@ def main() -> None:
     a.add_argument("--src", default="data/work/catalog/namu.json")
     a.add_argument("--limit", type=int, default=0)
     a.add_argument("--dry", action="store_true")
+    a.add_argument("--retry-failed", action="store_true", help="catalog_failed 에 남은 것을 다시 돈다")
     args = a.parse_args()
     con = db.connect()
+    if args.retry_failed:
+        failed(con, "_", "_", "_"); cleared(con, "_", "_")          # 표가 없으면 만든다
+        rows = con.execute("SELECT source, title FROM catalog_failed WHERE source=?", (args.source,)).fetchall()
+        print(f"다시 돌 것 {len(rows)}", flush=True)
+        entries, items = entries_for(args.source, args.src) if args.source != "trendaword" else ({}, {})
+        from trend_agents.collectors import trendaword
+        for source, title in rows:
+            while busy():
+                time.sleep(300)
+            if source == "trendaword":
+                p = trendaword.post(title)
+                t = catalog.add_trendaword(con, p) if p else None
+                t = t or (ds.find_term(con, catalog.title_to_term(p["word"]) or p["word"]) if p else None)
+            else:
+                t = catalog.add(con, title, entries.get(title, []), source=source) or ds.find_term(con, catalog.title_to_term(title) or title)
+                if t and source == "namu":
+                    catalog.prepare(con, t, title)
+                elif t and source in fandom.SITES:
+                    catalog.prepare_fandom(con, t, source, title)
+                elif t and title in items:
+                    catalog.prepare_wikidata(con, t, items[title])
+            if not t:
+                continue
+            try:
+                v, _ = research_one(con, t, lean=True)
+                cleared(con, source, title)
+            except Exception as e:
+                v = f"error {type(e).__name__}"
+                failed(con, source, title, v)
+            print(f"[{datetime.now():%H:%M}] retry {source} {t.canonical} → {v}", flush=True)
+        return
     if args.source == "trendaword":                 # 지난 호 전부 — 게시글마다 단어·날짜를 읽는다(3초 간격)
         from trend_agents.collectors import trendaword
         n = 0
         for url in trendaword.archive():
             if args.limit and n >= args.limit:
                 break
+            if con.execute("SELECT 1 FROM evidences WHERE url=? LIMIT 1", (url.split("?")[0],)).fetchone():
+                continue                      # 이미 넣은 호 — 다시 받지 않는다
             while busy():
                 time.sleep(300)
             p = trendaword.post(url)
-            t = catalog.add_trendaword(con, p) if p else None
+            if not p:
+                failed(con, "trendaword", url, "게시글에 닿지 못했거나 단어를 못 읽음")
+                continue
+            t = catalog.add_trendaword(con, p)
             if t:
                 n += 1
                 try:
                     v, _ = research_one(con, t, lean=True)
+                    cleared(con, "trendaword", url)
                 except Exception as e:
                     v = f"error {type(e).__name__}"
+                    failed(con, "trendaword", url, v)
                 print(f"[{datetime.now():%H:%M}] trendaword {n} #{p.get('issue')} {t.canonical} → {v}", flush=True)
         return
     entries, items = entries_for(args.source, args.src)
@@ -109,14 +160,16 @@ def main() -> None:
         n += 1
         try:
             if args.source == "namu":
-                catalog.prepare(con, t, title)
+                got = catalog.prepare(con, t, title)
             elif args.source in fandom.SITES:
-                catalog.prepare_fandom(con, t, args.source, title)
+                got = catalog.prepare_fandom(con, t, args.source, title)
             else:
-                catalog.prepare_wikidata(con, t, it)
+                got = catalog.prepare_wikidata(con, t, it)
             v, _ = research_one(con, t, lean=True)
+            failed(con, args.source, title, "문서에 닿지 못함") if not got else cleared(con, args.source, title)
         except Exception as e:
             v = f"error {type(e).__name__}"
+            failed(con, args.source, title, v)
         counts[v] = counts.get(v, 0) + 1
         print(f"[{datetime.now():%H:%M}] {args.source} {n} {t.canonical} → {v}", flush=True)
     print(("세울 것 " if args.dry else "세운 것 ") + str(n), counts, f"이미 있는 말에 링크 {linked}")

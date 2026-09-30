@@ -30,6 +30,7 @@ REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixi
                      "dic.nicovideo.jp", "pttpedia.fandom.com", "evchk.fandom.com", "librewiki.net", "maily.so")
 # 도메인 전체가 아니라 이 경로만 참고 문서인 곳 — maily.so 는 뉴스레터 호스팅이라 Trend A Word(신조어를 하루 하나씩 정리) 만(2026-09-30 사용자 요청)
 REFERENCE_PATHS = {"maily.so": "/trendaword/posts/"}
+_EMPTY_MEANING = __import__("re").compile(r"근거 부족|확인되지 않(음|았)|정보가 (부족|없)|명확한 (사전적 )?(정의|의미)(는|가)? ?없|알 수 없는 표현")
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
 
 
@@ -73,6 +74,31 @@ def source_text(e: Evidence) -> str:
     return e.title if getattr(e, "derived", False) else e.title + " " + e.excerpt
 
 
+def _sq(s: str) -> str:
+    import re
+    import unicodedata
+
+    t = unicodedata.normalize("NFKC", s or "").lower()
+    return re.sub(r"[\s\W_]+", "", t) or re.sub(r"\s+", "", t)       # 기호만 있는 표제어('$$$$', '+1')는 기호를 남긴다
+
+
+def doc_titled(term: str, e: Evidence, aliases: list[str] | tuple[str, ...] = ()) -> bool:
+    """참고 문서가 이 표제어의 문서인가 — 근거 제목(사이트 이름 앞머리·라이선스 꼬리·구분 꼬리를 뗀 것) 또는 주소의 문서 이름이 표제어·별칭과 같을 때.
+    엉뚱한 문서('Aura Monster' 에 리제로 캐릭터 문서, 목록 문서)가 참고 문서로 세지던 것(2026-09-30 품질 점검, 130건)을 막는다."""
+    import re
+
+    names = {_sq(n) for n in (term, *aliases) if n}
+    title = re.sub(r"^[^:：]{1,40}[:：]\s*", "", e.title or "")
+    title = re.sub(r"\s*\((?:CC[^)]*)\)\s*$", "", title)
+    cands = [title, re.sub(r"\s*\([^)]*\)$", "", title)]
+    path = unquote(urlsplit(e.url or "").path)
+    name = path.split("/w/", 1)[-1] if "/w/" in path else path.split("/wiki/", 1)[-1] if "/wiki/" in path else ""
+    name = name.replace("_", " ")
+    cands += [name, re.sub(r"\s*\([^)]*\)$", "", name)]
+    # 제목이 표제어로 시작하면 인정한다('을용타/여담', '럭키비키 문서'). 제목이 아예 다른 문서('Sonic X', 'Subaru Natsuki', 목록 문서)는 빠진다
+    return any(_sq(c).startswith(n) for c in cands if c for n in names if len(n) >= 2)
+
+
 def anchor_hit(term: str, e: Evidence, aliases: list[str] | tuple[str, ...] = ()) -> bool:
     """용어(또는 별칭)가 근거의 원문에 실제로 있는가 (숫자꼴 용어는 밈 단서까지)."""
     from .pipeline.match import mentions  # 순환 import 방지
@@ -91,13 +117,15 @@ def gate(
     definition = (draft.definition or "").strip()
     if len(definition) < 8 or _norm(definition) == _norm(term):
         reasons.append("뜻이 비었거나 표제어를 그대로 옮겨 적음")
+    if _EMPTY_MEANING.search(definition):
+        reasons.append("뜻이 '근거 부족'·'정의 없음' 같은 빈말이다")
     if not draft.is_expression and not catalogued:
         reasons.append("표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님")
     from .collectors.community import is_community_post
 
     evidences = [e for e in evidences if not is_community_post(e)]      # 커뮤니티·SNS 글은 어떤 셈에도 넣지 않는다(ADR 0003)
     anchored = [e for e in evidences if anchor_hit(term, e, aliases)]
-    documented = any(reference_doc(e) for e in anchored)
+    documented = any(reference_doc(e) and doc_titled(term, e, aliases) for e in anchored)
     # 이미 실린 말(현행 뜻이 확인됨)을 다시 조사할 때는 출처 규칙으로 강등하지 않는다 — 커뮤니티 글을 셈에서 뺀 탓에 예전 항목이
     # 한꺼번에 내려가지 않게. 기존 항목은 문서 대조(Plan 12)의 '문서 없음 14일' 규칙으로 사람이 정리한다.
     listed = current is not None and current.verification in ("verified_auto", "verified_human")

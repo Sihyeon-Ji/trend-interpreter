@@ -327,7 +327,7 @@ def video_is_about(con: Connection, term, title: str) -> bool:
     엄격하면 'Surprised Pikachu Meme Explained' 까지 떨어뜨려 쓸 수 없었다). 받는 것은 둘:
     (1) 제목(앞부분에 표현이 있음은 _pick_video 가 봤다)에 밈 단서 낱말이 있다, (2) 해시태그·기호를 뺀 제목이 표현 그 자체다 —
     단 흔한 영어 한 낱말(vibe·rizz 처럼 노래·사람 이름과 겹치는 것)은 (2)로 받지 않는다. 틀린 영상보다 빈칸이 낫다."""
-    low = title.lower()
+    low = re.sub(r"#\S+", " ", title).lower()           # 해시태그(#memes)는 단서가 아니다 — 'Based on true events #memes' 가 'based' 에 붙었다(09-30)
     if any(c in low for c in MEME_CUES):
         return True
     bare = re.sub(r"#\S+", " ", title)

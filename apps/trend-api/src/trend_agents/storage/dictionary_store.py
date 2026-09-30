@@ -60,6 +60,10 @@ CREATE TABLE IF NOT EXISTS review_history (
 CREATE TABLE IF NOT EXISTS media_tried (term_id TEXT PRIMARY KEY, tried_at TEXT);
 -- 위키 밈 분류(Plan 16, 마이그레이션 014): 표제어가 걸린 분류 이름들(종류·연대·나라). 제목·분류만, 본문 없음.
 CREATE TABLE IF NOT EXISTS wiki_catalog (term_id TEXT, source TEXT, title TEXT, categories_json TEXT, fetched_at TEXT, PRIMARY KEY(term_id, source, title));
+-- 사전 감사(pipeline/audit.py): 뜻 판마다 한 번. action = ok · rewritten · flagged · no_doc · error.
+CREATE TABLE IF NOT EXISTS audit_log (term_id TEXT, meaning_id TEXT, checked_at TEXT, verdict TEXT, reasons_json TEXT, model TEXT, action TEXT, PRIMARY KEY(term_id, meaning_id));
+-- 일괄 등재의 실패(오류·문서에 닿지 못함). scripts/catalog_import.py --retry-failed 가 다시 돈다.
+CREATE TABLE IF NOT EXISTS catalog_failed (source TEXT, title TEXT, reason TEXT, at TEXT, PRIMARY KEY(source, title));
 CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);

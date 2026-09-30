@@ -23,7 +23,7 @@ def test_structured_retries_once_when_keys_are_wrong(monkeypatch):
     answers = iter(['```json\n{"세대": "20s", "confidence": 0.9}\n```', '{"detected_generation": "20s", "confidence": 0.9}'])
     asked = []
 
-    def fake_chat(prompt, temperature, model, json_schema=None):
+    def fake_chat(prompt, temperature, model, json_schema=None, host=None):
         asked.append(prompt)
         return next(answers)
 

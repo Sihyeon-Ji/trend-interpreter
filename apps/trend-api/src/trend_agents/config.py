@@ -24,6 +24,9 @@ BLUESKY_APP_PASSWORD = os.getenv("BLUESKY_APP_PASSWORD", "")
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMMA_LOCAL_MODEL = os.getenv("GEMMA_LOCAL_MODEL", "gemma4:12b")
+# 사전 감사관(pipeline/audit.py). 두 번의 시험에서 가장 안정적이던 Gemma 4 12B 체크리스트형(2026-09-30). 다른 GPU 서버의 Ollama 를 쓸 수 있다.
+AUDIT_MODEL = os.getenv("AUDIT_MODEL", "gemma4:12b")
+AUDIT_OLLAMA_HOST = os.getenv("AUDIT_OLLAMA_HOST", "")
 LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "").rstrip("/")  # 비우면 Ollama(localhost:11434). OpenAI 호환 서버(vLLM 등)면 예: http://127.0.0.1:11437/v1 — 모델 이름은 GEMMA_LOCAL_MODEL(served-model-name)
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash")  # 3.8 이 503(무료 등급 용량)일 때만
 GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "36"))

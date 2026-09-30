@@ -1290,6 +1290,7 @@ def test_representative_video_needs_a_meme_cue_or_the_bare_phrase():
     assert not video_is_about(None, t("vibe"), "VIBE")                          # 노래 제목
     assert not video_is_about(None, t("懶人包"), "『1.5週年前瞻懶人包、ULT機終極強化』SD Gundam")   # 평범한 뜻으로 쓴 게임 공지
     assert not video_is_about(None, t("relatable"), "🤣#relatable #cat #shorts")   # 해시태그로만
+    assert not video_is_about(None, t("based"), "Based on true events #shorts #memes")   # 해시태그의 memes 는 단서가 아니다
 
 
 def test_generation_shares_shown_are_measured_only():
@@ -1416,3 +1417,47 @@ def test_trendaword_posts_count_as_reference_documents_only_on_that_path():
     assert reference_doc(ev("web", "maily.so", "Trend A Word #629: 볼무떨천", "볼무떨천 뜻", url="https://maily.so/trendaword/posts/knrjkv10zld"))
     assert not reference_doc(ev("web", "maily.so", "다른 레터", "볼무떨천", url="https://maily.so/other/posts/abc"))
     assert not reference_doc(ev("web", "maily.so", "Trend A Word", "볼무떨천", url="https://maily.so/trendaword"))
+
+
+def test_reference_documents_must_be_titled_by_the_term_and_empty_meanings_are_blocked():
+    """참고 문서는 제목이 표제어로 시작하는 문서만 센다('Aura Monster' 에 리제로 캐릭터 문서가 세지던 것, 09-30 품질 점검).
+    뜻이 '근거 부족' 같은 빈말이면 막는다."""
+    from trend_agents.verification import doc_titled
+
+    ok = ev("wiki", "namu.wiki", "나무위키: 을용타 (CC BY-NC-SA 2.0 KR)", "을용타 는 …", url="https://namu.wiki/w/을용타")
+    other = ev("wiki", "namu.wiki", "나무위키: 나츠키 스바루 (CC BY-NC-SA 2.0 KR)", "Aura Monster 로도 불린다", url="https://namu.wiki/w/나츠키 스바루")
+    taw = ev("web", "maily.so", "Trend A Word #629: 볼무떨천", "볼무떨천 뜻", url="https://maily.so/trendaword/posts/knrjkv10zld")
+    assert doc_titled("을용타", ok) and doc_titled("볼무떨천", taw) and not doc_titled("Aura Monster", other)
+    term, draft = "럭키비키", _lucky_draft()
+    namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
+    assert gate(term, draft.model_copy(update={"definition": "근거 부족: 확인되지 않음"}), [namu], None)[0] == "unverified"
+
+
+def test_audit_stage_logs_once_per_meaning_and_rewrites_on_fix(monkeypatch):
+    """감사 단계: 자동 확인 뜻을 판마다 한 번 감사하고, 고칠 것이면 한 번 다시 쓴다. 기록(audit_log)은 INSERT OR REPLACE 로 남는다(PostgreSQL 에서도)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import audit, research
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t_a", canonical="럭키비키", lang="ko", status="verified", aliases=[], first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t_a", MeaningDraft(definition="긍정적으로 생각하는 말투", origin="x", nuance="y", generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_auto", [])
+    ds.add_evidences(con, "t_a", [ev("wiki", "namu.wiki", "나무위키: 럭키비키", "럭키비키 는 긍정 밈이다", url="https://namu.wiki/w/럭키비키")])
+    monkeypatch.setattr(audit, "documents", lambda t, evs: [(evs[0], "럭키비키 는 장원영에게서 나온 긍정 밈이다")])
+    answers = iter([audit.AuditCheck(same_subject=True, describes_usage=False, translation_only=False, matches_doc="partly", origin_ok=False),
+                    audit.AuditCheck(same_subject=True, describes_usage=True, translation_only=False, matches_doc="yes", origin_ok=True)])
+    monkeypatch.setattr(audit, "check", lambda *a, **k: (next(answers), "local:test"))
+
+    def rewrite(con_, term, lean=False):
+        ds.add_meaning(con_, term.term_id, MeaningDraft(definition="어떤 일이든 긍정적으로 받아들이는 장원영식 말투", origin="장원영", nuance="y",
+                                                        generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_auto", [])
+        return "verified_auto", []
+    monkeypatch.setattr(research, "research_one", rewrite)
+    assert [t.term_id for t in audit.targets(con)] == ["t_a"]
+    assert audit.audit_one(con, ds.get_term(con, "t_a")) == "fixed"
+    assert audit.targets(con) == []                                                 # 새 판도 감사됐다
+    assert {r[0] for r in con.execute("SELECT action FROM audit_log").fetchall()} == {"rewritten", "ok"}

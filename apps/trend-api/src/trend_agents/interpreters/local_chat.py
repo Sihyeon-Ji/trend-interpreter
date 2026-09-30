@@ -31,6 +31,16 @@ _JSON_RULE = "\n\n아래 모양대로 키 이름과 값 종류를 그대로 지�
 _RETRY_RULE = "\n\n직전 응답은 위 모양과 맞지 않았다({error}). 같은 내용을 위 모양 그대로, 항목 수를 바꾸지 말고 다시 답하라."
 # Ollama 기본 클라이언트는 시간 제한이 없다 — 모델이 멈추면 요청을 받은 작업 스레드가 끝없이 묶였다(검토 3차)
 _OLLAMA = ollama.Client(timeout=TIMEOUT)
+_HOSTS: dict[str, ollama.Client] = {}
+
+
+def _client(host: str | None) -> ollama.Client:
+    """host 를 주면 그 Ollama(예: 감사관을 다른 GPU 서버에서, AUDIT_OLLAMA_HOST). 없으면 기본."""
+    if not host:
+        return _OLLAMA
+    if host not in _HOSTS:
+        _HOSTS[host] = ollama.Client(host=host, timeout=TIMEOUT)
+    return _HOSTS[host]
 
 
 def available(model: str = GEMMA_LOCAL_MODEL) -> bool:
@@ -49,7 +59,7 @@ def chat_text(prompt: str, temperature: float = 0.2, model: str = GEMMA_LOCAL_MO
     return _chat(prompt, temperature, model)
 
 
-def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = GEMMA_LOCAL_MODEL, image: tuple[bytes, str] | None = None) -> Any:
+def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = GEMMA_LOCAL_MODEL, image: tuple[bytes, str] | None = None, host: str | None = None) -> Any:
     """schema(pydantic 모델 클래스 또는 TypeAdapter)로 검증된 값을 돌려준다. 두 번 틀리면 ValueError.
     image 는 (바이트, MIME) — 사진 한 장을 함께 본다(Gemma 4 는 그림을 읽는다). 메모리에서만 쓰고 어디에도 남기지 않는다."""
     adapter = schema if isinstance(schema, TypeAdapter) else TypeAdapter(schema)
@@ -57,7 +67,8 @@ def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = 
     ask = prompt + _JSON_RULE.format(schema=describe_schema(js))
     error = ""
     for _ in range(2):
-        text = _chat(ask + (_RETRY_RULE.format(error=error) if error else ""), temperature, model, json_schema=js, **({"image": image} if image else {}))
+        text = _chat(ask + (_RETRY_RULE.format(error=error) if error else ""), temperature, model, json_schema=js, **({"image": image} if image else {}),
+                     host=host)
         try:
             return adapter.validate_json(extract_json(text))
         except (ValidationError, ValueError) as e:
@@ -162,7 +173,8 @@ def describe_schema(js: dict) -> str:
     return render(js)
 
 
-def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None = None, image: tuple[bytes, str] | None = None) -> str:
+def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None = None, image: tuple[bytes, str] | None = None,
+          host: str | None = None) -> str:
     messages: list[dict] = [{"role": "user", "content": prompt}]
     if image and LOCAL_LLM_BASE_URL:   # OpenAI 호환: 글과 그림을 한 메시지의 조각으로
         data = base64.b64encode(image[0]).decode()
@@ -184,7 +196,7 @@ def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None 
             content = choice["message"].get("reasoning_content") or ""
         return content
     # Ollama: format(스키마 강제)은 보내지 않는다 — 모듈 주석의 실측. 스키마는 이미 프롬프트에 있다.
-    r = _OLLAMA.chat(model=model, messages=messages, think=False,
+    r = _client(host).chat(model=model, messages=messages, think=False,
                     options={"temperature": temperature, "num_ctx": NUM_CTX, "num_predict": MAX_TOKENS})
     return r.message.content
 

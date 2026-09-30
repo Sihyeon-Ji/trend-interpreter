@@ -15,7 +15,7 @@ from datetime import datetime
 from trend_agents.config import GEMINI_DAILY_BUDGET, PIPELINE_INTERVAL_HOURS
 from trend_agents.logging_setup import configure as configure_logging
 from trend_agents.pipeline import (board, candidates, classify, collect, crosscheck, dashboard, fit, hunt, interpret, namu, naver, research, risk,
-                                   spikes, spot, topics, track, translate, trendaword)
+                                   spikes, spot, topics, track, translate, trendaword, audit)
 from trend_agents.pipeline.gemini import budget_left
 from trend_agents.storage import store as db
 
@@ -25,6 +25,7 @@ STAGES = {  # 실행 순서: 해석(쇼츠→밈 이름)이 후보 추출보다 
     "collect": collect.run, "classify": classify.run, "spikes": spikes.run, "interpret": interpret.run, "candidates": candidates.run,
     "spot": spot.run, "namu": namu.run, "trendaword": trendaword.run, "hunt": hunt.run, "research": research.run,
     "crosscheck": crosscheck.run,  # 문서 대조 (Plan 12) — 실린 뜻을 참고 위키와 맞춰 보고 어긋나면 검수 큐로. 상태·뜻은 바꾸지 않는다
+    "audit": audit.run,  # 사전 감사 — 자동으로 실린 뜻을 Gemma 12B 가 문서와 맞춰 보고, 고칠 것이면 한 번 다시 쓴다(판정은 규칙)
     "track": track.run, "risk": risk.run, "naver": naver.run, "translate": translate.run, "fit": fit.run, "topics": topics.run, "board": board.run,
     "dashboard": dashboard.run,  # 키워드 대시보드 카드 (Plan 04) — 위 단계들이 채운 값을 모으기만 한다
 }
