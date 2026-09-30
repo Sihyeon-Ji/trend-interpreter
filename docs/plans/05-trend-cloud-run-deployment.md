@@ -90,7 +90,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 | 항목 | 결정 | 상태 |
 | --- | --- | --- |
-| Gemma 4 사용 | Colab의 사전·국가별 해석 편집 배치, PC 대체 경로 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행. Cloud Run GPU는 배포하지 않음 |
+| Gemma 4 사용 | Colab의 사전·국가별 해석 편집 배치, PC 대체 경로 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행. 운영 Cloud Run GPU 배치 여부는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중(미정) |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
 | 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | 로컬 코드에는 `collect.retention`이 있으나 PC와 독립적인 운영 예약 작업이 추가로 필요 |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |

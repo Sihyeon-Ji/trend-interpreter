@@ -2,7 +2,7 @@
 
 작성일 **2026-09-28** · 변경일 **2026-09-30** · 상태 **소유자 Drive 입출력·재마운트 검증 완료, GPU 추론 보류, 팀원 접근·새 VM 재개 검증 대기** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
 
-> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-28의 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에서 **Gemma 실행 위치를 Colab GPU 중심으로 변경**한다. 공개 서비스에 Cloud Run GPU·vLLM을 두지 않고 사용자 요청을 무료 Colab 런타임에 연결하지 않는 경계는 유지한다. 무료 GPU를 받을 수 없거나 시간이 끊기면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
+> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-28의 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에서 **Gemma 실행 위치를 Colab GPU 중심으로 변경**한다. 사용자 요청을 무료 Colab 런타임에 연결하지 않는 경계는 유지한다. 운영에 Gemma 서비스를 둘지는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이며 아직 정하지 않았다. 무료 GPU를 받을 수 없거나 시간이 끊기면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
 [계획 목록](README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/colab/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
 
@@ -228,7 +228,7 @@ Pro+ 조건은 [Google의 Colab 상품 설명](https://developers.google.com/wor
 
 ## 제외한 계획
 
-- `builder-cup-gemma` Cloud Run GPU 서비스, vLLM 이미지, GPU IAM·인스턴스 경보는 만들지 않는다.
+- `builder-cup-gemma` Cloud Run GPU 서비스, vLLM 이미지, GPU IAM·인스턴스 경보는 이 계획에서 만들지 않는다. 운영 Gemma 서비스는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이다.
 - 무료 Colab을 상시 서버로 쓰거나 Cloud Run API가 Colab·개발자 PC의 Ollama에 실시간 접속하는 경로를 만들지 않는다.
 - 무료 GPU RAM 15 GB에서 12B 전체 가중치 학습을 완료하는 것은 목표가 아니다. 작은 모델의 QLoRA도 실측 전 완료 시간·품질을 보장하지 않는다.
 - 팀원이 같은 VM이나 모델 메모리를 공유한다고 가정하지 않는다. 각자 실행하고 승인된 입력·결과·체크포인트만 공유한다.
