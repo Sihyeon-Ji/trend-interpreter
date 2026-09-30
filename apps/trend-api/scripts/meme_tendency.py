@@ -200,8 +200,15 @@ def interpret(o: dict) -> list[str]:
         L.append(f"2. 나무위키만 보면 2020~2022 → 2023~2026 에서 '생성형 인공지능 기반' 종류가 {ai['2020~2022']}개({pct(ai['share_2020~2022'])}) → {ai['2023~2026']}개({pct(ai['share_2023~2026'])})로 {ai['diff'] * 100:+.0f}%p 늘었다(표본 {ns['genres']['n']['2020~2022']}/{ns['genres']['n']['2023~2026']}). 음악은 {pct(mu['share_2020~2022'])} → {pct(mu['share_2023~2026'])}로 두 시기 모두 최대 종류다.")
     if us and kr:
         L.append(f"3. 나무위키의 나라 분류는 KR {pct(kr['share_2020~2022'])} → {pct(kr['share_2023~2026'])}({kr['diff'] * 100:+.0f}%p), US {pct(us['share_2020~2022'])} → {pct(us['share_2023~2026'])}({us['diff'] * 100:+.0f}%p). 다만 2020~2022 쪽 나라 표본이 {ns['regions']['n']['2020~2022']}개뿐이다.")
-    L.append(f"4. 느낌·쓰임·말투는 fit 이 붙은 표제어가 {o['fit_terms']}개뿐이고 해가 있는 것은 더 적어(전체 기준 2020~2022 쪽 {fa}개, 2023~2026 쪽 {fb}개) 시기 비교 칸이 모두 '표본 적음' 이다. 지금은 방향을 말할 수 없다.")
-    L.append(f"5. Trend A Word 는 호 {iss_taw}개 중 fit 이 붙은 것이 {fit_taw}개라 분기별 느낌·쓰임 비중 변화는 읽을 수 없다(분기당 0~5개). fit 단계가 더 돌아야 한다.")
+    # 숫자에 맞춰 말한다 — 문장을 고정해 두었더니 표와 어긋났다(10-01: 분기당 10~39개인데 '0~5개' 라고 적혔다)
+    if min(fa, fb) < MIN_N:
+        L.append(f"4. 느낌·쓰임·말투: fit 이 붙은 표제어 {o['fit_terms']}개, 해가 있는 것은 2020~2022 쪽 {fa}개·2023~2026 쪽 {fb}개다. 앞 시기가 {MIN_N}개 미만이라 시기 비교는 방향을 말할 수 없다.")
+    else:
+        L.append(f"4. 느낌·쓰임·말투: fit 이 붙은 표제어 {o['fit_terms']}개(2020~2022 쪽 {fa}개·2023~2026 쪽 {fb}개). 비교 표를 읽을 수 있다.")
+    qn = [e["fit_n"] for k, e in tw.items() if "Q" in k]
+    readable = sum(1 for n in qn if n >= MIN_N)
+    L.append(f"5. Trend A Word: 호 {iss_taw}개 중 fit 이 붙은 것 {fit_taw}개, 분기당 fit {min(qn, default=0)}~{max(qn, default=0)}개. "
+             f"{MIN_N}개 이상인 분기가 {readable}/{len(qn)}개라 " + ("그 분기끼리는 비교할 수 있다." if readable >= 2 else "분기별 변화는 아직 읽을 수 없다."))
     return L
 
 
