@@ -4,7 +4,7 @@
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
-> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Colab GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
 
 ## 배경
 
@@ -64,7 +64,7 @@ Spanner Graph는 이번 제출 범위에서 제외합니다. 기존 BigQuery 공
 | `builder-cup-trend-web` | public invoker | Next.js 화면과 서버 라우트 |
 | `builder-cup-trend-api` | private (웹 서비스 계정만 invoker) | FastAPI 읽기 API와 검수 기록 |
 
-전체 파이프라인은 Cloud Run에 배포하지 않습니다. 개발자 PC의 수집 결과와 Colab의 편집 초안을 검수한 뒤 별도 게시 도구로 Cloud SQL에 반영합니다.
+전체 파이프라인은 Cloud Run에 배포하지 않습니다. 개발자 PC의 수집 결과와 Kaggle의 편집 초안을 검수한 뒤 별도 게시 도구로 Cloud SQL에 반영합니다.
 PC가 멈춰도 공개 읽기 기능은 마지막 성공 게시본으로 동작해야 합니다. 단, 사용자 입력의 보존 기간 정리와 운영 건강 점검은 PC에 의존하지 않는 작은 예약 작업으로 따로 구현합니다.
 
 웹 서버 라우트는 `TREND_API_URL`로 API를 부르고 Cloud Run ID token을 붙입니다. `FRONTEND_API_TOKEN`은 API가
@@ -90,7 +90,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 | 항목 | 결정 | 상태 |
 | --- | --- | --- |
-| Gemma 4 사용 | Colab의 사전·국가별 해석 편집 배치, PC 대체 경로 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행. 운영 Cloud Run GPU 배치 여부는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중(미정) |
+| Gemma 4 사용 | Kaggle의 사전·국가별 해석 편집 배치, PC 대체 경로 | [Plan 06](06-gemma-on-cloud-run-gpu.md)에서 진행. 운영 Cloud Run GPU 배치 여부는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중(미정) |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
 | 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | 로컬 코드에는 `collect.retention`이 있으나 PC와 독립적인 운영 예약 작업이 추가로 필요 |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |
@@ -106,7 +106,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
    Cloud SQL 연결 총량은 `max-instances × DB_POOL_SIZE`에 유지보수 작업과 로컬 게시 연결 수를 더해 인스턴스의 허용 연결 수보다 작게 설계합니다.
-4. **전체 파이프라인 Job은 만들지 않습니다.** PC·Colab 배치의 검수 후 게시 방법과 중복 실행 방지는 Plan 06에서 구현합니다. 대신 해석 캐시 7일·미해결 질문 30일 보존 정리와 마지막 게시 시각 건강 점검을 PC 없이 실행하는 최소 권한 예약 작업을 설계·구현합니다. 현재 `collect.retention`과 `scripts/health_check.py`는 존재하지만 독립 예약 작업은 아직 없습니다. 운영 로그에 사용자 원문·생성 결과를 남기지 않습니다.
+4. **전체 파이프라인 Job은 만들지 않습니다.** PC·Kaggle 배치의 검수 후 게시 방법과 중복 실행 방지는 Plan 06에서 구현합니다. 대신 해석 캐시 7일·미해결 질문 30일 보존 정리와 마지막 게시 시각 건강 점검을 PC 없이 실행하는 최소 권한 예약 작업을 설계·구현합니다. 현재 `collect.retention`과 `scripts/health_check.py`는 존재하지만 독립 예약 작업은 아직 없습니다. 운영 로그에 사용자 원문·생성 결과를 남기지 않습니다.
 5. `.github/workflows/release-gcp.yml`에 application job을 다시 추가하고, `scripts/release_scope.py`의 `app` 판정이 그 job을 켜도록 연결합니다. `scripts/release_recovery.py`의 `SECRETS`에 새 서비스를 추가합니다.
 6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
 7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.

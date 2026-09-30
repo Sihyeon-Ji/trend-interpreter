@@ -1,5 +1,5 @@
-"""리스크 분류 연구용 표본 내보내기 (Plan 03). 수집 서버에서 돌려 CSV 하나를 만들고, Colab 노트북
-(models/colab/gemma_risk_labeling.ipynb)에 올려 같은 문장을 다른 프롬프트·모델로 다시 분류해 본다.
+"""리스크 분류 연구용 표본 내보내기 (Plan 03). 수집 서버에서 돌려 CSV 하나를 만들고, 비공개 Kaggle Dataset 으로
+올려 Kaggle 노트북(models/kaggle/gemma_risk_labeling.ipynb)에서 같은 문장을 다른 프롬프트·모델로 다시 분류해 본다.
 실데이터는 수집 서버의 DB 에만 있으므로 **수집 서버에서** 실행한다(개발 PC 의 DB 는 비어 있거나 예시다). 노트북은 이 결과 없이는 합성 문장으로만 돈다.
 
   uv run scripts/export_risk_sample.py                    # 리스크 수준별로 고르게 40개 용어
