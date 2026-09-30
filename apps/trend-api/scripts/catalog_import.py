@@ -166,7 +166,8 @@ def main() -> None:
             else:
                 got = catalog.prepare_wikidata(con, t, it)
             v, _ = research_one(con, t, lean=True)
-            failed(con, args.source, title, "문서에 닿지 못함") if not got else cleared(con, args.source, title)
+            # 위키데이터 항목은 외부 문서 연결이 없을 수 있다 — 닿지 못한 것이 아니다(09-30: 171건이 잘못 실패로 적혔다)
+            failed(con, args.source, title, "문서에 닿지 못함") if not got and args.source != "wikidata" else cleared(con, args.source, title)
         except Exception as e:
             v = f"error {type(e).__name__}"
             failed(con, args.source, title, v)
