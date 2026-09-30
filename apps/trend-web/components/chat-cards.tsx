@@ -177,6 +177,7 @@ export function ChatCards({ cards, locale }: { cards: ChatCard[]; locale: Locale
             <h3 className="text-[16px] font-semibold text-ink">
               <Link href={`/dictionary/${card.term_id}`} lang={scriptLang(card.term)} className="hover:underline">{card.term}</Link>
             </h3>
+            {card.bars.length > 0 && (<>{/* 세대 비중은 실측(네이버 데이터랩)만 온다 — 추정뿐이면 막대를 그리지 않는다(Plan 15) */}
             <p className="mt-2 text-[13px] font-medium text-steel">{t(locale, "card_who")}</p>
             <div className="mt-1 max-w-[480px] space-y-1">
               {card.bars.map((b) => (
@@ -188,7 +189,7 @@ export function ChatCards({ cards, locale }: { cards: ChatCard[]; locale: Locale
                   <span className="w-10 shrink-0 text-right text-[13px] tabular-nums text-steel">{Math.round(b.ratio * 100)}%</span>
                 </div>
               ))}
-            </div>
+            </div></>)}
             {card.regions.length > 0 && (
               <dl className="mt-2"><Row label={t(locale, "card_where")}>{card.regions.join(", ")}</Row></dl>
             )}

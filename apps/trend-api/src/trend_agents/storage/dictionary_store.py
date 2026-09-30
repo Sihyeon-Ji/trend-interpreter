@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS meanings (
   meaning_id TEXT PRIMARY KEY, term_id TEXT, version BIGINT, verification TEXT, valid_from TEXT, valid_to TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS evidences (
   evidence_id TEXT, term_id TEXT, kind TEXT, source_domain TEXT, url TEXT, observed_at TEXT, json TEXT, PRIMARY KEY(evidence_id, term_id));
-CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT, region TEXT, first_seen TEXT, share DOUBLE PRECISION, PRIMARY KEY(term_id, segment_id));
+-- source: datalab(네이버 데이터랩 실측) · model(조사 모델의 추정, Plan 15, 마이그레이션 010). 세대 비중을 이용자에게 보이는 것은 실측만이다.
+CREATE TABLE IF NOT EXISTS usage (term_id TEXT, segment_id TEXT, generation TEXT, region TEXT, first_seen TEXT, share DOUBLE PRECISION, source TEXT, PRIMARY KEY(term_id, segment_id));
 CREATE TABLE IF NOT EXISTS term_timeline (
   term_id TEXT, region TEXT, first_date TEXT, source_ko TEXT, source_en TEXT, url TEXT, updated_at TEXT, PRIMARY KEY(term_id, region));
 CREATE TABLE IF NOT EXISTS mentions_weekly (term_id TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, week_start));
@@ -345,10 +346,13 @@ def list_evidences(con: Connection, term_id: str) -> list[Evidence]:
     return [Evidence.model_validate_json(r[0]) for r in rows]
 
 
-def set_usage(con: Connection, term_id: str, rows: list[tuple[str, str, str, float]]) -> None:
-    """rows: (generation, region, first_seen_iso, share)"""
+def set_usage(con: Connection, term_id: str, rows: list[tuple[str, str, str, float]], source: str = "model") -> None:
+    """rows: (generation, region, first_seen_iso, share). source: datalab(실측) · model(조사 모델 추정). 실측을 쓰면 그 나라의 추정 줄은 지운다."""
+    if source != "model":
+        for region in {r[1] for r in rows}:
+            con.execute("DELETE FROM usage WHERE term_id=? AND region=? AND COALESCE(source, 'model')='model'", (term_id, region))
     for gen, region, first, share in rows:
-        con.execute("INSERT OR REPLACE INTO usage VALUES (?,?,?,?,?,?)", (term_id, f"{region}-{gen}", gen, region, first, share))
+        con.execute("INSERT OR REPLACE INTO usage VALUES (?,?,?,?,?,?,?)", (term_id, f"{region}-{gen}", gen, region, first, share, source))
     con.commit()
 
 
@@ -358,8 +362,9 @@ def clear_usage(con: Connection, term_id: str) -> None:
 
 
 def get_usage(con: Connection, term_id: str) -> list[dict]:
-    return [dict(zip(("segment_id", "generation", "region", "first_seen", "share"), r))
-            for r in con.execute("SELECT segment_id, generation, region, first_seen, share FROM usage WHERE term_id=? ORDER BY share DESC", (term_id,)).fetchall()]
+    return [dict(zip(("segment_id", "generation", "region", "first_seen", "share", "source"), r))
+            for r in con.execute("SELECT segment_id, generation, region, first_seen, share, COALESCE(source, 'model') FROM usage WHERE term_id=? ORDER BY share DESC",
+                                 (term_id,)).fetchall()]
 
 
 def set_timeline(con: Connection, term_id: str, rows: list[dict]) -> None:

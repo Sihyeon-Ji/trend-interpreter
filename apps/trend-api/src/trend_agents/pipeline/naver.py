@@ -33,7 +33,7 @@ def run(con: Connection) -> dict:
                 for g, v in gens.items():
                     first = v["peak_date"] or start.isoformat()
                     rows.append((g, "KR", datetime.fromisoformat(first).replace(tzinfo=timezone.utc).isoformat(), round(recent[g] / total, 3)))
-                ds.set_usage(con, t.term_id, rows)
+                ds.set_usage(con, t.term_id, rows, source="datalab")   # 한국의 모델 추정 줄은 실측으로 바뀐다
                 for g, v in gens.items():
                     ds.set_gen_curve(con, t.term_id, g, v["points"])
                 peaks = ", ".join(f"{g} {v['peak_date']}" for g, v in gens.items() if v["peak_date"])

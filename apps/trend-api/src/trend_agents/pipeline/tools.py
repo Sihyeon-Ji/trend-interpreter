@@ -401,15 +401,19 @@ def term_usage(ctx: Ctx, args: dict) -> str:
         return f"'{q}' 는 사전에 없습니다."
     ctx.seen(t.term_id)
     rows = ds.get_usage(ctx.con, t.term_id)
+    measured = [r for r in rows if r["source"] == "datalab"]      # 세대 비중은 실측(네이버 데이터랩)만 — 모델 추정은 '추정' 으로만 말한다(Plan 15)
     weekly = ds.get_weekly(ctx.con, t.term_id, weeks=6)
-    gens = ", ".join(GEN.get(g, g) for g in sorted({r["generation"] for r in rows})) or "자료 없음"
+    gens = ", ".join(GEN.get(g, g) for g in sorted({r["generation"] for r in measured}))
+    if not gens:
+        guess = ", ".join(GEN.get(g, g) for g in sorted({r["generation"] for r in rows} - {"all"}))
+        gens = f"실측 자료 없음 (조사 때의 추정: {guess})" if guess else "자료 없음"
     regions = ", ".join(REGION.get(x, x) for x in sorted({r["region"] for r in rows})) or "자료 없음"
     trend = "자료 없음"
     if len(weekly) >= 2:
         trend = "오르는 중" if weekly[-1][1] > weekly[0][1] else ("지는 중" if weekly[-1][1] < weekly[0][1] else "비슷함")
     # 세대·나라 비중과 주별 언급은 글보다 막대·선이 빠르다 — 화면 조각으로도 내보낸다
     share: dict[str, float] = {}
-    for r in rows:
+    for r in measured:
         share[GEN.get(r["generation"], r["generation"])] = share.get(GEN.get(r["generation"], r["generation"]), 0.0) + float(r.get("share") or 0)
     total = sum(share.values()) or 1.0
     ctx.card({"type": "usage", "term": t.canonical, "term_id": t.term_id,

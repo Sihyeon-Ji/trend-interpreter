@@ -1287,3 +1287,29 @@ def test_representative_video_needs_a_meme_cue_or_the_bare_phrase():
     assert not video_is_about(None, t("vibe"), "VIBE")                          # 노래 제목
     assert not video_is_about(None, t("懶人包"), "『1.5週年前瞻懶人包、ULT機終極強化』SD Gundam")   # 평범한 뜻으로 쓴 게임 공지
     assert not video_is_about(None, t("relatable"), "🤣#relatable #cat #shorts")   # 해시태그로만
+
+
+def test_generation_shares_shown_are_measured_only():
+    """세대 비중은 네이버 데이터랩 실측만 보인다. 조사 모델의 추정은 '추정' 으로만 말하고, 실측이 들어오면 그 나라의 추정 줄은 지워진다(Plan 15)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import tools
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name, lang in (("t_ja", "推し活", "ja"), ("t_ko", "럭키비키", "ko")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang=lang, status="verified", aliases=[], first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition="좋아하는 대상을 응원하는 활동", origin="x", nuance="y", generations=["20s"], regions=["JP"], self_confidence=0.9), "verified_auto", [])
+    ds.set_usage(con, "t_ja", [("20s", "JP", now.isoformat(), 1.0)])                          # 모델 추정
+    ds.set_usage(con, "t_ko", [("30s", "KR", now.isoformat(), 1.0)])                          # 모델 추정
+    ds.set_usage(con, "t_ko", [("10s", "KR", now.isoformat(), 0.7), ("20s", "KR", now.isoformat(), 0.3)], source="datalab")
+    assert {(u["generation"], u["source"]) for u in ds.get_usage(con, "t_ko")} == {("10s", "datalab"), ("20s", "datalab")}   # 추정 줄은 사라진다
+
+    ctx = tools.Ctx(con=con)
+    out = tools.term_usage(ctx, {"term": "推し活"})
+    assert "실측 자료 없음" in out and "추정" in out
+    assert ctx.cards[-1]["bars"] == []                                                         # 추정은 막대로 보이지 않는다
+    assert tools.term_usage(ctx, {"term": "럭키비키"}) and [b["ratio"] for b in ctx.cards[-1]["bars"]] == [0.7, 0.3]
