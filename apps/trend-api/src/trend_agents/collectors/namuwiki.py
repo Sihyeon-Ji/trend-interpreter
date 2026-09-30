@@ -131,6 +131,49 @@ def page_text(title: str) -> str | None:
     return body[cut + 40:] if cut >= 0 else body
 
 
+def category_page(name: str, pages: int = 20) -> tuple[list[str], list[str]]:
+    """분류 문서 하나의 (문서 이름들, 하위 분류 이름들). 분류 이름은 '분류:' 를 뗀다. 제목만 읽고 본문은 두지 않는다."""
+    docs: set[str] = set()
+    subs: set[str] = set()
+    path = "/w/" + quote(f"분류:{name}")
+    seen: set[str] = set()
+    for _ in range(max(1, pages)):
+        r = _get(path)
+        if r is None or r.status_code != 200:
+            break
+        for x in re.findall(r'href="/w/([^"#?]+)"', r.text):
+            n = unquote(x)
+            if n.startswith("분류:"):
+                subs.add(n[3:])
+            elif not n.startswith(("나무위키:", "틀:", "파일:", "사용자:", "휴지통:")):
+                docs.add(n)
+        nxt = re.search(r'href="(/w/[^"]*\?[^"]*namespace=%EB%AC%B8%EC%84%9C[^"]*cfrom=[^"]+)"', r.text)
+        if not nxt or html.unescape(nxt.group(1)) in seen:
+            break
+        path = html.unescape(nxt.group(1))
+        seen.add(path)
+    subs.discard(name)
+    return sorted(docs), sorted(subs)
+
+
+def category_tree(roots: tuple[str, ...], follow, depth: int = 3) -> dict[str, list[str]]:
+    """분류 나무를 따라가며 {문서 이름: [걸린 분류들]}. follow(분류 이름) 가 참인 하위 분류만 내려간다(위 분류·옆 분류로 새지 않게)."""
+    out: dict[str, set[str]] = {}
+    todo = [(r, 0) for r in roots]
+    done: set[str] = set()
+    while todo:
+        cat, d = todo.pop(0)
+        if cat in done:
+            continue
+        done.add(cat)
+        docs, subs = category_page(cat)
+        for doc in docs:
+            out.setdefault(doc, set()).add(cat)
+        if d < depth:
+            todo += [(s, d + 1) for s in subs if s not in done and follow(s)]
+    return {k: sorted(v) for k, v in out.items()}
+
+
 def ranking() -> list[str]:
     """실시간 검색어. 공식 문서화된 API 는 아니라 실패하면 빈 목록."""
     try:
@@ -141,10 +184,22 @@ def ranking() -> list[str]:
         return []
 
 
-def category(name: str = "유행어") -> list[str]:
-    """분류 문서에 걸린 항목 이름들."""
-    r = _get("/w/" + quote(f"분류:{name}"))
-    if r is None or r.status_code != 200:
-        return []
-    names = {unquote(x) for x in re.findall(r'href="/w/([^"#?]+)"', r.text)}
+def category(name: str = "유행어", pages: int = 1) -> list[str]:
+    """분류 문서에 걸린 항목 이름들. 분류 쪽은 100개씩 끊겨 '다음' 링크(cfrom)로 이어진다 — pages 만큼 따라간다
+    (09-30 실측: 첫 쪽만 읽어 분류:유행어 700여 개 가운데 97개만 들어왔다)."""
+    names: set[str] = set()
+    path = "/w/" + quote(f"분류:{name}")
+    seen: set[str] = set()
+    for _ in range(max(1, pages)):
+        r = _get(path)
+        if r is None or r.status_code != 200:
+            break
+        names |= {unquote(x) for x in re.findall(r'href="/w/([^"#?]+)"', r.text)}
+        nxt = re.search(r'href="(/w/[^"]*\?[^"]*namespace=%EB%AC%B8%EC%84%9C[^"]*cfrom=[^"]+)"', r.text)
+        if not nxt:
+            break
+        path = html.unescape(nxt.group(1))
+        if path in seen:
+            break
+        seen.add(path)
     return sorted(n for n in names if not n.startswith(("분류:", "나무위키:", "틀:", "파일:")))

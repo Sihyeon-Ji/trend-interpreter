@@ -459,8 +459,10 @@ def community_region(con: Connection, term: Term) -> str:
     return cycle[ds.research_count(con, term.term_id) % len(cycle)] if cycle else home_region(term.canonical, term.lang) or "US"
 
 
-def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
-    """1) Search grounding 조사(3.8 → 3.5). 2) 둘 다 할당량이면 우리가 모은 근거만으로 구조화(오프라인). 판정은 어느 길이든 게이트가 한다."""
+def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[str, list[str]]:
+    """1) Search grounding 조사(3.8 → 3.5). 2) 둘 다 할당량이면 우리가 모은 근거만으로 구조화(오프라인). 판정은 어느 길이든 게이트가 한다.
+    lean: 위키 분류에서 가져온 말의 일괄 조사(Plan 16) — Gemini 검색·뉴스(GDELT, 16초 간격)·커뮤니티·네이버를 건너뛰고
+    위키 문서·사전만 보고 로컬 모델로 뜻을 쓴다. 판정은 같은 게이트가 한다."""
     cur = ds.current_meaning(con, term.term_id)
     if cur and cur.verification == "verified_human":
         # 사람이 승인한 뜻은 자동 조사가 덮지 않는다. 게이트를 못 넘으면 사람 결정이 닫히고 강등되던 문제
@@ -478,7 +480,7 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
     notes = ""
     # 무료 등급 할당량은 모델마다 따로다(하루 약 20회). 영상 해석(interpret)이 3.8 을 먼저 쓰므로 조사는 3.5 부터 —
     # 같은 모델을 두 단계가 서로 뺏으면 아침 첫 실행에서 둘 다 바닥난다(2026-09-28 실측: 11일간 조사 289건 전부 오프라인).
-    for model in ((GEMINI_FALLBACK_MODEL, GEMINI_MODEL) if budget_left(con) >= 2 else ()):  # 예산 0 이면 grounding 시도 생략
+    for model in ((GEMINI_FALLBACK_MODEL, GEMINI_MODEL) if budget_left(con) >= 2 and not lean else ()):  # 예산 0 이면 grounding 시도 생략
         try:
             ds.gemini_spend(con, 2)  # research_term 은 호출 2회
             draft, urls, notes = research_term(term.canonical, model=model)
@@ -513,6 +515,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
 
         if knowyourmeme.enabled() and (term.lang != "ko" or any(knowyourmeme.latin(a) for a in term.aliases)):
             first_party += knowyourmeme.lookup(term.canonical, term.aliases)
+        if lean:
+            raise StopIteration      # 일괄 조사는 문서·사전까지만 — 아래 뉴스·커뮤니티·네이버는 건너뛴다
         # 뉴스에서 실제로 쓰인 문장(GDELT Context, 최근 72시간). 이미 아는 말이 언론까지 번졌는지 보여 준다.
         from ..collectors import gdelt_context
 
@@ -555,7 +559,8 @@ def research_one(con: Connection, term: Term) -> tuple[str, list[str]]:
         return "under_review", []        # 조사하는 사이 문서 대조가 제안을 올렸다 — 사람이 결정하기 전에는 덮지 않는다
     if (current.meaning_id if current else None) != entry_meaning:
         return "changed", []             # 조사하는 사이 뜻이 바뀌었다(사람이 고쳤거나 다른 단계가 먼저) — 덮지 않고 다음 주기에
-    verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases)
+    catalogued = con.execute("SELECT 1 FROM wiki_catalog WHERE term_id=? LIMIT 1", (term.term_id,)).fetchone() is not None   # 위키 밈 분류에 든 말(Plan 16)
+    verification, reasons = gate(term.canonical, draft, for_model(evidences), current, aliases=term.aliases, catalogued=catalogued)
     # 용어가 원문에 없는 근거는 그 표제어의 근거가 아니다 — 인용으로 보여 주면 거짓말이 된다. 저장하지 않는다.
     # (표시 전용 네이버 결과는 게이트가 보지 않으므로 그대로 둔다.)
     display_only = {id(e) for e in evidences} - {id(e) for e in for_model(evidences)}

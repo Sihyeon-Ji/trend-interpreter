@@ -7,6 +7,11 @@
 사전 등재 기준(ADR 0003, 2026-09-29): 자동으로 싣는 말은 유래를 적는 참고 문서(나무위키·위키백과·Know Your Meme·
 pixiv 백과사전·萌娘百科)에 표제어가 든 문서가 있어야 한다. 커뮤니티·SNS 글은 쓰임을 재는 지표일 뿐 뜻의 근거가 아니다.
 문서가 없으면 검수 대기로 가고, 사람이 승인하면 실린다(그런 문서가 드문 지역의 예외 길).
+
+2026-09-30 사용자 결정: **참고 문서에 표제어가 든 문서가 있으면 그것만으로 싣는다.** 독립 출처 2곳·1차 근거(쇼츠·뉴스)·모델 자기확신은
+참고 문서가 없을 때만 본다 — 커뮤니티 글을 근거에서 빼자(ADR 0003) 한 곳짜리 밈이 모두 막혔다(나무위키만 있는 한국 밈).
+커뮤니티·SNS 글은 어떤 셈에도 들어가지 않는다. 내용 검사(빈 뜻·모델이 든 링크에 표제어 없음·풀이가 원문에 없음)는 그대로다.
+위키 밈 분류에 든 말(catalogued)은 편집자가 밈으로 분류했으므로 모델의 '표현이 아님' 판단으로 막지 않는다.
 """
 from __future__ import annotations
 
@@ -69,7 +74,8 @@ def anchor_hit(term: str, e: Evidence, aliases: list[str] | tuple[str, ...] = ()
 
 
 def gate(
-    term: str, draft: MeaningDraft, evidences: list[Evidence], current: Meaning | None, aliases: list[str] | tuple[str, ...] = ()
+    term: str, draft: MeaningDraft, evidences: list[Evidence], current: Meaning | None, aliases: list[str] | tuple[str, ...] = (),
+    *, catalogued: bool = False,
 ) -> tuple[Verification, list[str]]:
     """통과하면 verified_auto. 아니면 unverified + 사람 검수 큐로 갈 이유 목록."""
     reasons: list[str] = []
@@ -78,26 +84,32 @@ def gate(
     definition = (draft.definition or "").strip()
     if len(definition) < 8 or _norm(definition) == _norm(term):
         reasons.append("뜻이 비었거나 표제어를 그대로 옮겨 적음")
-    if not draft.is_expression:
+    if not draft.is_expression and not catalogued:
         reasons.append("표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님")
+    from .collectors.community import is_community_post
+
+    evidences = [e for e in evidences if not is_community_post(e)]      # 커뮤니티·SNS 글은 어떤 셈에도 넣지 않는다(ADR 0003)
     anchored = [e for e in evidences if anchor_hit(term, e, aliases)]
+    documented = any(reference_doc(e) for e in anchored)
+    # 이미 실린 말(현행 뜻이 확인됨)을 다시 조사할 때는 출처 규칙으로 강등하지 않는다 — 커뮤니티 글을 셈에서 뺀 탓에 예전 항목이
+    # 한꺼번에 내려가지 않게. 기존 항목은 문서 대조(Plan 12)의 '문서 없음 14일' 규칙으로 사람이 정리한다.
+    listed = current is not None and current.verification in ("verified_auto", "verified_human")
     # 용어가 안 들어 있는 근거는 셈에서 빠진다. 다만 **모델이 근거라며 내놓은 웹 링크**가 그렇다면
     # 환각 신호라서 차단 사유다 — 커뮤니티·검색 수집기가 긁어 온 잡음은 모델 잘못이 아니므로 조용히 뺀다.
     stray = [e for e in evidences if e.kind == "web" and e not in anchored]
     if stray:
         reasons.append(f"모델이 든 웹 근거 {len(stray)}건에 용어가 없음 — 환각 의심")
-    if len({e.source_domain for e in anchored}) < MIN_INDEPENDENT_DOMAINS:
+    if not documented and not listed and len({e.source_domain for e in anchored}) < MIN_INDEPENDENT_DOMAINS:
         reasons.append(f"용어가 실재하는 독립 출처 {MIN_INDEPENDENT_DOMAINS}개 미만")
-    if not any(e.kind in FIRST_PARTY for e in anchored):
+    if not documented and not listed and not any(e.kind in FIRST_PARTY for e in anchored):
         reasons.append("1차 근거(쇼츠·뉴스·데이터랩) 없음 — 웹 검색만으로는 부족")
     # 참고 문서 규칙(ADR 0003). 이미 실린 말(현행 뜻이 확인됨)을 다시 조사할 때는 이 규칙으로 강등하지 않는다 —
     # 기존 항목은 문서 대조(Plan 12)를 거쳐 사람이 확인한 뒤에 정리한다.
-    listed = current is not None and current.verification in ("verified_auto", "verified_human")
-    if not listed and not any(reference_doc(e) for e in anchored):
+    if not listed and not documented:
         reasons.append(NO_REFERENCE)
     if draft.expansion and not any(_norm(draft.expansion) in _norm(source_text(e)) for e in evidences):
         reasons.append(f"풀이 {draft.expansion!r} 가 어떤 근거 원문에도 없음 — 환각 의심")
-    if draft.self_confidence < MIN_SELF_CONFIDENCE:
+    if not documented and draft.self_confidence < MIN_SELF_CONFIDENCE:
         reasons.append(f"모델 자기확신 {draft.self_confidence:.2f} < {MIN_SELF_CONFIDENCE}")
     if current and current.expansion and draft.expansion and current.expansion != draft.expansion:
         reasons.append(f"현행 뜻과 충돌 (v{current.version}: {current.expansion!r}) — 의미 변화 검수 필요")

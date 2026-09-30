@@ -141,7 +141,7 @@ def test_gate_accepts_wikipedia_as_first_party_but_needs_second_domain():
     both_wiki = [ev("e1", "wiki", "wikipedia.org", f"{term} 는 AI 로 만든 캐릭터다"),
                  ev("e2", "wiki", "wikipedia.org", f"{term} is an AI-generated character")]
     _, reasons = gate(term, draft, both_wiki, None)
-    assert any("독립 출처" in r for r in reasons)          # 위키만으로는 통과 못 한다
+    assert not any("독립 출처" in r for r in reasons)      # 2026-09-30 사용자 결정: 참고 문서(위키)가 있으면 그것만으로 싣는다
 
     v, reasons = gate(term, draft, both_wiki + [ev("e3", "community", "bsky.app", f"{term} 진짜 웃김")], None)
     assert reasons == [] and v == "verified_auto"          # 1차 근거(위키) + 다른 출처 → 통과
@@ -1115,7 +1115,8 @@ def test_gate_lists_only_terms_with_a_reference_document():
 
     term, draft = "럭키비키", _lucky_draft()
     usage = [ev("news", "news.example", f"{term} 유행", f"{term} 가 유행이다"), ev("community", "bsky.app", f"{term} ㅋㅋ", f"완전 {term}잖아")]
-    assert gate(term, draft, usage, None) == ("unverified", [NO_REFERENCE])
+    # 커뮤니티 글은 어떤 셈에도 들지 않아 뉴스 한 곳만 남는다(2026-09-30)
+    assert gate(term, draft, usage, None) == ("unverified", ["용어가 실재하는 독립 출처 2개 미만", NO_REFERENCE])
 
     for kind, domain, url in (("wiki", "namu.wiki", "https://namu.wiki/w/x"), ("wiki", "wikipedia.org", "https://ko.wikipedia.org/wiki/x"),
                               ("web", "knowyourmeme.com", "https://knowyourmeme.com/memes/x"), ("web", "dic.pixiv.net", "https://dic.pixiv.net/a/x"),
@@ -1174,9 +1175,11 @@ def test_research_without_a_document_waits_for_a_person_who_can_publish_it(monke
     now = datetime.now(timezone.utc)
     for tid, name in (("t1", "럭키비키"), ("t2", "원영적 사고")):
         ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="researching", first_seen=now, last_seen=now))
-    assert research.research_one(con, ds.get_term(con, "t1")) == ("unverified", [NO_REFERENCE])
+    v, reasons = research.research_one(con, ds.get_term(con, "t1"))
+    assert v == "unverified" and NO_REFERENCE in reasons
     assert ds.get_term(con, "t1").status == "needs_review"
-    assert [(q["term_id"], q["reasons"]) for q in ds.review_queue(con)] == [("t1", [NO_REFERENCE])]
+    q = ds.review_queue(con)
+    assert [x["term_id"] for x in q] == ["t1"] and NO_REFERENCE in q[0]["reasons"]
     assert research.research_one(con, ds.get_term(con, "t2")) == ("verified_auto", [])
     assert ds.get_term(con, "t2").status == "verified"
 
@@ -1313,3 +1316,43 @@ def test_generation_shares_shown_are_measured_only():
     assert "실측 자료 없음" in out and "추정" in out
     assert ctx.cards[-1]["bars"] == []                                                         # 추정은 막대로 보이지 않는다
     assert tools.term_usage(ctx, {"term": "럭키비키"}) and [b["ratio"] for b in ctx.cards[-1]["bars"]] == [0.7, 0.3]
+
+
+def test_a_reference_document_alone_lists_the_term_and_community_posts_never_count():
+    """2026-09-30 사용자 결정: 참고 문서에 표제어가 든 문서가 있으면 그것만으로 싣는다. 커뮤니티·SNS 글은 몇 곳이든 셈에 들지 않는다.
+    위키 밈 분류에 든 말은 모델의 '표현이 아님' 판단으로 막지 않는다. 빈 뜻은 여전히 막는다."""
+    from trend_agents.verification import NO_REFERENCE
+
+    term, draft = "럭키비키", _lucky_draft()
+    namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
+    assert gate(term, draft, [namu], None) == ("verified_auto", [])                       # 문서 하나로
+    posts = [ev("community", d, f"{term} 글", f"완전 {term}잖아", url=f"https://{d}/1") for d in ("bsky.app", "dcinside.com", "theqoo.net")]
+    v, reasons = gate(term, draft, posts, None)
+    assert v == "unverified" and NO_REFERENCE in reasons and any("독립 출처" in r for r in reasons)   # 커뮤니티 세 곳이어도
+    song = draft.model_copy(update={"is_expression": False})
+    assert gate(term, song, [namu], None)[0] == "unverified"                               # 분류 밖의 말은 '표현이 아님' 이 막는다
+    assert gate(term, song, [namu], None, catalogued=True) == ("verified_auto", [])         # 위키 밈 분류에 든 말은 막지 않는다
+    empty = draft.model_copy(update={"definition": ""})
+    assert gate(term, empty, [namu], None, catalogued=True)[0] == "unverified"             # 빈 뜻은 여전히 막는다
+
+
+def test_catalog_adds_a_meme_with_its_categories_and_country_and_media_backfill_records_tries(monkeypatch):
+    """위키 밈 분류(Plan 16): 제목으로 표제어를 세우고 분류·나라(usage source=catalog)를 남긴다. 사람 분류는 넣지 않는다.
+    그림·영상 채우기는 못 붙인 것도 찾아 본 때를 남긴다(PostgreSQL 에서 INSERT OR REPLACE 가 되는지)."""
+    from trend_agents.pipeline import catalog, research
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    t = catalog.add(con, "고양이 밈 (유행어)", ["인터넷 밈/동물", "인터넷 밈/일본", "2024년 인터넷 밈"])
+    assert t and t.canonical == "고양이 밈" and t.status == "researching"
+    assert [(u["region"], u["source"]) for u in ds.get_usage(con, t.term_id)] == [("JP", "catalog")]
+    assert catalog.meta(["인터넷 밈/음악/일본", "2024년 인터넷 밈"]) == {"genres": ["음악"], "countries": ["일본"], "decade": 2020, "year": 2024, "slang": False}
+    assert catalog.add(con, "아무개", ["인터넷 밈/정치인/대한민국"]) is None                  # 사람 문서
+    assert catalog.add(con, "고양이 밈", ["인터넷 밈/동물"]) is None                            # 이미 있는 말은 분류만 남긴다
+    t.status = "verified"
+    ds.upsert_term(con, t)
+    monkeypatch.setattr(research, "attach_media", lambda *a, **k: 0)
+    assert research.backfill_media(con, limit=2, searches=0) == 0
+    assert con.execute("SELECT count(*) FROM media_tried").fetchone()[0] == 1
+    research.backfill_media(con, limit=2, searches=0)                                          # 두 번째도 된다(같은 줄을 바꾼다)

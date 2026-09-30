@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS crosscheck_log (term_id TEXT, checked_at TEXT, verdic
 CREATE TABLE IF NOT EXISTS review_history (
   term_id TEXT, kind TEXT, draft_json TEXT, reasons_json TEXT, docs_json TEXT, queued_at TEXT, decision TEXT, decided_at TEXT, decided_by TEXT,
   PRIMARY KEY(term_id, queued_at, decided_at));
+-- 그림·영상을 찾아 본 때(research.backfill_media, 마이그레이션 009). 못 붙인 것을 오래된 것부터 다시 본다.
+CREATE TABLE IF NOT EXISTS media_tried (term_id TEXT PRIMARY KEY, tried_at TEXT);
+-- 위키 밈 분류(Plan 16, 마이그레이션 014): 표제어가 걸린 분류 이름들(종류·연대·나라). 제목·분류만, 본문 없음.
+CREATE TABLE IF NOT EXISTS wiki_catalog (term_id TEXT, source TEXT, title TEXT, categories_json TEXT, fetched_at TEXT, PRIMARY KEY(term_id, source, title));
 CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
