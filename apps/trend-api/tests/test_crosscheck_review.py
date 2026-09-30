@@ -50,6 +50,14 @@ def wiki_ev(url=WIKI, excerpt="Aura farming is acting cool on purpose."):
 
 
 @pytest.fixture(autouse=True)
+def _kym_off(monkeypatch):
+    """기본은 꺼짐으로 시험한다 — 이 서버의 .env 가 켜 두어도(2026-09-30 트윈) 시험 결과가 달라지지 않게. 켜는 시험은 직접 켠다."""
+    from trend_agents import config
+
+    monkeypatch.setattr(config, "KNOWYOURMEME_ENABLED", False)
+
+
+@pytest.fixture(autouse=True)
 def _offline(monkeypatch):
     """네트워크를 쓰지 않는다 — 가로채지 않은 요청은 바로 실패한다. TestClient 는 전송 계층을 따로 쓰므로 막지 않는다."""
     def blocked(*a, **k):

@@ -575,6 +575,18 @@ def log_crosscheck(con: Connection, term_id: str, verdict: str, doc_urls: list[s
     con.commit()
 
 
+def no_doc_since(con: Connection, term_id: str) -> datetime | None:
+    """지금까지 이어진 '문서 없음' 판정의 첫 시각. 닿지 못함·판정 실패는 건너뛰고, 다른 판정(문서를 찾음)이 나오면 거기서 끊는다."""
+    since = None
+    for at, verdict in con.execute("SELECT checked_at, verdict FROM crosscheck_log WHERE term_id=? ORDER BY checked_at DESC", (term_id,)).fetchall():
+        if verdict in ("unreachable", "error"):
+            continue
+        if verdict != "no_doc":
+            break
+        since = datetime.fromisoformat(at)
+    return since
+
+
 def last_crosschecks(con: Connection) -> dict[str, dict]:
     """표제어마다 마지막 대조 {checked_at, verdict, urls, model}."""
     out: dict[str, dict] = {}

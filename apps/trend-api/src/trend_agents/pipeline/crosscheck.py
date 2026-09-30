@@ -38,6 +38,7 @@ NO_TEXT = "no_text"      # 문서가 제목뿐(Know Your Meme)이라 모델에�
 UNREACHABLE = "unreachable"   # 참고 위키에 닿지 못했다 — '문서 없음' 이 아니다. 다음 실행에 다시 본다
 ERROR = "error"          # 로컬 모델이 형식을 못 맞췄다 — RETRY_DAYS 뒤에 다시 본다(실행마다 같은 말이 칸을 차지하지 않게)
 RETRY_DAYS = 7           # '문서 없음' 도 이만큼 뒤에 다시 본다 — 새 밈은 나중에 문서가 생긴다
+NO_DOC_RETIRE_DAYS = 14  # 자동 확인된 말이 이만큼 이어서 '문서 없음' 이면 사전에서 뺄지 사람에게 묻는다(ADR 0003). 사람이 확인한 말은 묻지 않는다
 Verdict = Literal["keep", "fix", "conflict", "no_doc", "not_a_meme"]
 KIND_OF = {"fix": "correction", "conflict": "conflict", "not_a_meme": "retire"}
 LABEL = {"keep": "일치", "fix": "고칠 것", "conflict": "위키끼리 다름", "no_doc": "문서 없음", "not_a_meme": "밈이 아님", UNJUDGED: "판정 안 함",
@@ -267,6 +268,20 @@ def propose(con: Connection, term: Term, verdict: str, reasons: list[str], *, dr
     return "queued"
 
 
+def propose_no_doc(con: Connection, term: Term) -> str | None:
+    """자동 확인된 말(verified_auto)이 NO_DOC_RETIRE_DAYS 넘게 이어서 '문서 없음' 이면 '사전에서 뺄지' 를 검수 큐에 올린다.
+    빼지는 않는다 — 사람이 거절하면 같은 제안을 되살리지 않는다(결정 기록). 그 전에 문서가 생기면 판정이 바뀌어 셈이 끊긴다."""
+    m = ds.current_meaning(con, term.term_id)
+    since = ds.no_doc_since(con, term.term_id)
+    if not m or m.verification != "verified_auto" or since is None:
+        return None
+    days = (datetime.now(timezone.utc) - since.replace(tzinfo=since.tzinfo or timezone.utc)).days
+    if days < NO_DOC_RETIRE_DAYS:
+        return None
+    return propose(con, term, "not_a_meme", [f"문서 대조: {LABEL['no_doc']} {days}일",
+                                             "나무위키·위키백과·Know Your Meme 등 참고 문서에서 표제어가 든 문서를 찾지 못했다 — 자동 등재 기준(ADR 0003)에 맞지 않는다."])
+
+
 # ---------- 로컬 Gemma 판정 (제안만) ----------
 
 JUDGE_PROMPT = """사전 항목 '{term}' 의 뜻을 참고 문서 발췌와 맞춰 보라. 문서에 적힌 것만 근거로 삼고, 문서에 없는 사실은 만들지 마라.
@@ -346,6 +361,8 @@ def check(con: Connection, term: Term, *, judging: bool, store: bool = True, que
             reasons, draft, entries = from_judgement(term, meaning, j, docs)
             if queue:
                 queued = propose(con, term, verdict, reasons, draft=draft, docs=entries)
+    if verdict == "no_doc" and queue:
+        queued = propose_no_doc(con, term)
     if log:
         ds.log_crosscheck(con, term.term_id, verdict, urls, model)
     return {"verdict": verdict, "docs": urls, "unreachable": unreachable, "queued": queued, "model": model, "reason": reason, "draft": draft}

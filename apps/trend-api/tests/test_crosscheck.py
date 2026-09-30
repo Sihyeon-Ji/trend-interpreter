@@ -36,6 +36,14 @@ def listed(con, tid, name, lang="en", verification="verified_auto", aliases=(), 
 
 
 @pytest.fixture(autouse=True)
+def _kym_off(monkeypatch):
+    """기본은 꺼짐으로 시험한다 — 이 서버의 .env 가 켜 두어도(2026-09-30 트윈) 시험 결과가 달라지지 않게. 켜는 시험은 직접 켠다."""
+    from trend_agents import config
+
+    monkeypatch.setattr(config, "KNOWYOURMEME_ENABLED", False)
+
+
+@pytest.fixture(autouse=True)
 def _offline(monkeypatch):
     """이 파일의 시험은 네트워크를 쓰지 않는다 — 가로채지 않은 수집기 호출이 있으면 바로 실패한다."""
     import httpx
@@ -519,3 +527,27 @@ def test_stage_rechecks_only_when_a_reference_document_changed(monkeypatch):
     crosscheck.run(con)
     namu_mod["when"] = NOW + timedelta(minutes=5)                                             # 마지막 대조 뒤 나무위키 문서가 고쳐졌다
     assert [t.term_id for t in crosscheck.targets(con, 8)] == ["t_ko"]
+
+
+def test_long_no_doc_asks_to_retire_only_auto_verified(monkeypatch):
+    """자동 확인된 말이 NO_DOC_RETIRE_DAYS 넘게 이어서 '문서 없음' 이면 '뺄지' 제안만 올린다. 사람이 확인한 말·닿지 못함은 셈하지 않는다."""
+    _no_model(monkeypatch)
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([], []))
+    con = db.connect(":memory:")
+    listed(con, "t_auto", "라을라", lang="ko")
+    listed(con, "t_human", "라을라2", lang="ko", verification="verified_human")
+    old = (NOW - timedelta(days=crosscheck.NO_DOC_RETIRE_DAYS + 1)).isoformat()
+    for tid in ("t_auto", "t_human"):
+        con.execute("INSERT INTO crosscheck_log VALUES (?,?,'no_doc','[]','rule')", (tid, old))
+        con.execute("INSERT INTO crosscheck_log VALUES (?,?,'unreachable','[]','')", (tid, (NOW - timedelta(days=3)).isoformat()))
+    con.commit()
+    auto, human = ds.get_term(con, "t_auto"), ds.get_term(con, "t_human")
+    assert crosscheck.check(con, auto, judging=False)["queued"] == "queued"
+    assert crosscheck.check(con, human, judging=False)["queued"] is None                      # 사람이 확인한 말은 묻지 않는다
+    q = ds.pending_review(con, "t_auto")
+    assert q["kind"] == "retire" and ds.get_term(con, "t_auto").status == "verified"           # 빼지는 않는다 — 사람이 정한다
+    con.execute("INSERT INTO crosscheck_log VALUES ('t_fresh',?,'no_doc','[]','rule')", ((NOW - timedelta(days=2)).isoformat(),))
+    listed(con, "t_fresh", "라을라3", lang="ko")
+    con.execute("INSERT INTO crosscheck_log VALUES ('t_fresh',?,'keep','[]','local')", ((NOW - timedelta(days=30)).isoformat(),))
+    con.commit()
+    assert crosscheck.check(con, ds.get_term(con, "t_fresh"), judging=False)["queued"] is None  # 문서를 찾았던 뒤로는 이틀뿐
