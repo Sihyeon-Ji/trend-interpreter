@@ -33,6 +33,7 @@ TONES: dict[str, tuple[set[str], set[str]]] = {
 }
 DIFFUSION_BONUS = {"spreading": 2.0, "underground": 1.0, "mainstream": 0.5, "fading": -2.0}
 LIFECYCLE_BONUS = {"emerging": 1.0, "rising": 1.0, "peak": 0.5, "declining": -1.0, "dormant": -3.0}
+POPULARITY_WEIGHT = 0.5  # 퍼진 정도·생애주기는 순위를 가르는 보조 — 제품과 맞는 정도(분야 3·느낌 2)를 넘지 않게. 1.0 이면 몇 개가 모든 제품의 윗줄을 차지했다(09-30)
 
 # 모델이 없는 개발 환경의 고정 설명 (Plan 07: 화면과 e2e 가 모델 없이 끝까지 돌게)
 SAMPLE_BRIEF = ProductBrief(product="여름 한정 아이스 흑당 라떼", category="food_drink", feelings=["joy", "relatable", "comfort"],
@@ -50,12 +51,16 @@ def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tu
     if card.risk_level == "avoid" or fit.voice == "crude" or fit.voice not in voices:
         return None
     cat = brief.category in fit.fits
+    if fit.fits and not cat and not fit.any_category:
+        return None                   # 분야가 정해진 밈은 그 분야 제품에만(팬덤 말 推し活 을 카드 광고에 — 09-30 실측)
     shared = [f for f in brief.feelings if f in fit.feelings][:3]
+    if not cat and not fit.any_category and len(shared) < 2:
+        return None                   # 분야도 없고 어디에나 쓰는 반응도 아니면 느낌이 둘은 겹쳐야 한다
     rel = (3 if cat else 1 if fit.any_category else 0) + 2 * len(shared)
     if rel < MIN_FIT:
         return None
-    s = rel + sum(1 for f in fit.feelings if f in liked)
-    s += DIFFUSION_BONUS.get(card.diffusion or "", 0.0) + LIFECYCLE_BONUS.get(card.lifecycle, 0.0)
+    s = rel + sum(1 for f in shared if f in liked)          # 톤이 반기는 느낌은 제품과 겹친 것만 — 제품과 무관한 가산이 순위를 정하지 않게
+    s += POPULARITY_WEIGHT * (DIFFUSION_BONUS.get(card.diffusion or "", 0.0) + LIFECYCLE_BONUS.get(card.lifecycle, 0.0))
     s += -2.0 if card.risk_level == "caution" else -0.5 if card.risk_level is None else 0.0
     return (s, cat, shared) if s >= MIN_SCORE else None
 

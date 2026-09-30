@@ -551,3 +551,77 @@ def test_long_no_doc_asks_to_retire_only_auto_verified(monkeypatch):
     con.execute("INSERT INTO crosscheck_log VALUES ('t_fresh',?,'keep','[]','local')", ((NOW - timedelta(days=30)).isoformat(),))
     con.commit()
     assert crosscheck.check(con, ds.get_term(con, "t_fresh"), judging=False)["queued"] is None  # 문서를 찾았던 뒤로는 이틀뿐
+
+
+def _conflict_setup(monkeypatch, picks, verification="verified_auto"):
+    """위키끼리 다름 판정 뒤 에이전트의 고르기(picks 를 차례로 돌려준다). 문서 글은 그 자리 글 대신 발췌를 쓴다(네트워크 없이)."""
+    from trend_agents.pipeline import gemini, local_llm
+    from trend_agents.schemas import DocReading, MeaningFix
+
+    con = db.connect(":memory:")
+    listed(con, "t_eyt", "을용타", lang="ko", verification=verification, origin="2003년 6월 한중전")
+    namu = ev("wiki", "namu.wiki", "나무위키: 을용타", "을용타 는 2003년 12월 7일 동아시안컵 한중전의 사건이다.", url="https://namu.wiki/w/을용타")
+    enwk = ev("wiki", "wikipedia.org", "Eul-yong Ta", "을용타 (Eul-yong Ta) is a meme from a June 2003 match.", url="https://en.wikipedia.org/wiki/Eul-yong_Ta")
+    ds.add_evidences(con, "t_eyt", [enwk, namu])
+    judged = CrosscheckJudgement(verdict="conflict", reason="날짜가 다르다", readings=[DocReading(i=1, summary="6월"), DocReading(i=2, summary="12월")])
+    queue = list(picks)
+
+    def structured(prompt, schema, temperature=0.1, image=None):
+        if schema is CrosscheckJudgement:
+            return judged
+        assert "2003년 6월 한중전" not in prompt                    # 지금 사전 뜻은 보이지 않는다
+        assert prompt.index("namu.wiki") < prompt.index("en.wikipedia.org") if "namu.wiki" in prompt else True
+        return queue.pop(0)
+
+    monkeypatch.setattr(local_llm, "structured", structured)
+    monkeypatch.setattr(crosscheck, "gather", lambda term: ([], []))
+    monkeypatch.setattr(crosscheck, "doc_text", lambda e: e.excerpt)
+    fix = MeaningFix(definition="", origin="2003년 12월 7일 동아시안컵 한중전", nuance="")
+    return con, fix
+
+
+def test_conflict_is_settled_by_the_agent_only_when_rules_pass(monkeypatch):
+    """세 번 모두 같은 문서 · 근거 문장이 그 문서에 있음 · 문서 제목이 표제어 → 새 판(verified_auto), 이전 판은 닫힌다."""
+    from trend_agents.schemas import MeaningFix
+
+    fix = MeaningFix(definition="", origin="2003년 12월 7일 동아시안컵 한중전", nuance="")
+    pick = crosscheck.ResolvePick(pick=1, reason="나무위키가 날짜가 구체적", quotes=["2003년 12월 7일 동아시안컵"], proposal=fix)
+    con, _ = _conflict_setup(monkeypatch, [pick] * crosscheck.RESOLVE_RUNS)
+    res = crosscheck.check(con, ds.get_term(con, "t_eyt"), judging=True)
+    assert res["queued"] == "auto:나무위키" and ds.pending_review(con, "t_eyt") is None
+    now = ds.current_meaning(con, "t_eyt")
+    assert now.origin.startswith("2003년 12월") and now.verification == "verified_auto" and now.version == 2
+    assert [m.valid_to is not None for m in ds.list_meanings(con, "t_eyt")].count(True) == 1     # 이전 판은 지우지 않고 닫는다
+
+
+def test_conflict_goes_to_people_with_the_agents_pick_when_rules_fail(monkeypatch):
+    """고른 문서가 갈리거나 근거 문장이 문서에 없으면 자동으로 바꾸지 않고, 추천을 붙여 검수 큐로. 사람이 확인한 뜻도 자동으로 바꾸지 않는다."""
+    from trend_agents.schemas import MeaningFix
+
+    fix = MeaningFix(definition="", origin="2003년 12월 7일 동아시안컵 한중전", nuance="")
+    good = crosscheck.ResolvePick(pick=1, reason="나무위키", quotes=["2003년 12월 7일 동아시안컵"], proposal=fix)
+    other = crosscheck.ResolvePick(pick=2, reason="위키백과", quotes=["June 2003"], proposal=fix)
+    con, _ = _conflict_setup(monkeypatch, [good, other, good])
+    res = crosscheck.check(con, ds.get_term(con, "t_eyt"), judging=True)
+    q = ds.pending_review(con, "t_eyt")
+    assert res["queued"] == "queued" and q["kind"] == "conflict" and ds.current_meaning(con, "t_eyt").version == 1
+    assert q["docs"][0]["url"].startswith("https://namu.wiki") and q["docs"][0]["proposal"]["origin"].startswith("2003년 12월")
+    assert any(r.startswith("에이전트 추천: 나무위키") for r in q["reasons"]) and any("갈림" in r for r in q["reasons"])
+
+    made_up = crosscheck.ResolvePick(pick=1, reason="나무위키", quotes=["문서에 없는 문장"], proposal=fix)
+    con, _ = _conflict_setup(monkeypatch, [made_up] * crosscheck.RESOLVE_RUNS)
+    crosscheck.check(con, ds.get_term(con, "t_eyt"), judging=True)
+    assert any("근거 문장이 문서에 없음" in r for r in ds.pending_review(con, "t_eyt")["reasons"])
+
+    con, _ = _conflict_setup(monkeypatch, [good] * crosscheck.RESOLVE_RUNS, verification="verified_human")
+    crosscheck.check(con, ds.get_term(con, "t_eyt"), judging=True)
+    assert ds.current_meaning(con, "t_eyt").version == 1 and ds.pending_review(con, "t_eyt")["kind"] == "conflict"
+
+
+def test_title_rule_and_home_wiki_order():
+    t = Term(term_id="t", canonical="시체놀이", lang="ko", status="verified", aliases=[], first_seen=NOW, last_seen=NOW)
+    assert crosscheck.titled_by_term(t, "https://namu.wiki/w/%EC%8B%9C%EC%B2%B4%EB%86%80%EC%9D%B4")
+    assert not crosscheck.titled_by_term(t, "https://en.wikipedia.org/wiki/Planking_(fad)")        # 표제어를 스쳐 가는 문서
+    assert crosscheck.titled_by_term(t, "https://namu.wiki/w/시체놀이(유행어)")                    # 구분 꼬리는 뺀다
+    assert crosscheck._home_rank(t, "https://namu.wiki/w/x") < crosscheck._home_rank(t, "https://ko.wikipedia.org/wiki/x") \
+        < crosscheck._home_rank(t, "https://en.wikipedia.org/wiki/x")

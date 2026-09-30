@@ -248,3 +248,18 @@ def test_request_ledger_is_separate_from_the_pipeline_budget():
     before = gemini.budget_left(con)
     ds.gemini_spend(con, 3, gemini.REQUEST_LEDGER)
     assert gemini.budget_left(con) == before and gemini.budget_left(con, request=True) == gemini.REQUEST_GEMINI_DAILY - 3
+
+
+def test_category_memes_stay_in_their_category_and_popularity_only_breaks_ties():
+    """분야가 정해진 밈은 다른 분야 제품에 나오지 않는다. 분야도 없고 어디에나 쓰는 반응도 아니면 느낌이 둘은 겹쳐야 한다.
+    퍼진 정도는 순위를 가르는 보조 — 제품과 더 맞는 밈을 앞지르지 못한다(09-30: 몇 개가 모든 제품의 윗줄을 차지했다)."""
+    con = db.connect(":memory:")
+    _term(con, "fandom", "팬덤말", ["joy", "comfort"], fits=["entertainment"], any_category=False, diffusion="spreading", lifecycle="rising")
+    _term(con, "one", "느낌하나", ["joy"], any_category=False)
+    _term(con, "two", "느낌둘", ["joy", "comfort"], any_category=False)
+    _term(con, "food", "먹방말", ["joy"], fits=["food_drink"], any_category=False)
+    _term(con, "hot", "뜨는반응", ["joy"], diffusion="spreading", lifecycle="rising")
+    dashboard.run(con)
+    got = [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items]
+    assert "fandom" not in got and "one" not in got and "two" in got
+    assert got.index("food") < got.index("hot")                     # 분야가 맞는 쪽이 인기 가산보다 앞선다

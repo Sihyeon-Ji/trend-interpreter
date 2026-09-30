@@ -23,7 +23,7 @@ from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..schemas import CrosscheckJudgement, Evidence, Meaning, MeaningDraft, Term
+from ..schemas import CrosscheckJudgement, Evidence, Meaning, MeaningDraft, MeaningFix, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from ..verification import REFERENCE_DOMAINS, anchor_hit, normalize_url, reference_doc
@@ -328,6 +328,107 @@ def from_judgement(term: Term, meaning: Meaning | None, j: CrosscheckJudgement, 
     return reasons, merged(meaning, j.proposal) if j.verdict == "fix" else None, [doc_entry(e) for e in shown]
 
 
+# ---------- 위키끼리 다름 — 에이전트가 고르고, 규칙이 받을지 정한다 (2026-09-30) ----------
+# 전수조사 실측: 한국어 표제어는 나무위키(69%)가 한국어 위키백과(20%)보다 문서가 훨씬 많고, 갈린 두 건도 나무위키가 맞았다.
+# 영어는 Know Your Meme·영어 위키백과, 일본어는 일본어 위키백과가 먼저다. 다만 나무위키도 틀린 적이 있어(O RLY? 사진 찍은 이) 그 나라 위키는 마지막 기준이다.
+# 지금 사전 뜻은 보이지 않는다 — 보이면 작은 모델이 지금 뜻과 같은 문서를 고른다(로컬 Gemma 3/3, 실측).
+
+RESOLVE_RUNS = 3         # 같은 물음을 이만큼 — 모두 같은 문서를 골라야 자동으로 받는다
+DOC_TEXT_MAX = 3000      # 모델에게 보이는 문서 앞부분(그 자리에서만, 저장하지 않는다)
+
+RESOLVE_PROMPT = """사전 항목 '{term}'(표제어 언어: {lang}) 에 대해 참고 문서들이 서로 다른 설명을 한다. 어느 문서를 따를지 골라라.
+먼저 문서마다 (가) 이 표현이 무엇인지, (나) 언제·어디서 생겼는지를 그 문서의 글에서 찾아 속으로 정리한 뒤 고른다.
+고르는 기준(위에 있을수록 먼저):
+1. 문서 안에서 서로 어긋나는 문장이 있는 문서는 그 부분을 믿지 않는다(예: 같은 사건의 날짜가 문서 안의 다른 사실과 맞지 않음).
+2. 첫 문장의 요약보다 본문(개요·유래)의 구체적 서술(날짜·장소·사람·처음 쓴 곳)을 믿는다.
+3. 다른 문서와 사실이 맞는 쪽을 믿는다. 두 문서가 같은 사실을 적으면 그 사실이 맞을 가능성이 크다.
+4. 그래도 갈리면 그 밈이 생긴 곳의 위키를 따른다. 문서는 그 순서로 번호를 매겼다(1번이 표제어 언어의 위키).
+5. 표제어를 제목으로 한 문서를 따른다. 다른 것을 다루며 표제어를 스쳐 지나가는 문서는 고르지 않는다.
+문서에 없는 사실은 만들지 마라. 글이 없는 문서(제목뿐)는 고르지 마라.
+
+참고 문서:
+{docs}
+
+고른 문서만 근거로 고칠 안(뜻·유래·뉘앙스, 한국어)을 쓰고, 그 근거 문장 1~3개를 quotes 에 문서에서 글자 그대로 옮겨라.
+reason 에는 문서마다 무엇을 적었는지와 왜 그 문서를 골랐는지를 한국어 두세 문장으로 쓴다."""
+
+
+class ResolvePick(BaseModel):
+    pick: int = Field(description="따를 문서 번호")
+    reason: str = ""
+    quotes: list[str] = Field(default_factory=list, description="고른 문서에서 글자 그대로 옮긴 근거 문장")
+    proposal: MeaningFix | None = None
+
+
+def _home_rank(term: Term, url: str) -> int:
+    """sources(term) 의 순서 — 표제어 언어의 위키가 앞이다. 목록에 없는 곳은 뒤."""
+    host = urlsplit(url).hostname or ""
+    for i, src in enumerate(sources(term)):
+        if (src == "namu" and host == "namu.wiki") or (src == "kym" and host.endswith("knowyourmeme.com")) \
+                or (src.startswith("wiki:") and host == f"{src[5:]}.wikipedia.org"):
+            return i
+    return 99
+
+
+def _page_title(url: str) -> str:
+    path = unquote(urlsplit(url).path)
+    name = path.split("/w/", 1)[-1] if "/w/" in path else path.split("/wiki/", 1)[-1] if "/wiki/" in path else path.rsplit("/", 1)[-1]
+    return re.sub(r"\s*\([^)]*\)$", "", name.replace("_", " ")).strip()
+
+
+def titled_by_term(term: Term, url: str) -> bool:
+    """문서 제목이 표제어(또는 별칭)인가 — '(유행어)' 같은 구분 꼬리는 뺀다. 시체놀이 → 영어 Planking 문서를 고른 실수를 막는다."""
+    t = _squash(_page_title(url))
+    return bool(t) and t in {_squash(n) for n in (term.canonical, *term.aliases) if n}
+
+
+def doc_text(e: Evidence) -> str:
+    """문서 앞부분 글 — 판정에만 그 자리에서 쓰고 저장하지 않는다. Know Your Meme 은 주소·제목만 쓰기로 해 글을 보이지 않는다(2026-09-30 결정)."""
+    from ..collectors import namuwiki, wikipedia_search
+
+    host, path = urlsplit(e.url).hostname or "", unquote(urlsplit(e.url).path)
+    try:
+        if host == "namu.wiki" and path.startswith("/w/"):
+            body = namuwiki.page_text(path[3:]) or ""
+            i = body.find("개요")
+            text = body[i:] if i >= 0 else body
+        elif host.endswith("wikipedia.org") and path.startswith("/wiki/"):
+            text = wikipedia_search.article_text(host.split(".")[0], path[6:].replace("_", " ")) or ""
+        elif host.endswith("knowyourmeme.com"):
+            return ""
+        else:
+            text = ""
+    except Exception:
+        text = ""
+    return re.sub(r"[ \t\xa0]+", " ", text or e.excerpt or "").strip()[:DOC_TEXT_MAX]
+
+
+def resolve(term: Term, docs: list[Evidence], runs: int = RESOLVE_RUNS) -> dict:
+    """위키끼리 다를 때 에이전트가 따를 문서를 고른다. 자동으로 받는 것은 규칙이 정한다:
+    runs 번 모두 같은 문서 · 근거 문장이 모두 그 문서에 있음 · 문서 제목이 표제어 · 고칠 안이 있음.
+    돌려주는 것: {doc, proposal, reason, agree, grounded, titled, auto, why}"""
+    from . import local_llm
+
+    docs = sorted(docs, key=lambda e: _home_rank(term, e.url))[:MAX_DOCS]
+    texts = [doc_text(e) for e in docs]
+    lines = "\n\n".join(f"{i}. [{wiki_name(e.url)}] {e.title}\n{t or '(글 없음 — 제목뿐)'}" for i, (e, t) in enumerate(zip(docs, texts), 1))
+    prompt = RESOLVE_PROMPT.format(term=term.canonical, lang=term.lang, docs=lines)
+    picks = [local_llm.structured(prompt, ResolvePick, temperature=0.4) for _ in range(runs)]
+    first = picks[0]
+    ok = 1 <= first.pick <= len(docs) and bool(texts[first.pick - 1])
+    doc = docs[first.pick - 1] if ok else None
+    agree = ok and all(p.pick == first.pick for p in picks)
+    text = _squash(texts[first.pick - 1]) if ok else ""
+    grounded = ok and bool(first.quotes) and all(q.strip() and _squash(q) in text for q in first.quotes)
+    titled = ok and titled_by_term(term, doc.url)
+    has_fix = first.proposal is not None and any((getattr(first.proposal, k, "") or "").strip() for k in ("definition", "origin", "nuance"))
+    why = [w for w, bad in (("글이 있는 문서를 고르지 않음", not ok), (f"{runs}번 중 고른 문서가 갈림", ok and not agree),
+                            ("근거 문장이 문서에 없음", ok and not grounded), ("문서 제목이 표제어가 아님", ok and not titled),
+                            ("고칠 안이 없음", not has_fix)) if bad]
+    return {"doc": doc, "proposal": first.proposal, "reason": first.reason, "agree": agree, "grounded": grounded,
+            "titled": titled, "auto": not why, "why": why}
+
+
 # ---------- 한 말 대조 ----------
 
 def check(con: Connection, term: Term, *, judging: bool, store: bool = True, queue: bool = True, log: bool = True) -> dict:
@@ -359,13 +460,38 @@ def check(con: Connection, term: Term, *, judging: bool, store: bool = True, que
         verdict, reason = j.verdict, j.reason
         if verdict in KIND_OF:
             reasons, draft, entries = from_judgement(term, meaning, j, docs)
-            if queue:
+            if verdict == "conflict" and queue:
+                queued = _settle_conflict(con, term, meaning, docs, reasons, entries)
+            elif queue:
                 queued = propose(con, term, verdict, reasons, draft=draft, docs=entries)
     if verdict == "no_doc" and queue:
         queued = propose_no_doc(con, term)
     if log:
         ds.log_crosscheck(con, term.term_id, verdict, urls, model)
     return {"verdict": verdict, "docs": urls, "unreachable": unreachable, "queued": queued, "model": model, "reason": reason, "draft": draft}
+
+
+def _settle_conflict(con: Connection, term: Term, meaning: Meaning | None, docs: list[Evidence], reasons: list[str], entries: list[dict]) -> str:
+    """위키끼리 다름: 에이전트가 고른 문서가 규칙(resolve)을 넘으면 그 문서대로 새 판(verified_auto)을 싣는다 — 이전 판은 valid_to 로 닫고 지우지 않는다.
+    사람이 확인한 뜻(verified_human)은 자동으로 바꾸지 않는다. 규칙을 못 넘으면 에이전트의 추천을 붙여 검수 큐로 — 사람이 고른다."""
+    try:
+        r = resolve(term, docs)
+    except Exception as e:                       # 모델 형식·네트워크 — 지금처럼 사람에게
+        return propose(con, term, "conflict", reasons + [f"에이전트 추천 실패: {type(e).__name__}"], docs=entries)
+    draft = merged(meaning, r["proposal"]) if r["doc"] is not None else None
+    human = meaning is not None and meaning.verification == "verified_human"
+    if r["auto"] and draft is not None and not human:
+        ds.add_meaning(con, term.term_id, draft, "verified_auto", [normalize_url(r["doc"].url)], created_by="crosscheck_auto", force=True)
+        return f"auto:{wiki_name(r['doc'].url)}"
+    note = []
+    if r["doc"] is not None:
+        url = normalize_url(r["doc"].url)
+        entries = [e for e in entries if e["url"] != url] + [doc_entry(r["doc"], None, draft)] if draft else entries
+        entries = sorted(entries, key=lambda e: e["url"] != url)          # 추천한 문서를 맨 앞에
+        note.append(f"에이전트 추천: {wiki_name(r['doc'].url)} — {r['reason']}".strip()[:400])
+    why = r["why"] + (["사람이 확인한 뜻이라 자동으로 바꾸지 않음"] if human else []) + (["지금 뜻과 같아 고칠 것이 없음"] if r["doc"] is not None and draft is None else [])
+    note.append("자동 반영 안 함: " + ", ".join(why))
+    return propose(con, term, "conflict", reasons + note, docs=entries)
 
 
 def _changed(con: Connection, term: Term, prev: dict, probe: bool) -> bool:

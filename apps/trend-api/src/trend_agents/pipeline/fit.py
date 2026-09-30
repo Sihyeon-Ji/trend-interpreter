@@ -21,11 +21,13 @@ feelings (이 표현이 전하는 느낌, 1~3개): joy 기쁨 · hype 들뜸·�
   sarcasm 비꼼 · frustration 답답함 · tired 지침 · romance 설렘 · nostalgia 추억 · cool 멋짐
 uses (주로 쓰이는 방식, 1~2개): reaction 반응 · praise 칭찬 · self_mockery 자조 · celebration 축하 · complaint 불평 · recommendation 추천 · greeting 인사 ·
   challenge 챌린지 · catchphrase 유행 문구 · format 밈 형식·짤
-fits (자연스럽게 어울리는 제품 분야, 0~3개): food_drink 음식·음료 · fashion_beauty 패션·뷰티 · tech 전자기기·앱 · game 게임 · entertainment 공연·영상·음악 ·
-  travel 여행 · finance 금융 · health_fitness 건강·운동 · education 교육 · lifestyle 생활용품
-any_category: 분야를 가리지 않고 쓰는 반응·감탄 표현이면 true
+fits (이 표현을 넣은 광고 문구가 자연스러운 제품 분야, 0~3개): food_drink 음식·음료 · fashion_beauty 패션·뷰티 · tech 전자기기·앱 · game 게임 ·
+  entertainment 공연·영상·음악 · travel 여행 · finance 금융 · health_fitness 건강·운동 · education 교육 · lifestyle 생활용품
+  뜻·유래·쓰임에서 근거를 찾아 고른다. 예: 먹방·메뉴에서 나온 말 → food_drink, 운동 챌린지 → health_fitness, 게임 대사 → game, 아이돌 팬덤 말 → entertainment,
+  외모·옷차림 말 → fashion_beauty, 직장·돈 이야기 → finance·lifestyle, 공부·시험 → education.
+any_category: 특정 분야와 이어지지 않고 어떤 제품에나 붙는 반응·감탄 표현이면 true (그때는 fits 를 비워도 된다)
 voice (말투의 결): wholesome 누구에게나 무난 · playful 장난스러움 · edgy 비꼬거나 아슬아슬함 · crude 저속·선정
-뜻에 없는 것을 지어내지 말고, 모르면 fits 를 비워라. 입력 번호를 i 로 그대로 돌려줘라.
+뜻에 없는 것을 지어내지 마라. 분야와 이어지는 근거가 뜻에 없으면 fits 를 비운다. 입력 번호를 i 로 그대로 돌려줘라.
 
 표현:
 {items}"""
@@ -49,7 +51,8 @@ def label(con: Connection, batch: list[tuple]) -> int:
         ko = ds.get_translation(con, t.term_id, "ko")
         text = (ko.definition if ko else m.definition)[:160]
         nuance = (ko.nuance if ko else m.nuance)[:100]
-        lines.append(f"{i}. {t.canonical} — {text} (뉘앙스: {nuance})")
+        origin = (ko.origin if ko else m.origin)[:100]                  # 분야의 근거는 유래에 많다(먹방·게임 대사·팬덤)
+        lines.append(f"{i}. {t.canonical} — {text} (유래: {origin} / 뉘앙스: {nuance})")
     parsed, model = structured(con, PROMPT.format(items="\n".join(lines)), list[FitLabel])
     n = 0
     for p in parsed or []:
