@@ -111,7 +111,7 @@ def first_party_evidence(con: Connection, term: str, aliases: list[str] = ()) ->
             v = ShortsVideo.model_validate_json(vj) if vj else None
             # 발췌는 해석 모델이 쓴 문장이라 앵커가 될 수 없다(derived). 제목은 실제 영상 제목일 때만 원문이므로, 영상 행이 없으면 비운다.
             out.append(Evidence(evidence_id=ds.new_id("e", it.url), kind="short", url=it.url, title=(v.title[:200] if v else ""), source_domain="youtube.com",
-                                observed_at=v.published_at if v else datetime.now(timezone.utc), excerpt=f"{hit[0].name}: {hit[0].origin_hypothesis}"[:240], derived=True))
+                                observed_at=v.published_at if v else datetime.now(timezone.utc), excerpt=((f"“{hit[0].quote}” — " if hit[0].quote else "") + f"{hit[0].name}: {hit[0].origin_hypothesis}")[:240], derived=True))
     for t, region, d, src in con.execute("SELECT term, region, MAX(date), source FROM trend_queries GROUP BY term, region, source").fetchall():
         if key == _norm(t):
             if src == "namu_rank":   # 나무위키 실시간 검색어는 Google Trends 가 아니다 — 출처를 바르게 적는다(한 사이트가 독립 출처 둘로 세지지 않게)
@@ -290,6 +290,41 @@ def _pick_video(videos: list, term):
     return picks[0][2] if picks else None
 
 
+MEME_CUES = ("meme", "밈", "ミーム", "梗", "迷因", "explained", "해설", "解説", "원본", "original")
+
+
+def video_is_about(con: Connection, term, title: str) -> bool:
+    """대표 영상 후보의 제목이 그 밈을 가리키나 — 규칙으로만(09-30 실측: 로컬 Gemma e4b 는 제목만 보고는 느슨하면 'vibe'→노래 'VIBE' 를,
+    엄격하면 'Surprised Pikachu Meme Explained' 까지 떨어뜨려 쓸 수 없었다). 받는 것은 둘:
+    (1) 제목(앞부분에 표현이 있음은 _pick_video 가 봤다)에 밈 단서 낱말이 있다, (2) 해시태그·기호를 뺀 제목이 표현 그 자체다 —
+    단 흔한 영어 한 낱말(vibe·rizz 처럼 노래·사람 이름과 겹치는 것)은 (2)로 받지 않는다. 틀린 영상보다 빈칸이 낫다."""
+    low = title.lower()
+    if any(c in low for c in MEME_CUES):
+        return True
+    bare = re.sub(r"#\S+", " ", title)
+    bare = re.sub(r"[^\w\s]", " ", bare, flags=re.UNICODE)
+    bare = re.sub(r"\s+", " ", bare).strip().lower()
+    for name in (term.canonical, *term.aliases):
+        n = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", name or "", flags=re.UNICODE)).strip().lower()
+        if n and bare == n and not re.fullmatch(r"[a-z]+", n):
+            return True
+    return False
+
+
+def collected_videos(con: Connection, term, limit: int = 200) -> list[ShortsVideo]:
+    """모아 둔 쇼츠 가운데 표제어(또는 별칭)의 첫 낱말이 든 것, 조회수 순. 고르기는 _pick_video 가 한다."""
+    heads = {n.lower().split()[0] for n in (term.canonical, *term.aliases) if n and n.split()}
+    out: list[ShortsVideo] = []
+    for h in heads:
+        rows = con.execute("SELECT json FROM videos WHERE lower(json) LIKE ? ORDER BY view_count DESC LIMIT ?", (f"%{h}%", limit)).fetchall()
+        for (j,) in rows:
+            try:
+                out.append(ShortsVideo.model_validate_json(j))
+            except Exception:
+                continue
+    return out
+
+
 def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: bool = False) -> int:
     """표제어의 대표 그림·영상을 붙인다. 파일은 받지 않고 주소만 둔다.
 
@@ -319,6 +354,14 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
             ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={m.group(1)}",
                          page_url=e.url, title=e.title or "", license="YouTube 임베드", attribution=e.source_domain)
             added += 1
+    # 이미 모아 둔 쇼츠(videos) 가운데 제목 앞부분에 그 표현이 있는 것 — 검색 한도를 쓰지 않는다(09-30: 사전 151개 중 12개만 그림·영상이 있었다)
+    if not added:
+        best = _pick_video(collected_videos(con, term), term)
+        if best and video_is_about(con, term, best.title):
+            ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={best.video_id}",
+                         page_url=f"https://www.youtube.com/watch?v={best.video_id}", title=best.title,
+                         license="YouTube 임베드", attribution="youtube.com")
+            added += 1
     # 위키백과 밈 그림은 대부분 공정이용이라 못 쓴다(실측 09-16). 대신 유튜브에서 대표 영상을 찾는다 —
     # 검색은 100 unit 이라 하루 100회뿐이므로 부르는 쪽이 켤 때만 쓴다. 제목에 그 표현이 실제로 있는 영상만.
     if youtube and not added:
@@ -327,7 +370,7 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
 
             region = LANG_REGION.get(term.lang, "US")
             best = _pick_video(yt.search_shorts(term.canonical, region, hours=24 * 365, max_results=10), term)
-            if best:
+            if best and video_is_about(con, term, best.title):
                 ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={best.video_id}",
                              page_url=f"https://www.youtube.com/watch?v={best.video_id}", title=best.title,
                              license="YouTube 임베드", attribution="youtube.com")
@@ -546,4 +589,27 @@ def run(con: Connection, max_new: int = 8, max_recheck: int = 4) -> dict:
             r.detail[t.canonical] = f"{v} {reasons[:2]}"
             r.count += 1
         r.detail["verified_auto"] = verified
+        r.detail["media"] = backfill_media(con)
     return {"research": r}
+
+
+MEDIA_PER_RUN = 8        # 실행마다 그림·영상을 찾아 줄 사전 항목 수
+MEDIA_SEARCHES = 4       # 그중 유튜브 검색(100 unit)을 쓰는 수 — 하루 네 번 돌아 16회, 한도(하루 10,000)의 16%
+
+
+def backfill_media(con: Connection, limit: int = MEDIA_PER_RUN, searches: int = MEDIA_SEARCHES) -> int:
+    """그림·영상이 없는 확인된 항목에 붙인다(사람이 확인했거나 예전에 들어와 조사 때 못 붙인 것, 09-30: 151개 중 12개만 있었다).
+    한 번 찾아 못 붙인 것은 media_tried 에 적어 두고 오래된 것부터 다시 본다."""
+    tried = dict(con.execute("SELECT term_id, tried_at FROM media_tried").fetchall())
+    todo = [t for t in ds.list_terms(con, ("verified",)) if not ds.has_media(con, t.term_id)]
+    todo.sort(key=lambda t: tried.get(t.term_id, ""))
+    added = 0
+    for t in todo[:limit]:
+        try:
+            added += attach_media(con, t, ds.list_evidences(con, t.term_id), youtube=searches > 0) > 0
+        except Exception:
+            pass
+        searches -= 1
+        con.execute("INSERT OR REPLACE INTO media_tried VALUES (?, ?)", (t.term_id, datetime.now(timezone.utc).isoformat()))
+    con.commit()
+    return added

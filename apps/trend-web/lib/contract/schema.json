@@ -430,6 +430,12 @@
           "minimum": 0,
           "title": "Confidence",
           "type": "number"
+        },
+        "quote": {
+          "default": "",
+          "description": "영상 속에서 이 표현이 실제로 나온 대사·자막 한 줄, 원어 그대로 120자 안. 말하거나 보이지 않았으면 빈 문자열",
+          "title": "Quote",
+          "type": "string"
         }
       },
       "required": [

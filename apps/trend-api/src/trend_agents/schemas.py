@@ -38,6 +38,7 @@ class MemeRef(BaseModel):
     kind: Category
     origin_hypothesis: str = Field(description="유래 가설. 어디서 언제 시작됐는지. 모르면 'unknown'")
     confidence: float = Field(ge=0, le=1)
+    quote: str = Field(default="", description="영상 속에서 이 표현이 실제로 나온 대사·자막 한 줄, 원어 그대로 120자 안. 말하거나 보이지 않았으면 빈 문자열")
 
 
 class ShortsInterpretation(BaseModel):

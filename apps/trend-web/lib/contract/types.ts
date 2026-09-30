@@ -138,6 +138,10 @@ export type Kind1 = "slang" | "meme" | "song" | "drama" | "dance" | "news" | "ge
  */
 export type OriginHypothesis = string;
 export type Confidence1 = number;
+/**
+ * 영상 속에서 이 표현이 실제로 나온 대사·자막 한 줄, 원어 그대로 120자 안. 말하거나 보이지 않았으면 빈 문자열
+ */
+export type Quote = string;
 export type Memes = MemeRef[];
 export type TargetGeneration = ("10s" | "20s" | "30s" | "40s" | "50s+" | "all")[];
 export type WhyViral = string;
@@ -397,6 +401,7 @@ export interface MemeRef {
   kind: Kind1;
   origin_hypothesis: OriginHypothesis;
   confidence: Confidence1;
+  quote?: Quote;
 }
 /**
  * 로컬 Gemma 가 텍스트 한 조각을 읽고 내놓는 세대 판정.

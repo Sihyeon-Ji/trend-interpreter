@@ -1268,3 +1268,22 @@ def test_community_collection_and_live_lookup_skip_dropped_sources(monkeypatch):
     monkeypatch.setattr(wikipedia_search, "search", lambda *a, **k: [])
     monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
     assert all(fn() == [] for fn in live._sources("delulu", "ko"))
+
+
+def test_representative_video_needs_a_meme_cue_or_the_bare_phrase():
+    """대표 영상은 제목에 밈 단서가 있거나, 기호를 뺀 제목이 표현 그 자체일 때만 — 흔한 영어 한 낱말은 노래 제목과 겹쳐 그것만으로 받지 않는다(09-30)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline.research import video_is_about
+    from trend_agents.schemas import Term
+
+    def t(name):
+        now = datetime.now(timezone.utc)
+        return Term(term_id="t", canonical=name, lang="en", status="verified", aliases=[], first_seen=now, last_seen=now)
+
+    assert video_is_about(None, t("Surprised Pikachu"), "Surprised Pikachu Meme Explained")
+    assert video_is_about(None, t("간 때문이야"), "간 때문이야")
+    assert video_is_about(None, t("シャミ子が悪いんだよ"), "シャミ子が悪いんだよ #shorts")
+    assert not video_is_about(None, t("vibe"), "VIBE")                          # 노래 제목
+    assert not video_is_about(None, t("懶人包"), "『1.5週年前瞻懶人包、ULT機終極強化』SD Gundam")   # 평범한 뜻으로 쓴 게임 공지
+    assert not video_is_about(None, t("relatable"), "🤣#relatable #cat #shorts")   # 해시태그로만

@@ -22,6 +22,8 @@ For EACH video, in the same order as given, return one object:
 - summary: what literally happens, 2 sentences
 - memes: every slang term, meme format, song, drama/anime reference, dance or news event used.
   For each: kind, origin_hypothesis (where/when it started; be specific or say 'unknown'), confidence 0-1.
+  quote: the exact line spoken, sung or shown on screen where it appears, in the original language, under 120 characters.
+  Transcribe only what is actually said or shown; use '' if it is not said or shown.
 - target_generation: which age groups this is made for / resonates with
 - why_viral: the mechanism (relatability, remix, shock, nostalgia, in-group signal...)
 - explain_for_outsider: explain the context to someone from another generation or country, 3-4 sentences.
