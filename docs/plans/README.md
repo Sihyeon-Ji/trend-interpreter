@@ -24,7 +24,7 @@ Cloud SQL 30일 체험 종료 전 비용 판단과 수동 전환 절차는 [Plan
 | [09](09-generation-quality-evaluation.md) | 전체 | 추천·생성 품질 평가와 제출 데모 준비 | 진행 — 1차 측정만, 사람 판정 대기 | 07, 08 | 10-15 |
 | [10](10-term-relation-graph.md) | 선택 | 용어 간 관계 그래프 | 선택 — 미착수 | 07 | 여유 시 |
 | [11](11-public-repository-release-protection.md) | 제출 | 공개 저장소 전환과 GCP 배포 승인 | 대기 — 공개 전환·GitHub 설정은 사용자 실행 대기 | 09 | 10-17 |
-| [12](12-dictionary-crosscheck.md) | 데이터 | 확인된 사전 항목의 참고 위키 전수 대조와 새 말의 '문서 대조' 단계 | 구현 · 전수조사 반영 — 사람 결정 대기(Know Your Meme 은 약관 결정 전까지 꺼짐) | — | 10-04 (문서 없는 항목은 사용자 확인 뒤) |
+| [12](12-dictionary-crosscheck.md) | 데이터 | 확인된 사전 항목의 참고 위키 전수 대조와 새 말의 '문서 대조' 단계 | 구현 · 전수조사 결정 반영(트윈 09-30) — 팀 DB 가져오기는 Plan 01 뒤, Know Your Meme 은 주소·제목만 쓰기로 결정 | — | 10-04 (문서 없는 항목은 사용자 확인 뒤) |
 | [13](13-cloud-sql-trial-to-paid-transition.md) | 운영 | Cloud SQL 체험 종료 전 비용 검토·수동 유료 전환 | 계획 — 실행 전, 비용 결정 대기 | 05 | 10-26 |
 | [14](14-gemma-visible-in-deployment.md) | 데이터·AI | 배포본에서 Gemma 활용 보이기: 기록 표시, 라이브 분류 버튼, 관리자 수동 실행 (팀 검토 전) | 계획 초안 — 팀 검토 전 | 05, 06 | 10-12 (기록 표시는 10-07) |
 
