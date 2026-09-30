@@ -17,7 +17,7 @@ from ..lifecycle import recheck_interval_days
 from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo, Term
 from ..storage import dictionary_store as ds
 from ..collectors.naver_search import for_model
-from ..verification import anchor_hit, gate
+from ..verification import anchor_hit, gate, normalize_url, reference_doc
 from .gemini import BudgetExhausted, budget_left, local_ok, structured
 from .match import mentions, same_term
 from .runs import stage
@@ -547,6 +547,10 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     if draft.expansion and (len(draft.expansion) > 40 or len(draft.expansion.split()) > 8 or "." in draft.expansion[:-1]):
         draft.expansion = None
     evidences = (web_evidence(term.canonical, urls, term.aliases) if not method.startswith("offline") else []) + first_party
+    # 이미 저장된 참고 문서(일괄 등재가 미리 붙인 PTT鄉民百科·위키데이터 링크, 예전 조사가 찾은 문서)도 판정에 넣는다 —
+    # 이번 조사가 다시 찾지 않은 문서가 빠져 문서가 있는 말이 떨어졌다(2026-09-30, '多蛙、空蛙').
+    seen_urls = {normalize_url(e.url) for e in evidences}
+    evidences += [e for e in ds.list_evidences(con, term.term_id) if reference_doc(e) and normalize_url(e.url) not in seen_urls]
     current = ds.current_meaning(con, term.term_id)
     if current and current.verification == "verified_human":
         # 조사하는 몇 분(그라운딩·GDELT 16초 간격·나무위키) 사이 검수자가 승인했다 — 그 결정을 덮지 않는다

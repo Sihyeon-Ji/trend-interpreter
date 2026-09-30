@@ -1347,7 +1347,7 @@ def test_catalog_adds_a_meme_with_its_categories_and_country_and_media_backfill_
     t = catalog.add(con, "고양이 밈 (유행어)", ["인터넷 밈/동물", "인터넷 밈/일본", "2024년 인터넷 밈"])
     assert t and t.canonical == "고양이 밈" and t.status == "researching"
     assert [(u["region"], u["source"]) for u in ds.get_usage(con, t.term_id)] == [("JP", "catalog")]
-    assert catalog.meta(["인터넷 밈/음악/일본", "2024년 인터넷 밈"]) == {"genres": ["음악"], "countries": ["일본"], "decade": 2020, "year": 2024, "slang": False}
+    assert catalog.meta(["인터넷 밈/음악/일본", "2024년 인터넷 밈"]) == {"genres": ["음악"], "countries": ["일본"], "regions": ["JP"], "decade": 2020, "year": 2024, "slang": False}
     assert catalog.add(con, "아무개", ["인터넷 밈/정치인/대한민국"]) is None                  # 사람 문서
     assert catalog.add(con, "고양이 밈", ["인터넷 밈/동물"]) is None                            # 이미 있는 말은 분류만 남긴다
     t.status = "verified"
@@ -1356,3 +1356,28 @@ def test_catalog_adds_a_meme_with_its_categories_and_country_and_media_backfill_
     assert research.backfill_media(con, limit=2, searches=0) == 0
     assert con.execute("SELECT count(*) FROM media_tried").fetchone()[0] == 1
     research.backfill_media(con, limit=2, searches=0)                                          # 두 번째도 된다(같은 줄을 바꾼다)
+
+
+def test_research_counts_reference_documents_already_stored(monkeypatch):
+    """일괄 등재가 미리 붙인 참고 문서(PTT鄉民百科 등)도 조사의 판정에 든다 — 이번 조사가 다시 찾지 않았다고 빠지면 문서가 있는 말이 떨어졌다(09-30)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.collectors import knowyourmeme, wiktionary
+    from trend_agents.pipeline import research
+    from trend_agents.schemas import Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    monkeypatch.setattr(research, "budget_left", lambda con: 0)
+    monkeypatch.setattr(research, "structured", lambda *a, **k: (_lucky_draft(), "local:test"))
+    monkeypatch.setattr(research, "first_party_evidence", lambda *a, **k: [])
+    monkeypatch.setattr(research, "_wikipedia_evidence", lambda *a, **k: [])
+    monkeypatch.setattr(research, "attach_media", lambda *a, **k: 0)
+    monkeypatch.setattr(wiktionary, "lookup", lambda *a, **k: [])
+    monkeypatch.setattr(knowyourmeme, "enabled", lambda: False)
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    t = Term(term_id="t_tw", canonical="多蛙", lang="zh", status="researching", aliases=[], first_seen=now, last_seen=now)
+    ds.upsert_term(con, t)
+    ds.add_evidences(con, "t_tw", [ev("wiki", "pttpedia.fandom.com", "PTT鄉民百科: 多蛙", "多蛙 起源於 2020 年 股票板", url="https://pttpedia.fandom.com/zh/wiki/多蛙")])
+    assert research.research_one(con, t, lean=True) == ("verified_auto", [])

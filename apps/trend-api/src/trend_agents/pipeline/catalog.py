@@ -30,7 +30,7 @@ CLUB = re.compile(r".+ FC$")
 def meta(categories: list[str]) -> dict:
     """걸린 분류들 → {genres, countries, decade, year, slang}. 모두 분류 이름에서 읽는다.
     '인터넷 밈/음악/일본' 은 종류 음악 + 나라 일본, '인터넷 밈/일본 광고' 는 광고 + 일본, '인터넷 밈/리버풀 FC' 는 축구."""
-    genres, countries, decade, year = set(), set(), None, None
+    genres, countries, regions, decade, year = set(), set(), set(), None, None
     for c in categories:
         m = re.fullmatch(r"인터넷 밈/(.+)", c)
         if m:
@@ -52,7 +52,12 @@ def meta(categories: list[str]) -> dict:
                     genres.add(sp[1])
                 else:
                     genres.add(head)
-        y = re.fullmatch(r"(\d{4})년 인터넷 밈", c)
+        tag = re.fullmatch(r"(year|region):(.+)", c)          # 위키데이터·Fandom 에서 온 말의 꼬리표
+        if tag and tag.group(1) == "year" and tag.group(2).isdigit():
+            year = int(tag.group(2))
+        elif tag:
+            regions.add(tag.group(2))
+        y = re.fullmatch(r"(\d{4})년 인터넷 밈", c) or re.fullmatch(r"(\d{4})年流行用語", c)
         if y:
             year = int(y.group(1))
         d = re.fullmatch(r"(\d{4})년대 인터넷 밈", c)
@@ -60,8 +65,9 @@ def meta(categories: list[str]) -> dict:
             decade = int(d.group(1))
     if year and not decade:
         decade = year // 10 * 10
-    return {"genres": sorted(genres), "countries": sorted(countries), "decade": decade, "year": year,
-            "slang": "유행어" in categories or any(c.startswith("유행어/") for c in categories)}
+    regions |= {COUNTRY[c] for c in countries if COUNTRY.get(c)}
+    return {"genres": sorted(genres), "countries": sorted(countries), "regions": sorted(regions), "decade": decade, "year": year,
+            "slang": "유행어" in categories or any(c.startswith("유행어/") for c in categories) or any("用語" in c or "潮語" in c for c in categories)}
 
 
 def title_to_term(title: str) -> str | None:
@@ -100,7 +106,7 @@ def record(con: Connection, term_id: str, title: str, source: str, categories: l
     con.commit()
 
 
-def add(con: Connection, title: str, categories: list[str], source: str = "namu") -> Term | None:
+def add(con: Connection, title: str, categories: list[str], source: str = "namu", aliases: list[str] | tuple[str, ...] = ()) -> Term | None:
     """분류 문서 하나를 조사할 표제어로 세운다. 이미 있는 말은 분류 기록만 남긴다. 세운 표제어(또는 None)."""
     m = meta(categories)
     if set(m["genres"]) & SKIP_GENRES:
@@ -108,21 +114,46 @@ def add(con: Connection, title: str, categories: list[str], source: str = "namu"
     name = title_to_term(title)
     if not name:
         return None
-    have = ds.find_term(con, name)
+    have = ds.find_term(con, name) or next((ds.find_term(con, a) for a in aliases if a and ds.find_term(con, a)), None)
     if have:
         record(con, have.term_id, title, source, categories)
         return None
-    lang = script_lang(name) or "ko"
-    region = next((COUNTRY[c] for c in m["countries"] if COUNTRY.get(c)), None)
+    lang = script_lang(name) or {"TW": "zh", "HK": "zh", "CN": "zh", "JP": "ja", "KR": "ko"}.get(next(iter(m["regions"]), ""), "en")   # '1450' 처럼 글자가 없는 제목
+    region = next(iter(m["regions"]), None)
     now = datetime.now(timezone.utc)
     t = Term(term_id=ds.new_id("t", f"{unicodedata.normalize('NFKC', name).lower()}|{lang}"), canonical=name, lang=lang, status="researching",
-             category="slang" if m["slang"] else "meme", aliases=[], first_seen=now, last_seen=now)
+             category="slang" if m["slang"] else "meme", aliases=[a for a in dict.fromkeys(aliases) if a and a != name][:6],
+             first_seen=now, last_seen=now)
     ds.upsert_term(con, t)
     record(con, t.term_id, title, source, categories)
     if region:
         # 나라는 위키 분류가 정한 데이터다 — 세대는 모르므로 'all'. 조사가 모델 추정으로 덮지 않는다(나라 줄이 이미 있으면 쓰지 않는다)
         ds.set_usage(con, t.term_id, [("all", region, now.isoformat(), 1.0)], source="catalog")
     return t
+
+
+def prepare_fandom(con: Connection, t: Term, site: str, title: str) -> bool:
+    """PTT鄉民百科·香港網絡大典 문서: 첫머리를 메모리에서만 보이고(research.WIKI_CONTEXT), 짧은 발췌·링크를 근거로."""
+    from ..collectors import fandom
+    from . import research
+
+    text = fandom.intro(site, title)
+    if not text:
+        return False
+    ds.add_evidences(con, t.term_id, [fandom.evidence(site, title, text)])
+    research.WIKI_CONTEXT[t.canonical] = [x.strip() for x in re.split(r"(?<=[。！？.!?])", text) if len(x.strip()) > 6][:6]
+    return True
+
+
+def prepare_wikidata(con: Connection, t: Term, item: dict) -> bool:
+    """위키데이터 항목: 외부 문서 ID 로 참고 문서 링크(주소·제목만)를 붙인다 — 그 사이트에는 요청하지 않는다. 나무위키 ID 가 있으면 개요도 본다."""
+    from ..collectors import wikidata_memes
+
+    evs = wikidata_memes.evidences(item, t.canonical)
+    if evs:
+        ds.add_evidences(con, t.term_id, evs)
+    namu = item["ext"].get("P8885")
+    return bool(evs) | (prepare(con, t, namu) if namu else False)
 
 
 def prepare(con: Connection, t: Term, title: str) -> bool:

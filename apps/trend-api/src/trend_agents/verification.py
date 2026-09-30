@@ -25,7 +25,9 @@ MIN_SELF_CONFIDENCE = 0.5
 # source_domain 을 wikipedia.org 하나로 맞춰 두었다 — 영어판·한국어판을 "독립 출처 2개" 로 셈하면 자기확인이 된다.
 FIRST_PARTY = {"short", "news", "datalab", "wiki"}
 # 참고 문서가 있는 곳(하위 도메인 포함 — ko.wikipedia.org 등). 니코니코 대백과는 이 서버를 막고, pixiv 백과사전은 대부분 봇 확인 뒤에 있다.
-REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixiv.net", "zh.moegirl.org.cn")
+# 2026-09-30 더함: 니코니코 대백과(위키데이터 ID 로만 안다 — 이 서버 요청을 막는다), PTT鄉民百科(대만)·香港網絡大典(홍콩, Fandom API), 리브레 위키(한국)
+REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixiv.net", "zh.moegirl.org.cn",
+                     "dic.nicovideo.jp", "pttpedia.fandom.com", "evchk.fandom.com", "librewiki.net")
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
 
 
