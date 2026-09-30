@@ -1,6 +1,6 @@
 # Plan 06. Colab Gemma 4 편집·미세조정 실험과 운영 데이터 게시
 
-작성일 **2026-09-28** · 변경일 **2026-09-30** · 상태 **소유자 Drive 입출력·재마운트 검증 완료, GPU 추론 보류, 팀원 접근·새 VM 재개 검증 대기** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-09-30** · 상태 **소유자 Drive 입출력·재마운트 검증 완료, GPU 추론 보류, 팀원 접근·새 VM 재개 검증 대기 · 운영 게시 경계·PC 독립 정리/감시·클라우드 전용 /ask·Gemma 평가는 미구현(Plan 05 Cloud SQL 대기) · 그동안 Gemma 편집은 원작자 PC 파이프라인이 하루 4회 대신 돌린다(아래 '현재 상태')** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-28의 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에서 **Gemma 실행 위치를 Colab GPU 중심으로 변경**한다. 사용자 요청을 무료 Colab 런타임에 연결하지 않는 경계는 유지한다. 운영에 Gemma 서비스를 둘지는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이며 아직 정하지 않았다. 무료 GPU를 받을 수 없거나 시간이 끊기면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
@@ -225,6 +225,30 @@ Pro+ 조건은 [Google의 Colab 상품 설명](https://developers.google.com/wor
 - 실시간 사용자 기능은 Colab이나 PC의 Gemma 없이 작동하며, 사용자 원문은 Colab·팀 Drive·PC로 전달하지 않는다.
 - 미세조정은 선택 실험으로 성공·실패·보류 및 실측 제약을 기록한다. 성공이라고 기록하려면 학습 재개와 보류 평가 세트의 전후 비교를 확인한다. 품질이 개선되지 않으면 기본 모델을 유지한다.
 - 대표 사례의 근거 일치와 품질을 Plan 09에서 평가해 실제 Gemma 활용 결과를 설명한다. 추론 노트북 실행만으로 가중치를 학습했다고 쓰지 않는다.
+
+## 현재 상태와 남은 일 (2026-09-29 실측, 위 09-30 Colab 조사와 별개)
+
+**지금 실제로 도는 Gemma 편집은 Colab 이 아니라 원작자 PC 다.** 원작자 서버 파이프라인(cron 9·14·19·23시 :15)이 로컬 Ollama 의 `gemma4:e4b`(그 서버 `.env` 의 `GEMMA_LOCAL_MODEL`; 코드 기본값은 `gemma4:12b`, 공유 Ollama 에는 12b 가 설치돼 있지 않다)로 번역·국가별 해석·추천 낱말·근거 라벨을 만든다. 09-29 기준 번역 표에는 `gemma-local` 276행과 `team` 96행이 있고 주제별 국가 해설(`topic_notes`)은 88건이 `local:gem…` 로 표시돼 있다. 6건은 `local:gpt-oss` 가 만들었다.
+
+| 완료 기준 | 상태 | 근거 |
+| --- | --- | --- |
+| Gemma 초안을 만들고 모델 ID·시각·근거·검수 상태 추적 | 일부 | 위 PC 파이프라인이 만들지만, 번역에 모델 ID 를 `local:{GEMMA_LOCAL_MODEL}` 로 남기지 않고 실행마다 모델도 기록하지 않는다 |
+| 검증 안 된 초안은 공개 API 에 안 나가고 재실행에도 안전 | **팀 결정 대기** | `GET /terms/{id}` 는 제외되지 않은 모든 용어를 돌려주고(`api/app.py`) `needs_review` 도 200 이다. `/explain` 도 그렇다. 게시 경계(직접 쓰기 또는 단계 게시)와 표시된 `needs_review` 초안을 이용자에게 보일지 정해야 한다 |
+| PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
+| 실시간 기능이 PC·Gemma 없이 작동, 원문은 PC 로 안 감 | 미충족 | `/ask`·`/ask/stream` 의 도구 호출 루프는 로컬 모델(`local_chat.chat_with_tools`)로만 돈다. 로컬 모델이 없으면 규칙 폴백뿐이다 |
+| 정리·건강 점검이 PC 배치와 독립 | 미충족 | Plan 05 의 같은 항목(정리는 `collect.retention` 안에만, `health_check.py` 는 출력만) |
+| Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |
+
+남은 일:
+
+1. 번역 모델 ID 를 `local:{GEMMA_LOCAL_MODEL}`(`gemini.generate` 와 같은 꼴)로 남기고 실행마다 모델을 기록한다. 문서의 '12b' 서술을 실제 엔진(e4b)에 맞춘다.
+2. **팀 결정 대기:** 게시 경계 — 직접 쓰기인지 단계 게시인지, `needs_review` 초안을 이용자에게 보일지. 결정 뒤 `publications` 표(게시 시각·실행 ID·모델 ID·건수, 새 마이그레이션)와 마지막 정상 게시본을 덮지 않는 게시 단계를 만든다.
+3. `/meta` 가 '마지막으로 성공한 편집 단계 시각' 과 오래됨 표시를 돌려주게 한다.
+4. `/ask` 의 클라우드 경로: 로컬 모델이 없을 때 같은 읽기 전용 도구 루프를 Gemini 함수 호출(`model_client`, 요청 장부·한 번 시도)로 돌린다. 마지막 턴 무도구·차단기·인자 검증 규칙은 유지한다. 이용자 요청 호출에는 `request=True` 를 붙인다.
+5. **팀 결정 대기:** 답하지 못한 질문이 원문 없이 PC 로 가는 방법(클라우드에서 표현 이름만 뽑아 넘기거나, 원문 전달을 받아들이고 문서화).
+6. 원작자 서버의 예약 파이프라인(SQLite, Gemini 키)을 팀 코드·PostgreSQL 로 옮기고 Cloud SQL 에 Auth Proxy 로 최소 권한 연결한다. `migrate_sqlite_to_postgres.py` 는 삽입만 하므로(`ON CONFLICT DO NOTHING`) 갱신이 안 전파된다 — 주기적 게시·동기화를 따로 만든다.
+7. `local:gpt-oss` 가 만든 주제 해설 6건을 Gemma 로 다시 만들거나 뺀다(이용자에게 보이고 추천의 `local_note` 로 나올 수 있다).
+8. 대표 사례의 자동 지표(뜻 표기 보존·근거 ID 존재·처리 시간)와 사람 판정(뉘앙스·나라별 정확도)을 [Plan 09](09-generation-quality-evaluation.md) 로 잰다.
 
 ## 제외한 계획
 

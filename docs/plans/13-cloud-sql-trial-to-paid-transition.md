@@ -1,6 +1,6 @@
 # Plan 13. Cloud SQL 무료 체험 종료 전 유료 전환
 
-작성일 **2026-09-29** · 상태 **계획, 실행 전** · 연계 [Plan 05](05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
+작성일 **2026-09-29** · 상태 **계획, 실행 전 — 전환 경로·월 비용 상한은 사용자/팀 결정 대기, 전환은 사람이 콘솔에서 실행** · 연계 [Plan 05](05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
 
 [계획 목록](README.md) · [Trend 앱 배포](05-trend-cloud-run-deployment.md) · [GCP 운영](../운영/GCP-운영.md)
 

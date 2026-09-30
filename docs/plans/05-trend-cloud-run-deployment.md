@@ -1,6 +1,6 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-작성일 **2026-09-28** · 변경일 **2026-09-29** · 상태 **Cloud SQL 체험 인스턴스 생성 완료, 앱 배포 구현 대기** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-09-29** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 — 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -124,3 +124,31 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 - 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
 - `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 로그 지표로 확인한다.
 - 문서의 현재 상태와 검증 결과가 갱신되어 있다.
+
+## 현재 상태와 남은 일 (2026-09-29 실측)
+
+완료 기준 8개 중 충족한 것은 없고, 코드가 준비된 것이 일부 있다.
+
+| 완료 기준 | 상태 | 근거 |
+| --- | --- | --- |
+| `release/gcp` 한 번으로 웹·API·유지보수 작업 배포 | 미충족 | `release-gcp.yml` 은 scope·checks·infrastructure·alert_relay job 뿐이다. `release_scope.py` 가 계산하는 `app` 출력을 읽는 job 이 없고 `scripts/deploy-trend.sh` 도 없다 |
+| 웹 URL 실데이터·API 익명 거부 | 미충족 | `infra/gcp/main.tf` 에 Trend 서비스 계정·secret·서비스가 없고, 웹 서버가 Cloud Run ID 토큰을 붙이지 않는다(웹 서버 fetch 14곳에 Authorization 없음) |
+| 재시작 뒤에도 Cloud SQL 에 유지 | 미충족 | 코드(`storage/db.py`, `DATABASE_URL`)는 준비. Terraform 에 `google_sql_database_instance` 가 없고 `sqladmin.googleapis.com` 이 API 목록에 없다 |
+| PC 없이 게시본 읽기·정리·건강 점검·Discord 경고 | 미충족 | 보존 정리는 파이프라인 단계 `collect.retention` 안에만 있고, `scripts/health_check.py` 는 경고를 출력만 한다 |
+| Cloud Run 동시성 = `DB_POOL_SIZE` | 미충족 | `DB_POOL_SIZE` 기본 8(`config.py`)만 있고 배포 스크립트가 `--concurrency` 를 넘기지 않는다 |
+| 마이그레이션 적용·JSON 로그 | 일부 | `apply_migrations` 와 `logging_setup.py`(`K_SERVICE` 가 있으면 JSON)는 있고 테스트가 있으나 Cloud Run 에서 검증하지 않았다 |
+| `MODEL_REQUESTS_ENABLED=false` 로 호출 0회 확인 | 미충족 | 차단 게이트(`model_client.py`)는 있으나 호출마다 남기는 로그 이벤트와 Trend 용 로그 지표가 없다 |
+| 문서 갱신 | 미충족 | [AI 호출 제어](../운영/AI-호출-제어.md) 의 실제 명령은 배포 뒤 채우기로 남아 있고, [배포 복구](../운영/배포-복구.md) 는 builder-cup 과 알림 중계기만 다룬다 |
+
+남은 일(구현 순서 1~9 와 같은 순서, 아래는 실측으로 보탠 구체 항목):
+
+1. Cloud SQL Terraform(인스턴스·DB, 명시한 에디션·사양, 백업·PITR, `deletion_protection`), `sqladmin.googleapis.com` 활성화, 서비스 계정 `roles/cloudsql.client`. 지금 인스턴스는 콘솔에서 만든 것이라 Terraform 과 어긋난다([Plan 13](13-cloud-sql-trial-to-paid-transition.md)).
+2. Trend 서비스 계정(웹·API·유지보수)과 secret 메타데이터(`trend-database-url`·`trend-frontend-api-token`·`trend-session-secret`·`trend-accounts`), 서비스 계정별 `secretAccessor`. secret 값은 Terraform 상태에 넣지 않고 부트스트랩이 만든다.
+3. 웹 서버 전용 헬퍼 하나로 메타데이터 서버에서 Cloud Run ID 토큰을 받아(audience = `TREND_API_URL`, 약 55분 캐시, Cloud Run 밖에서는 아무것도 안 함) fetch 14곳에 붙인다.
+4. `scripts/deploy-trend.sh`: 후보 revision `--no-traffic --tag=candidate`, API `--no-allow-unauthenticated`·`--concurrency` 와 `DB_POOL_SIZE` 를 한 변수로·`--max-instances 2`·`--add-cloudsql-instances`. `release-gcp.yml` 에 application job 추가, `release_recovery.py` 를 Trend 서비스용으로 일반화.
+5. PC 독립 유지보수 작업(`apps/trend-api/scripts/maintenance.py`): `prune_user_text` 실행, 마지막 성공 갱신의 나이 확인, 사용자 원문 없는 JSON 로그 한 줄. 임계값은 12시간 이상(`health_check` 의 8시간과 다르게).
+6. 호출마다 `gemini_call` 구조화 로그(모델·장부·결과, 내용 없음)와 로그 기반 지표.
+7. 감시를 Trend 서비스로 옮긴다: 가동 확인은 Trend 웹 URL(웹에는 `/api/health` 경로가 없다 — `app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐), 오류 지표는 Cloud Run 요청 로그(`httpRequest.status>=500`)로.
+8. 다중 인스턴스 대비: `apply_migrations` 에 `pg_advisory_xact_lock`, 마이그레이션은 expand-only, 풀에 `check=ConnectionPool.check_connection`.
+9. **사용자/팀 결정 대기:** Cloud SQL 사양·에디션·버전·네트워크(공개 IP + Auth Proxy 만, 또는 비공개 IP + VPC), 월 비용 수용과 지출 상한(기존 상한은 Vertex AI·Gemini API 만 덮는다).
+10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.

@@ -1,6 +1,6 @@
 # Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **실행 준비** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
+작성일 **2026-09-23** · 상태 **대기(10-15~17 실행) — 코드로 할 수 있는 준비(WIF 의 environment 조건·환경 변수 범위·이력 재검사·개인정보 검토)는 아직 안 함. 저장소 공개 전환·GitHub 보호 설정·외부/collaborator 계정 검증은 사용자 결정·실행 대기** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
 [현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
 
@@ -16,7 +16,7 @@
 
 ## 현재 상태
 
-2026-09-23 기준 상태입니다.
+2026-09-23 기준 상태입니다(09-29 실측으로 확인한 것은 아래 '현재 상태와 남은 일').
 
 - 저장소는 private이며 GitHub Free를 사용합니다.
 - private 저장소에서는 현재 요금제의 branch protection API를 사용할 수 없습니다.
@@ -107,3 +107,25 @@ Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어
 4. 검증된 GitHub 저장소 URL과 배포 URL을 제출합니다.
 
 공개 이력 검사는 public 전환 전에 수행합니다. 현재 요금제에서 활성화할 수 없는 Environment 보호 규칙은 저장소를 public으로 바꾼 직후 적용하고, 승인 대기 동작을 검증할 때까지 새 운영 배포를 완료하지 않습니다.
+
+## 현재 상태와 남은 일 (2026-09-29 실측)
+
+완료 기준 5개 중 충족한 것은 없다. 셋은 실제 계정과 공개 전환이 있어야 확인할 수 있다.
+
+| 완료 기준 | 상태 | 근거 |
+| --- | --- | --- |
+| 외부 사용자는 fork·PR 만 가능 | 사용자 실행 대기 | 저장소는 아직 private(익명 조회 404). 공개 전환과 외부 계정 확인이 필요하다 |
+| collaborator 직접 push 유지 | 사용자 실행 대기 | 지금은 직접 push 가 되고(develop 작성자 4명) 브랜치 보호는 설정하지 않았다. 공개 뒤 collaborator 계정으로 다시 확인한다 |
+| `release/gcp` 배포에 Environment 승인 | 미충족 | `gcp` environment 에 검토자가 없고 `bootstrap-gcp.sh` 가 빈 `PUT` 으로 만든다. WIF 신뢰 조건(`infra/gcp/main.tf`)은 repository ID·owner ID·`release/gcp` ref·push 이벤트만 보고 `environment` 를 보지 않는다 |
+| fork PR 에 secret·OIDC 미노출 | 일부 | 구조상 안전하다: `pull_request`·`pull_request_target` 트리거가 없고(`ci.yml` 은 workflow_call·dispatch, `release-gcp.yml` 은 `release/gcp` push) 최상위 권한이 `contents: read` 다. 공개 뒤 실험으로 확인하지 않았다 |
+| 외부·collaborator 계정으로 거부·승인 검증 | 사용자 실행 대기 | 실제 계정·공개 전환·승인 대기 실행이 필요하다. 지금 배포 job 은 알림 중계기뿐이라 `ops: 알림 중계기 재배포` 로 시험할 수 있다 |
+
+남은 일:
+
+1. WIF 조건에 `&& assertion.environment == 'gcp'` 를 더한다(알림 중계기 job 은 이미 `environment: gcp` 를 선언한다). `infra-check` 로 검증하고 plan/apply 는 사용자 확인 뒤 한다.
+2. 부트스트랩이 `GCP_WORKLOAD_IDENTITY_PROVIDER`·`GCP_DEPLOY_SERVICE_ACCOUNT` 를 저장소 변수가 아니라 `gcp` environment 변수(`--env gcp`)로 두게 하고, environment 는 없을 때만 만들게 한다(빈 `PUT` 이 보호 규칙을 되돌릴 수 있다).
+3. 공개 직전 전체 이력 비밀 재검사(예: `gitleaks --log-opts=--all --redact=100`, 건수만 기록). 09-26 검사 이후 develop 에 134개 커밋이 더 쌓였다(09-29 기준).
+4. 공개 전 개인정보 검토: 문서 세 곳에 개인 이메일 주소가 있고(`docs/트렌드/인수인계-2026-09-15.md`, `docs/트렌드/조사/05-카테고리-트렌드-소스.md`, `docs/트렌드/키-계정-정리.md`), `docs/운영/GCP-운영.md` 의 콘솔 주소에 결제 계정 ID 가 들어 있다. 파일에서 지우는 것과 이력에서 지우는 것(이력 재작성)은 별개이므로 **사용자 결정 대기**다. 값은 이 문서에 적지 않는다.
+5. 제출 당일 절차의 `/api/health` 는 Trend 웹에 없다(`apps/trend-web/app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐). 웹 주소 확인과 배포 검사로 대신하거나 health 경로를 더한다.
+6. **사용자 실행:** 공개 전환 직후 GitHub 설정 — 필수 검토자, 자기 승인 방지, 배포 브랜치 `release/gcp`, 관리자 우회 끄기, 저장소 기본 `GITHUB_TOKEN` 읽기 전용(이미 read), fork PR 워크플로 승인. 그리고 WIF plan/apply.
+7. **사용자 실행:** 검증 — 외부·collaborator 계정, 승인을 기다리는 배포(중계기 재배포 또는 [Plan 05](05-trend-cloud-run-deployment.md) 의 Trend 앱 job), environment 없는 job 이 WIF 토큰 교환에서 거부되는 것.
