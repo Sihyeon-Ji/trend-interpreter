@@ -45,7 +45,7 @@ LABEL = {"keep": "일치", "fix": "고칠 것", "conflict": "위키끼리 다름
          NO_TEXT: "판정 안 함(문서 제목뿐)", UNREACHABLE: "닿지 못함", ERROR: "판정 실패"}
 WIKI_NAME = {"namu.wiki": "나무위키", "wikipedia.org": "위키백과", "knowyourmeme.com": "Know Your Meme", "dic.pixiv.net": "pixiv 백과사전",
              "zh.moegirl.org.cn": "萌娘百科", "dic.nicovideo.jp": "니코니코 대백과", "pttpedia.fandom.com": "PTT鄉民百科",
-             "evchk.fandom.com": "香港網絡大典", "librewiki.net": "리브레 위키"}
+             "evchk.fandom.com": "香港網絡大典", "librewiki.net": "리브레 위키", "maily.so": "Trend A Word"}
 HANGUL = re.compile(r"[가-힣]")
 
 

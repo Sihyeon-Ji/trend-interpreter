@@ -61,13 +61,31 @@ def entries_for(source: str, src: str) -> tuple[dict[str, list[str]], dict[str, 
 
 def main() -> None:
     a = argparse.ArgumentParser()
-    a.add_argument("--source", default="namu", choices=["namu", *fandom.SITES, "wikidata"])
+    a.add_argument("--source", default="namu", choices=["namu", *fandom.SITES, "wikidata", "trendaword"])
     a.add_argument("--src", default="data/work/catalog/namu.json")
     a.add_argument("--limit", type=int, default=0)
     a.add_argument("--dry", action="store_true")
     args = a.parse_args()
-    entries, items = entries_for(args.source, args.src)
     con = db.connect()
+    if args.source == "trendaword":                 # 지난 호 전부 — 게시글마다 단어·날짜를 읽는다(3초 간격)
+        from trend_agents.collectors import trendaword
+        n = 0
+        for url in trendaword.archive():
+            if args.limit and n >= args.limit:
+                break
+            while busy():
+                time.sleep(300)
+            p = trendaword.post(url)
+            t = catalog.add_trendaword(con, p) if p else None
+            if t:
+                n += 1
+                try:
+                    v, _ = research_one(con, t, lean=True)
+                except Exception as e:
+                    v = f"error {type(e).__name__}"
+                print(f"[{datetime.now():%H:%M}] trendaword {n} #{p.get('issue')} {t.canonical} → {v}", flush=True)
+        return
+    entries, items = entries_for(args.source, args.src)
     n = linked = 0
     counts: dict[str, int] = {}
     for title, m in catalog.order(entries):

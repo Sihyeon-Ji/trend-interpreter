@@ -670,5 +670,5 @@ def backfill_media(con: Connection, limit: int = MEDIA_PER_RUN, searches: int = 
             pass
         searches -= 1
         con.execute("INSERT OR REPLACE INTO media_tried VALUES (?, ?)", (t.term_id, datetime.now(timezone.utc).isoformat()))
-    con.commit()
+        con.commit()                 # 한 개마다 — 끝에서 한 번만 하면 도는 내내 쓰기 잠금을 쥐어 다른 단계가 'database is locked' 로 죽었다(09-30)
     return added

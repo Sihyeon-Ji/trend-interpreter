@@ -25,6 +25,7 @@ def main() -> None:
     a = argparse.ArgumentParser()
     a.add_argument("--names", default="")
     a.add_argument("--all", action="store_true")
+    a.add_argument("--since", default="2026-09-30T04:40", help="이 시각(UTC) 뒤에 새 판이 생긴 것은 이미 다시 쓴 것 — 건너뛴다")
     args = a.parse_args()
     con = db.connect()
     rows = con.execute("SELECT term_id, source, title FROM wiki_catalog").fetchall()
@@ -32,6 +33,9 @@ def main() -> None:
     for tid, source, title in rows:
         t = ds.get_term(con, tid)
         if not t or (want and t.canonical not in want and title not in want) or (not want and not (args.all and t.status == "verified")):
+            continue
+        cur = ds.current_meaning(con, tid)
+        if not want and cur and cur.valid_from.isoformat() >= args.since:
             continue
         while busy() and not want:
             time.sleep(300)

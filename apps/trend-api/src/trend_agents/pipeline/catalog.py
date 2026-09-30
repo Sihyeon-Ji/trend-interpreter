@@ -177,3 +177,31 @@ def prepare(con: Connection, t: Term, title: str) -> bool:
     if sents:
         research.WIKI_CONTEXT[t.canonical] = sents
     return bool(ev or sents)
+
+
+def prepare_trendaword(con: Connection, t: Term, p: dict) -> bool:
+    """Trend A Word 게시글: 그 단어가 든 한 문장·링크를 근거로, 뜻·용례 문장은 메모리에서만 조사 모델에게 보인다."""
+    from ..collectors import trendaword
+    from . import research
+
+    ds.add_evidences(con, t.term_id, [trendaword.evidence(p)])
+    lines = p["sentences"] + [f"용례: {u}" for u in p.get("usage", [])]
+    if lines:
+        research.WIKI_CONTEXT[t.canonical] = lines[:8]
+    return bool(lines)
+
+
+def add_trendaword(con: Connection, p: dict) -> Term | None:
+    """게시글 하나 → 표제어(한국, 호 날짜의 해). 이미 있는 말이면 근거만 더한다."""
+    from ..collectors import trendaword
+
+    year = (p.get("date") or "")[:4]
+    cats = ["region:KR", "유행어"] + ([f"year:{year}"] if year.isdigit() else [])
+    t = add(con, p["word"], cats, source="trendaword")
+    if t is None:
+        have = ds.find_term(con, title_to_term(p["word"]) or p["word"])
+        if have:
+            ds.add_evidences(con, have.term_id, [trendaword.evidence(p)])
+        return None
+    prepare_trendaword(con, t, p)
+    return t

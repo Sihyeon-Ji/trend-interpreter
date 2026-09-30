@@ -27,7 +27,9 @@ FIRST_PARTY = {"short", "news", "datalab", "wiki"}
 # 참고 문서가 있는 곳(하위 도메인 포함 — ko.wikipedia.org 등). 니코니코 대백과는 이 서버를 막고, pixiv 백과사전은 대부분 봇 확인 뒤에 있다.
 # 2026-09-30 더함: 니코니코 대백과(위키데이터 ID 로만 안다 — 이 서버 요청을 막는다), PTT鄉民百科(대만)·香港網絡大典(홍콩, Fandom API), 리브레 위키(한국)
 REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixiv.net", "zh.moegirl.org.cn",
-                     "dic.nicovideo.jp", "pttpedia.fandom.com", "evchk.fandom.com", "librewiki.net")
+                     "dic.nicovideo.jp", "pttpedia.fandom.com", "evchk.fandom.com", "librewiki.net", "maily.so")
+# 도메인 전체가 아니라 이 경로만 참고 문서인 곳 — maily.so 는 뉴스레터 호스팅이라 Trend A Word(신조어를 하루 하나씩 정리) 만(2026-09-30 사용자 요청)
+REFERENCE_PATHS = {"maily.so": "/trendaword/posts/"}
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
 
 
@@ -54,7 +56,10 @@ def reference_doc(e: Evidence) -> bool:
         return False
     u = urlsplit(e.url or "")
     host = (u.hostname or "").lower()
-    return u.path not in ("", "/") and any(host == d or host.endswith("." + d) for d in REFERENCE_DOMAINS)
+    domain = next((d for d in REFERENCE_DOMAINS if host == d or host.endswith("." + d)), None)
+    if not domain or u.path in ("", "/"):
+        return False
+    return u.path.startswith(REFERENCE_PATHS[domain]) if domain in REFERENCE_PATHS else True
 
 
 def _norm(s: str) -> str:

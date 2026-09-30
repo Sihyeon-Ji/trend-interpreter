@@ -1407,3 +1407,12 @@ def test_risk_catches_sensitive_topics_without_usage_sentences():
     catalog.record(con, "c", "Some slogan", "namu", ["인터넷 밈/정치 및 사회"])
     level, reasons = risk.judge(con, t)
     assert level == "caution" and "정치 및 사회" in reasons[0]
+
+
+def test_trendaword_posts_count_as_reference_documents_only_on_that_path():
+    """Trend A Word(maily.so/trendaword) 게시글은 참고 문서다(2026-09-30 사용자 요청). maily.so 의 다른 뉴스레터는 아니다."""
+    from trend_agents.verification import reference_doc
+
+    assert reference_doc(ev("web", "maily.so", "Trend A Word #629: 볼무떨천", "볼무떨천 뜻", url="https://maily.so/trendaword/posts/knrjkv10zld"))
+    assert not reference_doc(ev("web", "maily.so", "다른 레터", "볼무떨천", url="https://maily.so/other/posts/abc"))
+    assert not reference_doc(ev("web", "maily.so", "Trend A Word", "볼무떨천", url="https://maily.so/trendaword"))
