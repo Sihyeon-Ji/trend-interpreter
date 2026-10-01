@@ -1,8 +1,10 @@
 # Plan 06. Kaggle Gemma 4 편집·미세조정 실험과 운영 데이터 게시
 
+> **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
+
 작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **실험 위치를 Colab에서 Kaggle로 변경, Kaggle 합성 표본 실행 확인(10-01)·실표본은 대기 · 운영 게시 경계·PC 독립 정리/감시·클라우드 전용 /ask·Gemma 평가는 미구현(Plan 05 Cloud SQL 대기) · 그동안 Gemma 편집은 원작자 PC 파이프라인이 하루 4회 대신 돌린다(아래 '현재 상태') · 12B QLoRA는 학습 서버에서 실행했다([Plan 16](16-wiki-meme-catalog-and-tendency.md))** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
 
-> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영에 Gemma 서비스를 둘지는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이며 아직 정하지 않았다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
+> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
 [계획 목록](README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
 
@@ -233,4 +235,3 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 남은 일: 표본 36건(`-judge.csv`)에 사람이 '근거에 없는 주장'·'국가별 차이 오류'를 채운다. 커뮤니티 글에만 앵커된 현지 밈은 `topics`가 옛 해석을 다시 쓰지 않아
 지도에 그대로 나가므로(확신 0.5 이상 e4b 85건), 옛 해석을 다시 만들지 읽을 때 걸러 낼지 정해야 한다.
-
