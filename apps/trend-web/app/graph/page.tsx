@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { regionName } from "@/components/graph-memes";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { StatePanel } from "@/components/state-panel";
@@ -7,7 +8,7 @@ import { t } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { getLocale } from "@/lib/locale";
 
-/* 콘텐츠 목록 — 콘텐츠를 고르면 나라별 이름과 그 나라에서 엮인 밈·현상이 나온다. */
+/* 콘텐츠 목록 — 콘텐츠를 고르면 그 작품에서 나라마다 나온 밈이 나온다. */
 export default async function GraphIndexPage() {
   const [locale, list] = await Promise.all([getLocale(), getGraphContents()]);
   return (
@@ -27,7 +28,7 @@ export default async function GraphIndexPage() {
                   <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                     <Link href={`/graph/${encodeURIComponent(c.key)}`} lang={langTag(c.labels[locale] ? locale : "en")} className="text-[16px] font-medium text-ink hover:underline">{c.labels[locale] ?? c.name}</Link>
                     <p className="text-[13px] tabular-nums text-steel">
-                      {t(locale, "graph_countries").replace("{n}", String(Object.keys(c.labels).length))} · {t(locale, "graph_items").replace("{n}", String(c.items))} · {t(locale, "graph_in_dict").replace("{n}", String(c.in_dictionary))}
+                      {t(locale, "graph_memes").replace("{n}", String(c.memes))} · {c.regions.map((r) => regionName(locale, r)).join(" · ")}
                     </p>
                   </div>
                   <p className="mt-1 text-[13px] text-charcoal">

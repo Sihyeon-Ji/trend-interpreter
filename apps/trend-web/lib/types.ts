@@ -217,15 +217,16 @@ export interface GenerationResult {
 }
 
 
-/* 콘텐츠 → 나라별 파생 항목 (백엔드 GET /graph/contents, /graph/content/{key}) */
-export interface GraphContentSummary { key: string; name: string; qid: string | null; labels: Record<string, string>; items: number; in_dictionary: number; preview?: boolean }
-export interface GraphItem {
-  title: string; term_id: string | null; status: "verified" | "needs_review" | null;
-  definition: string | null; kind: string; url: string; evidence: string;
+/* 콘텐츠 → 나라마다 파생된 밈 (백엔드 GET /graph/contents, /graph/content/{key} — pipeline/content_agent.py 의 contents·view).
+   밈 하나(GraphMeme)는 같은 장면·대사의 나라별 이름(variants)을 묶은 것. region 'GLOBAL' 은 영어권. */
+export interface GraphContentSummary { key: string; name: string; labels: Record<string, string>; memes: number; regions: string[]; updated_at: string | null; preview?: boolean }
+export interface GraphVariant {
+  name: string; region: string; description: string; quote: string;
+  evidence_url: string; sentence: string; term_id: string | null;
 }
-export interface GraphCountry { region: string; lang: string; label: string; sources: string[]; items: GraphItem[] }
+export interface GraphMeme { variants: GraphVariant[]; same_scene: string }
 export interface GraphContent {
-  content: { key: string; name: string; qid: string | null; labels: Record<string, string> };
-  countries: GraphCountry[]; updated_at: string | null;
+  content: { key: string; name: string; labels: Record<string, string> };
+  regions: string[]; memes: GraphMeme[]; updated_at: string | null;
   preview?: boolean;   // 그래프 API 가 아직 없는 서버에서 시험판 예시를 보일 때
 }
