@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { BASE, copy, entryHref, riskTone, riskWord, type RiskKind } from "@/lib/lab/o-editorial";
-import type { IndexEntry } from "@/lib/lab/o-editorial-data";
+import type { IndexEntry } from "@/lib/lab/o-editorial/data";
 
 const norm = (s: string) => s.toLowerCase().normalize("NFKC").replace(/[\s·・\-_'’"“”.,!?~]+/g, "");
 

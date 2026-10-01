@@ -7,7 +7,7 @@ import {
   riskKind, riskNotes, riskTone, riskWhy, riskWord, stageSentence, stageTapes, xOf,
   type AgeTrend, type CoverPick, type EditionKey, type SearchSummary,
 } from "@/lib/lab/o-editorial";
-import { ledeFor } from "@/lib/lab/o-editorial-server";
+import { ledeFor } from "@/lib/lab/o-editorial/server";
 import type { KeywordCard, TermRecord } from "@/lib/types";
 import { ScrapButton } from "./client";
 import { FitName, Tape } from "./type";

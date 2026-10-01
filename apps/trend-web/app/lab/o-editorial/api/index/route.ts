@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { dictionaryIndex } from "@/lib/lab/o-editorial-data";
+import { dictionaryIndex } from "@/lib/lab/o-editorial/data";
 import { getLocale } from "@/lib/locale";
 
 /* 머리 찾기 칸의 바로 보기용 색인 — 읽기 전용. 확인된 밈의 이름·다른 표기·뜻 한 줄·쓸 때 조심·단계만 넘긴다(근거는 싣지 않는다).

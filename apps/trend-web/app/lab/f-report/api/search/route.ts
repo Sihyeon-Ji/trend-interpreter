@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { loadSearchIndex } from "@/lib/lab/f-report-search";
+import { loadSearchIndex } from "@/lib/lab/f-report/search";
 
 /** 찾기 칸의 색인(읽기 전용). 브라우저는 백엔드에 직접 가지 않는다 — 서버가 사전을 받아 이름·다른 표기·뜻 한 줄만 돌려준다. */
 export async function GET(req: NextRequest) {

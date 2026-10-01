@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { ageChange, fmtPct, type AgeChange } from "@/lib/lab/f-editorial";
 import { L, fmtDate } from "@/lib/labels";
 import type { GenerationCurve } from "@/lib/trends/types";

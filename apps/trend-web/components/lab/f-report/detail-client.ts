@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { TermDetail } from "@/lib/lab/f-report-detail";
+import type { TermDetail } from "@/lib/lab/f-report/detail";
 
 /* 미리보기·지켜보기가 나중에 받는 항목 요약 — 같은 사이트의 읽기 전용 라우트에서. 약속을 id 마다 한 번만 만들어 use() 로 읽는다. */
 const promises = new Map<string, Promise<TermDetail | null>>();

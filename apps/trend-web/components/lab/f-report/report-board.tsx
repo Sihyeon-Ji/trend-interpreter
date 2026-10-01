@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Suspense, use, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
-import { c, categoryLabel, diffusionLabel, kindLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report-copy";
+import { c, categoryLabel, diffusionLabel, kindLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report/copy";
 import { fitClass, fmtDay, type RiskNote, type Row, type SourceRef } from "@/lib/lab/f-report";
 import type { KeywordList } from "@/lib/types";
 import { GenCurves, Sparkline, growthText } from "./charts";

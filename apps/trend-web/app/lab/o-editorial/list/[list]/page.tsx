@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { IndexItem, LedgerItem, Poster, RubricHead } from "@/components/lab/o-editorial/rubrics";
 import { copy, editionHref, editionName, listHref, parseEdition } from "@/lib/lab/o-editorial";
-import { getListPage, getSearches } from "@/lib/lab/o-editorial-data";
+import { getListPage, getSearches } from "@/lib/lab/o-editorial/data";
 import { getLocale } from "@/lib/locale";
 import type { KeywordList } from "@/lib/types";
 

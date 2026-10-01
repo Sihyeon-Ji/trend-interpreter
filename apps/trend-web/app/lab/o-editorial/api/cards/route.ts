@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getCardsByIds } from "@/lib/lab/o-editorial-data";
+import { getCardsByIds } from "@/lib/lab/o-editorial/data";
 
 /* 스크랩한 밈의 지금 상태 — 읽기 전용. 브라우저는 백엔드를 직접 부르지 않고 같은 사이트의 이 경로를 거친다.
    화면에 필요한 칸만 넘긴다: 근거(커뮤니티 글 제목이 들어 있다)는 브라우저로 보내지 않는다. */

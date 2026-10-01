@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { fmtDay, type Change, type ListKey, type Preview, type RiskKey, type Row, type SortKey, type Weeks } from "@/lib/lab/o-report";
 import type { Lifecycle } from "@/lib/contract/types";
-import { riskWord, spreadWord, stageWord, tr, type CopyKey } from "@/lib/lab/o-report-copy";
+import { riskWord, spreadWord, stageWord, tr, type CopyKey } from "@/lib/lab/o-report/copy";
 import { scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
 import { Growth, RankChange, RiskMark, RiskNotes, Tag } from "./bits";

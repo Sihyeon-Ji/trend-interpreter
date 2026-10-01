@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { TARGET_REGIONS } from "@/lib/reader";
 
 export function NavLinks({ locale, className }: { locale: Locale; className: string }) {

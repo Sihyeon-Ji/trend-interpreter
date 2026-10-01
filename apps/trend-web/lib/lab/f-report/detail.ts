@@ -2,7 +2,7 @@
    커뮤니티 근거는 여기서 걸러져 브라우저에 아예 가지 않는다. */
 import type { Locale } from "@/lib/i18n";
 import type { TermRecord } from "@/lib/types";
-import { riskNotes, type RiskNote, type SourceRef, thumbUrl, visibleEvidence, youtubeId } from "./f-report";
+import { riskNotes, type RiskNote, type SourceRef, thumbUrl, visibleEvidence, youtubeId } from "./index";
 
 export interface MeaningLite { definition: string; expansion: string | null; origin: string | null; nuance: string | null; plain: string | null }
 export interface TermDetail {

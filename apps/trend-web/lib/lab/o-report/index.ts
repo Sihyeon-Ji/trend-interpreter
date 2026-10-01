@@ -1,6 +1,6 @@
 /* 디자인 초안 1 '트렌드 리포트형'(/lab/o-report)의 뷰 모델과 계산. 서버·브라우저 어디서나 쓰는 순수 함수만 둔다.
    숫자는 모두 네이버 데이터랩 연령대별 검색 곡선에서 나온다(한국 검색만). 곡선이 없거나 모자라면 null — 화면은 0 이나 가짜 선을 그리지 않고 말로 알린다.
-   증감 규칙은 이 파일의 growthOf 하나다. 다른 화면·백엔드가 같은 숫자를 내려면 이 규칙을 옮겨 가면 된다(docs/트렌드/시안-o-report.md). */
+   증감 규칙은 이 파일의 growthOf 하나다. 다른 화면·백엔드가 같은 숫자를 내려면 이 규칙을 옮겨 가면 된다(docs/디자인-시안/o-report.md). */
 import type { Locale } from "@/lib/i18n";
 import type { Diffusion, Lifecycle } from "@/lib/contract/types";
 import type { GenerationCurve } from "@/lib/trends/types";

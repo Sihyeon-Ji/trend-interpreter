@@ -1,6 +1,6 @@
 import type { Locale } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
-import { fe, words } from "@/lib/lab/f-editorial-copy";
+import { fe, words } from "@/lib/lab/f-editorial/copy";
 import { plainReason, type Reason } from "@/lib/lab/f-editorial";
 import type { Diffusion, Lifecycle, RiskLevel } from "@/lib/contract/types";
 

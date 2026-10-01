@@ -3,8 +3,8 @@
    검색이 드물어 셈에서 뺀 연령대는 작은 그림에 그 이유(검색이 있던 날 수)를 적는다 — 숫자가 어디서 왔는지 숨기지 않는다. */
 import type { Locale } from "@/lib/i18n";
 import { fmtDay, fmtGrowth } from "@/lib/lab/o-report";
-import { tr } from "@/lib/lab/o-report-copy";
-import type { EntryTrend } from "@/lib/lab/o-report-data";
+import { tr } from "@/lib/lab/o-report/copy";
+import type { EntryTrend } from "@/lib/lab/o-report/data";
 import { Growth } from "./bits";
 import { Sparkline } from "./charts";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Locale } from "@/lib/i18n";
-import { c } from "@/lib/lab/f-report-copy";
+import { c } from "@/lib/lab/f-report/copy";
 import { useWatchlist, type WatchItem } from "./watch";
 
 export function WatchButton({ item, locale, small }: { item: Omit<WatchItem, "at">; locale: Locale; small?: boolean }) {

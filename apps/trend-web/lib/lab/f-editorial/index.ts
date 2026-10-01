@@ -9,7 +9,7 @@ import { TARGET_REGIONS } from "@/lib/reader";
 import { cleanSource } from "@/lib/sources";
 import type { GenerationCurve } from "@/lib/trends/types";
 import type { Evidence, KeywordBoard, KeywordCard, Lifecycle } from "@/lib/types";
-import { fe } from "./f-editorial-copy";
+import { fe } from "./copy";
 
 export const BASE = "/lab/f-editorial";
 /** 판 — 목표 지역 열 곳, 세계판, 전체판 */

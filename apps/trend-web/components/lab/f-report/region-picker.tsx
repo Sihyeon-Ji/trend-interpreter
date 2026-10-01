@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { Locale } from "@/lib/i18n";
-import { c, REGIONS, regionName, regionsParam } from "@/lib/lab/f-report-copy";
+import { c, REGIONS, regionName, regionsParam } from "@/lib/lab/f-report/copy";
 
 /** 시장 여러 곳 고르기 — 주소(?regions=KR,JP)가 곧 상태. 한국이 기본값이라 주소에서 비우고, 아무것도 안 고르면 'all'(모든 시장). 쪽은 1로. */
 export function RegionPicker({ locale, selected, counts }: { locale: Locale; selected: string[]; counts: Record<string, number> }) {

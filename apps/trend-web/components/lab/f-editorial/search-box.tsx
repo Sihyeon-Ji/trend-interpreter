@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import type { Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { BASE, entryHref } from "@/lib/lab/f-editorial";
 import { langTag } from "@/lib/lang";
 

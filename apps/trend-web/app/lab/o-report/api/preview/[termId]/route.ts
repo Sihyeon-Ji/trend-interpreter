@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { loadPreview } from "@/lib/lab/o-report-data";
+import { loadPreview } from "@/lib/lab/o-report/data";
 
 /* 미리보기 — 목록에서 밈을 누를 때 받는다(첫 화면이 밈마다 사전 항목을 받던 것, 09-29 검토). 읽기 전용.
    사전 항목(수십 KB, 커뮤니티 글 포함)을 화면에 필요한 칸만 추려 보낸다 — 커뮤니티 글은 브라우저에 가지 않는다. */

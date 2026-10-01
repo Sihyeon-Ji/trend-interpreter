@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { fmtPct, type SearchTrend } from "@/lib/lab/f-editorial";
 import { fmtDate } from "@/lib/labels";
 

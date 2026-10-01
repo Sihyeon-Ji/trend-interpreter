@@ -7,7 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { Lifecycle } from "@/lib/contract/types";
 import type { Locale } from "@/lib/i18n";
 import type { Change, RiskKey, Row } from "@/lib/lab/o-report";
-import type { WatchState } from "@/lib/lab/o-report-data";
+import type { WatchState } from "@/lib/lab/o-report/data";
 
 const WATCH_KEY = "lab-o-report:watch";
 const SEEN_KEY = "lab-o-report:seen";      // 마지막으로 리포트를 본 때

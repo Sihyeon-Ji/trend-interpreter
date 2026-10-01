@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import type { Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 
 const noop = () => () => {};
 const readLocale = (): Locale => (document.documentElement.lang === "en" ? "en" : "ko");

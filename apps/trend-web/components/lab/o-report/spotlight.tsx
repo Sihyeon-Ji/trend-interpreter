@@ -5,8 +5,8 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
 import { fmtDay, type Weeks } from "@/lib/lab/o-report";
-import { stageWord, tr } from "@/lib/lab/o-report-copy";
-import type { SpotItem } from "@/lib/lab/o-report-data";
+import { stageWord, tr } from "@/lib/lab/o-report/copy";
+import type { SpotItem } from "@/lib/lab/o-report/data";
 import { FitName, Growth, RiskMark } from "./bits";
 import { SilhouetteShape } from "./charts";
 

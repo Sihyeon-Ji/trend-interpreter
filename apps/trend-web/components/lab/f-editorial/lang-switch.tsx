@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { LOCALES, LOCALE_NAME, setLocaleCookie, type Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 
 /* 화면 언어 — 앱과 같은 쿠키를 쓴다(lib/i18n.setLocaleCookie). 모양만 시안의 것. */
 export function LangSwitch({ locale }: { locale: Locale }) {

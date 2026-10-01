@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { fmtDay, fmtTime, type Change } from "@/lib/lab/o-report";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { regionLabel } from "@/lib/labels";
 import { Tag } from "./bits";
 import { changed, diffOf, nowOf, useLastVisit, useOutsideStates, useWatchlist, type Current, type LastVisit } from "./store";

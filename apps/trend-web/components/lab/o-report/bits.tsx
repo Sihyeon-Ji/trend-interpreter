@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import type { Locale } from "@/lib/i18n";
 import { fitName, fmtPct, type Risk, type RiskNote } from "@/lib/lab/o-report";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 
 /** 주의·사용 자제는 테두리와 글자로. 판단 보류는 중립 톤(판단 못 한 것이 '문제 없음' 처럼 보이지 않게, 그러나 경고처럼도 보이지 않게) */
 export function RiskMark({ risk, locale, withNone = false }: { risk: Risk | "none"; locale: Locale; withNone?: boolean }) {

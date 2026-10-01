@@ -10,7 +10,7 @@ import type { KeywordBoard, KeywordCard, TermRecord } from "@/lib/types";
 import {
   EDITION_ORDER, editionMembers, editionRegions, glossOf, pickCover, riskKind, searchSummary, tidyGloss,
   type CoverPick, type EditionKey, type RiskKind, type SearchSummary, type SinceItem,
-} from "./o-editorial";
+} from "./index";
 
 const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const TARGETS: string[] = [...EDITION_ORDER];

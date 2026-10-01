@@ -17,7 +17,7 @@ import {
   align, dayIso, driverOf, genWindow, growthOf, hasHangul, indexOf, isStale, minDays, movingAverage, rankRows, readingOf, riskNotesOf, silhouette, weekly,
   type Aligned, type Change, type Driver, type Growth, type ListKey, type Media, type Preview, type RiskKey, type RiskNote, type Row, type Silhouette,
   type SortKey, type SourceRef, type Weeks,
-} from "./o-report";
+} from "./index";
 
 export const KNOWN_REGIONS = [...TARGET_REGIONS, "GLOBAL"];
 

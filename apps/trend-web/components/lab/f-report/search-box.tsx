@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
-import { c } from "@/lib/lab/f-report-copy";
-import { searchHits, type SearchHit } from "@/lib/lab/f-report-search";
+import { c } from "@/lib/lab/f-report/copy";
+import { searchHits, type SearchHit } from "@/lib/lab/f-report/search";
 
 /* 색인은 칸을 처음 쓸 때 한 번 받는다(확인된 밈의 이름·다른 표기·뜻 한 줄, 수십 KB). */
 let indexPromise: Promise<SearchHit[] | null> | null = null;

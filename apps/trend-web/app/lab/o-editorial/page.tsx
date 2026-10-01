@@ -6,7 +6,7 @@ import { MyScraps, SinceLastVisit } from "@/components/lab/o-editorial/return-ba
 import { IndexItem, LedgerItem, Poster, RankRow, Rubric, RubricHead, type SinceMark } from "@/components/lab/o-editorial/rubrics";
 import { getLocale } from "@/lib/locale";
 import { copy, editionHref, editionName, listHref, parseEdition, searchedMore, type EditionKey } from "@/lib/lab/o-editorial";
-import { getIssue } from "@/lib/lab/o-editorial-data";
+import { getIssue } from "@/lib/lab/o-editorial/data";
 import type { Locale } from "@/lib/i18n";
 
 /* 이번 주 호 — 판(시장 한 곳이나 여럿)을 고르면 그 시장의 커버 밈, 지난번 방문 이후 달라진 것, 꼭지 넷(지금 쓰이는·요즘 더 찾는·식어 가는·브랜드는 조심).

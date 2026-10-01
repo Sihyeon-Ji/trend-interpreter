@@ -6,9 +6,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { matchScore, normQuery } from "@/lib/lab/o-report";
-import type { IndexItem } from "@/lib/lab/o-report-data";
+import type { IndexItem } from "@/lib/lab/o-report/data";
 import { RiskMark } from "./bits";
 
 type State = { status: "idle" | "loading" | "ready" | "failed"; items: IndexItem[] };

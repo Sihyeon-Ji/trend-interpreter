@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./f-editorial.css";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { getLocale } from "@/lib/locale";
 
 /* 시안 F — 에디토리얼. 앱 틀은 /lab 아래에서 그려지지 않으므로 여기서 틀(제호는 판을 알아야 해서 화면이, 바닥글은 여기)을 그린다.

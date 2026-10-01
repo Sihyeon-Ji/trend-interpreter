@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
 import { langTag, scriptLang } from "@/lib/lang";
-import { c, regionName } from "@/lib/lab/f-report-copy";
+import { c, regionName } from "@/lib/lab/f-report/copy";
 import { fmtDay } from "@/lib/lab/f-report";
 import { useLastVisit } from "./visit";
 

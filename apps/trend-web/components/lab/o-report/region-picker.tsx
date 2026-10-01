@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "@/lib/i18n";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 
 export interface RegionOption { code: string; label: string; count: number }
 

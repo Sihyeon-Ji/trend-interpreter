@@ -5,7 +5,7 @@ import { Tape } from "@/components/lab/o-editorial/type";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { langTag } from "@/lib/lang";
 import { copy, entryHref, fmtDay, parseEdition, regionName, riskKind, riskTone, riskWord, stageTape } from "@/lib/lab/o-editorial";
-import { searchDictionary } from "@/lib/lab/o-editorial-data";
+import { searchDictionary } from "@/lib/lab/o-editorial/data";
 import { getLocale } from "@/lib/locale";
 
 /* 찾기 — '이 밈, 써도 되나' 를 올리기 직전에 확인하는 길. 확인을 거친 사전에서 이름·다른 표기·뜻으로 찾는다.

@@ -10,7 +10,7 @@ import { diffusionWord, lifecycleWord, riskClass, riskKeyOf, riskReasonText, ris
 import { StarButton, WatchDiff, type WatchState } from "@/components/lab/f-editorial/watchlist";
 import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic, getUpdatedAt } from "@/lib/data";
 import { currentMeaning, textFor } from "@/lib/explain";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { editionName, editionRegions, issueHref, originRefs, parseEdition, sourceItems } from "@/lib/lab/f-editorial";
 import { fmtDate, fmtDateTime } from "@/lib/labels";
 import { langTag } from "@/lib/lang";

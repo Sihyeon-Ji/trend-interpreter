@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { entryHref, type ChangeRow } from "@/lib/lab/f-editorial";
 import { fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
 import { langTag } from "@/lib/lang";

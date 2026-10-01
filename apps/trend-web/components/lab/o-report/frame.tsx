@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Locale } from "@/lib/i18n";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { LocaleToggle } from "./locale-toggle";
 import { NavLinks } from "./nav-links";
 import { SearchBox } from "./search-box";

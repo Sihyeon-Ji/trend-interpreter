@@ -14,7 +14,7 @@ import {
   ageName, copy, editionHref, editionName, editionRegions, entryHref, fmtDay, hottestAge, parseEdition, regionName, riskKind,
   riskNotes, riskTone, riskWhy, riskWord, searchSummary, stageSentence, stageTapes, youtubeId,
 } from "@/lib/lab/o-editorial";
-import { ledeFor, originSources, sourceList, type SourceItem } from "@/lib/lab/o-editorial-server";
+import { ledeFor, originSources, sourceList, type SourceItem } from "@/lib/lab/o-editorial/server";
 import { getLocale } from "@/lib/locale";
 
 /* 기사 — 한 밈의 특집. 제목(원문, lang) → 뜻 한 줄 → 단계·쓸 때 조심·확인한 날 → 본문(유래·쓰는 법·조심할 점·나라마다·누가 찾나·출처·기록).

@@ -7,7 +7,7 @@ import type { Locale } from "@/lib/i18n";
 import { scriptLang } from "@/lib/lang";
 import { cleanSource } from "@/lib/sources";
 import type { Evidence, MeaningText } from "@/lib/types";
-import { tidyGloss, visibleSource } from "./o-editorial";
+import { tidyGloss, visibleSource } from "./index";
 
 /** 뜻 첫 줄 — 줄임말 풀이가 동음이의 문서 제목처럼 망가진 것이면('Point of view (disambiguation) — …') 뜻만 쓴다. 새 글을 짓지 않는다. */
 export function ledeFor(tx: MeaningText, l: Locale): string {

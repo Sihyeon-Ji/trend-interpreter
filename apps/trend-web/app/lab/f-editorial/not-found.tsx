@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import { issueHref } from "@/lib/lab/f-editorial";
 import { getLocale } from "@/lib/locale";
 

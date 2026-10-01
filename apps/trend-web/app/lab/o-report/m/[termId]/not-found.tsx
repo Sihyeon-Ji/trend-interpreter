@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { getLocale } from "@/lib/locale";
 
 /* 사전에 없거나 빠진 밈 — 무엇을 하면 되는지 한 문장과 돌아갈 곳 */

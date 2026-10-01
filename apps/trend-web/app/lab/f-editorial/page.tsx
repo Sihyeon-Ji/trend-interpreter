@@ -9,7 +9,7 @@ import { riskKeyOf } from "@/components/lab/f-editorial/stickers";
 import { WatchSection, type WatchCardInfo } from "@/components/lab/f-editorial/watchlist";
 import { getGenerationCurves, getKeywordBoard, getMeta, getTermRecord, getUpdateFeed } from "@/lib/data";
 import { textFor } from "@/lib/explain";
-import { fe } from "@/lib/lab/f-editorial-copy";
+import { fe } from "@/lib/lab/f-editorial/copy";
 import {
   changeRows, editionName, editionRegions, glossOf, issueHref, issueRange, matchCard, originRefs, parseEdition, parsePage, parseQuery, pickCover,
   recommendHref, rubrics, searchTrend, searchedMore, sourceItems, uniqueCards, type Rubric as RubricData, type SearchTrend,

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { Locale } from "@/lib/i18n";
-import { c } from "@/lib/lab/f-report-copy";
+import { c } from "@/lib/lab/f-report/copy";
 
 const noop = () => () => {};
 const readLocale = (): Locale => (document.documentElement.lang === "en" ? "en" : "ko");

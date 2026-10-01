@@ -7,7 +7,7 @@ import { Spotlight, type SpotCurve } from "@/components/lab/f-report/spotlight";
 import { Watchlist } from "@/components/lab/f-report/watchlist";
 import { getGenerationCurves, getKeywordBoard, getUpdateFeed } from "@/lib/data";
 import { langTag } from "@/lib/lang";
-import { c, parseRegions, regionSentence, regionsParam } from "@/lib/lab/f-report-copy";
+import { c, parseRegions, regionSentence, regionsParam } from "@/lib/lab/f-report/copy";
 import { combineCurves, filterRows, newlyVerified, pickSpotlight, toRow, type Row, type Trend } from "@/lib/lab/f-report";
 import { fmtDateTime } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";

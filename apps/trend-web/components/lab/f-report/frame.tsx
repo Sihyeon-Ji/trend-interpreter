@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { LocaleSwitch } from "@/components/locale-switch";
 import type { Locale } from "@/lib/i18n";
-import { c } from "@/lib/lab/f-report-copy";
+import { c } from "@/lib/lab/f-report/copy";
 import { NavLink } from "./nav-link";
 import { SearchBox } from "./search-box";
 

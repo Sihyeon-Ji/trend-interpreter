@@ -2,7 +2,7 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
 import { fmtTime, type Weeks } from "@/lib/lab/o-report";
-import { tr } from "@/lib/lab/o-report-copy";
+import { tr } from "@/lib/lab/o-report/copy";
 import { RegionPicker, type RegionOption } from "./region-picker";
 import { TabJump } from "./tab-jump";
 
