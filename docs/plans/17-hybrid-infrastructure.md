@@ -8,7 +8,7 @@
 
 **팀원은 같은 버전의 데이터로 Kaggle에서 Gemma를 학습하고, 이용자는 GCP에 배포된 웹에서 Gemini·Gemma 서비스를 사용한다.** 개발자 PC가 꺼져도 게시된 사전과 사용자 기능은 계속 동작한다.
 
-2026-10-01 사용자가 하이브리드 아키텍처를 채택했다. 이어 관리 지점을 줄이기 위해 웹도 GCP에 두기로 방향을 조정했다. 제안서의 학습·데이터·모델 분리는 적용하고, 웹·API는 Cloud Run으로 통합한다. 전체 수집 파이프라인은 현재 수집 서버에서 계속 실행하며, 최신 자료는 GCS로 인수한다. Colab은 사용하지 않는다.
+2026-10-01 사용자가 하이브리드 아키텍처를 채택했다. 이어 관리 지점을 줄이기 위해 웹도 GCP에 두기로 방향을 조정했다. 제안서의 학습·데이터·모델 분리는 적용하고, 웹·API는 Cloud Run으로 통합한다. 전체 수집 파이프라인은 현재 수집 서버에서 실행 중이며 최신 자료는 GCS로 인수한다. 현재 백업이 SQLite라는 이유로 수집 DB의 장기 유지 방침을 정하지 않는다. Plan 01의 PostgreSQL 전환 작업을 유지하고, 수집용 원자료/초안 DB의 위치·권한·백업 형식과 서비스 승인 DB의 경계를 실행 전에 확정한다. Colab은 사용하지 않는다.
 
 | 책임 | 배치 위치 | 담당하는 일 |
 | --- | --- | --- |
@@ -255,7 +255,7 @@ Gemma 특화 추론은 내부 gateway의 실제 readiness를 확인하고 deadli
 
 | 경계 | 정리한 계획 | 아직 구현·검증할 것 |
 | --- | --- | --- |
-| 데이터 인수 | 수집 서버 SQLite 유지, GCS 고정 스냅숏으로 staging 이관 | manifest 마지막 게시·generation/해시 검증·최신 DB 대조, 이관 `--skip-user-data`의 `lookups` 제외 보완 |
+| 데이터 인수 | 현재 GCS SQLite 백업을 staging 이관, 수집 DB의 PostgreSQL 전환 작업 유지 | manifest 마지막 게시·generation/해시 검증·최신 DB 대조, 이관 `--skip-user-data`의 `lookups` 제외 보완 |
 | 학습·버전 관리 | Kaggle을 팀 재현 경로로, DVC/GCS를 버전 원본으로 사용 | DVC lockfile/remote, Dataset 전달·Output 등록, 학습 체크포인트·재개 |
 | 모델 서빙 | Cloud Run GPU와 유휴 비용 0 가정 대신 GCE GPU·인증 gateway | runtime adapter, readiness·전체 동시성·deadline, 작업별 모델 품질, 가동 종료 |
 | 승인 게시·신선도 | 승인 배치 Job, 초안 공개 금지, 활성 publication 기준 | 게시 migration·트랜잭션·버전 충돌 보호, 공개 조회 게이트, `/meta`·유지보수 소비자 전환 |

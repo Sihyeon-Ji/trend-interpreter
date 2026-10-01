@@ -117,7 +117,7 @@ GPU 종류는 `machine_shape`(`kaggle kernels push --accelerator`)로 정하며 
 ## 팀원별 Kaggle 실행 절차
 
 1. 위 '계정·CLI 준비'를 마친다.
-2. Plan 01의 GCS 고정 SQLite 스냅숏을 별도 PostgreSQL로 이관하고 `apps/trend-api/scripts/export_risk_sample.py`로 실표본을 추출한다. 수집 서버 자체의 PostgreSQL 전환은 요구하지 않는다. DVC 입력 해시·snapshot ID를 기록하고, 최신본 이관 전에는 표본의 시점과 한계를 기록한다. 사용자 입력 표는 내보내지 않고 필요한 공개 근거 문장만 CSV로 추출한다.
+2. Plan 01의 GCS 고정 SQLite 스냅숏을 별도 PostgreSQL로 이관하고 `apps/trend-api/scripts/export_risk_sample.py`로 실표본을 추출한다. 실표본 실험은 수집 서버의 PostgreSQL 전환 완료를 기다리지 않고 staging 사본에서 시작할 수 있다. 수집 DB 전환 자체는 Plan 01의 별도 작업으로 유지한다. DVC 입력 해시·snapshot ID를 기록하고, 최신본 이관 전에는 표본의 시점과 한계를 기록한다. 사용자 입력 표는 내보내지 않고 필요한 공개 근거 문장만 CSV로 추출한다.
 3. CSV와 같은 이름의 `.env.json` 두 파일만 빈 폴더에 모아 **비공개 Dataset**으로 올린다. 실행할 팀원을 Dataset 화면의 **Share**에서 Collaborator로 더한다. GPU 할당은 실행한 계정에서 빠진다.
 4. `python3 models/kaggle/run_kaggle.py --dataset <Dataset>`으로 돌린다. 웹 편집기로 셀을 하나씩 확인할 때는 `File → Import Notebook`으로 가져오고 Settings에서 **GPU T4 x2**, Internet, **Add Input**(표본 Dataset)을 정한다. 거기서 고친 코드는 `kaggle kernels pull`로 받아 PR로 반영한다.
 5. 처음에는 `--synthetic`으로 합성 문장의 설치·추론·메모리·시간·결과 저장을 확인한다. 이는 작동 확인이다. 이어서 실표본으로 셀을 순서대로 실행한다. Ollama 버전, `gemma4:12b`의 태그·digest, 프롬프트 해시, 호출 옵션을 서버 기준과 비교한다. 서버는 미분류 문장만 묶고 노트북은 최근 문장을 다시 묶으므로 같은 모델이어도 결과가 달라질 수 있다.
@@ -176,7 +176,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 
-아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-01 실측 점검](구현-완료도-실측-점검-2026-10-01.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달·수집 서버 PostgreSQL 전환을 선택하는 실행 지시로 사용하지 않는다.
+아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-01 실측 점검](구현-완료도-실측-점검-2026-10-01.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달을 선택하는 실행 지시로 사용하지 않는다. 수집 서버 PostgreSQL 전환의 현재 계획은 Plan 01을 따른다.
 
 **지금 실제로 도는 Gemma 편집은 클라우드 노트북이 아니라 원작자 PC 다.** 원작자 서버 파이프라인(cron 9·14·19·23시 :15)이 로컬 Ollama 의 `gemma4:e4b`(그 서버 `.env` 의 `GEMMA_LOCAL_MODEL`; 코드 기본값은 `gemma4:12b`, 공유 Ollama 에는 12b 가 설치돼 있지 않다)로 번역·국가별 해석·추천 낱말·근거 라벨을 만든다. 09-29 기준 번역 표에는 `gemma-local` 276행과 `team` 96행이 있고 주제별 국가 해설(`topic_notes`)은 88건이 `local:gem…` 로 표시돼 있다. 6건은 `local:gpt-oss` 가 만들었다.
 

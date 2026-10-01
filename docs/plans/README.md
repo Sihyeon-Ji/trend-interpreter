@@ -15,7 +15,7 @@ Cloud SQL 30일 체험 종료 전 비용 판단과 수동 전환 절차는 [Plan
 
 | ID | 구분 | 작업 | 상태 | 선행 | 목표일 |
 | --- | --- | --- | --- | --- | --- |
-| [01](01-import-latest-trend-data.md) | 데이터 | GCS 고정 SQLite 스냅숏의 staging 이관 | 기존 사본 이관 검증 완료(09-29) – 최신 GCS 사본 대조는 남음, 수집 SQLite 유지 | – | 10-01 |
+| [01](01-import-latest-trend-data.md) | 데이터 | GCS 고정 SQLite 스냅숏의 staging 이관 | 기존 사본 이관 검증 완료(09-29) – 최신 GCS 사본 대조·수집 서버 PostgreSQL 전환은 남음 | – | 10-01 |
 | [02](02-lifecycle-stages.md) | 기반 | 생애주기 데이터 보강과 출처 순서 판정 | 완료 – 검증 152개 중 unknown 1개(09-29) | 01 | 10-02 |
 | [03](03-term-risk.md) | 기반 | 용어별 리스크 필드와 근거 기반 판정 | 구현 완료 – 사람 표본 20개 재검토 팀 판정 대기 | 02 | 10-04 |
 | [04](04-target-regions-and-keyword-dashboard.md) | 흐름 1 살펴보기 | 목표 지역 조정과 키워드 대시보드 | 진행 중 – 1~3 반영, 지역 카드 늘었으나(KR 1764·JP 411·TW 529·HK 64) TH·VN·ID·PH·MY·SG 는 한 자리, 디자인 결정 대기 | 02, 03 | 10-07 |
