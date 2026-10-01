@@ -25,8 +25,6 @@ gha-creds-*.json
 .DS_Store
 .tools/
 artifacts/
-# Kaggle CLI metadata holds a per-account notebook ID
-models/kaggle/kernel-metadata.json
 # Trend local state: collected data, logs, transfer archives, third-party design tokens
 apps/trend-api/data/
 apps/trend-web/design/

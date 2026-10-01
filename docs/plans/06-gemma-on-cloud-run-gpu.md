@@ -1,6 +1,6 @@
 # Plan 06. Kaggle Gemma 4 편집·미세조정 실험과 운영 데이터 게시
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **실험 위치를 Colab에서 Kaggle로 변경, Kaggle 실행은 아직 검증 전 · 운영 게시 경계·PC 독립 정리/감시·클라우드 전용 /ask·Gemma 평가는 미구현(Plan 05 Cloud SQL 대기) · 그동안 Gemma 편집은 원작자 PC 파이프라인이 하루 4회 대신 돌린다(아래 '현재 상태') · 12B QLoRA는 학습 서버에서 실행했다([Plan 16](16-wiki-meme-catalog-and-tendency.md))** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **실험 위치를 Colab에서 Kaggle로 변경, Kaggle 합성 표본 실행 확인(10-01)·실표본은 대기 · 운영 게시 경계·PC 독립 정리/감시·클라우드 전용 /ask·Gemma 평가는 미구현(Plan 05 Cloud SQL 대기) · 그동안 Gemma 편집은 원작자 PC 파이프라인이 하루 4회 대신 돌린다(아래 '현재 상태') · 12B QLoRA는 학습 서버에서 실행했다([Plan 16](16-wiki-meme-catalog-and-tendency.md))** · 선행 [Plan 01](01-import-latest-trend-data.md)의 최신 데이터와 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영에 Gemma 서비스를 둘지는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이며 아직 정하지 않았다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
@@ -81,28 +81,43 @@ Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을
 
 **코드 원본은 GitHub의 `models/kaggle/gemma_risk_labeling.ipynb`, 데이터는 비공개 Kaggle Dataset, 실행 결과는 노트북 버전 Output으로 관리한다. 개발 PC의 Kaggle CLI로 올리고 받는다.** Kaggle 편집기의 GitHub 연결(`File → Link to GitHub`)은 쓰지 않는다. Save Version마다 셀 출력까지 커밋될 수 있어 표본 문장이 GitHub에 남고, 검토 없이 `develop`·`release/gcp`에 저장될 수 있다.
 
+**한 저장소, 계정별 노트북.** Kaggle 노트북·GPU 할당(주 30시간)·Output은 계정에 묶인다. 그래서 코드는 저장소의 노트북 하나를 같이 쓰고, 실행은 각자 자기 계정에 같은 이름의 비공개 노트북(`<아이디>/gemma-risk-labeling`)을 만들어 돌린다. 표본 Dataset은 올린 사람 계정에 하나 두고 팀원을 Collaborator로 더해 같이 읽는다. 한 노트북을 여럿이 번갈아 push하면 서로의 설정과 Output 버전이 섞이므로 그렇게 하지 않는다.
+
+`models/kaggle/run_kaggle.py`가 이 흐름을 한 번에 한다. 자기 토큰의 아이디로 노트북 ID를 정하고, 저장소 노트북의 **임시 사본**에 실행 설정(`USE_SYNTHETIC_SAMPLE`·`MAX_TERMS`·`VARIANTS`)을 적어 `kernel-metadata.json`(비공개, GPU T4 x2, 인터넷, Dataset)과 함께 push한다. 끝날 때까지 상태를 보다가 Output을 `artifacts/kaggle/<노트북 이름>/`(커밋하지 않음)으로 받고 GPU·모델 digest·호출 시간을 출력한다. 저장소의 노트북 파일은 바꾸지 않는다.
+
+```bash
+python3 models/kaggle/run_kaggle.py --synthetic                                   # 데이터 없이 작동 확인
+python3 models/kaggle/run_kaggle.py --dataset builder-cup-risk-sample --max-terms 5
+python3 models/kaggle/run_kaggle.py --dataset builder-cup-risk-sample --variants baseline v2_term_vs_tone
+python3 models/kaggle/run_kaggle.py --dataset <owner>/builder-cup-risk-sample      # 팀원 Dataset
+python3 models/kaggle/run_kaggle.py --synthetic --dry-run                         # push 하지 않고 만들 파일만 확인
+```
+
 | 하는 일 | 명령 |
 | --- | --- |
 | 표본 Dataset 만들기·새 버전 | `kaggle datasets init -p <폴더>` 뒤 `dataset-metadata.json`의 `title`·`id`를 채우고 `kaggle datasets create -p <폴더>`. 새 표본은 `kaggle datasets version -p <폴더> -m "<메모>"`. 기본이 비공개이며 `--public`은 붙이지 않는다 |
-| 노트북 올리고 실행 | `models/kaggle/kernel-metadata.example.json`을 같은 폴더의 `kernel-metadata.json`(커밋하지 않음)으로 복사해 `id`·`dataset_sources`를 자기 계정 값으로 채운 뒤 `kaggle kernels push -p models/kaggle`. 저장소의 노트북이 그대로 올라가 Save Version처럼 백그라운드로 돈다 |
-| 상태 보기 | `kaggle kernels status <id>` |
-| 결과 받기 | `kaggle kernels output <id> -p <저장소 밖 폴더>`. 결과에는 문장이 들어 있으므로 저장소 안에 두지 않는다 |
-| Kaggle에서 고친 코드 받기 | `kaggle kernels pull <id> -p <임시 폴더>` 뒤 공통 노트북과 비교한다 |
+| 노트북 올리고 실행·결과 받기 | `python3 models/kaggle/run_kaggle.py ...` (위) |
+| 상태만 보기 | `kaggle kernels status <아이디>/gemma-risk-labeling` |
+| Kaggle 편집기에서 고친 코드 받기 | `kaggle kernels pull <아이디>/gemma-risk-labeling -p <임시 폴더>` 뒤 공통 노트북과 비교한다 |
 
-1. 실행별 값(`USE_SYNTHETIC_SAMPLE`, `INPUT_DIR`, `RESUME_FROM`)을 바꿔 돌릴 때는 저장소 밖 임시 폴더에 노트북과 `kernel-metadata.json`을 복사해 고친 뒤 그 폴더를 push한다. 실행별 값을 공통 기본값으로 커밋하지 않는다.
+1. 실행별 값은 스크립트 인자로만 바꾼다. 실행별 값을 공통 기본값으로 커밋하지 않는다.
 2. 공통 코드를 바꿨으면 모든 코드 셀 출력과 실행 횟수를 지우고, 원문·개인 계정 정보·토큰·CSV·결과·체크포인트·가중치가 들어 있지 않은지 확인한다.
 3. 작업 브랜치에서 커밋하고 PR로 검토해 `develop`에 반영한다. `release/gcp` 푸시는 실제 배포를 유발한다. 같은 `.ipynb`를 두 사람이 동시에 고치지 않는다.
 4. Git 커밋과 모델·입력 해시를 실행 메타데이터에 연결한다. 진행 중인 실험을 최신 코드로 덮어쓰지 않는다.
 
-CLI에서 T4와 P100 중 무엇을 고르는지는 확인하지 않았다. 첫 push 뒤 실행 기록의 `nvidia-smi` 출력으로 배정 GPU를 확인하고, 다르면 웹 편집기 Settings에서 **GPU T4 x2**로 한 번 정한다.
+GPU 종류는 `machine_shape`(`kaggle kernels push --accelerator`)로 정하며 스크립트 기본값은 `NvidiaTeslaT4`(T4 x2)다([kernel-metadata 필드](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels_metadata.md), CLI 2.2.4). 문서에는 `NvidiaL4`·`TpuV5E8`도 있으나 무료 계정에서 고를 수 있는지는 확인하지 않았다. CLI push는 노트북 전체를 비대화형으로 돌리므로 셀별 확인은 웹 편집기에서 한다. `RESUME_FROM` 재개(이전 Output을 입력으로 붙이기)는 스크립트에 아직 없다.
+
+### 첫 실행 기록 (2026-10-01, 합성 표본)
+
+웹 편집기의 Save Version으로 합성 표본(용어 2개·문장 10개)을 돌렸다. **GPU T4 x2, Ollama 0.35.0, `gemma4:12b` digest `6114515d63c1`**. 전체 292초 중 설치 약 30초, 모델 7.4 GB 받기 약 80초, 첫 호출 141.7초(GPU에 모델 올리는 시간 포함), 두 번째 호출 3.9초였다. 두 호출 모두 재질문 없이 `ok`이고 10문장 모두 분류됐으며, Output을 `kaggle kernels output`으로 받았다. 두 번째 호출 속도로 보아 설치 로그의 `Unable to detect NVIDIA/AMD GPU` 경고와 달리 GPU에서 돌았다. **합성 문장이므로 품질 수치가 아니다.** 재개·실표본·팀원 계정 실행은 아직 확인하지 않았다.
 
 ## 팀원별 Kaggle 실행 절차
 
 1. 위 '계정·CLI 준비'를 마친다.
 2. 수집 서버가 새 `apps/trend-api` 코드와 PostgreSQL을 쓰는지 확인한다. `apps/trend-api/scripts/export_risk_sample.py`는 그 환경에서만 실표본을 낼 수 있다. Plan 01의 최신 SQLite 수령·이관이 아직이면 표본의 시점과 한계를 기록한다. 사용자 입력 표는 내보내지 않고 필요한 공개 근거 문장만 CSV로 추출한다.
 3. CSV와 같은 이름의 `.env.json` 두 파일만 빈 폴더에 모아 **비공개 Dataset**으로 올린다. 실행할 팀원을 Dataset 화면의 **Share**에서 Collaborator로 더한다. GPU 할당은 실행한 계정에서 빠진다.
-4. `kernel-metadata.json`의 `dataset_sources`에 그 Dataset을 적고 push한다. 웹 편집기로 셀을 하나씩 확인할 때는 `File → Import Notebook`으로 가져오고 Settings에서 **GPU T4 x2**, Internet, **Add Input**(표본 Dataset)을 정한다. 거기서 고친 코드는 `kaggle kernels pull`로 받아 PR로 반영한다.
-5. 먼저 `USE_SYNTHETIC_SAMPLE=True`로 합성 5문장의 설치·추론·메모리·시간·결과 저장을 확인한다. 이는 작동 확인이다. 이어서 실표본으로 셀을 순서대로 실행한다. Ollama 버전, `gemma4:12b`의 태그·digest, 프롬프트 해시, 호출 옵션을 서버 기준과 비교한다. 서버는 미분류 문장만 묶고 노트북은 최근 문장을 다시 묶으므로 같은 모델이어도 결과가 달라질 수 있다.
+4. `python3 models/kaggle/run_kaggle.py --dataset <Dataset>`으로 돌린다. 웹 편집기로 셀을 하나씩 확인할 때는 `File → Import Notebook`으로 가져오고 Settings에서 **GPU T4 x2**, Internet, **Add Input**(표본 Dataset)을 정한다. 거기서 고친 코드는 `kaggle kernels pull`로 받아 PR로 반영한다.
+5. 처음에는 `--synthetic`으로 합성 문장의 설치·추론·메모리·시간·결과 저장을 확인한다. 이는 작동 확인이다. 이어서 실표본으로 셀을 순서대로 실행한다. Ollama 버전, `gemma4:12b`의 태그·digest, 프롬프트 해시, 호출 옵션을 서버 기준과 비교한다. 서버는 미분류 문장만 묶고 노트북은 최근 문장을 다시 묶으므로 같은 모델이어도 결과가 달라질 수 있다.
 6. 남겨야 하는 실행은 CLI push 또는 **Save Version(Save & Run All)** 으로 돌린다. 결과는 그 버전의 Output `runs/<RUN_ID>`에 남는다. 중간에 끊겼으면 그 버전의 Output을 입력으로 붙이고 `RESUME_FROM`에 `runs/<RUN_ID>` 경로를 적어 다시 돌린다. 입력 해시·모델 digest·프롬프트·규칙이 같은 정상 완료 항목만 재사용한다.
 7. 각자 다른 프롬프트 안을 별도 실행 ID로 비교한다. 서버 모델과의 일치율은 참고치다. CSV의 `human_*` 칸에 **사람이 독립적으로 판정한 값**을 넣어 오탐·누락과 근거를 비교한다. 합성 표본이나 사람 판정이 없는 일치율을 AI 품질 개선의 증거로 사용하지 않는다.
 
