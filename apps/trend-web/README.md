@@ -1,4 +1,4 @@
-# web — 트렌드 통역 프론트
+# web – 트렌드 통역 프론트
 
 Next.js 16 · Tailwind v4 · shadcn/ui · Pretendard. 디자인 토큰은 비공개 디자인 문서(저장소에 넣지 않음), 결정 기록은 `../../docs/트렌드/프론트엔드.md`, 작업 규칙은 `../trend-api/AGENTS.md`.
 
@@ -16,10 +16,10 @@ corepack pnpm contract                    # ../trend-api/src/trend_agents/schema
 
 | 경로 | 화면 |
 |---|---|
-| `/` | 메시지 해석 — 메시지를 붙이면 유행어·줄임말의 뜻을 설명 |
+| `/` | 메시지 해석 – 메시지를 붙이면 유행어·줄임말의 뜻을 설명 |
 | `/dictionary` | 사전 (검색 · 세대·국가 필터) |
-| `/dictionary/[termId]` | 항목 — 뜻 · 추세 · 출처 · 변경 기록 |
-| `/admin`, `/admin/status` | 관리자 — 검수, 수집 현황 (푸터 링크) |
+| `/dictionary/[termId]` | 항목 – 뜻 · 추세 · 출처 · 변경 기록 |
+| `/admin`, `/admin/status` | 관리자 – 검수, 수집 현황 (푸터 링크) |
 
 언어: 헤더에서 한국어 | English. 문구는 `lib/i18n.ts`, 유행어 원문은 번역하지 않음.
 

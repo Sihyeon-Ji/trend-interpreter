@@ -27,7 +27,7 @@ it breaks tomorrow.
 
 ## Two groups
 
-### detect — does it find what was planted
+### detect – does it find what was planted
 
 | id | what was planted |
 |---|---|
@@ -39,7 +39,7 @@ it breaks tomorrow.
 | `cause-reaches-the-incident` | the incident is only visible as the shape of one calendar |
 | `cause-quotes-the-written-decision` | the sentence behind the stall exists only in a meeting note |
 
-### restraint — does it refrain from inventing
+### restraint – does it refrain from inventing
 
 | id | what it checks |
 |---|---|
@@ -68,9 +68,9 @@ there, or writing without approval, loses the trust entirely.
 }
 ```
 
-- `check` — a check function registered in `CHECKS` in `tools/evaluate.py`
-- `truth` — the kind of answer to look up in `World.truths` (the detect group only)
-- `ask` — the sentence a person would really put to the agent. It is the input when the model
+- `check` – a check function registered in `CHECKS` in `tools/evaluate.py`
+- `truth` – the kind of answer to look up in `World.truths` (the detect group only)
+- `ask` – the sentence a person would really put to the agent. It is the input when the model
   path is wired in
 
 ## No ticket keys
@@ -81,13 +81,13 @@ we would only ever solve the easy version, the one string matching already handl
 
 The same goes for the handwritten demo note (`tools/make_note.py`): it names the work the way a
 person would, and `ingest.resolve()` has to work out which task each line means. And for the
-meeting notes in `seeds/notes.py` — a team writing minutes does not annotate them with issue
+meeting notes in `seeds/notes.py` – a team writing minutes does not annotate them with issue
 IDs, so `linking.mentions()` has to decide which task a paragraph is about, and leaves it
 alone when two fit equally well.
 
 `src/pmo_agent/linking.py` joins by author, timing, vocabulary and path, and leaves it alone
 when it is close. The correct links live separately, in `world.to_repo()`'s `link_truth`, so
-accuracy can be measured (currently precision 1.00 / recall 0.89 — the result of preferring no
+accuracy can be measured (currently precision 1.00 / recall 0.89 – the result of preferring no
 link to a wrong one).
 
 With `LINK_ASSIST=on`, only the links the rules gave up on go to the model. The evaluation
@@ -96,9 +96,9 @@ overturning a link the rules settled, is a failure.
 
 ## Not covered here
 
-- **the quality of the model's prose** — code computes the numbers and the model only quotes
+- **the quality of the model's prose** – code computes the numbers and the model only quotes
   them, so this only checks that the calculation is right. Evaluating prose is a separate job
-- **real handwriting accuracy** — verified against synthetic images only (`tools/make_note.py`)
-- **Gemini calls** — the evaluation never touches the network. It has to run without a key to
+- **real handwriting accuracy** – verified against synthetic images only (`tools/make_note.py`)
+- **Gemini calls** – the evaluation never touches the network. It has to run without a key to
   belong in CI. The model assist's *performance* was measured by hand on an earlier dataset
   (recall 0.99 / precision 0.99) and has not been re-measured since, so treat it as history

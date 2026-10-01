@@ -80,11 +80,11 @@ uv run scripts/audit_dataset.py > data/work/audit_sft.jsonl   # B-2 감사관 �
 | 무엇 | 파일 | 양 |
 | --- | --- | --- |
 | C·D 전체 표 | `research_export/20261001_1034/` (+ `manifest.json`) | 43개 표, 193 MB. 표제어 7,623 · 뜻 판 8,431 · 근거 문장 29,314 · 번역 292 · 검수 기록 107 · 검수 대기 3,089 · 감사 기록 1,490 · 문서 대조 164 · 근거 분류 2,142 · 조사 기록 8,410 · 주간 언급 91,714 · 위키 월별 조회수 25,481 |
-| 에이전트 기록(새 묶음 `agent`) | 같은 폴더 `agent_trace`·`content_*` | 위키를 직접 읽은 조사 에이전트의 걸음 287 · 찾은 밈 94 · 나라 사이 짝 9 — '도구 호출' 연구의 첫 기록 |
+| 에이전트 기록(새 묶음 `agent`) | 같은 폴더 `agent_trace`·`content_*` | 위키를 직접 읽은 조사 에이전트의 걸음 287 · 찾은 밈 94 · 나라 사이 짝 9 – '도구 호출' 연구의 첫 기록 |
 | B-1 리스크 표본 | `risk_sample/risk_sample_20261001_1035.csv` + `.env.json` | 용어 100 · 문장 954 · 수준 사용 자제 12 / 주의 30 / 없음 29 / 보류 29. `human_*` 는 빈칸 |
-| B-2 감사관 | `audit/` | `audit_sft_v5.jsonl`(371줄: 학습 319·시험 32·시험2 20, 정답은 Claude 판정) · `audit_labels_sonnet.json`(220) · `audit_sft.jsonl`(전수조사 판정판) · `audit_holdout*` · `audit.json`. **참고 문서 본문이 들어 있다 — 비공개** |
+| B-2 감사관 | `audit/` | `audit_sft_v5.jsonl`(371줄: 학습 319·시험 32·시험2 20, 정답은 Claude 판정) · `audit_labels_sonnet.json`(220) · `audit_sft.jsonl`(전수조사 판정판) · `audit_holdout*` · `audit.json`. **참고 문서 본문이 들어 있다 – 비공개** |
 | B ★ Gemma 환경 | `gemma_env.json` | 아래 |
 
-**서버 Gemma 환경.** 파이프라인의 로컬 모델(`GEMMA_LOCAL_MODEL`)은 **`gemma4:e4b`**(digest `c6eb396dbd59`, Ollama 0.34.0)다 — 리스크 표본의 `.env.json`도 e4b 다. Kaggle 첫 실행의 `gemma4:12b`(`6114515d63c1`)는 이 서버에도 같은 digest 로 있지만 파이프라인 기본값이 아니므로, 서버와 비교하려면 노트북을 e4b 로 돌리거나 서버 표본을 12B 로 다시 분류해야 한다. 감사·조사 에이전트는 학습 서버(192.168.100.23, Ollama 0.34.0)의 `gemma4:12b`(`4eb23ef187e2`, 22 와 digest 가 다르다)와 QLoRA 판 `trend-audit:12b-v5`를 쓴다.
+**서버 Gemma 환경.** 파이프라인의 로컬 모델(`GEMMA_LOCAL_MODEL`)은 **`gemma4:e4b`**(digest `c6eb396dbd59`, Ollama 0.34.0)다 – 리스크 표본의 `.env.json`도 e4b 다. Kaggle 첫 실행의 `gemma4:12b`(`6114515d63c1`)는 이 서버에도 같은 digest 로 있지만 파이프라인 기본값이 아니므로, 서버와 비교하려면 노트북을 e4b 로 돌리거나 서버 표본을 12B 로 다시 분류해야 한다. 감사·조사 에이전트는 학습 서버(192.168.100.23, Ollama 0.34.0)의 `gemma4:12b`(`4eb23ef187e2`, 22 와 digest 가 다르다)와 QLoRA 판 `trend-audit:12b-v5`를 쓴다.
 
 **스크립트 고침(10-01).** 모든 표 목록을 PostgreSQL 의 `information_schema` 로만 읽어 SQLite 에서 죽던 것을 둘 다 읽게, 결과 폴더를 트윈·팀 어느 쪽에서 돌려도 저장소 루트로, 검수자 가명 바꾸기에서 사람이 아닌 단계 이름(`team`·`audit`·`gate` 등)은 그대로 두게 했다(모두 가명이 되면 사람 결정과 자동 결정을 가를 수 없다). 묶음에 `agent`·`catalog`·`term_pageviews` 를 더했다. 트윈에는 `term_aliases`·`term_timeline` 이 없어 표에 없다(별칭은 `terms` 안에 있다).

@@ -1,8 +1,8 @@
-# 디자인 시안 — 마케터 스튜디오형 (`/lab/t-studio`)
+# 디자인 시안 – 마케터 스튜디오형 (`/lab/t-studio`)
 
 2026-10-01 · 팀원의 화면 기획 초안(`trend-tongyeok` v2)을 Opus 5.5가 다듬은 v3 · **예시 데이터로만 도는 화면**
 
-- 화면 `/lab/t-studio` — 한 파일짜리 화면을 창 가득 띄운다(`app/lab/t-studio/proto` 가 HTML 을 내보내고, `page.tsx` 가 iframe 으로 감싼다)
+- 화면 `/lab/t-studio` – 한 파일짜리 화면을 창 가득 띄운다(`app/lab/t-studio/proto` 가 HTML 을 내보내고, `page.tsx` 가 iframe 으로 감싼다)
 - 화면 안의 이동은 `#해시`: `#radar`(이번 주 트렌드)·`#meme-yar`(밈 자세히)·`#studio`·`#regions`·`#decoder`·`#library`·`#check`·`#plans`·`#report`·`#settings`
 - 파일: `app/lab/t-studio/**`, `components/lab/t-studio/**`, `lib/lab/t-studio/**`(원본 `source/`, 생성 파일 `prototype-html.ts`)
 - 고치는 법: `lib/lab/t-studio/source/` 의 `src/`·`data/` 를 고치고 `python3 apps/trend-web/lib/lab/t-studio/source/build.py` 로 `prototype-html.ts` 를 다시 만든다
@@ -31,11 +31,11 @@
 | 1 | 0:00–0:20 | 이번 주 트렌드 `#radar` | 화면을 연 채 3초 멈춤 → '이번 주 할 일' 세 카드에 커서 | 지금 쓸 밈·먼저 쓰면 좋은 밈·**피할 밈**이 첫 화면에 한 번에 | "Every week, memes rise and die in days. Which one can *my* brand use, here, now?" |
 | 2 | 0:20–0:50 | 밈 자세히 `#meme-yar` | '야르' 카드의 '근거 보기' → 판정 패널 → 12주 관심도 → 근거 목록 스크롤 | 판정(지금 쓰세요)·쓸 수 있는 기간·**출처와 날짜가 붙은 근거**. "판정은 규칙, 설명은 AI" | "Every verdict comes with its evidence. The lifecycle and risk are set by rules, not by the model." |
 | 3a | 0:50–1:15 | 콘텐츠 스튜디오 1단계 `#studio` | 상품명·한 줄 소개 입력(미리 채움) → '밈 매칭 시작' | 입력은 사진·한 줄·쇼츠 링크 중 하나면 된다 | "Just tell it what you sell." |
-| 3b | 1:15–1:45 | 2단계 기획 방향 | 'AI가 이렇게 이해했어요' 줄에서 2초 멈춤 → A안 선택 → **'이번엔 뺀 밈과 이유'** 강조 | Gemini가 상품을 읽은 결과, 밈 3안과 **빼낸 밈의 이유(밤티: 비하)** | "Gemini reads the product. Rules rank the memes — and tell you which ones to avoid, and why." |
+| 3b | 1:15–1:45 | 2단계 기획 방향 | 'AI가 이렇게 이해했어요' 줄에서 2초 멈춤 → A안 선택 → **'이번엔 뺀 밈과 이유'** 강조 | Gemini가 상품을 읽은 결과, 밈 3안과 **빼낸 밈의 이유(밤티: 비하)** | "Gemini reads the product. Rules rank the memes – and tell you which ones to avoid, and why." |
 | 3c | 1:45–2:15 | 3단계 제작 키트 | 스토리보드 4컷 → 채널별 카피 '복사' 한 번 → 썸네일 | 15초 쇼츠 스토리보드·채널별 카피·썸네일 계획이 바로 나온다 | "From one line to a ready-to-shoot kit, in the market's language." |
 | 4 | 2:15–2:35 | 나라별 비교 `#regions` | 한국·일본·글로벌 열을 가로로 훑기 → '나라를 건너는 밈' 한 개 | JAPAC 차별점: 같은 밈이 나라마다 다른 뜻·시기 | "The same meme means different things in Seoul and Tokyo." |
-| 5 | 2:35–2:50 | 무슨 뜻이야? `#decoder` | 예시 문장 그대로 '풀어 쓰기' | 다른 세대·문화의 문장을 풀어 주는 해석기 | "And for everyone else — it explains the slang." |
-| 끝 | 2:50–2:58 | 마지막 화면 | — | 서비스 이름·URL | "Trend Interpreter. Built on Gemini, Gemma and Cloud Run." |
+| 5 | 2:35–2:50 | 무슨 뜻이야? `#decoder` | 예시 문장 그대로 '풀어 쓰기' | 다른 세대·문화의 문장을 풀어 주는 해석기 | "And for everyone else – it explains the slang." |
+| 끝 | 2:50–2:58 | 마지막 화면 | – | 서비스 이름·URL | "Trend Interpreter. Built on Gemini, Gemma and Cloud Run." |
 
 장면 4·5는 시간이 모자라면 하나만 쓴다. 장면 2와 3b가 핵심(근거·피할 이유·AI가 읽은 것)이므로 줄이지 않는다.
 
@@ -67,7 +67,7 @@
 | 나라별 비교 | 지도·국가 페이지 `/country/[code]` | 있음 |
 | 무슨 뜻이야? | 메시지 해석 `/explain` | 있음 |
 | 써도 될까? | 사전 항목의 리스크 | 화면 따로 없음 |
-| 내 기획안·주간 리포트·브랜드 설정·타이밍 맵·쇼츠 링크 분석 | — | **없음** — 영상에 넣지 않는다 |
+| 내 기획안·주간 리포트·브랜드 설정·타이밍 맵·쇼츠 링크 분석 | – | **없음** – 영상에 넣지 않는다 |
 
 - **언어:** 시안은 한국어뿐이다. 실제 서비스는 한국어·영어 화면(`lib/i18n.ts`)이 있으므로 **영어 화면으로 녹화**하거나 영어 자막을 단다.
 - **데이터:** 시안 수치(어울림 94점 등)는 예시다. 영상은 실제 수집 데이터로 찍고, 화면에 '예시 데이터' 표시가 남지 않게 한다.

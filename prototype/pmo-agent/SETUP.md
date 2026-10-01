@@ -1,4 +1,4 @@
-# Echo PMO — environment checklist (competition setup: straight to Gemini)
+# Echo PMO – environment checklist (competition setup: straight to Gemini)
 
 Goal: **an agent that manages a project by connecting the tools work actually happens in.**
 Built exactly as it will be submitted.
@@ -62,7 +62,7 @@ For how to use it, see [README.md](README.md).
 ### 1-2. Jira sandbox site + API token ⭐ required · 10 minutes
 - [ ] create a **new site** at https://www.atlassian.com/software/jira/free
       - example site name: `echo-pmo-demo` → `echo-pmo-demo.atlassian.net`
-      - **use an email other than the work account** — keeps it away from org policy and real data
+      - **use an email other than the work account** – keeps it away from org policy and real data
       - the free plan (10 users)
 - [ ] create a project: **Team-managed / Software / Scrum**, key `ECHO`
 - [ ] issue an API token: https://id.atlassian.com/manage-profile/security/api-tokens →
@@ -78,7 +78,7 @@ For how to use it, see [README.md](README.md).
 > With that much, the whole core loop can be verified: detect → cause → propose → approve →
 > update the ticket → report.
 
-### 1-3. Google Cloud project — a competition requirement · 20 minutes (by two weeks before submission)
+### 1-3. Google Cloud project – a competition requirement · 20 minutes (by two weeks before submission)
 - [ ] https://console.cloud.google.com → create a project (e.g. `echo-pmo-2026`)
 - [ ] attach a billing account ($300 of free credit)
 - [ ] enable the APIs: **Cloud Run, Artifact Registry, Vertex AI, Secret Manager**
@@ -87,11 +87,11 @@ For how to use it, see [README.md](README.md).
 - [ ] for judging credit: switch Gemini calls to go through Vertex AI (key → ADC). Wiring up
       Agent Engine / Agent Platform comes after the demo is finished
 
-### 1-4. Docker Desktop — self-hosting Kaneo (stage 2, optional)
+### 1-4. Docker Desktop – self-hosting Kaneo (stage 2, optional)
 - [ ] install from https://www.docker.com/products/docker-desktop/
 - [ ] skippable if the demo stands up on Jira alone. Only needed to show "not tied to one PM tool"
 
-### 1-5. Optional — a free Slack workspace
+### 1-5. Optional – a free Slack workspace
 - [ ] only if reports and approvals should arrive in chat. Skip it if the demo is the web UI
 
 ---
@@ -100,10 +100,10 @@ For how to use it, see [README.md](README.md).
 
 | order | task | how it is verified |
 |---|---|---|
-| 2-1 | `python tools/check_env.py` (from prototype/pmo-agent) — key validity, Jira auth and a Gemini function call, all by real calls | everything OK |
+| 2-1 | `python tools/check_env.py` (from prototype/pmo-agent) – key validity, Jira auth and a Gemini function call, all by real calls | everything OK |
 | 2-2 | seed the demo project: 40 tasks, 4 owners, dependencies, story points, some slippage | actually created on the Jira board |
 | 2-3 | the schedule engine (pure Python): CPM critical path, delay propagation, finish forecast | unit tests |
-| 2-4 | the Gemini tool layer: `list_tasks`, `get_task`, `propose_*` — **every write tool sits behind the approval gate** | the tool-call log |
+| 2-4 | the Gemini tool layer: `list_tasks`, `get_task`, `propose_*` – **every write tool sits behind the approval gate** | the tool-call log |
 | 2-5 | the PMO loop: detect slip risk → trace the cause → a question for the owner → approve → update the ticket → weekly report | one full pass of the demo scenario |
 | 2-6 | Cloud Run deploy + Vertex AI switch | a demo URL |
 
@@ -111,7 +111,7 @@ For how to use it, see [README.md](README.md).
 
 ## 3. Safety guards (already in the code)
 
-- [x] a **domain allowlist** in `src/pmo_agent/adapters/jira.py` — a live domain such as
+- [x] a **domain allowlist** in `src/pmo_agent/adapters/jira.py` – a live domain such as
       `cytur.atlassian.net` raises
 - [x] write functions default to `dry_run=True` and cannot run without approval
 - [x] `.gitignore` keeps `.env` out of commits
@@ -123,7 +123,7 @@ For how to use it, see [README.md](README.md).
 
 1-1 (Gemini) and 1-2 (Jira) are done. What remains is deployment.
 
-1. **1-3, the Google Cloud project** — a submission requirement. Install `gcloud`, create the
+1. **1-3, the Google Cloud project** – a submission requirement. Install `gcloud`, create the
    project, enable Cloud Run / Vertex AI / Secret Manager
 2. switch to `LLM_BACKEND=vertex` and verify against a real call (only the structure exists now)
 3. `docker build` → Artifact Registry → Cloud Run deploy → get the demo URL

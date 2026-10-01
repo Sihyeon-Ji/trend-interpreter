@@ -1,6 +1,6 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 — 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀, 유지보수 작업·운영 신호 — 10-01 develop)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 – 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀, 유지보수 작업·운영 신호 – 10-01 develop)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -35,7 +35,7 @@ CI 검사, 배포 이미지 빌드와 smoke 검사까지 통과했지만 **GCP �
 
 ## 결정할 것
 
-### 1. 영속 저장소 — PostgreSQL (결정됨)
+### 1. 영속 저장소 – PostgreSQL (결정됨)
 
 관계형 데이터는 모두 PostgreSQL로 통일했습니다(2026-09-28). 공모전 배포에는 이미 콘솔에서 생성한 **Cloud SQL for PostgreSQL**
 `trend-project`를 사용합니다. 이 인스턴스는 도쿄 리전의 PostgreSQL 18, Enterprise Plus 체험 사양(8 vCPU·64 GB·100 GB)입니다.
@@ -148,7 +148,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 4. `scripts/deploy-trend.sh`: 후보 revision `--no-traffic --tag=candidate`, API `--no-allow-unauthenticated`·`--concurrency` 와 `DB_POOL_SIZE` 를 한 변수로·`--max-instances 2`·`--add-cloudsql-instances`. `release-gcp.yml` 에 application job 추가, `release_recovery.py` 를 Trend 서비스용으로 일반화.
 5. PC 독립 유지보수 작업(`apps/trend-api/scripts/maintenance.py`): `prune_user_text` 실행, 마지막 성공 갱신의 나이 확인, 사용자 원문 없는 JSON 로그 한 줄. 임계값은 12시간 이상(`health_check` 의 8시간과 다르게).
 6. 호출마다 `gemini_call` 구조화 로그(모델·장부·결과, 내용 없음)와 로그 기반 지표.
-7. 감시를 Trend 서비스로 옮긴다: 가동 확인은 Trend 웹 URL(웹에는 `/api/health` 경로가 없다 — `app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐), 오류 지표는 Cloud Run 요청 로그(`httpRequest.status>=500`)로.
+7. 감시를 Trend 서비스로 옮긴다: 가동 확인은 Trend 웹 URL(웹에는 `/api/health` 경로가 없다 – `app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐), 오류 지표는 Cloud Run 요청 로그(`httpRequest.status>=500`)로.
 8. 다중 인스턴스 대비: `apply_migrations` 에 `pg_advisory_xact_lock`, 마이그레이션은 expand-only, 풀에 `check=ConnectionPool.check_connection`.
 9. **사용자/팀 결정 대기:** Cloud SQL 사양·에디션·버전·네트워크(공개 IP + Auth Proxy 만, 또는 비공개 IP + VPC), 월 비용 수용과 지출 상한(기존 상한은 Vertex AI·Gemini API 만 덮는다).
 10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.

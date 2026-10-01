@@ -1,6 +1,6 @@
 # Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **대기(10-15~17 실행) — 코드로 할 수 있는 준비(WIF 의 environment 조건·환경 변수 범위·이력 재검사·개인정보 검토)는 아직 안 함. 저장소 공개 전환·GitHub 보호 설정·외부/collaborator 계정 검증은 사용자 결정·실행 대기** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
+작성일 **2026-09-23** · 상태 **대기(10-15~17 실행) – 코드로 할 수 있는 준비(WIF 의 environment 조건·환경 변수 범위·이력 재검사·개인정보 검토)는 아직 안 함. 저장소 공개 전환·GitHub 보호 설정·외부/collaborator 계정 검증은 사용자 결정·실행 대기** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
 [현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
 
@@ -127,5 +127,5 @@ Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어
 3. 공개 직전 전체 이력 비밀 재검사(예: `gitleaks --log-opts=--all --redact=100`, 건수만 기록). 09-26 검사 이후 develop 에 134개 커밋이 더 쌓였다(09-29 기준).
 4. 공개 전 개인정보 검토: 문서 세 곳에 개인 이메일 주소가 있고(`docs/트렌드/인수인계-2026-09-15.md`, `docs/트렌드/조사/05-카테고리-트렌드-소스.md`, `docs/트렌드/키-계정-정리.md`), `docs/운영/GCP-운영.md` 의 콘솔 주소에 결제 계정 ID 가 들어 있다. 파일에서 지우는 것과 이력에서 지우는 것(이력 재작성)은 별개이므로 **사용자 결정 대기**다. 값은 이 문서에 적지 않는다.
 5. 제출 당일 절차의 `/api/health` 는 Trend 웹에 없다(`apps/trend-web/app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐). 웹 주소 확인과 배포 검사로 대신하거나 health 경로를 더한다.
-6. **사용자 실행:** 공개 전환 직후 GitHub 설정 — 필수 검토자, 자기 승인 방지, 배포 브랜치 `release/gcp`, 관리자 우회 끄기, 저장소 기본 `GITHUB_TOKEN` 읽기 전용(이미 read), fork PR 워크플로 승인. 그리고 WIF plan/apply.
-7. **사용자 실행:** 검증 — 외부·collaborator 계정, 승인을 기다리는 배포(중계기 재배포 또는 [Plan 05](05-trend-cloud-run-deployment.md) 의 Trend 앱 job), environment 없는 job 이 WIF 토큰 교환에서 거부되는 것.
+6. **사용자 실행:** 공개 전환 직후 GitHub 설정 – 필수 검토자, 자기 승인 방지, 배포 브랜치 `release/gcp`, 관리자 우회 끄기, 저장소 기본 `GITHUB_TOKEN` 읽기 전용(이미 read), fork PR 워크플로 승인. 그리고 WIF plan/apply.
+7. **사용자 실행:** 검증 – 외부·collaborator 계정, 승인을 기다리는 배포(중계기 재배포 또는 [Plan 05](05-trend-cloud-run-deployment.md) 의 Trend 앱 job), environment 없는 job 이 WIF 토큰 교환에서 거부되는 것.

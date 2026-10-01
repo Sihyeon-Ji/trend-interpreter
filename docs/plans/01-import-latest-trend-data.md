@@ -1,6 +1,6 @@
 # Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **이관 검증 완료(09-29, 별도 Compose 프로젝트) — 이관 스크립트에 `--fresh`·`--skip-user-data`, 기본 로컬 볼륨 교체와 수집의 PostgreSQL 전환은 사용자/팀 결정 대기(수집은 10-01 기준 트윈 SQLite 에서 계속)** · 선행 **없음** · 목표일 **2026-10-01**
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **이관 검증 완료(09-29, 별도 Compose 프로젝트) – 이관 스크립트에 `--fresh`·`--skip-user-data`, 기본 로컬 볼륨 교체와 수집의 PostgreSQL 전환은 사용자/팀 결정 대기(수집은 10-01 기준 트윈 SQLite 에서 계속)** · 선행 **없음** · 목표일 **2026-10-01**
 
 [계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
 
@@ -66,7 +66,7 @@ Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_c
 
 | 문제 (실측) | 고친 것 |
 | --- | --- |
-| `index row size 2920 exceeds btree version 4 maximum 2704 for index "news_pkey"` — 2,901바이트짜리 Google 뉴스 주소 1건. news 30,000/42,776에서 끝나(exit 1) 별칭 표도 다시 만들지 못했다(0행). 파이프라인 수집(`store.upsert_news`)도 이런 주소가 하나 섞이면 그 나라 뉴스 묶음이 통째로 롤백됐다. PostgreSQL에서만 나는 문제 | 주소가 2,048바이트보다 긴 뉴스는 저장하지도 옮기지도 않는다(`store.NEWS_LINK_MAX`). 이번 파일에서 6건, 그중 근거로 쓰인 것 1건 |
+| `index row size 2920 exceeds btree version 4 maximum 2704 for index "news_pkey"` – 2,901바이트짜리 Google 뉴스 주소 1건. news 30,000/42,776에서 끝나(exit 1) 별칭 표도 다시 만들지 못했다(0행). 파이프라인 수집(`store.upsert_news`)도 이런 주소가 하나 섞이면 그 나라 뉴스 묶음이 통째로 롤백됐다. PostgreSQL에서만 나는 문제 | 주소가 2,048바이트보다 긴 뉴스는 저장하지도 옮기지도 않는다(`store.NEWS_LINK_MAX`). 이번 파일에서 6건, 그중 근거로 쓰인 것 1건 |
 | `terms.diffusion` 0/745. 마이그레이션 002의 보정은 처음 연결할 때 빈 표에서 돌고, SQLite `terms`에는 이 열이 없다 | 스크립트가 옮긴 뒤 용어 JSON에서 채운다: 247 (태동 152 · 식상 72 · 주류 21 · 확산 2) |
 | 이미 있는 행은 `ON CONFLICT DO NOTHING`으로 건너뛰므로, 옛 DB에 새 파일을 옮기면 옛 값이 조용히 남는다 | `--fresh`. 실데이터가 든 DB(terms 745)에서 아무것도 옮기지 않고 exit 1로 끝나는 것을 확인 |
 | 해석 캐시 66행·계정 설정 1행이 Cloud SQL 사본에 따라간다 | `--skip-user-data`. 실데이터로 새 DB에 옮겨 두 표 0행, 나머지는 같음을 확인 |

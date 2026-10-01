@@ -22,12 +22,12 @@ docker compose up -d
 첫 실행은 이미지를 내려받고 의존성을 설치하므로 몇 분 걸릴 수 있습니다.
 `docker compose ps`에서 `db`, `api`, `web` 상태를 확인하세요.
 
-- **화면 코드 수정** — `apps/trend-web/`의 `app`, `components`, `lib`, `public`을 저장하면 Next.js가 자동 반영합니다.
-- **API 코드 수정** — `apps/trend-api/src/`를 저장하면 API가 자동 재시작됩니다.
-- **개발 도구** — Node 24.21.0(pnpm은 Corepack), Python 3.12(uv)와 의존성이 컨테이너 안에 설치됩니다.
-- **모델** — 기본 개발 환경은 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`라 유료 모델을 호출하지 않습니다.
-- **데이터베이스** — 관계형 데이터는 모두 PostgreSQL(`db` 서비스, `postgres_data` 볼륨)에 저장합니다. 개발용 계정은 고정값이고 포트는 호스트에 공개하지 않습니다.
-- **인증과 설정** — `.env` 없이 시작합니다. 호스트의 `.env`나 클라우드 인증정보를 읽지 않습니다.
+- **화면 코드 수정** – `apps/trend-web/`의 `app`, `components`, `lib`, `public`을 저장하면 Next.js가 자동 반영합니다.
+- **API 코드 수정** – `apps/trend-api/src/`를 저장하면 API가 자동 재시작됩니다.
+- **개발 도구** – Node 24.21.0(pnpm은 Corepack), Python 3.12(uv)와 의존성이 컨테이너 안에 설치됩니다.
+- **모델** – 기본 개발 환경은 `MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`라 유료 모델을 호출하지 않습니다.
+- **데이터베이스** – 관계형 데이터는 모두 PostgreSQL(`db` 서비스, `postgres_data` 볼륨)에 저장합니다. 개발용 계정은 고정값이고 포트는 호스트에 공개하지 않습니다.
+- **인증과 설정** – `.env` 없이 시작합니다. 호스트의 `.env`나 클라우드 인증정보를 읽지 않습니다.
 
 첫 화면은 **예시 데이터 모드**입니다. 지구본, 사전, 메시지 해석 화면이 내장 예시로 열립니다.
 로컬 API의 실데이터를 보려면 `DATA_MODE=api docker compose up -d`로 다시 켭니다.

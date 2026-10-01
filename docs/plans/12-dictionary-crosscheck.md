@@ -22,7 +22,7 @@
 | 그 밖(zh·th·vi·id 등) | 그 말의 위키백과, 영어 위키백과, Know Your Meme. 대만·홍콩 표제어는 萌娘百科도 |
 
 - 니코니코 대백과(ニコニコ大百科)는 이 서버의 요청을 막아 쓰지 않습니다. pixiv 백과사전(pixiv百科事典)은 대부분 봇 확인 뒤에 있어 그냥 열리는 문서만 씁니다.
-- 본문은 저장하지 않습니다. 짧은 발췌·링크·수정 시각만 `wiki` 근거로 남깁니다(나무위키 CC BY-NC-SA 2.0 KR, 위키백과 CC BY-SA — `collectors/namuwiki.py`와 같은 방식).
+- 본문은 저장하지 않습니다. 짧은 발췌·링크·수정 시각만 `wiki` 근거로 남깁니다(나무위키 CC BY-NC-SA 2.0 KR, 위키백과 CC BY-SA – `collectors/namuwiki.py`와 같은 방식).
 - 기존 수집기(`collectors/namuwiki.lookup`, `collectors/wikipedia_search`)를 쓰고, Know Your Meme은 수집기를 새로 둡니다. 요청 사이 간격을 두고 결과는 하루 캐시합니다.
 - 실행은 한 번 쓰는 스크립트(`scripts/crosscheck_dictionary.py`, 새로 작성)로 합니다. 기본은 보고만 하고, 검수 큐에 올리는 것은 옵션으로 켭니다.
 
@@ -68,10 +68,10 @@
 | 부분 | 위치 |
 | --- | --- |
 | 검수 큐의 제안 종류 | `storage/dictionary_store.py`(`queue_review(kind=, docs=)`·`pending_review`·`claim_review`·`human_decided`·`publish_fix`), `storage/migrations/007_review_kinds.sql`·`008_review_history.sql`, `pipeline/views.py`(`ReviewItem`·`ReviewDoc`·`ReviewStats`), `api/app.py`(`POST /review/{term_id}`) |
-| 문서 대조 | `pipeline/crosscheck.py` — 참고 문서 모으기, '문서 없음' 규칙, 로컬 Gemma 제안, 검수 큐 올리기, 전수조사 결과 가져오기 |
+| 문서 대조 | `pipeline/crosscheck.py` – 참고 문서 모으기, '문서 없음' 규칙, 로컬 Gemma 제안, 검수 큐 올리기, 전수조사 결과 가져오기 |
 | '문서 대조' 단계 | `crosscheck.run`, `scripts/run_pipeline.py`의 research 다음. 기록 표 `crosscheck_log`(판정·문서 주소·모델만) |
 | 전수 대조 스크립트 | `scripts/crosscheck_dictionary.py` (`collect`·`import`·`judge`) |
-| Know Your Meme 수집기 | `collectors/knowyourmeme.py` — **기본 꺼짐**(`KNOWYOURMEME_ENABLED`), 아래 참고 |
+| Know Your Meme 수집기 | `collectors/knowyourmeme.py` – **기본 꺼짐**(`KNOWYOURMEME_ENABLED`), 아래 참고 |
 | 관리 화면 | `apps/trend-web/components/review-table.tsx`, `app/api/review/[termId]/route.ts`(본문 거르개 `lib/review-decision.ts`), `lib/types.ts`, `lib/i18n.ts`, 예시 `lib/sample/dictionary.ts` |
 | 시험 | `tests/test_review_kinds.py`, `tests/test_crosscheck.py`, `tests/test_crosscheck_review.py`(검토에서 찾은 것), `e2e/map-admin.spec.ts`(예시 화면에서 고칠 안 승인), `e2e/review-decision.spec.ts`(라우트가 넘기는 본문) |
 
@@ -90,15 +90,15 @@
 - `views.review_items`는 `correction`·`conflict`·`retire`에서 지금 실린 뜻을 `current`로, 고칠 안을 `draft`로, 문서들을 `docs`로 보입니다.
   예전처럼 지금 뜻을 제안으로 보이지 않으므로 제안을 올려도 항목이 공개 사전에서 빠지지 않습니다.
 - `POST /review/{term_id}` 본문은 `{decision: approve|reject, by, meaning_id, kind, token, choice}`입니다. `meaning_id`(검수자가 본 지금 뜻),
-  `kind`(제안 종류), `token`(검수자가 본 제안의 표 — 올린 때와 내용으로 만든 값, `ReviewItem.token`) 가운데 하나라도 대기 중인 제안과 다르면 409입니다.
-  `new` 밖의 제안에는 셋을 반드시 적습니다(없으면 400) — `retire`의 승인은 제외라서 종류를 모르는 예전 화면이 잘못 승인하지 않게 하고,
+  `kind`(제안 종류), `token`(검수자가 본 제안의 표 – 올린 때와 내용으로 만든 값, `ReviewItem.token`) 가운데 하나라도 대기 중인 제안과 다르면 409입니다.
+  `new` 밖의 제안에는 셋을 반드시 적습니다(없으면 400) – `retire`의 승인은 제외라서 종류를 모르는 예전 화면이 잘못 승인하지 않게 하고,
   그사이 같은 종류의 다른 제안이 올라왔을 때 오래된 화면이 보지 않은 안을 싣지 않게 합니다.
 - 결정은 검수자가 본 그 대기 줄(올린 때가 같음)을 먼저 붙잡은 뒤에만 적용합니다(`claim_review`, 바뀐 줄이 하나일 때만). 두 결정이 동시에 오면 하나만 되고,
   고칠 안 싣기와 한 트랜잭션이라 싣다가 실패하면 붙잡은 것도 풀립니다.
 - `conflict`는 고른 문서의 **주소**(`choice`)로 고릅니다. 번호로 고르면 화면이 모양이 틀린 문서를 빼고 보일 때 번호가 밀립니다. `choice`가 없거나
   없는 문서·고칠 안이 없는 문서를 고르면 400입니다.
 - 사람의 결정은 결정 기록(`review_history`, 마이그레이션 008)에 남습니다. 검수 큐는 표제어마다 한 줄이라 새 제안이 예전 결정을 덮던 것입니다(게이트가 스스로 닫은 줄은 두지 않는다).
-  사람이 이미 결정한(승인·거절·지금 뜻 그대로) 같은 내용의 제안 — 고칠 안은 같은 뜻, 위키끼리 다름은 같은 문서·안, 뺄지는 같은 문서 — 은
+  사람이 이미 결정한(승인·거절·지금 뜻 그대로) 같은 내용의 제안 – 고칠 안은 같은 뜻, 위키끼리 다름은 같은 문서·안, 뺄지는 같은 문서 – 은
   다시 가져오기나 '문서 대조' 재검사가 되살리지 않습니다(`human_decided`).
 - 새 말(`new`) 줄은 사람이 보고 있는 다른 종류의 제안을 덮지 않습니다(`queue_review`가 False). 조사·`scripts/audit_dictionary.py`·`scripts/review_dictionary.py`는
   그런 말을 다시 조사하거나 내리지 않고 따로 보고합니다.
@@ -109,7 +109,7 @@
 ### '문서 대조' 단계와 판정
 
 - 대상: 확인된 말 가운데 한 번도 대조하지 않은 것, 로컬 모델이 생긴 뒤의 '판정 안 함', 마지막 대조 뒤 참고 문서가 바뀐 것(그때 보지 못한 참고 문서 근거가
-  생겼거나, 나무위키 문서의 수정 시각이 마지막 대조보다 늦음 — 실행마다 20개까지 묻는다). 실행마다 8개까지이며 사람이 볼 제안이 있는 말은 건너뜁니다.
+  생겼거나, 나무위키 문서의 수정 시각이 마지막 대조보다 늦음 – 실행마다 20개까지 묻는다). 실행마다 8개까지이며 사람이 볼 제안이 있는 말은 건너뜁니다.
 - 참고 문서는 §1의 언어별 순서로 모읍니다(`crosscheck.sources`). 표제어가 든 문서는 짧은 발췌·링크로 wiki 근거에 더합니다(나무위키·위키백과 수집기와 같은 방식).
 - '문서 없음'은 규칙입니다: 저장된 근거와 새로 찾은 문서 가운데 표제어가 든 참고 문서(`verification.reference_doc`)가 없을 때. 기록만 하고 아무것도 바꾸지 않습니다.
   새 밈은 나중에 문서가 생기므로 '문서 없음'과 모델의 판정 실패는 7일 뒤 다시 봅니다.
@@ -123,7 +123,7 @@
 - 모델이 없는 기본 개발 환경(`MODEL_PROVIDER=mock`, 로컬 모델 없음)에서는 모델을 부르지 않고 '문서 없음'만 판정합니다. 문서가 있는 말은 '판정 안 함'으로 남습니다.
 - 검수 화면의 사유는 판정 이름·문서와 다른 점·참고 문서 주소입니다. 예: `문서 대조: 고칠 것`, `유래가 문서와 다름`, `참고 문서: https://…`.
 
-### Know Your Meme — 기본 꺼짐, 주소·제목만 쓰는 조건으로 켜기로 결정 (2026-09-30)
+### Know Your Meme – 기본 꺼짐, 주소·제목만 쓰는 조건으로 켜기로 결정 (2026-09-30)
 
 2026-09-30 사용자 결정: 아래 '켜면' 규칙(문서 주소·제목만, 본문·발췌 저장 없음, 사람 수준 요청 속도) 그대로 켠다. 코드 기본값은 꺼짐으로 두고 운영 환경에서 `KNOWYOURMEME_ENABLED=true` 로 켠다. 시험은 기본(꺼짐)을 고정해 돌린다.
 
@@ -152,7 +152,7 @@ uv run scripts/crosscheck_dictionary.py collect --terms "럭키비키|aura farmi
 uv run scripts/crosscheck_dictionary.py import --from audit.json          # 전수조사 결과: 판정별 건수와 올릴 제안만 보고
 uv run scripts/crosscheck_dictionary.py import --from audit.json --queue  # fix·conflict·not_a_meme → 검수 큐 (+ 대조 기록)
 uv run scripts/crosscheck_dictionary.py import --from audit.json --store-evidence   # 발췌를 wiki 근거로
-uv run scripts/crosscheck_dictionary.py judge                             # 같은 판정을 로컬 Gemma 로 — 보고만
+uv run scripts/crosscheck_dictionary.py judge                             # 같은 판정을 로컬 Gemma 로 – 보고만
 uv run scripts/crosscheck_dictionary.py judge --queue [--store]           # 제안을 검수 큐에 (+ 대조 기록)
 uv run scripts/run_pipeline.py --stages crosscheck                        # '문서 대조' 단계만
 ```
@@ -170,15 +170,15 @@ uv run scripts/run_pipeline.py --stages crosscheck                        # '문
   `proposal`(fix)·`alternatives[].proposal`(conflict)의 빈 칸은 지금 뜻 그대로이고, `proposal`·`excerpt`는 `null`이어도 됩니다.
   fix인데 고칠 안이 없거나 지금 뜻과 같으면 올리지 않고 보고합니다. 형식이 틀린 줄은 건너뛰고 보고합니다.
 - 파일은 엄격히 봅니다. 모르는 키(오타 포함)가 있는 줄은 형식 오류로 건너뛰고 보고합니다. `sources`·`alternatives[].url`은 참고 문서의 문서 주소
-  (http·https, 참고 문서 도메인, 루트가 아닌 경로, 커뮤니티·SNS 글이 아님 — `crosscheck.reference_url`)만 남기고 나머지는 '뺀 주소'로 보고합니다.
-  남은 주소는 한 꼴로 고칩니다(퍼센트 인코딩, 위키백과 문서 이름의 띄어쓰기는 밑줄) — 같은 문서가 근거·문서 목록에 두 번 들어가지 않게.
+  (http·https, 참고 문서 도메인, 루트가 아닌 경로, 커뮤니티·SNS 글이 아님 – `crosscheck.reference_url`)만 남기고 나머지는 '뺀 주소'로 보고합니다.
+  남은 주소는 한 꼴로 고칩니다(퍼센트 인코딩, 위키백과 문서 이름의 띄어쓰기는 밑줄) – 같은 문서가 근거·문서 목록에 두 번 들어가지 않게.
   fix·conflict·not_a_meme는 참고 문서 주소가 하나는 있어야 올라가고, conflict는 고를 문서 설명이 하나는 있어야 합니다.
 - `--store-evidence`는 발췌의 주소가 참고 문서의 문서 주소이고 발췌에 표제어가 있으며(`match.mentions`) **그 문서에 실제로 있는 문장일 때만** 200자 안으로 잘라
   wiki 근거로 더합니다. 나무위키·위키백과는 수집기로 그 문서를 그 자리에서 읽어 확인하고(본문은 저장하지 않는다), 확인할 수집기가 없는 문서(pixiv 백과사전·萌娘百科)는
   받지 않습니다. Know Your Meme 발췌는 꺼져 있으면 받지 않고, 켜져 있으면 수집기 규칙대로 주소·제목만 남깁니다.
 - `no_doc`은 어느 모드도 아무것도 바꾸지 않고 목록만 보입니다. **사용자가 확인한 이름만** `scripts/audit_dictionary.py --downgrade "이름|이름"`으로
-  검수 대기로 돌립니다(§3). `--apply`는 쓰지 않습니다 — 확인하지 않은 말까지 한꺼번에 내립니다. 닿지 못한 말은 '닿지 못함'으로 따로 보이며 이 목록에 넣지 않습니다.
-- 사람이 승인한 뜻(`verified_human`)도 제안은 받지만 큐로만 갑니다. 다시 돌려도 근거·대기 제안·대조 기록이 겹치지 않습니다 — 대기 중인 제안이 있는 말은 건너뛰고 보고합니다.
+  검수 대기로 돌립니다(§3). `--apply`는 쓰지 않습니다 – 확인하지 않은 말까지 한꺼번에 내립니다. 닿지 못한 말은 '닿지 못함'으로 따로 보이며 이 목록에 넣지 않습니다.
+- 사람이 승인한 뜻(`verified_human`)도 제안은 받지만 큐로만 갑니다. 다시 돌려도 근거·대기 제안·대조 기록이 겹치지 않습니다 – 대기 중인 제안이 있는 말은 건너뛰고 보고합니다.
   확인된 항목(`verified`)이 아닌 말에는 올리지 않습니다.
 - `judge`는 로컬 모델이 없으면(`USE_LOCAL_GEMMA=1`과 로컬 서버의 `GEMMA_LOCAL_MODEL`이 필요) 안내만 하고 아무것도 하지 않고 끝납니다. Gemini는 쓰지 않습니다.
 
@@ -197,7 +197,7 @@ SQLite에서 `INSERT OR IGNORE INTO review_history (…) SELECT …`로 씁니�
 | --- | ---: | --- |
 | 일치 | 46 | 그대로 |
 | 고칠 것 | 76 | 확인된 항목 65건을 검수 큐에 올려 사용자가 승인 → 새 판(verified_human), 이전 판은 `valid_to` 로 닫음. 나머지 11건은 확인 항목이 아니거나 다른 제안이 대기 중이라 건너뜀 |
-| 위키끼리 다름 | 3 | 시체놀이·Surprised Pikachu·을용타 — 검수 큐에서 사람이 문서를 고른다 |
+| 위키끼리 다름 | 3 | 시체놀이·Surprised Pikachu·을용타 – 검수 큐에서 사람이 문서를 고른다 |
 | 밈이 아님 | 18 | 확인 항목 10건을 '뺄지' 제안으로 검수 큐에 |
 | 문서 없음 | 22 | 바꾸지 않음. 자동 확인 5건(bougie·シャミ子が悪いんだよ·Siuuu·vibe·foamily)은 아래 규칙으로, 사람이 확인한 17건은 ADR 0003 의 예외로 둔다 |
 
@@ -209,7 +209,7 @@ SQLite에서 `INSERT OR IGNORE INTO review_history (…) SELECT …`로 씁니�
 '사전에서 뺄지'(retire) 제안을 검수 큐에 올린다(`crosscheck.propose_no_doc`). 빼지는 않고, 사람이 거절하면 같은 제안을 되살리지 않는다.
 닿지 못함·판정 실패는 셈을 끊지도 늘리지도 않고, 그사이 문서를 찾으면 셈이 끊긴다. 사람이 확인한 말은 묻지 않는다.
 
-### 위키끼리 다름 — 에이전트가 고르고 규칙이 받는다 (2026-09-30)
+### 위키끼리 다름 – 에이전트가 고르고 규칙이 받는다 (2026-09-30)
 
 전수조사 실측으로 보면 한국어 표제어는 나무위키에 문서가 있는 비율이 69%로, 한국어 위키백과(20%)보다 훨씬 높다. 위키끼리 갈린 두 건(을용타·시체놀이)도 나무위키가 맞았다.
 영어는 Know Your Meme(39%)·나무위키(28%)·영어 위키백과(14%), 일본어는 일본어 위키백과가 먼저다. 다만 나무위키도 틀린 적이 있다(O RLY? 사진 찍은 이). 그래서 그 나라 위키는 마지막 기준으로 둔다.
@@ -230,18 +230,18 @@ SQLite에서 `INSERT OR IGNORE INTO review_history (…) SELECT …`로 씁니�
 ### 남은 일
 
 - 트윈에서 끝낸 결정(2026-09-30, 사용자): 고칠 것 65건 승인, 위키끼리 다름 3건은 추천대로(을용타·시체놀이 나무위키, Surprised Pikachu 일본어 위키백과 본문),
-  뺄지 10건 중 7건 제외·3건 유지(문서를 가져오지 못한 것 — 아래 '문서 없음' 규칙이 다시 찾는다), '문서 없음' 은 바로 내리지 않고 14일 규칙으로 처리.
+  뺄지 10건 중 7건 제외·3건 유지(문서를 가져오지 못한 것 – 아래 '문서 없음' 규칙이 다시 찾는다), '문서 없음' 은 바로 내리지 않고 14일 규칙으로 처리.
 - 팀 PostgreSQL 에도 같은 결과를 가져온다(`crosscheck_dictionary.py import --from … --queue --store-evidence`, 최신 데이터 이관(Plan 01) 뒤).
-- Know Your Meme 은 위 결정대로 운영 환경에서 켠다. Search grounding을 쓰는 조사(`research.web_evidence`)도 같은 설정을 따릅니다 —
+- Know Your Meme 은 위 결정대로 운영 환경에서 켠다. Search grounding을 쓰는 조사(`research.web_evidence`)도 같은 설정을 따릅니다 –
   넘겨주기를 한 칸씩 따라가며 Know Your Meme 으로 가면 꺼져 있을 때는 열지 않고, 켜져 있을 때는 수집기(`knowyourmeme.from_url`)로 넘겨 주소·제목만 남깁니다.
 - 萌娘百科·pixiv 백과사전 수집기는 없습니다. 대만·홍콩 표제어는 위키백과만 찾습니다.
 
 ## 완료 기준
 
 - 실행 시점의 확인 항목 전부에 판정이 붙고, 판정별 건수를 이 문서에 기록합니다. (충족, 2026-09-30)
-- 사람의 확인 없이 바뀐 상태·뜻이 0건입니다. 모든 제안이 검수 큐를 거칩니다. (전수조사는 충족 — 모두 검수 큐를 거쳐 사람이 결정했다. 예외 하나: 2026-09-30 사용자가 자동화를 요청해, 파이프라인의 '위키끼리 다름' 은 세 번 일치·근거 문장·문서 제목 규칙을 모두 넘을 때만 사람 없이 새 판(verified_auto)을 싣는다. 사람이 확인한 뜻은 자동으로 바꾸지 않는다.)
-- '문서 없음' 목록을 사용자가 확인한 기록이 있습니다. (충족 — 2026-09-30 사용자가 목록을 보고 '바로 내리지 않고 다시 찾아 14일 뒤 뺄지 묻기' 로 정함)
-- '문서 대조' 단계에 테스트가 있습니다: '문서 없음'은 규칙으로 정해지고, 모델의 제안은 상태를 바꾸지 않으며, 기본 개발 환경에서는 모델을 부르지 않습니다. (충족 — `tests/test_crosscheck.py` 의 `test_stage_decides_no_doc_by_rule_and_calls_no_model_by_default`·`test_stage_sends_model_proposals_to_the_queue_without_touching_the_entry` 등)
+- 사람의 확인 없이 바뀐 상태·뜻이 0건입니다. 모든 제안이 검수 큐를 거칩니다. (전수조사는 충족 – 모두 검수 큐를 거쳐 사람이 결정했다. 예외 하나: 2026-09-30 사용자가 자동화를 요청해, 파이프라인의 '위키끼리 다름' 은 세 번 일치·근거 문장·문서 제목 규칙을 모두 넘을 때만 사람 없이 새 판(verified_auto)을 싣는다. 사람이 확인한 뜻은 자동으로 바꾸지 않는다.)
+- '문서 없음' 목록을 사용자가 확인한 기록이 있습니다. (충족 – 2026-09-30 사용자가 목록을 보고 '바로 내리지 않고 다시 찾아 14일 뒤 뺄지 묻기' 로 정함)
+- '문서 대조' 단계에 테스트가 있습니다: '문서 없음'은 규칙으로 정해지고, 모델의 제안은 상태를 바꾸지 않으며, 기본 개발 환경에서는 모델을 부르지 않습니다. (충족 – `tests/test_crosscheck.py` 의 `test_stage_decides_no_doc_by_rule_and_calls_no_model_by_default`·`test_stage_sends_model_proposals_to_the_queue_without_touching_the_entry` 등)
 
 ## 하지 않는 것
 

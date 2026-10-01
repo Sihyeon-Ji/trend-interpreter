@@ -110,7 +110,7 @@ docker compose run --rm model-eval compare \
   --output artifacts/model-comparison.json
 ```
 
-## 검증 기록 — 2026-09-22
+## 검증 기록 – 2026-09-22
 
 | 확인 항목 | 실제 결과 |
 | --- | --- |
