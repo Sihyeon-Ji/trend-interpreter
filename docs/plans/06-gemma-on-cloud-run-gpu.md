@@ -18,7 +18,7 @@
 
 **무료 Colab에서는 GPU를 사실상 받을 수 없었다.** 2026-09-30 무료 T4 배정이 사용량 제한으로 거절됐고 컴퓨팅 단위는 0이었다. 이후 사용자가 확인한 결과, 무료 계정에 GPU를 쓸 컴퓨팅 자원이 없어 Gemma 4 추론·학습을 진행할 수 없었다. Colab에서 확인한 것은 소유자 Drive의 입력 읽기·결과 쓰기·재마운트 보존과 합성 표본의 입출력뿐이고, **Gemma 추론과 학습은 한 번도 실행하지 못했다.**
 
-Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을 계정 화면에 보여 준다. 그래서 실험 위치를 Kaggle로 옮긴다. Colab 조사 전문(Drive 공유·마운트 권한·런타임 제한 실측)은 [옮기기 전 Plan 06](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/blob/8725154debe17b729b950f6548bb5c822e755847/docs/plans/06-gemma-on-cloud-run-gpu.md)과 [옛 Colab 노트북](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/blob/8725154debe17b729b950f6548bb5c822e755847/models/colab/gemma_risk_labeling.ipynb)에 남아 있다. 소유자 Drive의 `Builder-Cup-Trend-Colab` 폴더에는 합성 표본과 연결 시험 파일만 있으므로 더 쓰지 않는다. 정리는 소유자가 판단한다.
+Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을 계정 화면에 보여 준다. 그래서 실험 위치를 Kaggle로 옮긴다. Colab 조사 전문(Drive 공유·마운트 권한·런타임 제한 실측)은 [옮기기 전 Plan 06](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/blob/d7e9a7ff7960497e84043c0847bb91e19e20fcc7/docs/plans/06-gemma-on-cloud-run-gpu.md)과 [옛 Colab 노트북](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/blob/d7e9a7ff7960497e84043c0847bb91e19e20fcc7/models/colab/gemma_risk_labeling.ipynb)에 남아 있다. 소유자 Drive의 `Builder-Cup-Trend-Colab` 폴더에는 합성 표본과 연결 시험 파일만 있으므로 더 쓰지 않는다. 정리는 소유자가 판단한다.
 
 ## Kaggle 무료 자원 (2026-10-01 조사·계정 확인)
 
