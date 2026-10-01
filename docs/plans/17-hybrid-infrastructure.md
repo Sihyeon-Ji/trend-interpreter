@@ -247,3 +247,18 @@ Gemma 특화 추론은 내부 gateway의 실제 readiness를 확인하고 deadli
 | 13 | 기존 Cloud SQL 체험 종료·사양·비용 결정을 유지 |
 | 14 | GPU 위치는 GCE로 확정. 사용자에게 보이는 분류/모델 기록·관리자 실행 UX는 이 기반 위에서 구현 |
 | 12·15·16 | 수집·검수·시기/성향 데이터는 입력 자산. 대량 등재 완료와 모델 품질/승격은 별도 확인 |
+
+
+### 충돌 정리와 남은 구현 (2026-10-01)
+
+01·05·06·14의 실행 본문과 완료 기준을 이 결정에 맞췄다. 이전 실측·실험 결과는 날짜가 붙은 과거 기록으로 보존한다. 아래 문서 정리는 완료됐지만 코드·자원 구축이 완료된 것은 아니다.
+
+| 경계 | 정리한 계획 | 아직 구현·검증할 것 |
+| --- | --- | --- |
+| 데이터 인수 | 수집 서버 SQLite 유지, GCS 고정 스냅숏으로 staging 이관 | manifest 마지막 게시·generation/해시 검증·최신 DB 대조, 이관 `--skip-user-data`의 `lookups` 제외 보완 |
+| 학습·버전 관리 | Kaggle을 팀 재현 경로로, DVC/GCS를 버전 원본으로 사용 | DVC lockfile/remote, Dataset 전달·Output 등록, 학습 체크포인트·재개 |
+| 모델 서빙 | Cloud Run GPU와 유휴 비용 0 가정 대신 GCE GPU·인증 gateway | runtime adapter, readiness·전체 동시성·deadline, 작업별 모델 품질, 가동 종료 |
+| 승인 게시·신선도 | 승인 배치 Job, 초안 공개 금지, 활성 publication 기준 | 게시 migration·트랜잭션·버전 충돌 보호, 공개 조회 게이트, `/meta`·유지보수 소비자 전환 |
+| 서비스·복구 | Cloud Run 웹/API 유지, 운영 PostgreSQL 예약 백업 추가 | ID token 공통 fetch, 배포 workflow, 백업·복원·보존 정리와 경보 |
+
+이 작업들은 Plan 17의 단계 0~7에 배치한다. 17번은 위 계획들을 모두 끝낸 뒤 시작하는 후속 계획이 아니다.

@@ -1,6 +1,6 @@
 # Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **이관 검증 완료(09-29, 별도 Compose 프로젝트) – 이관 스크립트에 `--fresh`·`--skip-user-data`, 기본 로컬 볼륨 교체와 수집의 PostgreSQL 전환은 사용자/팀 결정 대기(수집은 10-01 기준 트윈 SQLite 에서 계속)** · 선행 **없음** · 목표일 **2026-10-01**
+작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **기존 스냅숏 이관 검증 완료(09-29) · GCS 최신 고정 스냅숏의 staging 이관·대조는 남음 · 수집 서버는 SQLite 유지** · 선행 **없음** · 목표일 **2026-10-01**
 
 [계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
 
@@ -11,16 +11,11 @@
 파이프라인이 cron으로 계속 돌았으므로, 그쪽 파일이 더 최신일 가능성이 큽니다. 사전 뜻은 version으로 갱신되기 때문에
 이미 있는 행을 건너뛰는 방식으로는 갱신된 뜻이 반영되지 않습니다. 그래서 **빈 DB에 최신 파일 하나로 다시 이관**합니다.
 
-2026-09-29부터 원본(트윈 `/home/cytur/trend/data/trend.db`)이 이 저장소와 같은 PC에 있어 원작자에게 파일을 받는 단계는 필요 없습니다.
-트윈 쪽 파일은 읽기만 하고, `.env`·`data/accounts.txt`는 가져오지 않습니다.
+2026-10-01부터 인수 원본은 [Plan 17](17-hybrid-infrastructure.md)의 `gs://copybara-team-shared-bucket/taewoo/trend-interpreter/`입니다. 수집 서버의 SQLite는 유지하고, 서비스용 PostgreSQL로 승인 자료를 별도 게시합니다. 수집 서버를 PostgreSQL로 바꾸는 것은 이 계획의 완료 조건이 아닙니다. 아래 09-29 결과는 당시 PC 사본의 검증 기록이며 최신 GCS 자료의 검증 결과가 아닙니다.
 
 ## 절차
 
-1. **스냅숏.** 트윈 cron(매일 9·14·19·23시 :15~:40 KST)이 쓰는 동안은 피하고, 읽기 전용으로 `.backup` 합니다.
-
-   ```bash
-   sqlite3 -readonly /home/cytur/trend/data/trend.db ".backup 'apps/trend-api/data/trend.db'"
-   ```
+1. **스냅숏 고정.** GCS `db/latest/`에서 선택한 객체 generation·해시·크기·표별 건수를 manifest로 고정하고 `snapshots/<snapshot-id>/` 사본을 검증합니다. manifest를 마지막에 게시하는 인수 도구는 Plan 17에서 구현합니다. 여러 최신 파일을 임의로 섞지 않습니다. 압축을 푼 SQLite 사본은 Git 제외 경로 `apps/trend-api/data/trend.db`에 두고, 사용자 표 `explain_cache`·`lookups`·`reader_prefs` 제외를 확인합니다. `.sql.gz`는 SQLite dump이므로 PostgreSQL에 직접 복원하지 않습니다.
 
 2. **빈 DB.** 별도 Compose 프로젝트로 띄웁니다. 기본 프로젝트의 `postgres_data` 볼륨(`2026-google-ai-builder-cup_postgres_data`)은
    지우지 않습니다. 되돌릴 수 없으므로 바꿔야 하면 먼저 `pg_dump`로 보관합니다.
@@ -33,7 +28,7 @@
 
    ```bash
    docker compose -p abc-pgimport run --rm -v "$PWD/apps/trend-api/data:/import:ro" api \
-     python scripts/migrate_sqlite_to_postgres.py --sqlite /import/trend.db --fresh
+     python scripts/migrate_sqlite_to_postgres.py --sqlite /import/trend.db --fresh --skip-user-data
    ```
 
 4. **확인.** 표마다 원본과 건수를 비교하고, 건강 점검과 실데이터 화면을 봅니다. 포트는 다른 checkout과 겹치지 않게 고릅니다.
@@ -45,17 +40,20 @@
    DATA_MODE=api DEV_WEB_PORT=3518 DEV_API_PORT=8518 docker compose -p abc-pgimport --profile tools run --rm e2e
    ```
 
-5. **정리.** 지우는 것은 `apps/trend-api/data/` 아래의 사본뿐입니다. 트윈의 `trend.db`와 `trend.db.bak-*`는 지우지 않습니다.
+5. **정리와 게시.** 로컬 임시 사본만 정리하고, 원본 GCS 객체·고정 스냅숏·수집 서버 DB는 보존합니다. 초기 이관 이후 갱신은 Plan 17의 승인 변경 배치로 게시합니다. 운영 DB에 전체 이관을 반복하지 않습니다.
 
 Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_cache`)과 계정별 설정(`reader_prefs`)을 뺍니다.
 스크립트로 바로 옮기면 `--fresh --skip-user-data`, 로컬 DB에서 내보내면
-`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
+`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
+
+현재 이관 스크립트의 `--skip-user-data`는 `explain_cache`·`reader_prefs`만 제외합니다. GCS 인수본에서 `lookups`도 없는지 확인하고, 향후 원본에 존재할 수 있는 `lookups`까지 제외하도록 스크립트를 보완해야 합니다. 이 세 표 제외 검증은 최초 이관의 필수 조건입니다.
 
 ## 완료 기준
 
-- 로컬 PostgreSQL의 용어·근거·검수 기록이 원본 파일과 같은 시점이다. → 별도 프로젝트에서 확인. 기본 볼륨 교체는 사용자 확인 뒤
-- `health_check.py`에 경고가 없다. → 확인
-- 이후 수집은 Compose `db`에만 쌓이고 SQLite 파일은 더 이상 만들어지지 않는다. → 아직. 트윈(운영)은 SQLite로 돈다
+- 선택한 GCS snapshot manifest와 staging PostgreSQL의 용어·뜻·근거·검수 기록을 대조하고, 호환성 때문에 제외한 항목을 건수와 사유로 기록한다. → 최신본은 미검증
+- staging에서 `health_check.py`와 API 모드 실데이터 흐름을 검증한다. → 09-29 사본은 확인, 최신본은 남음
+- 이용자 표 제외를 확인하고 Cloud SQL 최초 이관·복원 결과에 snapshot ID를 연결한다. → 남음
+- 수집 서버의 SQLite를 유지하면서 이후 승인 배치를 중복·뜻 버전 충돌 없이 게시한다. → Plan 17의 게시 구현·검증과 연결
 
 ## 결과 (2026-09-29, 23:02 KST 스냅숏 · 19:15 회차 뒤)
 
@@ -88,5 +86,5 @@ PostgreSQL 때문에 난 실패는 없었습니다.
 PostgreSQL DB의 정렬 규칙은 `en_US.utf8`이라 `ORDER BY canonical` 결과가 SQLite(바이트 순)와 다릅니다.
 사전 화면은 웹이 다시 정렬하므로 보이는 순서에는 영향이 없습니다.
 
-남은 일: 기본 볼륨 교체 여부는 사용자 확인 뒤 정합니다(먼저 `pg_dump`). 이관한 DB는 `abc-pgimport_postgres_data` 볼륨에 남겨
+남은 일: GCS 최신 고정 스냅숏으로 이관·대조를 다시 실행합니다. 기본 로컬 볼륨 교체는 필수 사항이 아니며, 교체할 때는 먼저 `pg_dump`로 보관합니다. 이관한 DB는 `abc-pgimport_postgres_data` 볼륨에 남겨
 다른 계획의 실데이터 확인에 씁니다(`DATA_MODE=api docker compose -p abc-pgimport up -d`).
