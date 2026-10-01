@@ -251,6 +251,7 @@ def test_each_gemini_attempt_logs_one_event_without_content(monkeypatch, caplog)
         def generate_content(self, model, contents, config):
             raise TimeoutError
 
+    monkeypatch.setattr(gemini, "_busy", {})          # 위의 503 으로 첫 모델이 5분 쉬는 중 — 아래는 첫 모델부터 본다
     for fake, code in ((Broken(), 400), (Offline(), None)):
         monkeypatch.setattr(gemini, "client", lambda fake=fake: SimpleNamespace(models=fake))
         caplog.clear()

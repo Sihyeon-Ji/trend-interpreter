@@ -120,6 +120,7 @@ def test_grounded_research_records_the_model_that_answered(monkeypatch):
                             self_confidence=0.9), [], "grounded notes"
 
     monkeypatch.setattr(research, "research_term", fake_research)
+    monkeypatch.setattr(gemini, "GEMINI_SEARCH_GROUNDING", True)      # 무료 등급에서는 꺼 둔다(config) — 이 시험은 grounding 경로를 본다
     monkeypatch.setattr(research, "promote_candidates", lambda con, n: [term])
     monkeypatch.setattr(research, "due_for_recheck", lambda con, n: [])
     for name in ("web_evidence", "first_party_evidence", "_wikipedia_evidence"):      # 네트워크·DB 수집은 비워 둔다

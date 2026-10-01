@@ -9,3 +9,12 @@ def _clean_ephemeral_schemas():
     db.drop_ephemeral_schemas(stale=True)
     yield
     db.drop_ephemeral_schemas()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_model_chain(monkeypatch):
+    """Gemini 모델 사슬의 프로세스 상태(503 으로 쉬는 모델·분당 간격)는 시험마다 비운다 — 앞 시험의 503 이 다음 시험의 첫 모델을 바꿨다."""
+    from trend_agents.pipeline import gemini
+
+    monkeypatch.setattr(gemini, "_busy", {})
+    monkeypatch.setattr(gemini, "_last_call", {})
