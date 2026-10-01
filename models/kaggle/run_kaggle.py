@@ -56,6 +56,7 @@ def configure(notebook: dict, settings: dict[str, object]) -> None:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(line_buffering=True)  # progress shows up even when piped to a file
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--slug", default="gemma-risk-labeling", help="notebook name in your Kaggle account")
     p.add_argument("--dataset", action="append", default=[], help="private dataset slug or owner/slug; repeatable")
@@ -106,7 +107,7 @@ def main() -> None:
         time.sleep(30)
         line = kaggle("kernels", "status", kernel_id).strip()
         status = line.rsplit(" ", 1)[-1].strip('"').lower()
-        print(f"{int(time.time() - started):>5}s {status}", flush=True)
+        print(f"{int(time.time() - started):>5}s {status}")
         if any(word in status for word in TERMINAL):
             break
     else:
