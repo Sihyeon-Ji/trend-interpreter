@@ -220,6 +220,22 @@ storage는 남습니다.
 이 Preview 한도는 gcloud에 옵션이 없어 콘솔에서 관리합니다(2026-09-26 생성 시 콘솔 화면을 자동 조작). 종전 Plan 06의 Gemma GPU 전용 예산·경보는 GPU 배포 계획과 함께 철회했습니다([결정과 비용 비교](../AI-개발/Gemma-로컬-편집-엔진-결정.md)). 기존 알림 예산의 Terraform 설정과 구별하며,
 `gcloud billing budgets list` 결과에 세 지출 한도가 보이지 않더라도 콘솔의 `구성됨` 상태를 확인합니다.
 
+### Cloud Storage
+
+2026-10-01 콘솔에서 확인한 값입니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 프로젝트 ID (`x-goog-project-id`) | `stunning-crane-508614-c1` |
+| 요청 엔드포인트 | `https://storage.googleapis.com` |
+| 버킷 | `gs://stunning-crane-508614-c1-tfstate` 하나. Terraform state 전용입니다([콘솔](https://console.cloud.google.com/storage/browser/stunning-crane-508614-c1-tfstate)) |
+| 버킷 설정 | `scripts/bootstrap-gcp.sh`가 도쿄(`asia-northeast1`)에 만들고 균일한 버킷 수준 액세스·공개 액세스 방지·버전 관리를 켭니다. 저장 등급을 지정하지 않으므로 Standard입니다 |
+
+도쿄(`asia-northeast1`) 저장 요금은 GiB당 월 **Standard US$0.023**, Nearline US$0.016, Coldline US$0.006, Archive US$0.0025, Rapid Cache US$0.120012입니다([Cloud Storage 가격](https://cloud.google.com/storage/pricing), 2026-10-01 화면). 요청 횟수와 리전 밖 데이터 전송은 별도로 과금됩니다.
+Terraform state는 KB 단위 JSON이라 버전 관리로 이전 판이 쌓여도 저장 비용은 사실상 0입니다.
+
+**Cloud Storage는 위 서비스별 지출 한도에 포함되지 않습니다.** 사용량이 늘어도 자동으로 멈추지 않습니다. Kaggle Gemma 실험은 GCS·BigQuery 등 이 프로젝트의 GCP에 연결하지 않고 Kaggle 저장 공간만 씁니다([Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)). 새 버킷을 만들거나 모델·데이터를 GCS에 둘 계획이 생기면, 그 전에 Cloud Storage 지출 한도를 걸고 이 표를 갱신합니다.
+
 ## Gemini 사용량과 비용 확인
 
 운영 화면에서 올바른 `Team access code`로 `Analyze text`를 실행하면 Cloud Run의 FastAPI가

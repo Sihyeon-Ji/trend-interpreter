@@ -66,23 +66,44 @@ Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을
 
 **Dataset과 노트북은 Private으로 둔다.** 표본에는 공개 기사·쇼츠·커뮤니티 글의 발췌가 들어 있다. 공개 Dataset·공개 노트북으로 바꾸면 Kaggle 전체에 공개되므로 바꾸지 않는다. Kaggle Secrets에도 운영 자격증명을 넣지 않는다. CSV·모델 파일·자격증명·검수 결과는 Git에 커밋하지 않는다.
 
+## Kaggle 계정·CLI 준비
+
+1. kaggle.com에 가입하고 **Settings → Phone verification**으로 휴대폰 인증을 한다. 인증 전에는 GPU·인터넷을 켤 수 없다. 한 사람이 여러 계정으로 할당을 우회하지 않는다.
+2. **Settings → API → Create New Token**으로 API 토큰을 받는다. Kaggle CLI 2.x는 `~/.kaggle/access_token`(권한 600)을 쓴다. 토큰은 저장소·Kaggle Secrets·메신저에 올리지 않는다.
+3. 개발 PC에 CLI를 설치하고 연결을 확인한다. 2026-10-01 `Kaggle CLI 2.2.4`로 인증을 확인했다.
+
+   ```bash
+   uv tool install kaggle
+   kaggle datasets list -m   # 인증이 맞으면 오류 없이 목록(처음에는 "No datasets found")
+   ```
+
 ## Kaggle·GitHub 코드 동기화
 
-**코드 원본은 GitHub의 `models/kaggle/gemma_risk_labeling.ipynb`, 데이터는 Kaggle Dataset, 실행 결과는 노트북 버전 Output으로 관리한다.** Kaggle 편집기의 `File → Import Notebook`으로 가져온 노트북은 그 시점의 사본이다. 이후 GitHub 원본이 바뀌어도 Kaggle 사본은 따라오지 않고, Kaggle에서 고친 코드도 GitHub에 자동으로 반영되지 않는다.
+**코드 원본은 GitHub의 `models/kaggle/gemma_risk_labeling.ipynb`, 데이터는 비공개 Kaggle Dataset, 실행 결과는 노트북 버전 Output으로 관리한다. 개발 PC의 Kaggle CLI로 올리고 받는다.** Kaggle 편집기의 GitHub 연결(`File → Link to GitHub`)은 쓰지 않는다. Save Version마다 셀 출력까지 커밋될 수 있어 표본 문장이 GitHub에 남고, 검토 없이 `develop`·`release/gcp`에 저장될 수 있다.
 
-1. Kaggle에서 바꾼 공통 코드가 있으면 `File → Download Notebook`으로 받아 개발 PC의 공통 노트북과 비교한다. 실행별 입력 경로·`RESUME_FROM` 같은 값은 공통 기본값으로 옮기지 않는다.
-2. 모든 코드 셀 출력과 실행 횟수를 지우고, 원문·개인 계정 정보·토큰·CSV·결과·체크포인트·가중치가 들어 있지 않은지 확인한다.
-3. 작업 브랜치에서 커밋하고 PR로 검토해 `develop`에 반영한다. Kaggle에서 `develop`이나 `release/gcp`로 바로 저장하지 않는다. `release/gcp` 푸시는 실제 배포를 유발한다. 같은 `.ipynb`를 두 사람이 동시에 고치지 않는다.
-4. 팀원은 반영된 GitHub 버전을 새로 가져온다. Git 커밋과 모델·입력 해시를 실행 메타데이터에 연결한다. 진행 중인 실험 노트북을 최신 코드로 덮어쓰지 않는다.
+| 하는 일 | 명령 |
+| --- | --- |
+| 표본 Dataset 만들기·새 버전 | `kaggle datasets init -p <폴더>` 뒤 `dataset-metadata.json`의 `title`·`id`를 채우고 `kaggle datasets create -p <폴더>`. 새 표본은 `kaggle datasets version -p <폴더> -m "<메모>"`. 기본이 비공개이며 `--public`은 붙이지 않는다 |
+| 노트북 올리고 실행 | `models/kaggle/kernel-metadata.example.json`을 같은 폴더의 `kernel-metadata.json`(커밋하지 않음)으로 복사해 `id`·`dataset_sources`를 자기 계정 값으로 채운 뒤 `kaggle kernels push -p models/kaggle`. 저장소의 노트북이 그대로 올라가 Save Version처럼 백그라운드로 돈다 |
+| 상태 보기 | `kaggle kernels status <id>` |
+| 결과 받기 | `kaggle kernels output <id> -p <저장소 밖 폴더>`. 결과에는 문장이 들어 있으므로 저장소 안에 두지 않는다 |
+| Kaggle에서 고친 코드 받기 | `kaggle kernels pull <id> -p <임시 폴더>` 뒤 공통 노트북과 비교한다 |
+
+1. 실행별 값(`USE_SYNTHETIC_SAMPLE`, `INPUT_DIR`, `RESUME_FROM`)을 바꿔 돌릴 때는 저장소 밖 임시 폴더에 노트북과 `kernel-metadata.json`을 복사해 고친 뒤 그 폴더를 push한다. 실행별 값을 공통 기본값으로 커밋하지 않는다.
+2. 공통 코드를 바꿨으면 모든 코드 셀 출력과 실행 횟수를 지우고, 원문·개인 계정 정보·토큰·CSV·결과·체크포인트·가중치가 들어 있지 않은지 확인한다.
+3. 작업 브랜치에서 커밋하고 PR로 검토해 `develop`에 반영한다. `release/gcp` 푸시는 실제 배포를 유발한다. 같은 `.ipynb`를 두 사람이 동시에 고치지 않는다.
+4. Git 커밋과 모델·입력 해시를 실행 메타데이터에 연결한다. 진행 중인 실험을 최신 코드로 덮어쓰지 않는다.
+
+CLI에서 T4와 P100 중 무엇을 고르는지는 확인하지 않았다. 첫 push 뒤 실행 기록의 `nvidia-smi` 출력으로 배정 GPU를 확인하고, 다르면 웹 편집기 Settings에서 **GPU T4 x2**로 한 번 정한다.
 
 ## 팀원별 Kaggle 실행 절차
 
-1. Kaggle 계정의 휴대폰 인증을 마친다. 한 사람이 여러 계정으로 할당을 우회하지 않는다.
+1. 위 '계정·CLI 준비'를 마친다.
 2. 수집 서버가 새 `apps/trend-api` 코드와 PostgreSQL을 쓰는지 확인한다. `apps/trend-api/scripts/export_risk_sample.py`는 그 환경에서만 실표본을 낼 수 있다. Plan 01의 최신 SQLite 수령·이관이 아직이면 표본의 시점과 한계를 기록한다. 사용자 입력 표는 내보내지 않고 필요한 공개 근거 문장만 CSV로 추출한다.
-3. CSV와 같은 이름의 `.env.json`을 **비공개 Dataset**으로 올린다. 실행할 팀원을 Collaborator로 더한다.
-4. GitHub의 [리스크 노트북](../../models/kaggle/gemma_risk_labeling.ipynb)을 `File → Import Notebook`으로 가져온다. Settings에서 Accelerator를 **GPU T4 x2**로, Internet을 켜고, **Add Input**으로 표본 Dataset을 붙인다.
+3. CSV와 같은 이름의 `.env.json` 두 파일만 빈 폴더에 모아 **비공개 Dataset**으로 올린다. 실행할 팀원을 Dataset 화면의 **Share**에서 Collaborator로 더한다. GPU 할당은 실행한 계정에서 빠진다.
+4. `kernel-metadata.json`의 `dataset_sources`에 그 Dataset을 적고 push한다. 웹 편집기로 셀을 하나씩 확인할 때는 `File → Import Notebook`으로 가져오고 Settings에서 **GPU T4 x2**, Internet, **Add Input**(표본 Dataset)을 정한다. 거기서 고친 코드는 `kaggle kernels pull`로 받아 PR로 반영한다.
 5. 먼저 `USE_SYNTHETIC_SAMPLE=True`로 합성 5문장의 설치·추론·메모리·시간·결과 저장을 확인한다. 이는 작동 확인이다. 이어서 실표본으로 셀을 순서대로 실행한다. Ollama 버전, `gemma4:12b`의 태그·digest, 프롬프트 해시, 호출 옵션을 서버 기준과 비교한다. 서버는 미분류 문장만 묶고 노트북은 최근 문장을 다시 묶으므로 같은 모델이어도 결과가 달라질 수 있다.
-6. 남겨야 하는 실행은 **Save Version(Save & Run All)** 으로 돌린다. 결과는 그 버전의 Output `runs/<RUN_ID>`에 남는다. 중간에 끊겼으면 그 버전의 Output을 입력으로 붙이고 `RESUME_FROM`에 `runs/<RUN_ID>` 경로를 적어 다시 돌린다. 입력 해시·모델 digest·프롬프트·규칙이 같은 정상 완료 항목만 재사용한다.
+6. 남겨야 하는 실행은 CLI push 또는 **Save Version(Save & Run All)** 으로 돌린다. 결과는 그 버전의 Output `runs/<RUN_ID>`에 남는다. 중간에 끊겼으면 그 버전의 Output을 입력으로 붙이고 `RESUME_FROM`에 `runs/<RUN_ID>` 경로를 적어 다시 돌린다. 입력 해시·모델 digest·프롬프트·규칙이 같은 정상 완료 항목만 재사용한다.
 7. 각자 다른 프롬프트 안을 별도 실행 ID로 비교한다. 서버 모델과의 일치율은 참고치다. CSV의 `human_*` 칸에 **사람이 독립적으로 판정한 값**을 넣어 오탐·누락과 근거를 비교한다. 합성 표본이나 사람 판정이 없는 일치율을 AI 품질 개선의 증거로 사용하지 않는다.
 
 `path_check.json`은 **입출력 확인 단계의 기록**이며 `inference_executed=false`다. 실제 추론이 성공하면 `sentence_labels.csv`, `term_levels.csv`, `calls.csv`, `run.json`과 `checkpoint.json`이 같은 실행 폴더에 저장된다. 입력 검사 기록을 모델 추론 결과로 해석하지 않는다.
@@ -160,6 +181,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 - `builder-cup-gemma` Cloud Run GPU 서비스, vLLM 이미지, GPU IAM·인스턴스 경보는 이 계획에서 만들지 않는다. 운영 Gemma 서비스는 [Plan 14](14-gemma-visible-in-deployment.md)에서 협의 중이다.
 - **무료 Colab.** 무료 계정에 GPU 컴퓨팅 자원이 없어 Gemma 추론·학습을 할 수 없었다(2026-09-30·10-01 확인). Drive 입출력 경로는 더 쓰지 않는다. 기록은 위 'Colab에서 Kaggle로 옮긴 까닭'의 링크에 있다.
+- **Google Drive·Google Cloud Storage·BigQuery 연동.** Kaggle에는 Drive를 바로 붙이는 기능이 없고, 우회(`gdown`은 공개 링크 필요, OAuth·서비스 계정 키를 Kaggle Secrets에 넣는 방식)는 Drive 전체나 GCP 권한을 Kaggle에 맡긴다. GCS·BigQuery(Add-ons → Google Cloud Services)는 프로젝트 결제로 과금되고 [서비스별 지출 한도](../운영/GCP-운영.md#예산과-리전) 밖이다. 입력·결과·어댑터는 Kaggle의 비공개 Dataset·버전 Output·비공개 Model(각 214.75 GB)에 두고, 필요하면 개발 PC로 받은 뒤 옮긴다(2026-10-01 결정).
 - Kaggle 노트북을 상시 서버로 쓰거나 Cloud Run API가 Kaggle·개발자 PC의 Ollama에 실시간 접속하는 경로를 만들지 않는다.
 - 무료 GPU(16 GB)에서 12B 전체 가중치 학습을 완료하는 것은 목표가 아니다. QLoRA도 실측 전 완료 시간·품질을 보장하지 않는다.
 - 팀원이 같은 세션이나 모델 메모리를 공유한다고 가정하지 않는다. 각자 실행하고 승인된 입력·결과·체크포인트만 공유한다.
