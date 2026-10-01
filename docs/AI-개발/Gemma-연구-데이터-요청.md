@@ -9,12 +9,12 @@
 ```bash
 cd apps/trend-api
 uv run scripts/export_research_data.py --list          # 묶음·표별 행 수만 확인
-uv run scripts/export_research_data.py                 # 아래 C·D 의 표 전부 → artifacts/research_export/<시각>/
+uv run scripts/export_research_data.py                 # DB 의 모든 표 → artifacts/research_export/<시각>/
 uv run scripts/export_risk_sample.py --terms 100       # B-1 리스크 표본 → artifacts/risk_sample/
 uv run scripts/audit_dataset.py > data/work/audit_sft.jsonl   # B-2 감사관 학습 데이터
 ```
 
-`export_research_data.py`는 허용 목록에 있는 표만 읽고 표마다 `<표>.jsonl`과 `manifest.json`(시각·서버 커밋·행 수·Gemma 환경)을 남긴다. 사용자 문장 표는 목록에 없다. 검수자 이름(`decided_by`, `risk_decided_by`)은 `reviewer-<해시 8자리>`로 바꾼다. 같은 사람은 같은 가명이 되지만 익명화는 아니므로 결과를 공개하지 않는다.
+`export_research_data.py`는 현재 스키마의 **모든 표**(로컬 기준 41개)를 표마다 `<표>.jsonl`로 뽑고 `manifest.json`(시각·서버 커밋·묶음별 행 수·Gemma 환경)을 남긴다. 아래 C·D의 묶음은 분류일 뿐이고 어디에도 없는 표는 `other`로 나간다. 사용자 문장·설정 표(`explain_cache`, `lookups`, `reader_prefs`)는 `user_text/` 하위 폴더에 따로 둔다. 이 폴더는 Kaggle에 올리지 않고 팀 밖으로 보내지 않으며, 보존 기한(해석 캐시 7일·미해결 질문 30일)이 지나면 지운다. 필요 없으면 `--skip-user-text`로 뺀다. 검수자 이름(`decided_by`, `risk_decided_by`)은 `reviewer-<해시 8자리>`로 바꾼다. 같은 사람은 같은 가명이 되지만 익명화는 아니므로 결과를 공개하지 않는다.
 
 ## A. 지금 파이프라인에서 Gemma가 하는 일
 
@@ -67,7 +67,7 @@ uv run scripts/audit_dataset.py > data/work/audit_sft.jsonl   # B-2 감사관 �
 
 ## 지킬 것
 
-- **사용자 문장은 뽑지 않는다.** `explain_cache`, `lookups`, `reader_prefs`는 허용 목록에 없다. `lookups`가 필요하면 원문 없이 표제어 이름만 받는다.
+- **사용자 문장 표는 `user_text/`에만 둔다.** `explain_cache`, `lookups`, `reader_prefs`는 함께 뽑히지만 Kaggle Dataset·학습 데이터에 넣지 않는다. `lookups`로 연구할 때는 원문 대신 뽑아낸 표제어 이름만 쓴다.
 - **커뮤니티 글**(디시·더쿠·Reddit 등)은 학습 입력으로 써도 결과물에 인용하지 않는다([ADR 0003](../adr/0003-사전-등재-기준.md)).
 - **나무위키(CC BY-NC-SA)** 발췌와 참고 문서 본문이 들어 있으므로 공개 Dataset·공개 모델로 내보내지 않는다.
 - 결과는 Git에 커밋하지 않는다(`artifacts/`, `data/`). Kaggle에는 **비공개 Dataset**으로만 올리고 필요한 팀원만 Collaborator로 더한다.
