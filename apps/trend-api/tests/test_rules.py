@@ -1461,3 +1461,37 @@ def test_audit_stage_logs_once_per_meaning_and_rewrites_on_fix(monkeypatch):
     assert audit.audit_one(con, ds.get_term(con, "t_a")) == "fixed"
     assert audit.targets(con) == []                                                 # 새 판도 감사됐다
     assert {r[0] for r in con.execute("SELECT action FROM audit_log").fetchall()} == {"rewritten", "ok"}
+
+
+def test_wikipedia_th_id_catalog_tags_and_person_categories():
+    """위키백과 th·id 분류: region·연도 꼬리표를 읽고(불기 연도는 서기로), 사람 분류는 싣지 않고, 태국 글자는 th."""
+    from trend_agents.pipeline import catalog
+    from trend_agents.storage import store as db
+
+    m = catalog.meta(["อินเทอร์เน็ตมีมในปี พ.ศ. 2563", "region:TH"])
+    assert m["regions"] == ["TH"] and m["year"] == 2020 and m["decade"] == 2020
+    assert catalog.meta(["Meme internet yang diperkenalkan tahun 2023", "region:ID"])["year"] == 2023
+    assert catalog.script_lang("ไม่") == "th"
+    con = db.connect(":memory:")
+    assert catalog.add(con, "เจเน่", ["เน็ตไอดอล", "region:TH"], source="wiki-th") is None
+    assert catalog.add(con, "Nikocado Avocado", ["YouTuber Amerika", "region:ID"], source="wiki-id") is None
+    t = catalog.add(con, "ไม่", ["สแลงอินเทอร์เน็ต", "region:TH"], source="wiki-th")
+    assert t and t.lang == "th"
+    u = catalog.add(con, "Gwiyomi", ["Lagu meme", "region:ID"], source="wiki-id")
+    assert u and u.lang == "id"
+
+
+def test_pageviews_store_and_peak(monkeypatch):
+    """월별 조회수 저장·peak 요약 — monthly_views 는 가짜(네트워크 없음)."""
+    from trend_agents.collectors import wikipedia_search
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    monkeypatch.setattr(wikipedia_search, "monthly_views", lambda lang, title, **k: [(f"2020{m:02d}", 100 + (5000 if m == 3 else 0)) for m in range(1, 13)]
+                        + [(f"2021{m:02d}", 10) for m in range(1, 13)])
+    con = db.connect(":memory:")
+    assert ds.pageview_peak(con, "t_x") is None
+    ds.set_pageviews(con, "t_x", "ko", "밈", wikipedia_search.monthly_views("ko", "밈"))
+    p = ds.pageview_peak(con, "t_x")
+    assert p == {"lang": "ko", "peak_month": "202003", "peak_views": 5100, "last12_views": 120, "first_month": "202001"}
+    assert len(ds.get_pageviews(con, "t_x")) == 24

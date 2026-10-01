@@ -16,7 +16,7 @@ import httpx
 
 from ..schemas import Evidence
 
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype; research)"
+from ..config import BOT_UA as UA  # noqa: E402
 ENDPOINT = "https://query.wikidata.org/sparql"
 CACHE = Path("data/cache/wikidata_memes.json")
 CACHE_TTL_S = 7 * 24 * 3600

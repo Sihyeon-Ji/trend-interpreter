@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from ..config import REGIONS_FOCUS, WEB_ORIGINS
 from ..pipeline import ask as ask_stage, board as board_stage
+from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
 from ..schemas import CampaignTone, ProductBrief, RiskLevel, TrendBoard
@@ -105,6 +106,21 @@ class ReviewIn(BaseModel):
     # 위키끼리 다름(conflict)을 승인할 때 고른 문서의 주소(docs[].url), 또는 "keep"(지금 뜻 그대로). 번호로 고르지 않는다 —
     # 화면은 모양이 틀린 문서를 빼고 보이므로 번호가 밀린다.
     choice: str | None = None
+
+
+@app.get("/graph/contents")
+def graph_contents():
+    """밈을 조사해 둔 작품들."""
+    return content_agent.contents(_con)
+
+
+@app.get("/graph/content/{key}")
+def graph_content(key: str):
+    """작품 하나에서 나라마다 파생된 밈 — 같은 밈의 나라별 이름을 한 줄로 묶어서."""
+    v = content_agent.view(_con, key)
+    if not v:
+        raise HTTPException(404, "조사하지 않은 콘텐츠")
+    return v
 
 
 @app.get("/health")

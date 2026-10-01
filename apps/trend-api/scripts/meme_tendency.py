@@ -115,10 +115,21 @@ def main() -> None:
                    "feelings": {x: round(v / e["fit_n"], 3) for x, v in e["feelings"].most_common()} if e["fit_n"] else {},
                    "uses": {x: round(v / e["fit_n"], 3) for x, v in e["uses"].most_common()} if e["fit_n"] else {}}
                for k, e in sorted(per.items())}
+    # 4. 뜬 해 — 위키백과 월별 조회수의 최고 달(출처의 해가 없는 표제어도 시기가 생긴다)
+    peaks = []
+    if con.execute("SELECT 1 FROM sqlite_master WHERE name='term_pageviews'").fetchone():
+        peaks = [(tid, pm) for tid, pm in con.execute(
+            "SELECT term_id, month FROM (SELECT term_id, month, ROW_NUMBER() OVER (PARTITION BY term_id ORDER BY views DESC, month DESC) rn FROM term_pageviews) WHERE rn=1")]
+    src_year = {r["term_id"] for r in rows if r["year"]}
+    peak_years: dict = defaultdict(lambda: {"n": 0, "no_source_year": 0})
+    for tid, pm in peaks:
+        y = pm[:4]
+        peak_years[y]["n"] += 1
+        peak_years[y]["no_source_year"] += tid not in src_year
     out = {"generated_at": now, "catalog_rows": dict(src_count), "catalog_dated": dict(dated), "fit_terms": info["fit_terms"],
            "years": {y: dict(by_year[y]) for y in sorted(by_year)},
            "decade_only": {f"{s}:{d}": n for (s, d), n in sorted(by_decade_only.items())},
-           "compare": cmp_out, "trendaword": taw_out, "min_n": MIN_N}
+           "peak_years": {y: peak_years[y] for y in sorted(peak_years)}, "compare": cmp_out, "trendaword": taw_out, "min_n": MIN_N}
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "tendency.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     (OUT / "tendency.md").write_text(render(out), encoding="utf-8")
@@ -176,6 +187,10 @@ def render(o: dict) -> str:
         L.append(f"| {k} | {e['issues']} | {e['fit_n']} | " + " | ".join(f(e["feelings"], x) for x in fe) + " | " +
                  " | ".join(f(e["uses"], x) for x in us) + f" | {'표본 적음' if e['small'] else ''} |")
     L += ["", "(느낌 열 " + str(len(fe)) + "개 다음이 쓰임 열: " + ", ".join(fe) + " / " + ", ".join(us) + ")", ""]
+    if o.get("peak_years"):
+        L += ["## 4. 뜬 해 (위키백과 월별 조회수가 가장 높았던 달의 해)", "", "| 뜬 해 | 표제어 수 | 그중 출처에 해가 없는 것 |", "|---|---|---|"]
+        L += [f"| {y} | {d['n']} | {d['no_source_year']} |" for y, d in o["peak_years"].items()]
+        L.append("")
     return "\n".join(L + interpret(o)) + "\n"
 
 

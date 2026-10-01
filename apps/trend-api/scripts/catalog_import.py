@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trend_agents.collectors import fandom, wikidata_memes  # noqa: E402
+from trend_agents.collectors import fandom, wikidata_memes, wikipedia_category  # noqa: E402
 from trend_agents.pipeline import catalog  # noqa: E402
 from trend_agents.pipeline.research import research_one  # noqa: E402
 from trend_agents.storage import dictionary_store as ds  # noqa: E402
@@ -58,6 +58,13 @@ def entries_for(source: str, src: str) -> tuple[dict[str, list[str]], dict[str, 
     if source in fandom.SITES:
         region = fandom.SITES[source]["region"]
         return {t: c + [f"region:{region}"] for t, c in fandom.tree(source).items()}, {}
+    if source in wikipedia_category.SOURCES:
+        sp = wikipedia_category.SOURCES[source]
+        out = {}
+        for root in sp["roots"]:
+            for t, c in wikipedia_category.tree(sp["lang"], root, skip=catalog.PERSON_CAT.search).items():
+                out[t] = sorted(set(out.get(t, [])) | set(c))
+        return {t: c + ([f"region:{sp['region']}"] if sp["region"] else []) for t, c in out.items()}, {}
     items: dict[str, dict] = {}
     out: dict[str, list[str]] = {}
     pref = {"JP": ("ja",), "KR": ("ko",), "TW": ("zh-tw", "zh-hant", "zh"), "HK": ("zh-hk", "zh-hant", "zh"), "CN": ("zh",)}
@@ -73,7 +80,7 @@ def entries_for(source: str, src: str) -> tuple[dict[str, list[str]], dict[str, 
 
 def main() -> None:
     a = argparse.ArgumentParser()
-    a.add_argument("--source", default="namu", choices=["namu", *fandom.SITES, "wikidata", "trendaword"])
+    a.add_argument("--source", default="namu", choices=["namu", *fandom.SITES, *wikipedia_category.SOURCES, "wikidata", "trendaword"])
     a.add_argument("--src", default="data/work/catalog/namu.json")
     a.add_argument("--limit", type=int, default=0)
     a.add_argument("--dry", action="store_true")
@@ -99,6 +106,8 @@ def main() -> None:
                     catalog.prepare(con, t, title)
                 elif t and source in fandom.SITES:
                     catalog.prepare_fandom(con, t, source, title)
+                elif t and source in wikipedia_category.SOURCES:
+                    catalog.prepare_wikipedia(con, t, source, title)
                 elif t and title in items:
                     catalog.prepare_wikidata(con, t, items[title])
             if not t:
@@ -163,6 +172,8 @@ def main() -> None:
                 got = catalog.prepare(con, t, title)
             elif args.source in fandom.SITES:
                 got = catalog.prepare_fandom(con, t, args.source, title)
+            elif args.source in wikipedia_category.SOURCES:
+                got = catalog.prepare_wikipedia(con, t, args.source, title)
             else:
                 got = catalog.prepare_wikidata(con, t, it)
             v, _ = research_one(con, t, lean=True)

@@ -68,6 +68,13 @@ TOOLS = [
           {"generation": {"type": "string", "enum": ["10s", "20s", "30s", "40s", "50s+"]},
            "region": {"type": "string", "description": "ISO 2글자 국가코드, 예: KR"},
            "category": {"type": "string", "enum": ["slang_meme", "song_challenge", "fashion_beauty", "food", "product", "people_content"]}}, []),
+    _tool("content_memes", "드라마·영화·게임 같은 작품 하나에서 나라마다 파생된 밈과, 나라마다 이름이 다른 같은 밈. '오징어 게임 밈 뭐 있어?' 같은 질문",
+          {"content": {"type": "string", "description": "작품 이름(어느 말로든)"},
+           "region": {"type": "string", "description": "ISO 2글자 국가코드(선택)"}}, ["content"]),
+    _tool("read_web", "사전·조사 결과에 없을 때만: 나무위키·위키백과·Know Your Meme 문서를 직접 열어 읽는다. 읽은 내용은 '위키 문서에 따르면' 으로 밝힌다",
+          {"title": {"type": "string", "description": "문서 제목"}, "site": {"type": "string", "enum": ["namu", "wikipedia", "kym"]},
+           "lang": {"type": "string", "description": "위키백과 언어 코드(ko·en·ja…)"}, "section": {"type": "string", "description": "읽을 절 이름(선택)"}},
+          ["title"]),
 ]
 
 
@@ -186,7 +193,7 @@ def _recover_by_meaning(con: Connection, ctx: "T.Ctx", question: str) -> None:
     "AI로 만든 이탈리아 캐릭터 밈 이름이 뭐였지?" 에 list_terms 를 부르고 '목록에 없다' 고 답하던 문제
     (2026-09-16 평가에서 발견). 도구는 제대로 찾는다 — 부르는 쪽이 틀렸을 뿐이다.
     """
-    if any(c.get("type") == "term" for c in ctx.cards) or _asked_word(question):
+    if any(c.get("type") == "term" for c in ctx.cards) or _asked_word(question) or ctx.content:
         return                                  # 이미 찾았거나, 한 낱말을 물은 것이다
     from .hunt import _LIST_ASK
 
@@ -310,6 +317,19 @@ def reset_breaker() -> None:
     _fails = 0
 
 
+def _chat(con: Connection, messages: list[dict], tools: list[dict]):
+    """CHAT_BACKEND=gemini 면 Gemini(이용자 요청 장부), 그날 몫이 끝났거나 실패하면 로컬 Gemma. 기본은 로컬."""
+    from ..config import CHAT_BACKEND
+    from . import gemini
+
+    if CHAT_BACKEND == "gemini" and gemini.configured():
+        try:
+            return gemini.chat_with_tools(con, messages, tools)
+        except Exception:
+            pass                       # 한도·장애 — 같은 루프를 로컬 Gemma 로 이어 간다
+    return local_chat.chat_with_tools(messages, tools)
+
+
 def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | None = None,
         progress=None, log_miss: bool = True) -> Answer:
     """질문 하나에 답한다. 실패하면 Answer.fallback 에 이유를 담아 돌려준다 — 화면은 규칙 기반 해석으로 물러선다."""
@@ -340,7 +360,7 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
                           fallback=f"시간 초과 {time.time() - t0:.0f}초")
         last_turn = turn == MAX_TURNS - 1          # 마지막 턴에는 도구를 주지 않는다 — 답을 내게 한다
         try:
-            text, calls = local_chat.chat_with_tools(messages, [] if last_turn else TOOLS)
+            text, calls = _chat(con, messages, [] if last_turn else TOOLS)
             _fails = 0
         except Exception as e:
             _fails += 1
@@ -376,7 +396,7 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
                 found = T.lookup_term(ctx, {"term": hit.canonical})
                 used.append("lookup_term")
                 try:
-                    text, _ = local_chat.chat_with_tools(
+                    text, _ = _chat(con,
                         [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question.strip()},
                          {"role": "user", "content": f"사전에서 찾은 내용이다. 이것만 보고 질문에 답해라.\n\n{found}"}], [])
                     last_text = _tidy(local_chat.sanitize(_NOISE.sub("", text or "").strip()))

@@ -34,6 +34,7 @@ class Ctx:
     cards: list[dict] = field(default_factory=list)        # 화면이 그리는 조각. 도구가 직접 채운다
     lang: str = "ko"                                       # 답하는 언어 — 목록을 고를 때 이 말 표제어를 앞에 둔다
     tried: list[str] = field(default_factory=list)         # 찾아봤지만 사전에 없던 말 — 실시간 찾아보기가 쓴다
+    content: str = ""                                      # content_memes 가 찾은 작품 — 답이 됐으니 뜻으로 다시 훑지 않는다
     progress: Callable[[str, str], None] | None = None     # (단계, 사람이 읽는 말) — 화면에 흘려보낸다
 
     def seen(self, term_id: str) -> None:
@@ -93,7 +94,8 @@ class Ctx:
 
 TOOL_LABEL = {"lookup_term": "사전에서 {0} 찾는 중", "search_terms": "사전에서 {0} 로 찾는 중",
               "why_trending": "{0} 가 왜 떴는지 보는 중", "country_trends": "{0} 트렌드 보는 중",
-              "term_usage": "{0} 를 누가 쓰는지 보는 중", "list_terms": "조건에 맞는 표제어 모으는 중"}
+              "term_usage": "{0} 를 누가 쓰는지 보는 중", "list_terms": "조건에 맞는 표제어 모으는 중",
+              "content_memes": "{0} 에서 나온 밈 보는 중", "read_web": "위키에서 {0} 문서 읽는 중"}
 
 
 def run_tool(ctx: Ctx, name: str, args: dict) -> str:
@@ -482,5 +484,56 @@ def list_terms(ctx: Ctx, args: dict) -> str:
     return head + "\n" + "\n".join(body)
 
 
+def content_memes(ctx: Ctx, args: dict) -> str:
+    """작품·콘텐츠 하나에서 나라마다 파생된 밈 — 콘텐츠 조사 에이전트가 위키·Know Your Meme 을 직접 읽고 규칙 확인을 거친 것."""
+    from . import content_agent
+
+    q = _arg(args, "content")
+    hit = content_agent.find_content(ctx.con, q)
+    if not hit:
+        ctx.missed(q)
+        return f"'{q}' 에서 파생된 밈은 아직 조사하지 않았습니다. read_web 으로 그 작품의 위키 문서를 직접 읽어 볼 수 있다."
+    key, name = hit
+    ctx.content = name
+    found, pairs = content_agent.memes(ctx.con, key)
+    region = _arg(args, "region").upper()[:2]
+    rows = [f for f in found if not region or f["region"] in (region, "GLOBAL")]
+    lines = [f"{name} 에서 나온 밈 {len(rows)}개 (나라별, 근거 문서 있음):"]
+    for f in sorted(rows, key=lambda f: (f["region"] != (region or "KR"), f["region"]))[:15]:
+        lines.append(f"- [{REGION.get(f['region'], '영어권' if f['region'] == 'GLOBAL' else f['region'])}] {f['name']}: {f['description'][:70]}")
+    same = [p for p in pairs if p["verified"]]
+    if same:
+        lines.append("나라마다 이름이 다른 같은 밈: " + "; ".join(f"{p['a']}({p['a_region']}) = {p['b']}({p['b_region']})" for p in same[:6]))
+    return "\n".join(lines)
+
+
+def read_web(ctx: Ctx, args: dict) -> str:
+    """사전에 없는 것을 물으면 허용한 위키(나무위키·위키백과·Know Your Meme)를 직접 열어 읽는다. 커뮤니티 글은 열지 않는다.
+    읽은 것은 저장하지 않는다 — 답에는 '위키 문서에 따르면' 으로 출처를 밝힌다."""
+    from . import web_tools as W
+
+    title, site, lang = _arg(args, "title"), _arg(args, "site") or "namu", (_arg(args, "lang") or ctx.lang or "ko")[:2]
+    if not title:
+        return "title 이 필요하다"
+    url = {"namu": f"https://namu.wiki/w/{title}", "wikipedia": f"https://{lang}.wikipedia.org/wiki/{title.replace(' ', '_')}",
+           "kym": f"https://knowyourmeme.com/memes/{re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')}"}.get(site, "")
+    if not url:
+        return "site 는 namu·wikipedia·kym 가운데 하나"
+    sec = _arg(args, "section")
+    text = W.section_text(url, sec) if sec else ""
+    page = W.open_page(url)
+    if "error" in page and site == "wikipedia":
+        hits = W.search("wikipedia", title, lang).get("results", [])
+        if hits:
+            url = hits[0]["url"]
+            page = W.open_page(url)
+    if "error" in page:
+        return f"'{title}' 문서를 {site} 에서 찾지 못했습니다."
+    ctx.card({"type": "web", "title": page["title"], "url": url})
+    heads = ", ".join(page.get("headings", [])[:20])
+    return f"[{page['title']}] {url}\n절: {heads}\n{(text or page['text'])[:900]}"
+
+
 _TOOLS = {"lookup_term": lookup_term, "search_terms": search_terms, "why_trending": why_trending,
-          "country_trends": country_trends, "term_usage": term_usage, "list_terms": list_terms}
+          "country_trends": country_trends, "term_usage": term_usage, "list_terms": list_terms,
+          "content_memes": content_memes, "read_web": read_web}

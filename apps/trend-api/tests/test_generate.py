@@ -257,3 +257,66 @@ def test_draft_shape_is_repaired_when_thumbnail_lands_inside_script():
                       "thumbnail": {"headline": "h", "layout": "l"}}}
     d = ContentDraft.model_validate(raw)
     assert d.thumbnail.headline == "h" and len(d.script.scenes) == 1 and d.script.note_ko == "대본 설명"
+
+
+def test_model_chain_skips_models_closed_for_the_day(monkeypatch):
+    """무료 몫은 모델마다 따로 — 그날 끝난 모델(429 PerDay)은 건너뛰고 다음 모델로, 검색 grounding 이 닫히면 모델을 바꿔도 시도하지 않는다."""
+    from types import SimpleNamespace
+
+    from google.genai import errors, types
+
+    from trend_agents.pipeline import gemini
+
+    con = db.connect(":memory:")
+    tries = []
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            tries.append(model)
+            if model == "gemini-3.8-flash":
+                raise errors.APIError(429, {"error": {"message": "quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier"}})
+            if config and config.tools:
+                raise errors.APIError(429, {"error": {"message": "You exceeded your current quota"}})
+            return SimpleNamespace(text="ok")
+
+    monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(gemini, "local_ok", lambda: False)
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    monkeypatch.setattr(gemini, "_busy", {})          # 앞 시험의 503 쉬는 시간이 남지 않게
+    _, used = gemini.generate(con, "hi", model="gemini-3.8-flash")
+    assert used == "gemini-3.7-flash" and tries == ["gemini-3.8-flash", "gemini-3.7-flash"]
+    assert "gemini-3.8-flash" not in gemini.models(con)                                   # 그날은 다시 고르지 않는다
+    search = types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+    with pytest.raises(gemini.BudgetExhausted):
+        gemini.generate(con, "hi", search)
+    n = len(tries)
+    with pytest.raises(gemini.BudgetExhausted):
+        gemini.generate(con, "hi", search)
+    assert len(tries) == n and gemini.models(con, grounded=True) == []                    # 닫힌 grounding 은 부르지 않는다
+
+
+
+def test_capacity_errors_move_on_without_retrying(monkeypatch):
+    """503 은 같은 모델로 다시 두드리지 않는다 — 재시도가 분당 몫을 채웠다(AI Studio 3.8 RPM 5/5, 10-01)."""
+    from types import SimpleNamespace
+
+    from google.genai import errors
+
+    from trend_agents.pipeline import gemini
+
+    con = db.connect(":memory:")
+    tries = []
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            tries.append(model)
+            if model == "gemini-3.8-flash":
+                raise errors.APIError(503, {"error": {"message": "high demand"}})
+            return SimpleNamespace(text="ok")
+
+    monkeypatch.setattr(gemini, "client", lambda: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(gemini, "local_ok", lambda: False)
+    monkeypatch.setattr(gemini, "_busy", {})
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("기다리면 안 됨")))
+    assert gemini.generate(con, "hi")[1] == "gemini-3.7-flash" and tries == ["gemini-3.8-flash", "gemini-3.7-flash"]
+    assert gemini.models(con)[-1] == "gemini-3.8-flash"                      # 쉬는 동안은 맨 뒤

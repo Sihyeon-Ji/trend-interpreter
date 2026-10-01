@@ -142,3 +142,31 @@ def pageviews(lang: str, title: str, days: int = 14, timeout: float = 10.0) -> l
     if r.status_code != 200:
         return []
     return [(it["timestamp"][:8], it["views"]) for it in r.json().get("items", [])]
+
+
+def monthly_views(lang: str, title: str, start: str = "2015070100", end: str | None = None, timeout: float = 20.0) -> list[tuple[str, int]]:
+    """문서의 월별 조회수 [(YYYYMM, views)]. end 기본은 지난달 말. 404(문서 없음)는 빈 목록.
+    요청 사이 1초 이상 쉬고, 429·5xx 는 Retry-After(없으면 30초)만큼 기다려 최대 5번. 끝내 안 되면 Unreachable."""
+    if end is None:
+        end = (date.today().replace(day=1) - timedelta(days=1)).strftime("%Y%m%d00")
+    url = (f"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/{lang}.wikipedia/all-access/user/"
+           f"{quote(title.replace(' ', '_'), safe='')}/monthly/{start}/{end}")
+    for _ in range(5):
+        time.sleep(1.0)
+        try:
+            r = httpx.get(url, headers={"User-Agent": UA}, timeout=timeout)
+        except httpx.HTTPError:
+            time.sleep(30)
+            continue
+        if r.status_code == 404:
+            return []
+        if r.status_code == 429 or r.status_code >= 500:
+            try:
+                wait = float(r.headers.get("Retry-After", 30))
+            except ValueError:
+                wait = 30.0
+            time.sleep(min(wait, 300))
+            continue
+        r.raise_for_status()
+        return [(it["timestamp"][:6], int(it["views"])) for it in r.json().get("items", [])]
+    raise Unreachable(url)

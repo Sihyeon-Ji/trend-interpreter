@@ -25,7 +25,7 @@ import httpx
 from ..schemas import Evidence
 from ..storage import dictionary_store as ds
 
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype; research)"
+from ..config import BOT_UA as UA  # noqa: E402
 BASE = "https://namu.wiki"
 MIN_GAP_S = 2.0
 CACHE = Path("data/cache/namuwiki.json")
@@ -172,6 +172,16 @@ def category_tree(roots: tuple[str, ...], follow, depth: int = 3) -> dict[str, l
         if d < depth:
             todo += [(s, d + 1) for s in subs if s not in done and follow(s)]
     return {k: sorted(v) for k, v in out.items()}
+
+
+def youtube_ids(title: str, limit: int = 3) -> list[str] | None:
+    """문서에 편집자가 넣은 유튜브 영상 ID(임베드·링크) — 대개 그 밈의 원본 영상이다(2026-10-01 실측: 6개 중 5개 문서에 있음).
+    영상 파일은 받지 않고 ID 만 읽는다. 닿지 못하면 None."""
+    r = _get("/w/" + quote(title.strip()))
+    if r is None or r.status_code != 200:
+        return None
+    ids = re.findall(r"(?:youtube(?:-nocookie)?\.com/(?:embed/|watch\?v=)|youtu\.be/)([A-Za-z0-9_-]{11})", r.text)
+    return list(dict.fromkeys(ids))[:limit]
 
 
 def ranking() -> list[str]:

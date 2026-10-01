@@ -18,7 +18,8 @@ from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo,
 from ..storage import dictionary_store as ds
 from ..collectors.naver_search import for_model
 from ..verification import anchor_hit, gate, normalize_url, reference_doc
-from .gemini import BudgetExhausted, budget_left, local_ok, structured
+from .gemini import BudgetExhausted, budget_left, local_ok, note_call, note_quota, structured
+from .gemini import models as gemini_models
 from .match import mentions, same_term
 from .runs import stage
 from ..storage.db import Connection
@@ -340,6 +341,30 @@ def video_is_about(con: Connection, term, title: str) -> bool:
     return False
 
 
+def youtube_oembed(video_id: str) -> dict | None:
+    """유튜브 공식 oEmbed 로 영상이 열리고 퍼가기가 되는지와 제목. 키 없음. 안 되면 None."""
+    import httpx
+
+    try:
+        r = httpx.get("https://www.youtube.com/oembed", params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"}, timeout=10)
+        return r.json() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
+def media_from_namu(con: Connection, term, title: str) -> int:
+    """나무위키 문서에 편집자가 넣은 유튜브 영상을 대표 영상으로(열리는 첫 영상 하나). 검색 한도를 쓰지 않는다(2026-10-01)."""
+    from ..collectors import namuwiki
+
+    for vid in namuwiki.youtube_ids(title) or []:
+        info = youtube_oembed(vid)
+        if info:
+            ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={vid}", page_url=f"https://www.youtube.com/watch?v={vid}",
+                         title=(info.get("title") or "")[:200], license="YouTube 임베드", attribution="나무위키 문서에 실린 영상")
+            return 1
+    return 0
+
+
 def collected_videos(con: Connection, term, limit: int = 200) -> list[ShortsVideo]:
     """모아 둔 쇼츠 가운데 표제어(또는 별칭)의 첫 낱말이 든 것, 조회수 순. 고르기는 _pick_video 가 한다."""
     heads = {n.lower().split()[0] for n in (term.canonical, *term.aliases) if n and n.split()}
@@ -383,6 +408,13 @@ def attach_media(con: Connection, term, evidences: list[Evidence], *, youtube: b
             ds.add_media(con, term.term_id, "video", f"https://www.youtube.com/watch?v={m.group(1)}",
                          page_url=e.url, title=e.title or "", license="YouTube 임베드", attribution=e.source_domain)
             added += 1
+    # 나무위키 문서에 실린 원본 영상 — 편집자가 고른 것이라 가장 믿을 만하다(2026-10-01)
+    if not added:
+        namu = next((e for e in evidences if (e.source_domain or "").endswith("namu.wiki") and "/w/" in (e.url or "")), None)
+        if namu:
+            from urllib.parse import unquote, urlsplit
+
+            added += media_from_namu(con, term, unquote(urlsplit(namu.url).path)[3:])
     # 이미 모아 둔 쇼츠(videos) 가운데 제목 앞부분에 그 표현이 있는 것 — 검색 한도를 쓰지 않는다(09-30: 사전 151개 중 12개만 그림·영상이 있었다)
     if not added:
         best = _pick_video(collected_videos(con, term), term)
@@ -480,18 +512,20 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     notes = ""
     # 무료 등급 할당량은 모델마다 따로다(하루 약 20회). 영상 해석(interpret)이 3.8 을 먼저 쓰므로 조사는 3.5 부터 —
     # 같은 모델을 두 단계가 서로 뺏으면 아침 첫 실행에서 둘 다 바닥난다(2026-09-28 실측: 11일간 조사 289건 전부 오프라인).
-    for model in ((GEMINI_FALLBACK_MODEL, GEMINI_MODEL) if budget_left(con) >= 2 and not lean else ()):  # 예산 0 이면 grounding 시도 생략
+    # 모델 사슬은 3.5 부터 — 영상 해석(interpret)이 3.8 을 먼저 쓴다(같은 모델을 두 단계가 뺏으면 아침에 둘 다 바닥난다, 09-28).
+    # 그날 끝난 모델·닫힌 검색 grounding 은 gemini.models 가 뺀다(모델마다 무료 몫이 따로다, 10-01).
+    for model in (gemini_models(con, GEMINI_FALLBACK_MODEL, grounded=True)[:3] if budget_left(con) >= 2 and not lean else ()):
         try:
             ds.gemini_spend(con, 2)  # research_term 은 호출 2회
+            note_call(con, model, 2)
             draft, urls, notes = research_term(term.canonical, model=model)
             method = model
             break
         except errors.APIError as e:
             if e.code not in (429, 503):
                 raise
-            if e.code == 429 and "RESOURCE_EXHAUSTED" in str(e) and model == GEMINI_MODEL:
-                # 구글이 '오늘 할당량 끝' 이라고 했다. 남은 조사가 매번 실패하며 예산을 깎고 기다리지 않게 오늘 몫을 닫는다.
-                ds.gemini_spend(con, max(0, budget_left(con)))
+            if note_quota(con, model, e, grounded=True) and not gemini_models(con, grounded=True):
+                break                    # 검색 grounding 이 오늘 닫혔다 — 다른 모델로 해 봐야 같다
     first_party = first_party_evidence(con, term.canonical, term.aliases)
     try:
         from ..collectors import community, wiktionary
@@ -546,7 +580,8 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
             notes += ("\n\n이 표현은 위키의 '인터넷 밈·유행어' 분류에 든 것이다. definition 에는 대상(노래·작품·인물·물건)의 소개가 아니라 "
                       "**인터넷에서 밈으로 어떻게 쓰이는지**를 써라(어떤 장면·말투로, 무엇을 뜻하며 쓰나). 근거에 밈 쓰임이 없으면 "
                       "대상 소개 한 문장에 근거가 말하는 만큼만 덧붙여라. 제목을 번역만 해서 뜻이라 하지 마라. origin 은 어디서 언제 시작했는지이고, 사이트 이름을 쓰지 마라.")
-        parsed, method = structured(con, OFFLINE_PROMPT.format(term=term.canonical, notes=notes), MeaningDraft)
+        # 새 표제어의 뜻은 사람이 사전에서 읽는다 — Gemini Flash 로 정리하고(한도·장애면 로컬 Gemma), 위키 일괄 등재(lean, 하루 수천)는 로컬 Gemma
+        parsed, method = structured(con, OFFLINE_PROMPT.format(term=term.canonical, notes=notes), MeaningDraft, prefer_gemini=not lean)
         draft = parsed if isinstance(parsed, MeaningDraft) else MeaningDraft.model_validate(parsed)
         method = f"offline:{method}"
         urls = [e.url for e in first_party[:10]]

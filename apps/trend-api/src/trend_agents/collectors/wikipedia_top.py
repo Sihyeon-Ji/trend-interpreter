@@ -7,7 +7,7 @@ import httpx
 
 from ..schemas import WikiTop
 
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype)"
+from ..config import BOT_UA as UA  # noqa: E402
 SKIP_PREFIX = ("위키백과:", "특수:", "파일:", "틀:", "분류:", "Special:", "Wikipedia:", "File:", "Template:", "Category:", "Portal:",
                "特別:", "Wikipedia:", "ファイル:", "Template:", "Istimewa:", "Wikipedia:", "Berkas:", "พิเศษ:", "วิกิพีเดีย:", "Đặc_biệt:", "Wikipedia:")
 SKIP_TITLES = {"대문", "Main_Page", "メインページ", "Halaman_Utama", "หน้าหลัก", "Trang_Chính", "Wikipedia:首页", "首页", "Wikipédia:Página_principal", "Wikipedia:Hauptseite", "Wikipedia:Portada"}

@@ -16,7 +16,7 @@ import httpx
 
 from ..schemas import Evidence
 
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype; research)"
+from ..config import BOT_UA as UA  # noqa: E402
 BASE = "https://maily.so/trendaword"
 MIN_GAP_S = 3.0
 _last = 0.0

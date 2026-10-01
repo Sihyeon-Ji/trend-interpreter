@@ -27,12 +27,37 @@ GEMMA_LOCAL_MODEL = os.getenv("GEMMA_LOCAL_MODEL", "gemma4:12b")
 # 사전 감사관(pipeline/audit.py). 두 번의 시험에서 가장 안정적이던 Gemma 4 12B 체크리스트형(2026-09-30). 다른 GPU 서버의 Ollama 를 쓸 수 있다.
 AUDIT_MODEL = os.getenv("AUDIT_MODEL", "gemma4:12b")
 AUDIT_OLLAMA_HOST = os.getenv("AUDIT_OLLAMA_HOST", "")
+RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "gemma4:12b")  # 콘텐츠 조사 에이전트·ADK 조사 에이전트(AUDIT_OLLAMA_HOST 에서)
 LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "").rstrip("/")  # 비우면 Ollama(localhost:11434). OpenAI 호환 서버(vLLM 등)면 예: http://127.0.0.1:11437/v1 — 모델 이름은 GEMMA_LOCAL_MODEL(served-model-name)
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash")  # 3.8 이 503(무료 등급 용량)일 때만
-GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "36"))
+# 무료 등급 한도는 모델마다 따로다 — AI Studio 'Rate limit' 화면(무료 등급, 2026-10-01 사용자 확인):
+#   3.8·3.7·3.6·3.5·3 Flash: 분당 5 · 하루 20 / 3.5·3.1 Flash Lite: 분당 15 · 하루 500 / Gemma 4 31B·26B: 분당 30 · 하루 14,400(토큰 분당 16K)
+#   2.5 계열은 '새 사용자에게 더는 열지 않음'(404), 3.1 Pro 는 0.
+# 검색 grounding 은 무료 등급에서 Gemini 3 이 '0 / 0' — 몫이 끝난 것이 아니라 처음부터 없다(2.x 만 하루 1,500 인데 2.x 는 404).
+# 그래서 기본은 grounding 을 부르지 않는다(GEMINI_SEARCH_GROUNDING=1 은 결제 등급에서만). 'latest' 별칭은 같은 몫을 나눠 쓸 수 있어 넣지 않는다.
+GEMINI_MODELS = [m for m in os.getenv("GEMINI_MODELS", "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,"
+                                       "gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",") if m]
+# Gemma 4 는 API(하루 14,400)가 아니라 로컬(Ollama)로 쓴다 — 검색·주소 읽기가 안 되고 분당 토큰 16K 라 긴 일에 맞지 않았다(10-01 실측).
+# 모델 배치(10-01, docs: 모델 배치): Gemini 는 사람이 보는 품질이 중요한 일, 로컬 Gemma 는 양이 많거나 오래 도는 일.
+#   Gemini Flash(위 사슬 앞쪽)  : 쇼츠 영상 해석, 새 표제어 뜻 조사 정리, 추천·생성
+#   Gemini Flash Lite(하루 500) : 사전에 묻기(챗봇) 도구 루프, 조사 에이전트의 밈 후보 제안
+#   로컬 Gemma 4                : 번역·쉽게 풀어 쓰기·리스크 분류·추천용 특징·분류·발굴·나라별 서술(e4b, 22번),
+#                                 감사관(12B QLoRA)·콘텐츠 조사 에이전트·위키 일괄 등재 뜻풀이(12B, 23번)
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-3.5-flash-lite")      # 챗봇 도구 루프의 첫 모델(분당 15·하루 500)
+LITE_MODEL = os.getenv("LITE_MODEL", "gemini-3.5-flash-lite")
+GEMINI_LIMITS = {  # 모델: (분당, 하루). 목록에 없는 모델은 (5, 20)
+    "gemini-3.8-flash": (5, 20), "gemini-3.7-flash": (5, 20), "gemini-3.6-flash": (5, 20), "gemini-3.5-flash": (5, 20),
+    "gemini-3-flash-preview": (5, 20), "gemini-3.5-flash-lite": (15, 500), "gemini-3.1-flash-lite": (15, 500),
+    "gemma-4-31b-it": (30, 14400), "gemma-4-26b-a4b-it": (30, 14400),
+}
+CHAT_BACKEND = os.getenv("CHAT_BACKEND", "gemini")  # 사전에 묻기(도구 호출 루프)의 모델: gemini(한도·장애 때 로컬 Gemma) | local
+GEMINI_SEARCH_GROUNDING = os.getenv("GEMINI_SEARCH_GROUNDING", "0") == "1"
+GEMINI_PER_MODEL_DAILY = int(os.getenv("GEMINI_PER_MODEL_DAILY", "20"))   # GEMINI_LIMITS 에 없는 모델의 하루 몫
+# 모델 몫을 다 합치면 약 3만이지만(Gemma 4 가 대부분) 파이프라인 한 바퀴가 그만큼 돌면 몇 시간이 걸린다 — 하루 상한은 1,500 으로 둔다
+GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "1500"))
 # 이용자 요청(추천의 사진·문구 읽기, 만들기)이 쓰는 하루 Gemini 호출 — 파이프라인 예산과 장부를 따로 둔다. 익명 요청이 파이프라인 몫을 다 쓰면
 # 그날 조사·해석이 멈췄다(2026-09-29 검토). 다 쓰면 로컬 Gemma 로, 그것도 없으면 '오늘 한도' 로 알린다.
-REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "12"))  # 하루 Gemini 호출 상한. 무료 등급 실측(09-15): 모델당 하루 20회(GenerateRequestsPerDayPerProjectPerModel-FreeTier) → 3.8+3.5 합쳐 약 40. 결제(Tier 1) 연결 시 400 정도로
+REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "300"))  # 이용자 요청 하루 상한 — 챗봇을 Gemini 로 돌리면서(질문 하나에 2~3회) 12 → 300(Flash Lite 하루 500 두 개가 받친다, 10-01)
 USE_LOCAL_GEMMA = os.getenv("USE_LOCAL_GEMMA", "0") == "1"  # 번역·재작성에 로컬 Gemma 를 쓸지 (꺼져 있으면 Gemini)
 # Know Your Meme 수집기(Plan 12). 기본 꺼짐 — 이용 약관(자동 접근은 사람 수준의 속도만, 내용은 개인적 정보 이용만·동의 없는 복제·게시 금지,
 # 서면 허락 없는 상업적 이용 금지) 때문에 제품에 쓸지는 사용자가 정한다. 켜도 문서 주소와 제목만 근거로 둔다.
@@ -48,6 +73,9 @@ GOOGLE_CLOUD_PROJECT = GCP_PROJECT_ID  # BigQuery·Spanner 클라우드 (ADC 와
 DATA_DIR = ROOT / "data"  # 로그·시드·계정 메모. 데이터는 PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://trend:trend@localhost:5432/trend")
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "8"))  # API 연결 풀 크기 = Cloud Run 인스턴스당 동시 요청 수
+# 위키미디어·위키·KYM 에 보내는 User-Agent. 위키미디어는 연락처(주소) 없는 UA 를 묶어서 막는다 — 연락처를 넣자 429 가 나던
+# 위키백과 검색·위키데이터가 그대로 200 이 됐다(2026-10-01 실측). 개인 메일은 넣지 않는다.
+BOT_UA = os.getenv("BOT_UA", "trend-agents/0.1 (+https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup) httpx")
 
 # 수집 대상 국가 (ISO 3166-1 alpha-2). 트렌드는 전세계 대상.
 # REGIONS_ALL: mostPopular 는 1 unit/회 → 넓게 돈다. REGIONS_FOCUS: search 는 100 unit/회 → 쿼터상 집중 국가만.

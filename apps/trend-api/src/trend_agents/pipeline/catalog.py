@@ -24,6 +24,8 @@ COUNTRY = {"한국": "KR", "대한민국": "KR", "일본": "JP", "대만": "TW",
 PERSON = {"가수", "배우", "기업인", "기자", "교육인", "기타 인물", "농구 감독", "농구 선수", "만화가", "성우", "스포츠 감독", "야구 감독", "야구 선수",
           "예능인", "요리사", "운동선수", "인물", "인터넷 방송인", "정치인", "종교인", "체육인", "축구 감독", "축구 선수", "프로게이머", "게임 개발자"}
 SKIP_GENRES = PERSON | {"성인물"}
+# 위키백과(태국어·인도네시아어) 사람 분류 — 분류 이름에 이 낱말이 들어 있으면 사람 문서다.
+PERSON_CAT = re.compile(r"บุคคล|คนดัง|เน็ตไอดอล|นักร้อง|นักแสดง|Tokoh|Selebritas|YouTuber|Selebriti|Penyanyi|Aktor|Aktris|Pesohor", re.I)
 MEME_CUE = re.compile(r"밈|유행|패러디|짤|드립|합성|챌린지|틱톡|유튜브|쇼츠|커뮤니티|인터넷|meme|ミーム|梗|迷因", re.I)
 CLUB = re.compile(r".+ FC$")
 
@@ -58,7 +60,15 @@ def meta(categories: list[str]) -> dict:
             year = int(tag.group(2))
         elif tag:
             regions.add(tag.group(2))
-        y = re.fullmatch(r"(\d{4})년 인터넷 밈", c) or re.fullmatch(r"(\d{4})年流行用語", c)
+        if PERSON_CAT.search(c):
+            genres.add("인물")
+        w = re.search(r"(?:มีมในปี พ\.ศ\. (\d{4})|Meme internet yang diperkenalkan (?:pada )?(?:tahun )?(\d{4}))$", c)
+        if w:
+            n = int(w.group(1) or w.group(2))
+            year = n - 543 if n > 2400 else n
+        y = (re.fullmatch(r"(\d{4})년 인터넷 밈", c) or re.fullmatch(r"(\d{4})年流行用語", c)
+             or re.search(r"Internet memes introduced in (\d{4})$", c) or re.search(r"(\d{4})年の(?:インターネット・)?ミーム$", c)
+             or re.search(r"(\d{4})年(?:网络|網路|網絡)(?:流行语|流行語|迷因)$", c))      # 영어·일본어·중국어 위키백과의 연도 분류(10-01)
         if y:
             year = int(y.group(1))
         d = re.fullmatch(r"(\d{4})년대 인터넷 밈", c)
@@ -86,6 +96,8 @@ def script_lang(text: str) -> str:
         return "ja"
     if re.search(r"[一-鿿]", text):
         return "zh"
+    if re.search(r"[฀-๿]", text):
+        return "th"
     return "en" if re.search(r"[A-Za-z]", text) else ""
 
 
@@ -119,8 +131,10 @@ def add(con: Connection, title: str, categories: list[str], source: str = "namu"
     if have:
         record(con, have.term_id, title, source, categories)
         return None
-    lang = script_lang(name) or {"TW": "zh", "HK": "zh", "CN": "zh", "JP": "ja", "KR": "ko"}.get(next(iter(m["regions"]), ""), "en")   # '1450' 처럼 글자가 없는 제목
+    lang = script_lang(name) or {"TW": "zh", "HK": "zh", "CN": "zh", "JP": "ja", "KR": "ko", "TH": "th", "ID": "id"}.get(next(iter(m["regions"]), ""), "en")   # '1450' 처럼 글자가 없는 제목
     region = next(iter(m["regions"]), None)
+    if lang == "en" and region in ("TH", "ID"):       # 위키백과 th·id 의 로마자 제목은 그 나라 말 문서의 이름이다
+        lang = {"TH": "th", "ID": "id"}[region]
     now = datetime.now(timezone.utc)
     t = Term(term_id=ds.new_id("t", f"{unicodedata.normalize('NFKC', name).lower()}|{lang}"), canonical=name, lang=lang, status="researching",
              category="slang" if m["slang"] else "meme", aliases=[a for a in dict.fromkeys(aliases) if a and a != name][:6],
@@ -143,6 +157,19 @@ def prepare_fandom(con: Connection, t: Term, site: str, title: str) -> bool:
         return False
     ds.add_evidences(con, t.term_id, [fandom.evidence(site, title, text)])
     research.WIKI_CONTEXT[t.canonical] = [x.strip() for x in re.split(r"(?<=[。！？.!?])", text) if len(x.strip()) > 6][:6]
+    return True
+
+
+def prepare_wikipedia(con: Connection, t: Term, source: str, title: str) -> bool:
+    """위키백과(th·id) 분류 문서: 첫머리를 메모리에서만 보이고(research.WIKI_CONTEXT), 짧은 발췌·링크를 근거로."""
+    from ..collectors import wikipedia_category as wc
+    from . import research
+
+    text = wc.intro(wc.SOURCES[source]["lang"], title)
+    if not text:
+        return False
+    ds.add_evidences(con, t.term_id, [wc.evidence(source, title, text)])
+    research.WIKI_CONTEXT[t.canonical] = [x.strip() for x in re.split(r"(?<=[。！？.!?])\s", text) if len(x.strip()) > 6][:6]
     return True
 
 

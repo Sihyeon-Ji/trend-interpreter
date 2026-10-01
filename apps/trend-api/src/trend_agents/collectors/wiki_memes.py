@@ -15,9 +15,8 @@ from pathlib import Path
 
 import httpx
 
+from ..config import BOT_UA as UA  # noqa: E402
 from ..config import home_region
-
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype)"
 TIMEOUT = 15.0
 
 # 언어판별 밈 분류. 연도 분류는 최근 것이 알짜라 따로 둔다.
@@ -25,7 +24,7 @@ CATEGORIES: dict[str, list[str]] = {
     "en": ["Category:Internet memes introduced in 2025", "Category:Internet memes introduced in 2024", "Category:Internet memes"],
     "ko": ["분류:인터넷 밈"],
     "ja": ["Category:インターネット・ミーム"],
-    "id": ["Kategori:Meme Internet"],
+    "id": ["Kategori:Meme internet"],
     # 목표 지역(ADR 0001): 중국어는 대만·홍콩으로 본다. 태국어·타갈로그어 위키에는 밈 분류가 없고, 말레이어·베트남어
     # 분류는 영어 밈(Anonymous·T-pose…)을 옮긴 문서라 그 나라 밈으로 잘못 붙는다(09-28 실측) — 넣지 않는다.
     "zh": ["Category:网络流行语"],

@@ -204,6 +204,14 @@ def _log(con, term_id: str, meaning_id: str, verdict_: str, reasons: list[str], 
     con.commit()
 
 
+def ds_current(con: Connection, term: Term) -> str:
+    """지금 뜻 판의 id (감사 실패도 판마다 한 번만 적게)."""
+    from ..storage import dictionary_store as ds
+
+    m = ds.current_meaning(con, term.term_id)
+    return m.meaning_id if m else ""
+
+
 def targets(con: Connection, limit: int = AUDIT_PER_RUN) -> list[Term]:
     """아직 감사하지 않은 자동 확인 뜻 — 위키 분류에서 일괄로 들어온 것과 새것부터."""
     from ..storage import dictionary_store as ds

@@ -81,6 +81,19 @@ CREATE TABLE IF NOT EXISTS reader_prefs (reader TEXT PRIMARY KEY, json TEXT, upd
 -- 표제어의 광고 쓰임 낱말(Plan 07, fit 단계, 마이그레이션 004). meaning_id 가 현재 뜻과 다르면 다시 붙인다.
 CREATE TABLE IF NOT EXISTS term_fit (term_id TEXT PRIMARY KEY, meaning_id TEXT, json TEXT, model TEXT, labeled_at TEXT);
 CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count BIGINT, first_at TEXT, last_at TEXT);
+-- 표제어의 위키백과 월별 조회수(과거 관심 추이). 제목이 표제어인 문서만.
+CREATE TABLE IF NOT EXISTS term_pageviews (term_id TEXT, lang TEXT, title TEXT, month TEXT, views BIGINT, PRIMARY KEY(term_id, lang, month));
+CREATE TABLE IF NOT EXISTS pageviews_done (term_id TEXT PRIMARY KEY, at TEXT);
+-- 콘텐츠(작품) 하나에서 나라마다 파생된 밈 — 조사 에이전트(pipeline/content_agent.py)가 위키를 읽고 찾은 것과 규칙 확인 결과.
+-- 본문은 두지 않는다: 근거 주소와 그 문서 속 문장 하나(sentence)만. verified 는 규칙(근거 문서에 밈 이름 + 콘텐츠를 말함)이 정한다.
+CREATE TABLE IF NOT EXISTS content_index (content_key TEXT PRIMARY KEY, name TEXT, labels_json TEXT, last_run TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS content_findings (run_id TEXT, content_key TEXT, name TEXT, region TEXT, description TEXT, quote TEXT,
+  evidence_url TEXT, sentence TEXT, same_as TEXT, verified INTEGER, reason TEXT, term_id TEXT, created_at TEXT, PRIMARY KEY(run_id, name, region));
+-- 나라가 다른 같은 밈 짝. 모델이 제안하고, 근거 문서끼리 서로의 이름·대사를 말할 때만 verified.
+CREATE TABLE IF NOT EXISTS content_pairs (run_id TEXT, content_key TEXT, a TEXT, a_region TEXT, b TEXT, b_region TEXT, reason TEXT,
+  verified INTEGER, why TEXT, PRIMARY KEY(run_id, a, b));
+-- 에이전트가 걸은 길(생각·도구·인자·결과 앞부분) — 관리자 화면과 평가에 쓴다.
+CREATE TABLE IF NOT EXISTS agent_trace (run_id TEXT, step INTEGER, thought TEXT, tool TEXT, args_json TEXT, result TEXT, at TEXT, PRIMARY KEY(run_id, step));
 -- 표제어의 대표 그림·영상. 파일을 받아 오지 않고 주소만 둔다(저작권). license 가 빈 것은 화면에 내지 않는다.
 CREATE TABLE IF NOT EXISTS term_media (
   term_id TEXT, kind TEXT, url TEXT, page_url TEXT, title TEXT, license TEXT, attribution TEXT, added_at TEXT,
@@ -345,6 +358,26 @@ def set_verification(con: Connection, meaning_id: str, verification: str, by: st
 
 
 # ---------- 근거·사용·추세 ----------
+
+def set_pageviews(con: Connection, term_id: str, lang: str, title: str, rows: list[tuple[str, int]]) -> int:
+    """rows: (YYYYMM, views). 한 번에 commit(월별 수백 행)."""
+    con.executemany("INSERT OR REPLACE INTO term_pageviews VALUES (?,?,?,?,?)", [(term_id, lang, title, m, v) for m, v in rows])
+    con.commit()
+    return len(rows)
+
+
+def get_pageviews(con: Connection, term_id: str) -> list[tuple[str, int]]:
+    return [(m, v) for m, v in con.execute("SELECT month, views FROM term_pageviews WHERE term_id=? ORDER BY month", (term_id,))]
+
+
+def pageview_peak(con: Connection, term_id: str) -> dict | None:
+    """{lang, peak_month, peak_views, last12_views, first_month}. 조회수가 없으면 None."""
+    rows = con.execute("SELECT lang, month, views FROM term_pageviews WHERE term_id=? ORDER BY month", (term_id,)).fetchall()
+    if not rows:
+        return None
+    peak = max(rows, key=lambda r: r[2])
+    return {"lang": rows[0][0], "peak_month": peak[1], "peak_views": peak[2],
+            "last12_views": sum(r[2] for r in rows[-12:]), "first_month": rows[0][1]}
 
 def add_evidences(con: Connection, term_id: str, evs: list[Evidence]) -> int:
     n = 0

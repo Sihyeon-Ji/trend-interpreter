@@ -28,7 +28,7 @@ from .. import config
 from ..schemas import Evidence
 from ..storage import dictionary_store as ds
 
-UA = "trend-agents/0.1 (AI Builder Cup 2026 prototype; research)"
+from ..config import BOT_UA as UA  # noqa: E402
 BASE = "https://knowyourmeme.com"
 MIN_GAP_S = 2.0
 MAX_FETCHES = 3

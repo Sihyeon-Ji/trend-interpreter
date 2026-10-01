@@ -86,5 +86,36 @@ publisher = LlmAgent(
     tools=[tools.run_board, tools.review_queue_summary], output_key="ops_report", before_model_callback=_budget_guard,
 )
 
+def _research_model():
+    """조사 에이전트의 모델. 로컬이면 학습 서버의 Gemma(AUDIT_OLLAMA_HOST, 콘텐츠 조사 에이전트와 같은 곳) — 이 서버 GPU 는 여유가 적다."""
+    if not LOCAL:
+        return MODEL_NAME
+    from google.adk.models.lite_llm import LiteLlm
+
+    from ..config import AUDIT_OLLAMA_HOST, RESEARCH_MODEL
+
+    if AUDIT_OLLAMA_HOST:
+        return LiteLlm(model=f"ollama_chat/{RESEARCH_MODEL}", api_base=AUDIT_OLLAMA_HOST, think=False)
+    return MODEL
+
+
+def meme_researcher():
+    """위키를 직접 읽는 조사 에이전트 — 도구는 MCP 서버(trend_agents.mcp_server)에서 받는다. 사전·조사 결과를 먼저 보고,
+    없으면 허용한 위키 문서를 열어 절을 읽고 출처 주소와 함께 답한다. 사전에 쓰지는 않는다."""
+    import sys
+
+    from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+    from mcp import StdioServerParameters
+
+    mcp = McpToolset(connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(command=sys.executable, args=["-m", "trend_agents.mcp_server"]), timeout=120))
+    return LlmAgent(
+        name="meme_researcher", model=_research_model(), description="Answers questions about memes derived from a show or film, reading allowed wikis directly.",
+        instruction=("You research internet memes. First call content_memes or lookup_term. If the answer is not there, open the relevant wiki page "
+                     "(namu.wiki for Korea, the local-language Wikipedia, Know Your Meme for English) with open_page, then read_section for the section about memes or impact. "
+                     "Only state what the tools returned, cite the page URL for every claim, and answer in the user's language in under 120 words."),
+        tools=[mcp], before_model_callback=_budget_guard)
+
+
 pipeline_agent = SequentialAgent(name="trend_pipeline", description="Daily trend-dictionary pipeline: collect → investigate → lexicography → publish.",
                                  sub_agents=[collector, investigator, lexicographer, publisher])

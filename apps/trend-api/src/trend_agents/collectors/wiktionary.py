@@ -11,7 +11,7 @@ import httpx
 from ..schemas import Evidence
 from ..storage import dictionary_store as ds
 
-UA = "trend-agents/0.1 (hackathon research; contact via repo)"
+from ..config import BOT_UA as UA  # noqa: E402
 TAG = re.compile(r"<[^>]+>")
 
 

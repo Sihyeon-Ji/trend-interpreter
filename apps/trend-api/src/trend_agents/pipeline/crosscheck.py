@@ -397,6 +397,11 @@ def doc_text(e: Evidence) -> str:
             text = wikipedia_search.article_text(host.split(".")[0], path[6:].replace("_", " ")) or ""
         elif host.endswith("knowyourmeme.com"):
             return ""
+        elif host == "maily.so" and path.startswith("/trendaword/posts/"):     # Trend A Word 게시글 — 뜻·용례 문장(메모리에서만, 10-01)
+            from ..collectors import trendaword
+
+            p = trendaword.post(e.url)
+            text = " ".join((p or {}).get("sentences", []) + [f"용례: {u}" for u in (p or {}).get("usage", [])])
         else:
             text = ""
     except Exception:
