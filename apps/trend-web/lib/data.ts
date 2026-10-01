@@ -281,7 +281,8 @@ export async function getMapData(): Promise<{ keywords: KeywordBoard; board: Tre
 /** 콘텐츠 목록. 못 받으면 null — 예시로 바꾸지 않는다(화면이 '불러오지 못했습니다' 를 낸다). */
 export async function getGraphContents(): Promise<GraphContentSummary[] | null> {
   if (isSampleMode) return SAMPLE_GRAPH_CONTENTS;
-  return apiOrNull<GraphContentSummary[]>("/graph/contents", 300);
+  // 그래프 API 가 아직 없는 서버(10-01 미리보기)에서는 시험판 예시를 '미리보기' 로 보인다 — API 가 생기면 그대로 실제 데이터
+  return (await apiOrNull<GraphContentSummary[]>("/graph/contents", 300)) ?? SAMPLE_GRAPH_CONTENTS.map((c) => ({ ...c, preview: true }));
 }
 
 /** 콘텐츠 하나의 나라별 파생 항목. 없으면(404) null, 서버가 답하지 않으면 던진다 → app/graph/[key]/error.tsx. */
@@ -290,6 +291,8 @@ export async function getGraphContent(key: string): Promise<GraphContent | null>
   try {
     return await api<GraphContent>(`/graph/content/${encodeURIComponent(key)}`, 300);
   } catch (e) {
+    const sample = SAMPLE_GRAPH[key];
+    if (sample) return { ...sample, preview: true };   // 그래프 API 가 아직 없는 서버의 미리보기
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;
   }

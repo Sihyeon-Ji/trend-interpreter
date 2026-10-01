@@ -218,7 +218,7 @@ export interface GenerationResult {
 
 
 /* 콘텐츠 → 나라별 파생 항목 (백엔드 GET /graph/contents, /graph/content/{key}) */
-export interface GraphContentSummary { key: string; name: string; qid: string | null; labels: Record<string, string>; items: number; in_dictionary: number }
+export interface GraphContentSummary { key: string; name: string; qid: string | null; labels: Record<string, string>; items: number; in_dictionary: number; preview?: boolean }
 export interface GraphItem {
   title: string; term_id: string | null; status: "verified" | "needs_review" | null;
   definition: string | null; kind: string; url: string; evidence: string;
@@ -227,4 +227,5 @@ export interface GraphCountry { region: string; lang: string; label: string; sou
 export interface GraphContent {
   content: { key: string; name: string; qid: string | null; labels: Record<string, string> };
   countries: GraphCountry[]; updated_at: string | null;
+  preview?: boolean;   // 그래프 API 가 아직 없는 서버에서 시험판 예시를 보일 때
 }

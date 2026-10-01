@@ -30,6 +30,7 @@ export default async function GraphContentPage({ params }: { params: Promise<{ k
             <span className="sr-only">{t(locale, "graph_names")}: </span>
             {others.map(([lang, v], i) => <span key={lang}>{i > 0 && " · "}<span lang={langTag(lang)}>{v}</span></span>)}
           </>} />
+        {data.preview && <p className="border-l border-ink pl-3 text-[13px] text-steel">{t(locale, "graph_preview")}</p>}
         <GraphMap name={title} countries={countries} locale={locale} />
         <div className="space-y-4">
           {countries.map((c) => <GraphCountrySection key={c.region} country={c} locale={locale} mine={c.region === reader.region} />)}

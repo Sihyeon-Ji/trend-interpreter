@@ -2,12 +2,12 @@
    나무위키 분류는 한국 칸에 합쳤다. */
 import type { GraphContent, GraphContentSummary } from "../types";
 
-export const SAMPLE_GRAPH_CONTENTS: GraphContentSummary[] = [{"key": "Squid Game", "name": "Squid Game", "qid": "Q106582931", "labels": {"en": "Squid Game", "zh": "魷魚遊戲", "ko": "오징어 게임", "vi": "Trò chơi con mực", "ja": "イカゲーム", "th": "สควิดเกม เล่นลุ้นตาย", "id": "Squid Game"}, "items": 66, "in_dictionary": 1}];
+export const SAMPLE_GRAPH_CONTENTS: GraphContentSummary[] = [{"key": "squid-game", "name": "Squid Game", "qid": "Q106582931", "labels": {"en": "Squid Game", "zh": "魷魚遊戲", "ko": "오징어 게임", "vi": "Trò chơi con mực", "ja": "イカゲーム", "th": "สควิดเกม เล่นลุ้นตาย", "id": "Squid Game"}, "items": 66, "in_dictionary": 1}];
 
 export const SAMPLE_GRAPH: Record<string, GraphContent> = {
-  "Squid Game": {
+  "squid-game": {
     "content": {
-      "key": "Squid Game",
+      "key": "squid-game",
       "name": "Squid Game",
       "qid": "Q106582931",
       "labels": {
