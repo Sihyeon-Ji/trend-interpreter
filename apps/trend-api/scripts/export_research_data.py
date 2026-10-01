@@ -30,7 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from export_risk_sample import environment  # noqa: E402
 from trend_agents.storage import store as db  # noqa: E402
 
-OUT = Path(__file__).resolve().parents[3] / "artifacts" / "research_export"
+ROOT = Path(__file__).resolve().parents[1] if (Path(__file__).resolve().parents[1] / "src").exists() else Path(__file__).resolve().parents[3]
+OUT = ROOT / "artifacts" / "research_export"     # 트윈(scripts/)·팀(apps/trend-api/scripts/) 어느 쪽에서 돌려도 저장소 루트
 
 GROUPS: dict[str, tuple[str, ...]] = {
     # 사람의 판정·정답이 들어 있는 표 — 학습·평가의 정답 후보
@@ -44,15 +45,23 @@ GROUPS: dict[str, tuple[str, ...]] = {
     # 밈이 아닌 것·같은 말 묶기 — 판별기와 표기 묶기 실험
     "negatives": ("candidates", "term_aliases"),
     # 시계열 — 생애주기·지역 확산 연구
-    "timeseries": ("mentions_weekly", "mentions_weekly_region", "term_timeline"),
+    "timeseries": ("mentions_weekly", "mentions_weekly_region", "term_timeline", "term_pageviews"),
+    # 에이전트가 위키를 직접 읽은 기록(생각·도구·인자·결과 앞부분)과 찾은 밈·나라 사이 짝 — 도구 호출 학습·평가
+    "agent": ("agent_trace", "content_index", "content_findings", "content_pairs"),
+    # 위키 밈 분류에서 받은 목록과 그림·영상 주소(파일은 없다)
+    "catalog": ("wiki_catalog", "term_media"),
 }
 USER_TEXT = ("explain_cache", "lookups", "reader_prefs")
 REVIEWER_COLUMNS = ("decided_by",)
 REVIEWER_JSON_KEYS = ("risk_decided_by", "decided_by")
 
 
+# 사람이 아니라 단계·역할 이름이다 — 그대로 두어야 '누가(어느 단계가) 정했나' 를 가를 수 있다
+SYSTEM_ACTORS = {"team", "audit", "gate", "auto", "pipeline", "system", "crosscheck", "risk"}
+
+
 def pseudonym(name: object) -> object:
-    if not isinstance(name, str) or not name:
+    if not isinstance(name, str) or not name or name in SYSTEM_ACTORS:
         return name
     return "reviewer-" + hashlib.sha256(name.encode()).hexdigest()[:8]
 
@@ -76,8 +85,12 @@ def scrub(row: dict) -> dict:
 
 
 def tables(con) -> list[str]:
-    cur = con.execute("SELECT table_name FROM information_schema.tables "
-                      "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name")
+    """PostgreSQL(팀)은 information_schema, SQLite(트윈 수집 서버)는 sqlite_master."""
+    if hasattr(con, "total_changes"):          # sqlite3.Connection
+        cur = con.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+    else:
+        cur = con.execute("SELECT table_name FROM information_schema.tables "
+                          "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name")
     return [row[0] for row in cur.fetchall()]
 
 
@@ -92,7 +105,7 @@ def count(con, table: str) -> int:
 
 
 def dump(con, table: str, path: Path, limit: int | None) -> int:
-    cur = con.execute(f"SELECT * FROM {table}" + (" LIMIT ?" if limit else ""), (limit,) if limit else None)
+    cur = con.execute(f"SELECT * FROM {table}" + (" LIMIT ?" if limit else ""), (limit,) if limit else ())
     columns = [d[0] for d in cur.description]
     n = 0
     with path.open("w", encoding="utf-8") as f:

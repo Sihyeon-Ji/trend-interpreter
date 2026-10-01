@@ -105,7 +105,11 @@ def main() -> None:
     status = ""
     while time.time() - started < a.timeout:
         time.sleep(30)
-        line = kaggle("kernels", "status", kernel_id).strip()
+        done = subprocess.run(["kaggle", "kernels", "status", kernel_id], capture_output=True, text=True, check=False)
+        if done.returncode != 0:            # 몇 시간 기다리는 동안의 일시적인 네트워크 오류로 끝내지 않는다
+            print(f"{int(time.time() - started):>5}s status check failed, retrying: {(done.stderr or done.stdout).strip()[:120]}", flush=True)
+            continue
+        line = done.stdout.strip()
         status = line.rsplit(" ", 1)[-1].strip('"').lower()
         print(f"{int(time.time() - started):>5}s {status}")
         if any(word in status for word in TERMINAL):
@@ -120,7 +124,7 @@ def main() -> None:
     print("output in", out.relative_to(ROOT))
     for run in sorted(out.glob("runs/*/run.json")):
         meta = json.loads(run.read_text(encoding="utf-8"))
-        print("run", meta["run_id"], "| gpu", meta["gpu"].replace("\n", ", "), "| model", meta["model"], meta["model_digest"][:12])
+        print("run", meta.get("run_id"), "| gpu", str(meta.get("gpu", "?")).replace("\n", ", "), "| model", meta.get("model"), str(meta.get("model_digest", ""))[:12])
     calls = sorted(out.glob("runs/*/calls.csv"))
     if calls:
         print(calls[-1].read_text(encoding="utf-8-sig").strip())

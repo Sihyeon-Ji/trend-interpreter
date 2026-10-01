@@ -38,7 +38,8 @@ from trend_agents.pipeline import risk
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
 
-OUT = Path(__file__).resolve().parents[3] / "artifacts" / "risk_sample"
+ROOT = Path(__file__).resolve().parents[1] if (Path(__file__).resolve().parents[1] / "src").exists() else Path(__file__).resolve().parents[3]
+OUT = ROOT / "artifacts" / "risk_sample"     # 트윈(scripts/)·팀(apps/trend-api/scripts/) 어느 쪽에서 돌려도 저장소 루트
 FIELDS = ["term_id", "term", "definition", "term_risk_level", "term_risk_human", "evidence_id", "i", "kind", "source_domain",
           "community", "observed_at", "sentence", "pipeline_polarity", "pipeline_risk",
           "human_on_topic", "human_polarity", "human_risk", "human_level"]
