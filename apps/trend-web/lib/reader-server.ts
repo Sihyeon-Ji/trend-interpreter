@@ -1,8 +1,7 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { cookies } from "next/headers";
 import { parseReader, type Reader } from "./reader";
 import { SESSION_COOKIE, readSession } from "./session";
-
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 로그인한 사람의 설정과, 저장된 값을 제대로 읽었는지. 내 설정 화면은 ok 가 아니면 칸을 잠근다 —
  *  못 읽은 것을 '설정 없음' 으로 보이면 한 칸만 고쳐 저장할 때 나머지 저장값이 빈 값으로 덮인다(2026-09-29 검토). */
@@ -12,7 +11,7 @@ export async function loadReader(): Promise<{ reader: Reader; ok: boolean }> {
   const token = process.env.FRONTEND_API_TOKEN;
   if (!token) return { reader: {}, ok: false };
   try {
-    const res = await fetch(`${API}/prefs/${encodeURIComponent(s.user)}`, {
+    const res = await apiFetch(`/prefs/${encodeURIComponent(s.user)}`, {
       headers: { "x-frontend-token": token },
       cache: "no-store",
     });

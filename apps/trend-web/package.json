@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
-    "contract": "json2ts -i lib/contract/schema.json -o lib/contract/types.ts --additionalProperties false --bannerComment \"/* 자동 생성 — 수정 금지. 원본: src/trend_agents/schemas.py → scripts/export_schema.py → pnpm contract */\""
+    "contract": "json2ts -i lib/contract/schema.json -o lib/contract/types.ts --additionalProperties false --bannerComment \"/* 자동 생성 — 수정 금지. 원본: src/trend_agents/schemas.py → scripts/export_schema.py → pnpm contract */\"",
+    "test:unit": "playwright test --config playwright.unit.config.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

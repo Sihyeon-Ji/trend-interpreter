@@ -1,8 +1,7 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { explain } from "@/lib/data";
 import { getReader } from "@/lib/reader-server";
-
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 물음표나 의문사가 있으면 질문으로 본다. "AI slop 누가 써?" 처럼 사전 용어가 들어 있어도 묻는 말이면
  *  메시지를 번역해 주는 게 아니라 답을 해야 한다(09-16 실측: 그냥 용어 매칭으로 보내니 "…저질 콘텐츠 누가 써?" 가 나왔다). */
@@ -53,11 +52,12 @@ export async function POST(req: Request) {
 
   try {
     // 진행 상황을 그대로 흘려보낸다 — 오래 걸려도 무엇을 하는 중인지 보이면 기다릴 만하다.
-    const res = await fetch(`${API}/ask/stream`, {
+    const res = await apiFetch(`/ask/stream`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ question: text, lang: locale, history, log_miss: !isEval }),
       cache: "no-store",
+      signal: req.signal,
     });
     if (!res.ok || !res.body) return NextResponse.json({ kind: "answer", answer: "", failed: true });
     return new Response(res.body, {

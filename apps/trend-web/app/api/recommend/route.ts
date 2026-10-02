@@ -1,10 +1,10 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { sampleRecommend } from "@/lib/sample/recommend";
 import type { CampaignTone } from "@/lib/types";
 
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const MAX_IMAGE = 5 * 1024 * 1024;
 const TONES: CampaignTone[] = ["friendly", "witty", "premium"];
 
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   if (photo) out.set("image", photo, "photo");   // 파일 이름은 넘기지 않는다
   let res: Response;
   try {
-    res = await fetch(`${API}/recommend`, { method: "POST", body: out, cache: "no-store", signal: req.signal });
+    res = await apiFetch(`/recommend`, { method: "POST", body: out, cache: "no-store", signal: req.signal });
   } catch {
     return NextResponse.json({ error: "failed" }, { status: 502 });
   }

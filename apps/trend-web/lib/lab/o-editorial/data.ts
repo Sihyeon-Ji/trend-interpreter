@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 /* 시안 '에디토리얼형' 의 서버 데이터. 공용 로더(lib/data.ts)를 읽기만 하고, 한 판(edition)에 필요한 것을 한 번에 모은다.
    api 모드에서 대시보드가 실패하면 예시로 바꾸지 않고 null 을 돌려 화면이 '불러오지 못했습니다' 를 낸다(공용 규칙과 같다). */
 import { getGenerationCurves, getKeywordBoard, getMeta, getTermRecord, getUpdateFeed, isSampleMode, loadTermRecords } from "@/lib/data";
@@ -12,7 +13,6 @@ import {
   type CoverPick, type EditionKey, type RiskKind, type SearchSummary, type SinceItem,
 } from "./index";
 
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const TARGETS: string[] = [...EDITION_ORDER];
 
 export interface Issue {
@@ -117,7 +117,7 @@ export async function getCardsByIds(ids: string[]): Promise<KeywordCard[] | null
   if (!clean.length) return [];
   if (isSampleMode) return sampleCardsById(clean);
   try {
-    const res = await fetch(`${API}/dashboard/cards?ids=${clean.map(encodeURIComponent).join(",")}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    const res = await apiFetch(`/dashboard/cards?ids=${clean.map(encodeURIComponent).join(",")}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     return (await res.json()) as KeywordCard[];
   } catch {

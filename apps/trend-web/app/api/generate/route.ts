@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
 import { L } from "@/lib/labels";
@@ -5,7 +6,6 @@ import { TARGET_REGIONS } from "@/lib/reader";
 import { sampleGenerate } from "@/lib/sample/generate";
 import type { CampaignTone, Feeling, FitCategory, ProductBrief } from "@/lib/types";
 
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const TONES: CampaignTone[] = ["friendly", "witty", "premium"];
 const MAX_BODY = 16 * 1024;   // 밈 id 몇 개와 제품 설명(수백 자)뿐이다
 const CATEGORIES = Object.keys(L("ko").fitCategory) as FitCategory[];
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API}/generate`, {
+    res = await apiFetch(`/generate`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ term_ids: termIds, brief, region, tone, lang }),

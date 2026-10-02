@@ -12,6 +12,7 @@
 | 1 인수·DVC 도구 | `scripts/snapshot.py`, 루트 uv lockfile, ADC GCS remote, v5 입력 2개 `.dvc`, SHA-256·표제어 누수 검사 | GCS 고정 사본·DVC push, 비공개 Kaggle Dataset, 실제 팀원 2명 재현·과거판 복원 |
 | 2 학습·재개 기반 | 독립 lockfile·입력/계보 계약, CPU 재개 상태 일치, 실제 Gemma/T4의 optimizer 2→4회·상태/가중치 검증 | 팀원 2명 재현·전체 학습·독립 사람 평가·기존 v5 revision 계보 |
 | 3 DB 선행 검증 | `--skip-user-data`의 `lookups` 누락 수정, 실제 백업을 로컬 PostgreSQL 임시 스키마에 이관·41개 표 대조 | Cloud SQL staging 이관·권한 분리·백업·복원 |
+| 5 웹 서버 인증 준비 | 모든 서버 API 호출의 Google ID token·갱신·공유·취소, 서버/브라우저 경계 검증 | 실제 Cloud Run IAM·staging 분리·인증 API 연결·배포 검증 |
 
 2단계의 전체 학습·독립 품질 평가와 4·5·6·7단계의 서빙·웹 인증·승인 게시·배포는 아직 완료가 아니다. 기존 배포 job은 계속 비활성이다.
 
@@ -172,3 +173,14 @@ smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-au
 이번 단계의 완료 범위는 후보 생성과 평가 경로의 자동 검증이다. 실제 사람 정답·Gemma 독립 품질 평가·전체 학습·운영 승격은 아직 완료되지 않았다.
 
 검증 결과는 `check`의 데이터 20개·API 306개·배포/검토 13개·알림 10개 테스트와 웹 lint/build 통과, `audit-check` 40개 통과다. 이 중 새 검토 내보내기 테스트는 4개다. 실제 후보를 별도 경로에 재생성해 동일 해시를 확인했고 신규 Python lint도 통과했다. 테스트의 합성 판정 점수는 실제 모델 품질로 보고하지 않는다. UI·인프라는 바꾸지 않아 이번 단계에서 E2E·Terraform 검사는 다시 실행하지 않았다.
+
+
+### Cloud Run 웹 → API 인증 코드 준비
+
+데이터 출처 확인 책임자는 아직 미지정이다. 기존 SFT 생성 또는 원본 출처 이력을 확인할 수 있는 팀원이 이 확인을 맡아야 하며 GCS 경로명·Kaggle Notebook 소유자만으로 담당자를 확정하지 않는다. 사람 정답 판정·출처 확인은 대기 상태로 유지한다.
+
+그와 독립적으로 5단계의 웹 서버 인증 연결을 구현했다. 읽기·로그인·설정·검수·사진 업로드·생성·질문 스트리밍을 공통 API fetch로 모았다. Google 모드에서 고정 메타데이터 서버의 ID token을 만료 전에 갱신·공유하고, 기존 사용자 권한 헤더·본문·Next 캐시 옵션·취소 신호를 유지한다. 설정 오류·발급 실패·외부 origin·redirect에서는 인증 없는 호출을 거부한다. 상세 설정은 [Cloud Run 웹 API 인증](../개발환경/Cloud-Run-웹-API-인증.md)에 있다.
+
+Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하지 않았다. 실제 Cloud Run 토큰·API 권한·staging 분리·GPU 연결은 아직 검증되지 않았으며 5단계 전체 완료로 표시하지 않는다.
+
+검증은 `check`의 기존 Python 테스트 349개와 웹 transport 테스트 13개, 웹 lint/build 통과다. `e2e`는 검색 서버/브라우저 경계 회귀 1개를 추가해 37개 통과했다. 최초 빌드에서 확인한 검색 모듈의 클라이언트 import 경로는 서버 로더 분리 후 같은 빌드로 재검증했다. 모델 품질·Google IAM·GPU 성공 근거로 이 로컬 결과를 사용하지 않는다.

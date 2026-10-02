@@ -99,6 +99,7 @@ services:
         uv run --offline --project apps/trend-api --locked pytest -q tests/test_release_scope.py tests/test_release_recovery.py tests/test_verify_alert_delivery.py tests/test_deploy_safety.py tests/test_prepare_audit_review.py
         UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --offline --project apps/alert-relay --locked pytest -q apps/alert-relay/tests
         cd apps/trend-web
+        corepack pnpm test:unit
         corepack pnpm lint
         corepack pnpm build
 

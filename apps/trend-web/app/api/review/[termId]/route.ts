@@ -1,9 +1,8 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { reviewDecision } from "@/lib/review-decision";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
-
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 검수 결정을 백엔드에 기록한다. 브라우저는 백엔드를 직접 부르지 않는다 —
  *  로그인과 검수 권한을 여기서 확인하고, 쓰기 토큰은 서버에만 둔다. 결정한 사람 이름도 세션에서 가져온다.
@@ -29,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   const { termId } = await params;
   let res: Response;
   try {
-    res = await fetch(`${API}/review/${encodeURIComponent(termId)}`, {
+    res = await apiFetch(`/review/${encodeURIComponent(termId)}`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
       body: JSON.stringify({ ...parsed.body, by: session.user }),

@@ -1,9 +1,9 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { parseReader, type Reader } from "@/lib/reader";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const SAMPLE = process.env.DATA_MODE !== "api";
 
 async function session() {
@@ -34,7 +34,7 @@ export async function PUT(req: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API}/prefs/${encodeURIComponent(s.user)}`, {
+    res = await apiFetch(`/prefs/${encodeURIComponent(s.user)}`, {
       method: "PUT",
       headers: { "content-type": "application/json", "x-frontend-token": token },
       body: JSON.stringify({ prefs }),

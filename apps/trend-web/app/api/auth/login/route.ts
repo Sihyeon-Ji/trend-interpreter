@@ -1,8 +1,8 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { afterLogin, safeNext } from "@/lib/reader";
 import { SESSION_COOKIE, SESSION_HOURS, signSession } from "@/lib/session";
 
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 const SAMPLE = process.env.DATA_MODE !== "api";
 
 /** 화면이 i18n 으로 옮기는 오류 코드. 문구는 서버가 정하지 않는다 — 영어 화면에 한국어 오류가 나가던 것(2026-09-29 검토). */
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
   let res: Response;
   try {
-    res = await fetch(`${API}/auth/login`, {
+    res = await apiFetch(`/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ user, password }),

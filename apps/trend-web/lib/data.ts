@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 /* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
 import { SAMPLE_BOARD } from "./sample/trend-board";
@@ -13,7 +14,6 @@ import { SAMPLE_WHY, sampleUpdateFeed } from "./sample/updates";
 import { TARGET_REGIONS } from "./reader";
 
 export const isSampleMode = process.env.DATA_MODE !== "api";
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /* 예시 모드도 백엔드 views.shown_evidences 와 같이 — 커뮤니티 글은 쓰임 지표(예시 대시보드의 '마지막 쓰임')로만 두고
    사전 항목·검수·해석 화면의 근거로 보이지 않는다(ADR 0003). */
@@ -26,7 +26,7 @@ class ApiError extends Error {
 }
 
 async function api<T>(path: string, revalidate = 60): Promise<T> {
-  const res = await fetch(`${API}${path}`, { next: { revalidate } });
+  const res = await apiFetch(path, { next: { revalidate } });
   if (!res.ok) throw new ApiError(path, res.status);
   return res.json() as Promise<T>;
 }
@@ -46,7 +46,7 @@ const bigCache = new Map<string, { at: number; value: unknown }>();
 async function apiBig<T>(path: string, ttlMs = 60_000): Promise<T> {
   const hit = bigCache.get(path);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const res = await fetch(`${API}${path}`, { cache: "no-store" });
+  const res = await apiFetch(path, { cache: "no-store" });
   if (!res.ok) throw new ApiError(path, res.status);
   const value = (await res.json()) as T;
   bigCache.set(path, { at: Date.now(), value });
@@ -97,7 +97,7 @@ export async function getUpdatedAt(): Promise<string | null> {
 /** 관리 화면 조회 — 예시 데이터로 바꾸지 않고(예시 문구를 보고 실제 뜻을 승인하게 된다), 캐시하지 않는다(결정 뒤 건수가 그대로였다).
  *  실패하면 던진다 → app/admin/error.tsx 가 '다시 불러오기' 를 보인다. */
 async function apiNoStore<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { cache: "no-store" });
+  const res = await apiFetch(path, { cache: "no-store" });
   if (!res.ok) throw new ApiError(path, res.status);
   return res.json() as Promise<T>;
 }
@@ -138,7 +138,7 @@ export function getSampleCopy(locale: Locale): string {
 export async function explain(text: string, locale: Locale, reader: Reader = {}): Promise<ExplainResult> {
   if (!isSampleMode) {
     // 서버는 매칭된 용어 id 와 '쉽게 풀어 쓰면'(모델 재작성)만 돌려주고, 문장 조립은 화면 언어 규칙(lib/explain.ts)이 맡는다
-    const res = await fetch(`${API}/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: locale, reader: { gen: reader.gen, region: reader.region } }) });
+    const res = await apiFetch(`/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: locale, reader: { gen: reader.gen, region: reader.region } }) });
     if (!res.ok) throw new Error(`/explain → ${res.status}`);
     const { term_ids, plain } = (await res.json()) as { term_ids: string[]; plain: string | null };
     // 서버 매칭은 확인 중(needs_review)인 용어도 돌려준다 — 공개 목록(/terms 는 verified 만)이 아니라 id 마다 받는다(/terms/{id} 는 확인 중도 준다).
@@ -158,7 +158,7 @@ export async function getMeta(): Promise<Meta | null> {
 /** 실패를 null 로 알린다 — 예시 데이터로 바꿔 치지 않는다(실데이터 화면에 예시가 섞이면 알아챌 수 없다, 화면 개편 2차 검토). */
 async function apiOrNull<T>(path: string, revalidate: number | false = 60): Promise<T | null> {
   try {
-    const res = await fetch(`${API}${path}`, revalidate === false ? { cache: "no-store" } : { next: { revalidate } });
+    const res = await apiFetch(path, revalidate === false ? { cache: "no-store" } : { next: { revalidate } });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
     return null;
@@ -253,7 +253,7 @@ export async function getKeywordBoard(regions: string[], page = 1): Promise<Keyw
   if (page > 1) q.set("page", String(page));
   // Next 의 데이터 캐시에 넣지 않는다 — 지역 조합마다 30만 바이트짜리 항목이 쌓이고 지워지지 않는다(2026-09-29 검토).
   // 백엔드가 이미 캐시(board_cache)에서 내준다.
-  const res = await fetch(`${API}/dashboard${q.size ? `?${q}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const res = await apiFetch(`/dashboard${q.size ? `?${q}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new ApiError("/dashboard", res.status);
   return (await res.json()) as KeywordBoard;
 }

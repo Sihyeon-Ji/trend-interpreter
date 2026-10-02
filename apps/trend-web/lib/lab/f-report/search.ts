@@ -1,24 +1,6 @@
 /* 틀의 찾기 칸이 쓰는 색인 — 확인된 밈의 이름·다른 표기·뜻 한 줄만(사전 전체 2.7MB 대신 수십 KB). 칸을 처음 쓸 때 한 번 받는다. */
-import { loadTermRecords } from "@/lib/data";
-import { textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
 
 export interface SearchHit { id: string; name: string; lang: string; aliases: string[]; gloss: string; risk: string | null }
-
-export async function loadSearchIndex(locale: Locale): Promise<SearchHit[] | null> {
-  const { records, ok } = await loadTermRecords();
-  if (!ok) return null;
-  return records
-    .filter((r) => r.term.status === "verified")
-    .map((r) => ({
-      id: r.term.term_id,
-      name: r.term.canonical,
-      lang: r.term.lang ?? "",
-      aliases: (r.term.aliases ?? []).filter((a) => a && a !== r.term.canonical).slice(0, 4),
-      gloss: (textFor(r, locale)?.definition ?? "").slice(0, 80),
-      risk: r.term.risk_level ?? null,
-    }));
-}
 
 /** 이름·다른 표기·뜻에 그대로 들어 있는 것만, 이름이 그 말로 시작하는 것부터 */
 export function searchHits(index: SearchHit[], q: string, max = 8): SearchHit[] {

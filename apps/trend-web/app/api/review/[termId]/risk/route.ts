@@ -1,8 +1,7 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
-
-const API = process.env.TREND_API_URL ?? "http://localhost:8080";
 
 /** 검수자가 정한 리스크 수준을 백엔드에 기록한다. 권한 확인·쓰기 토큰은 뜻 검수(../route.ts)와 같다.
  *  level 이 null 이면 사람의 결정을 지우고 규칙 판정으로 돌아간다. */
@@ -28,7 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   const { termId } = await params;
   let res: Response;
   try {
-    res = await fetch(`${API}/review/${encodeURIComponent(termId)}/risk`, {
+    res = await apiFetch(`/review/${encodeURIComponent(termId)}/risk`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-frontend-token": token },
       body: JSON.stringify({ level, by: session.user }),   // 결정한 사람은 세션에서 — 검수 기록이 실제 계정이 된다
