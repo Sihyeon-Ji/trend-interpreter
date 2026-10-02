@@ -15,6 +15,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/trend-venv UV_LINK_MODE=copy \
     PATH="/opt/trend-venv/bin:$PATH"
 
 FROM tooling AS development
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+COPY pyproject.toml uv.lock ./
+RUN UV_PROJECT_ENVIRONMENT=/opt/data-tools-venv uv sync --locked
 COPY apps/trend-api/ apps/trend-api/
 RUN uv sync --project apps/trend-api --locked
 COPY apps/alert-relay/ apps/alert-relay/

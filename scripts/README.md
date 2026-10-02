@@ -8,6 +8,8 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 
 | File | Caller | Responsibility |
 | --- | --- | --- |
+| `snapshot.py` | Data intake operator | Pin source generations, verify SQLite and checksums, publish immutable copies with the manifest last, fetch only published snapshots |
+| `verify_dataset.py` | Team researcher | Verify selected DVC payload SHA-256/CRC32C, row counts and training/evaluation term separation |
 | `container-smoke.sh` | CI | Start a throwaway PostgreSQL, the production API and web images, verify API health and the web landing page |
 | `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |
 | `release_scope.py` | `Release GCP` workflow | Classify release changes into shared checks, infrastructure, application and relay |
@@ -23,3 +25,9 @@ disabled until [Plan 05](../docs/plans/05-trend-cloud-run-deployment.md) is impl
 Do not add parallel Make/just/task wrappers for these commands. Keep service/task definitions
 in `compose.yaml`, frontend tool commands in `apps/trend-web/package.json`, and multi-step operational
 implementation here. See [operations](../docs/운영/GCP-운영.md) before running cloud scripts.
+
+The root `pyproject.toml` and `uv.lock` isolate DVC, Kaggle and snapshot dependencies from the API runtime.
+Use `docker compose run --rm data-tools` for these tools. Data and model payloads are ignored by Git;
+only manifests and `.dvc` metadata belong in the repository. The research remote requires ADC and
+approved path permissions. Cloud writes and resource provisioning follow the repository's approval
+rules. See [snapshot and DVC operations](../docs/개발환경/데이터-스냅숏-DVC.md).

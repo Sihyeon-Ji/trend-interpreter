@@ -1,0 +1,20 @@
+{
+  "notebook_id": "onzlchoi/ai-builder-cup-gemma",
+  "url": "https://www.kaggle.com/code/onzlchoi/ai-builder-cup-gemma",
+  "participant": "jseanj",
+  "is_private": true,
+  "enable_gpu": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "enable_internet": true,
+  "dataset_sources": [],
+  "kernel_status": "COMPLETE",
+  "purpose": "risk-inference-experiment-not-audit-qlora",
+  "source_sha256": "a841c393685bcaab2097be54385ab8589c574961d049b0b0d5269b1961e30077",
+  "source_matches_repository": false,
+  "changed_cell_indexes": [
+    0
+  ],
+  "optimizer_checkpoint_implemented": false,
+  "collaborator_write_permission": "not-tested",
+  "code_cells_match_repository": true
+}

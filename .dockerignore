@@ -1,6 +1,12 @@
 **
 !Dockerfile
 !Dockerfile.dev
+!pyproject.toml
+!uv.lock
+!.dvc/
+!.dvc/config
+!.dvc/.gitignore
+!.dvcignore
 !apps/
 !apps/trend-api/
 !apps/trend-api/**

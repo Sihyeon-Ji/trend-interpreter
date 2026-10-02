@@ -94,6 +94,7 @@ services:
       - sh
       - -ec
       - |
+        UV_PROJECT_ENVIRONMENT=/opt/data-tools-venv uv run --offline --project . --locked pytest -q tests/test_snapshot.py tests/test_dvc_reproduction.py
         uv run --offline --project apps/trend-api --locked pytest -q apps/trend-api/tests
         uv run --offline --project apps/trend-api --locked pytest -q tests/test_release_scope.py tests/test_release_recovery.py tests/test_verify_alert_delivery.py tests/test_deploy_safety.py
         UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv run --offline --project apps/alert-relay --locked pytest -q apps/alert-relay/tests
@@ -135,6 +136,18 @@ services:
       - --verbosity=error
 
   # Editable dependency commands write only the chosen project's manifest and lockfile.
+  data-tools:
+    <<: *development
+    profiles: [tools]
+    working_dir: /workspace
+    environment:
+      UV_PROJECT_ENVIRONMENT: /opt/data-tools-venv
+      PYTHONPATH: /workspace
+    entrypoint: [uv, run, --offline, --locked]
+    command: [python, scripts/snapshot.py, --help]
+    volumes:
+      - ./:/workspace
+
   uv:
     profiles: [tools]
     build:

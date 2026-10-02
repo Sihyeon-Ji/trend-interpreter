@@ -1,0 +1,20 @@
+[project]
+name = "trend-data-tools"
+version = "0.1.0"
+description = "Private snapshot intake and DVC tooling for Trend Interpreter"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "dvc[gs]>=3.63,<4",
+    "google-cloud-storage>=3.4,<4",
+    "kaggle>=1.7,<3",
+]
+
+[dependency-groups]
+dev = ["pytest>=9,<10"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests/test_snapshot.py", "tests/test_dvc_reproduction.py"]

@@ -30,3 +30,8 @@ apps/trend-api/data/
 apps/trend-web/design/
 *.db
 *.zip
+datasets/**
+!datasets/**/
+!datasets/**/*.dvc
+!datasets/**/.gitignore
+models/artifacts/

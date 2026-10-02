@@ -1,0 +1,50 @@
+{
+  "dataset_id": "audit-v5-baseline",
+  "state": "captured",
+  "label_source": "model-judgment-not-human-ground-truth",
+  "database_snapshot_relationship": "not-attested",
+  "objects": [
+    {
+      "name": "audit_sft_v5.jsonl",
+      "uri": "gs://copybara-team-shared-bucket/taewoo/trend-interpreter/research/01-audit-finetune/datasets/audit_sft_v5.jsonl",
+      "generation": "1790837558418351",
+      "size": 1380566,
+      "sha256": "7f46275e4268501b1747c084eb37945c3342098ba487b397b448f7e397196c6a",
+      "crc32c": "M9l51w==",
+      "rows": 371,
+      "fields": [
+        "label",
+        "messages",
+        "split",
+        "term_id"
+      ]
+    },
+    {
+      "name": "audit_holdout_sft.jsonl",
+      "uri": "gs://copybara-team-shared-bucket/taewoo/trend-interpreter/research/01-audit-finetune/datasets/audit_holdout_sft.jsonl",
+      "generation": "1790837557652296",
+      "size": 66889,
+      "sha256": "1e4621a962bdb3e9fd30048762c570247d84189aba4a961e89f88636288a22f3",
+      "crc32c": "PZJyAg==",
+      "rows": 20,
+      "fields": [
+        "label",
+        "messages",
+        "split",
+        "term_id"
+      ]
+    }
+  ],
+  "split_summary": {
+    "rows": {
+      "train": 319,
+      "test": 32,
+      "test2": 20
+    },
+    "train_test_term_overlap": 0,
+    "holdout_training_term_overlap": 0,
+    "source_overlap": "not-checked",
+    "human_ground_truth": "not-attested",
+    "test2_holdout_term_overlap": 20
+  }
+}

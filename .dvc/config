@@ -1,0 +1,6 @@
+[core]
+    remote = research
+    analytics = false
+['remote "research"']
+    url = gs://copybara-team-shared-bucket/taewoo/trend-interpreter/dvc-cache
+    allow_anonymous_login = false
