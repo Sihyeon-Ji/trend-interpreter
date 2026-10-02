@@ -24,6 +24,10 @@
 !tests/**
 !scripts/
 !scripts/**
+!models/
+!models/kaggle/
+!models/kaggle/audit/
+!models/kaggle/audit/**
 **/__pycache__
 **/node_modules
 **/dist

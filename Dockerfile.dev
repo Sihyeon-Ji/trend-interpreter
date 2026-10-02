@@ -29,6 +29,14 @@ COPY apps/trend-web/ apps/trend-web/
 COPY tests/ tests/
 COPY scripts/ scripts/
 
+FROM tooling AS audit-tests
+ENV UV_PROJECT_ENVIRONMENT=/opt/audit-test-venv
+WORKDIR /workspace/models/kaggle/audit
+COPY models/kaggle/audit/pyproject.toml models/kaggle/audit/uv.lock ./
+RUN uv sync --locked --extra cpu
+COPY models/kaggle/audit/train.py models/kaggle/audit/prepare.py ./
+COPY models/kaggle/audit/tests/ tests/
+
 FROM development AS browser-tests
 WORKDIR /workspace/apps/trend-web
 RUN corepack pnpm exec playwright install --with-deps chromium

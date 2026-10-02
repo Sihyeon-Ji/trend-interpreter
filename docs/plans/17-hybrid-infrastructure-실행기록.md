@@ -1,0 +1,163 @@
+# Plan 17 실행 기록
+
+작성일 **2026-10-02** · 브랜치 **develop** · 상태 **데이터·학습 도구 및 GPU 중단→재개 검증 완료, 전체 학습·품질 평가·GCP 구축 전**
+
+[계획](17-hybrid-infrastructure.md) · [인수·DVC 명령](../개발환경/데이터-스냅숏-DVC.md)
+
+## 이번에 구현·실측한 범위
+
+| 단계 | 결과 | 남은 완료 조건 |
+| --- | --- | --- |
+| 0 입력·권한 확인 | DB 3개 객체의 generation·CRC32C·SHA-256 고정, 41개 표 무결성·행 수 대조, GCP·버킷 권한 읽기 전용 확인 | 생산자 완료 manifest, GPU quota·zone·승인 예산, 수집 DB와 서비스 승인 DB 경계 확정 |
+| 1 인수·DVC 도구 | `scripts/snapshot.py`, 루트 uv lockfile, ADC GCS remote, v5 입력 2개 `.dvc`, SHA-256·표제어 누수 검사 | GCS 고정 사본·DVC push, 비공개 Kaggle Dataset, 실제 팀원 2명 재현·과거판 복원 |
+| 2 학습·재개 기반 | 독립 lockfile·입력/계보 계약, CPU 재개 상태 일치, 실제 Gemma/T4의 optimizer 2→4회·상태/가중치 검증 | 팀원 2명 재현·전체 학습·독립 사람 평가·기존 v5 revision 계보 |
+| 3 DB 선행 검증 | `--skip-user-data`의 `lookups` 누락 수정, 실제 백업을 로컬 PostgreSQL 임시 스키마에 이관·41개 표 대조 | Cloud SQL staging 이관·권한 분리·백업·복원 |
+
+2단계의 전체 학습·독립 품질 평가와 4·5·6·7단계의 서빙·웹 인증·승인 게시·배포는 아직 완료가 아니다. 기존 배포 job은 계속 비활성이다.
+
+## 실제 인수
+
+`manifests/20261001T224511-e56b90d.json`은 수집 시각 `2026-10-01T22:45:11+09:00`, 수집 코드 `e56b90d`의 **로컬 인수 기록**이다. 고정 경로 게시 전이므로 `state=captured`이며 `latest/`의 해당 generation이 삭제돼도 다시 읽을 수 있다고 보증하지 않는다. 압축 DB의 SHA-256은 `a36671658bd999ec4f6a8cb471498d47b3f04c1ca303b0a3af796536d9a95e23`다. DB 압축 75,133,150바이트, 표제어 11,244개, 뜻 16,085개, 근거 40,176개를 확인했다.
+
+- SQLite `PRAGMA integrity_check` 통과, 전체 41개 표의 목록·행 수 대조 완료.
+- `explain_cache`·`lookups`·`reader_prefs` 3개 표는 실제 DB에 없음.
+- 다운로드 중 generation 변경 없음. 생산자 완료 manifest가 없어 같은 행 수인 다른 업로드의 혼합 가능성까지 증명하지는 못함.
+- 로컬 PostgreSQL 이관에서 41개 표 대조 완료. `news` 51,632개 중 기존 기본키 길이 정책으로 6개 제외, 나머지 51,626개 일치. 다른 표의 제외·건수 차이 없음. `terms.diffusion` 723개 보정, 별칭 599개 재구축. 원본에만 있는 미지원 표 없음.
+- 사용자 표 3개는 이관 후 모두 0행. 검증은 Compose DB의 임시 스키마에서 실행하고 연결 종료 시 제거. 운영 Cloud SQL에는 쓰지 않음.
+
+`manifests/audit-v5-baseline.json`에는 기존 감사관 SFT·holdout 원본 generation과 해시를 기록했다. 약 1.45MB만 내려받고 DVC 로컬 캐시에 등록했다. GCS의 57GB 전체 복제는 하지 않았다.
+
+| 자료 | 행 수 | SHA-256 |
+| --- | --- | --- |
+| `audit_sft_v5.jsonl` | 371 | `7f46275e4268501b1747c084eb37945c3342098ba487b397b448f7e397196c6a` |
+| `audit_holdout_sft.jsonl` | 20 | `1e4621a962bdb3e9fd30048762c570247d84189aba4a961e89f88636288a22f3` |
+
+SFT는 train 319행·test 32행·test2 20행이다. 학습 표제어 276개와 평가 표제어 52개는 겹치지 않으며, holdout과 학습 표제어도 겹치지 않는다. 그러나 **test2와 holdout의 표제어 20개는 모두 겹친다.** 독립 사람 평가셋으로 승격하지 않는다. 출처 단위 겹침, 사람 정답 여부, 최신 DB와 학습셋의 생성 계보는 아직 확인하지 않았다.
+
+## GCP 확인
+
+| 항목 | 읽기 전용 확인 결과 | 실행 전에 할 일 |
+| --- | --- | --- |
+| 프로젝트 | `stunning-crane-508614-c1`, 번호 `266542883304` | 생성 자원과 비용 상한 확정 |
+| 공유 버킷 | 같은 프로젝트, `ASIA-NORTHEAST1`, uniform bucket-level access, public access prevention `enforced` | 연구·운영 경로별 실제 IAM 경계 구성 |
+| 버킷 보존 | versioning 꺼짐, lifecycle 규칙 없음, soft delete 7일 | 사용 중인 snapshot·DVC·release의 보존 정책 확정 |
+| 기존 IAM | 프로젝트 단위 legacy owner/reader 바인딩 | 팀원·업로더·GPU·Job의 최소 권한 검증 |
+| Cloud SQL | `trend-project`, PostgreSQL 18, `RUNNABLE`, `db-perf-optimized-N-8`, 도쿄 | 인수·사양·서비스 DB 역할 확정 |
+| Cloud SQL 보호 | 자동 백업·PITR·삭제 보호 꺼짐, 공개 IP 사용, private network 미설정 | Plan 05·13과 함께 보호·접속·복원 정책 결정 |
+| Compute API | 비활성 | 사용자 확인 후 활성화, GPU quota·zone 조회 |
+| 개발 인증 | `gcloud` 로그인으로 읽기 가능, ADC 미설정 | ADC 로그인과 Compose의 읽기 전용 인증 mount |
+
+현재 계정에 대해 `testIamPermissions`로 아래 권한을 확인했다. 추가 권한을 요청하거나 IAM을 변경하지 않았다.
+
+- 프로젝트에서 `serviceusage.services.enable`, `compute.regions.get`, `compute.instances.create`, `compute.networks.create`, `iam.serviceAccounts.create`, `resourcemanager.projects.setIamPolicy`, `run.services.create`, `secretmanager.secrets.create`, `cloudsql.instances.update` 모두 허용.
+- 공유 버킷에서 `storage.objects.get/create/delete`, `storage.managedFolders.create/setIamPolicy` 허용.
+
+이는 배포자의 현재 권한 확인이며, 향후 런타임 서비스 계정의 권한 분리를 구현했다는 뜻은 아니다. GPU quota나 실제 공급도 보증하지 않는다. GCP MCP는 필수가 아니며 설치된 `gcloud`와 ADC·서비스 계정으로 진행할 수 있다. Kaggle CLI 2.2.4를 루트 lockfile에 고정했고 사용자가 OAuth 로그인을 완료했다. 이메일·account number·키·토큰은 저장소에 넣지 않는다.
+
+### Kaggle 실제 확인
+
+[onzlchoi/ai-builder-cup-gemma](https://www.kaggle.com/code/onzlchoi/ai-builder-cup-gemma)를 `jseanj` 인증으로 읽었다. 비공개, GPU 활성·`NvidiaTeslaT4`, 인터넷 활성, `dataset_sources=[]`, 최근 실행 상태 `COMPLETE`다. 코드 셀 11개를 포함한 19셀 Notebook이며 **리스크 분류 추론 실험**이다. CSV와 환경 명세를 입력으로 받아 Ollama 추론 결과를 JSON 체크포인트에 저장하지만 QLoRA·optimizer·scheduler 학습 재개는 없다. 실행 완료 상태만으로 GPU 추론·품질 성공이라고 판단하지 않는다. 로컬 risk Notebook과 코드 셀은 일치하고 첫 안내 Markdown 셀만 다르며 덮어쓰지 않았다.
+
+`manifests/kaggle-context.json`에 소스 해시와 읽은 설정을 기록했다. 공동 작업 쓰기 권한은 시험하지 않았다. 검증한 v5 파일 2개·manifest·평가 제한 안내만 담은 `artifacts/kaggle/audit-v5-inputs.zip`을 준비했으며, 비공개 Dataset 업로드·Notebook push·GPU 실행은 하지 않았다. 이 SFT 자료는 CSV 기반 기존 Notebook에 그대로 붙여도 학습되지 않으므로 별도 감사관 학습 Notebook이 필요하다.
+
+## 비용 검토안
+
+사용자는 **예산 미정, 비용안부터 준비**를 선택했다. 따라서 비용 승인·Compute API 활성화·GCS 쓰기·VM 생성·실제 모델 호출·배포를 실행하지 않았다.
+
+권장 시작은 L4 후보의 **2시간 검증 세션 1회**다. 실제 추론·형식·VRAM을 측정한 뒤 일일 가동 시간을 정한다. 월간 상시 GPU부터 시작하지 않는다. 아래 **$1.50/시간은 예산 편성용 가정이며 도쿄 견적이 아니다.** 도쿄 SKU와 zone·quota를 확인한 뒤 실제 승인안을 확정한다.
+
+| GPU 가동안 | 가동 시간 | GPU·VM 예산 가정 |
+| --- | --- | --- |
+| 최초 검증 | 2시간 | $3 |
+| 일일 2시간 | 30일 × 2시간 = 60시간 | $90/월 |
+| 일일 4시간 | 30일 × 4시간 = 120시간 | $180/월 |
+| 데모 주간 상시 | 7일 × 24시간 = 168시간 | $252/주 |
+| 월 상시 | 30일 × 24시간 = 720시간 | $1,080/월 |
+
+[공식 가속기 가격표](https://cloud.google.com/products/compute/pricing/accelerator-optimized)의 기본 지역 표에서 `g2-standard-8` 주문형 $0.853624312/시간을 확인했지만 도쿄 선택 가격은 아니다. 위 가정은 지역 차이를 포함해 비용안을 검토하기 위한 값이며 실제 가격 상한을 보장하지 않는다. VM이 `RUNNING`이면 요청이 없어도 과금되므로 종료 예약을 따로 구현해야 한다([VM 과금](https://cloud.google.com/products/compute/pricing)).
+
+총비용에는 아래 항목을 더한다. 현재 값이 정해지지 않은 항목은 0으로 합산하지 않는다.
+
+| 비용 항목 | 산정 입력과 결정 |
+| --- | --- |
+| 모델·부트 디스크 | 모델 200GB 후보 + 부트 디스크, VM 중지 중에도 저장 비용 |
+| Cloud SQL | 현재 N-8의 체험 종료 후 SKU, 축소/이전 결정, 백업·PITR·저장 공간 |
+| 웹/API/Job | min instances 0 후보, max API instances 2 후보, CPU·메모리·요청 시간·작업 예약 |
+| GCS | 원본 53GiB 이상, 고정 snapshot·선택 DVC·모델·백업·soft delete 사본, Kaggle 전송 |
+| NAT | 필요할 때만 사용. IP 유지 720시간이면 $3.60 + VM 할당 시간당 $0.0014 + 처리 GiB당 $0.045, 인터넷 전송 별도 |
+| Gemini | 승인 모델·입출력 토큰 단가·요청 상한. 현재 기본 mock는 유료 호출 없음 |
+| 빌드·감시·레지스트리 | 빌드 분·이미지 보존량·로그량·예약 작업 |
+
+NAT 계산은 [공식 가격표](https://cloud.google.com/nat/pricing) 기준이다. [Cloud Run](https://cloud.google.com/run/pricing)과 [GCS](https://cloud.google.com/storage/pricing)는 지역·실사용량·무료 할당량에 따라 계산한다. 기존 Cloud SQL 체험은 실제 콘솔 종료 시각과 Plan 13의 사양 결정을 먼저 확인한다. 환율·세금·크레딧은 이 표에 반영하지 않았다.
+
+## 검증 결과
+
+- 새 도구 테스트 20개 통과. SHA/CRC 변조·행 수 불일치·사용자 표·경로 탈출·다운로드 중 변경·manifest 이전 실패·고정 generation 읽기 거부/허용을 검증.
+- 로컬 remote에서 독립 DVC 환경 2개의 같은 해시·선택 pull·과거판 복원 검증. 합성 자료 테스트이며 실제 팀원 Kaggle 재현과 구분.
+- `docker compose run --rm --build check` 통과. API 테스트 306개, 기존 배포 검사 9개, relay 테스트 10개, 프론트 lint·build 포함.
+- `docker compose run --rm --build e2e` 36개 통과. 기본 sample/mock 흐름이며 staging 실데이터·실제 모델 검증이 아님.
+- `docker compose run --rm infra-check`의 `terraform fmt -check`·`validate` 통과. 이번 작업에서 Terraform 자원 변경·apply 없음.
+
+## 남은 작업과 다음 실행 단위
+
+현재 완료 범위는 인수/DVC 도구, 사용자 자료 제외 이관 검증, 비공개 Dataset 전달, 실제 Gemma의 짧은 학습·체크포인트·다음 버전 재개다. 전체 Plan 17 완료와 구분한다.
+
+1. **자원·비용 결정** – GPU zone/quota·가동 시간·지출 상한, Cloud SQL 인수·사양·백업 정책, 웹/API 동시성·timeout·인스턴스 상한과 실행 주체를 확정한다. GCP 자원 생성·배포는 사용자 확인 후 실행한다.
+2. **데이터 고정·팀 공유** – shared bucket의 실제 IAM 경계와 보존 정책, 생산자 완료 manifest를 구성한다. snapshot과 선택 DVC 대상의 GCS 게시/push, 비공개 Dataset의 팀원 공유, 팀원 두 명의 동일 Git/DVC 해시·과거판·학습 재개를 확인한다. 자동 latest 업로드를 운영 DB 덮어쓰기로 연결하지 않는다.
+3. **전체 학습·독립 평가** – 사람 정답과 용어/출처 단위로 겹치지 않는 평가셋을 준비한다. 현재 test2와 holdout 20개 중복을 해소하고 원본 기본 모델 revision/가중치 계보를 확인한다. 전체 학습 후 기본 모델·기존 v5·새 후보를 품질·오탐/누락·형식·속도·VRAM으로 비교하고 사람 승인으로 모델 사용 범위를 정한다.
+4. **API·DB·GPU 기반** – Terraform의 VPC·IAM·secret metadata, 기존 Cloud SQL staging 이관·역할 분리·백업/복원, 비공개 Cloud Run API를 구현한다. GCE GPU·고정 runtime·인증 gateway와 실제 readiness·전체 동시성·deadline·종료 예약을 구성하고 승인 모델만 서빙한다.
+5. **웹 연결** – 별도 Cloud Run 웹과 공통 Google ID token fetch를 구현한다. 로그인·검수 권한, 읽기/쓰기/스트리밍·취소, 사진 한도·MIME, staging의 production 접근 거부를 실제 API 모드에서 검증한다.
+6. **게시·운영** – 승인 배치 migration·트랜잭션·중복/이전 버전 충돌·사람 결정 보호를 구현한다. publication 기반 신선도, 게시/유지보수/백업 Job·Scheduler·Monitoring·Discord 경보, GPU/PC 중단·복원·보존 정리를 검증한다.
+7. **배포·품질·데모** – 웹/API 이미지·DB 게시 ID·모델·snapshot·평가를 묶는 release와 복구 절차를 구현한다. Plan 05·17의 조건이 충족되면 승인받은 release/gcp 배포를 실행하고 실제 Gemini/Gemma 호출, Plan 09 독립 품질 결과·데모 3개·비용을 기록한다. 기존 builder-cup은 새 운영본과 복구 확인까지 유지한다.
+
+다음 우선순위는 **데이터 고정·팀 재현과 독립 평가셋 확보**다. 웹/API·DB 인프라 코드 준비는 병행할 수 있다. 전체 학습이나 운영 모델 승격 전에 지금의 모델 판정 평가 자료를 사람 정답으로 취급하지 않는다.
+
+## 10-02 다음 단계 실행
+
+`models/kaggle/audit/`에 학습 전용 pyproject/lockfile·`train.py`·`prepare.py`·검증 6개를 추가했다. 기존 서버 학습 스크립트와 리스크 Notebook은 수정하지 않았다. 별도 `docker compose run --rm --build audit-check`를 CI에 연결했다. CPU에서 2단계 중단→4단계 재개와 연속 4단계의 최종 어댑터·optimizer tensor·scheduler 상태가 정확히 일치했다. 실제 v5 입력 319행의 토큰 길이도 확인했다. 이는 CUDA/Gemma 학습 완료와 구분한다.
+
+[비공개 Dataset](https://www.kaggle.com/datasets/jseanj/trend-audit-v5-baseline)을 생성했고 `isPrivate=true`, Dataset ID `12317109`를 확인했다. 내려받은 입력을 원본 manifest의 SHA-256·행 수·분할과 대조해 통과했다. 자료와 학습 runtime 외에 DB·인증·모델 가중치는 업로드하지 않았다. 팀원 공유 권한은 아직 추가하지 않았다.
+
+[smoke Notebook](https://www.kaggle.com/code/jseanj/trend-audit-qlora-smoke)의 1판은 ZIP 자동 해제 경로 때문에 실패했다. 실제 입력은 `runtime.zip`이 아니라 `runtime/`였으며, `prepare.py`를 bundle/파일별 SHA-256 검증으로 수정했다. 2판은 uv bootstrap의 외부 DNS 해석에서 실패했다. 3판은 연결 진단 전용으로 실행해 `COMPLETE`를 확인했다. **학습 성공 상태가 아니다.**
+
+진단 결과는 Python 3.12.13, 설치된 PyTorch `2.10.0+cpu`, CUDA 비활성이며 `files.pythonhosted.org`·`pypi.org`·`huggingface.co`·`google.com` 모두 DNS `gaierror`였다. API로 읽은 설정은 GPU·Internet 모두 true지만 실제 실행 환경을 보증하지 않는다. CPU PyTorch만으로 물리 GPU가 없다고 단정하지는 않는다. 사용자에게 계정 전화번호 인증과 Notebook Settings의 GPU T4·Internet 사용 가능 상태를 확인하도록 요청했다. 같은 차단 상태에서 학습을 반복 실행하지 않는다.
+
+현재 학습 코드·수정한 Notebook 패키지는 `artifacts/kaggle/audit-v4/`, 계약/실측 정보는 `manifests/gemma-audit-training-profile.json`, 절차는 [Kaggle 감사관 학습](../개발환경/Kaggle-감사관-학습.md)에 있다. 기본 모델은 현재 확인한 revision을 고정한 새 기준선이며 과거 어댑터 계보를 소급 확정하지 않았다. 모든 실험은 `promotion_eligible=false`다. 최종 코드에서 `check`와 별도 `audit-check`는 통과했으며 기존 E2E 36개·Terraform 통과 기록은 앞 단계와 같다.
+
+### Codex 재시작 후 연결 재확인
+
+로컬에서 네 호스트의 DNS·HTTPS를 다시 확인했다. `pypi.org`·`huggingface.co`·`google.com`은 200이며 `files.pythonhosted.org`의 실제 uv 설치 wheel도 200이다. 설치 파일 호스트의 루트 경로 404는 DNS/HTTPS 실패가 아니다.
+
+smoke 4판은 네 호스트의 DNS·HTTPS와 `nvidia-smi`를 확인하는 진단 전용이다. 실행 상태는 `COMPLETE`지만 네 호스트 모두 DNS `gaierror`·HTTPS `URLError`이며, PyTorch는 CPU 빌드·CUDA 비활성, `nvidia-smi` 실행 파일도 없다. 실학습은 진행하지 않았다.
+
+사용자가 열어 둔 Chrome의 Notebook을 읽어 원인을 확인했다. Session options의 **Internet off가 비활성화**돼 있고, GPU/인터넷 사용에 **Get phone verified** 안내가 표시된다. 안내를 열면 전화번호·CAPTCHA·문자 인증을 요구한다. 따라서 현재 차단 원인은 Kaggle 계정의 전화번호 인증 전 기능 제한이다. API 요청/metadata의 GPU·Internet true는 실제 사용 가능 상태를 증명하지 않는다.
+
+전화번호나 인증 코드는 입력·저장하지 않았고, CAPTCHA도 수행하지 않았다. Chrome에 인증 창을 남겼다. 사용자가 직접 인증한 뒤 Internet on·GPU T4 사용 가능 상태를 확인하고 새 세션에서 연결 진단과 실제 학습을 이어간다. Codex 재시작이나 로컬 브라우저에서 사이트 접속만으로 Kaggle 실행 환경의 제한은 해제되지 않는다.
+
+### 전화번호 인증 완료 후 GPU 실측
+
+사용자가 휴대전화 인증을 완료한 뒤 smoke 5판의 진단에서 네 호스트 DNS가 정상으로 바뀌었다. PyPI·Hugging Face·Google HTTPS는 200이고 파일 호스트 루트는 404 응답이다. 실제 uv wheel 주소는 200이다. CUDA 활성과 Tesla T4 15,360MiB 두 장·드라이버 580.178.04를 확인했다. 계정 제한은 해제됐으며 GCP 자원은 생성하지 않았다.
+
+smoke 6판에서 실제 Gemma 12B 가중치 로딩과 첫 추론 2개가 완료됐다. `ok/fix` 판정 2개를 파싱했고 모델 판정 정답 대비 정확도는 0.5였다. 2개 표본의 smoke 결과이며 사람 평가나 품질 승격 근거가 아니다. 학습 첫 forward의 손실 계산에서 메모리가 부족했다. 7판 진단으로 `ForCausalLMLoss`의 `logits.float()`에서 추가 1.39GiB를 확보하지 못한 것을 확인했다. GPU 용량 14.56GiB, 가용 약 473MiB였다.
+
+`completion_trainer`는 정답 토큰 위치의 logits만 계산하고 같은 causal masked loss를 사용한다. CPU에서 전체 logits 방식과 손실·gradient 일치를 검증했다. 입력·정답은 자르지 않는다. 8판에서 메모리 부족은 해소됐지만 FP16 gradient가 NaN이어서 optimizer 업데이트가 모두 건너뛰어졌다. 스케일은 65,536에서 32,768·16,384로 감소했고 checkpoint 1·2의 optimizer state가 모두 비어 있었다. `COMPLETE`·`global_step=2`를 학습 성공으로 인정하지 않았다.
+
+BF16 지원은 에뮬레이션을 포함해 확인하고, 한 GPU만 노출해 batch 1을 유지하도록 수정했다. NaN/Infinity 손실·gradient에서 checkpoint 저장 전에 중단하고, 실제 optimizer update 수가 global step과 같아야 결과를 저장한다. FP16 fallback에서는 scaler 파일도 재개 필수 상태다. 관련 CPU·Compose audit 테스트 9개와 기존 앱 검사가 통과했다. Dataset의 이전 버전은 보존했고 수정한 런타임을 새 비공개 버전으로 올렸다. 현재 9판에서 실제 학습·저장·재개를 검증 중이다.
+
+### 실제 학습·재개 smoke 완료
+
+smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-audit-qlora-resume)이 모두 `COMPLETE`이며 실제 optimizer 상태로 검증했다. 기본 모델은 고정한 Gemma 12B revision, 4bit NF4·LoRA r/alpha 16, BF16, 한 개의 visible T4 GPU, batch 1·누적 4, train 8행·test 2행이다.
+
+| 검증 | 중단 실행 | 재개 실행 |
+| --- | --- | --- |
+| Notebook | `jseanj/trend-audit-qlora-smoke`, 9판 | `jseanj/trend-audit-qlora-resume`, 1판 |
+| global step / 실제 optimizer update | 2 / 2 | 4 / 4 |
+| 시작 체크포인트 | 새 기준선 | checkpoint-2 |
+| 학습 시간 | 193.152초 | 207.797초 |
+| 최대 VRAM | 12.9501GiB | 12.9626GiB |
+| optimizer parameter state | 656개, 모두 step 2 | 656개, 모두 step 4 |
+| 숫자 상태 | loss·gradient·optimizer tensor 모두 유한 | loss·gradient·optimizer·adapter tensor 모두 유한 |
+
+입력·모델·프롬프트·코드·lockfile·라이브러리·학습 옵션의 `run-contract.json`이 두 실행에서 같았다. 필수 adapter/optimizer/scheduler/RNG/trainer state 파일도 확인했다. 재개 후 어댑터 SHA-256은 중단 실행의 `65d22de42d1ed1497703d22d89491065f95eb8d83ceb5bd55d7da745eb33b286`에서 `825a3aebed1531d0a1355c69e7aaa492967b395a32bf66bf4528df451c5ff676`으로 바뀌었다. `resumed_from_step=2`, `optimizer_updates=4`와 실제 저장 tensor를 대조했다.
+
+근거 manifest는 `manifests/gemma-audit-training-smoke.json`이다. 로컬 상태 파일은 Git 제외 `artifacts/kaggle/audit-smoke-v9-weights/`와 `artifacts/kaggle/audit-resume-v1-output/`에 보관했다. 이번 단계는 실제 짧은 학습·저장·다음 버전 재개 경로의 검증이다. 평가 2개는 모델 판정 정답이며, 기본 모델·2단계·4단계 모두 정확도 0.5였다. 독립 사람 평가나 품질 개선을 입증하지 않았고 모든 후보는 `promotion_eligible=false`로 유지한다. 전체 학습·팀원 두 명 재현·독립 평가·GCE 서빙·운영 배포는 남았다.

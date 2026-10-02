@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose run --rm --build check
+      - run: docker compose run --rm --build audit-check
       - run: docker compose run --rm security-check
       - run: docker compose up -d --build --wait
       - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e

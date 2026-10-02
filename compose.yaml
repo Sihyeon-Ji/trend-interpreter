@@ -135,6 +135,18 @@ services:
       - --lockfile=/src/apps/trend-web/pnpm-lock.yaml
       - --verbosity=error
 
+  audit-check:
+    <<: *development
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: audit-tests
+    working_dir: /workspace/models/kaggle/audit
+    environment:
+      UV_PROJECT_ENVIRONMENT: /opt/audit-test-venv
+    command: uv run --offline --locked --extra cpu pytest -q
+
   # Editable dependency commands write only the chosen project's manifest and lockfile.
   data-tools:
     <<: *development

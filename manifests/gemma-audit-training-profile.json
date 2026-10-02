@@ -1,0 +1,157 @@
+{
+  "base_model": "google/gemma-4-12B-it",
+  "base_revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+  "prior_adapter_revision": "unresolved",
+  "state": "gpu-smoke-resume-verified",
+  "dataset": "jseanj/trend-audit-v5-baseline",
+  "notebooks": {
+    "stop": "jseanj/trend-audit-qlora-smoke",
+    "resume": "jseanj/trend-audit-qlora-resume"
+  },
+  "promotion_eligible": false,
+  "cpu_resume_validation": "exact-adapter-and-optimizer-state-match",
+  "smoke": {
+    "train_rows": 8,
+    "evaluation_rows": 2,
+    "max_steps": 4,
+    "stop_after": 2,
+    "max_length": 3072
+  },
+  "data_labels": "model-judgment-not-human-ground-truth",
+  "source_bundle": {
+    "code_commit": "5eff63cff8d7dbab48f0af19ed6cc3c9ead5f8f5",
+    "files": {
+      "pyproject.toml": "4c69ff06bd4ec76b0a7ab7abb663f43b544e91b15d87a3fc5ebd2ba587631fae",
+      "train.py": "b742a6f99896360497e26f90354aeb17b6465057f8de235e47b6f28bc3425294",
+      "uv.lock": "b1bb11330ef64bf9cf0a57e6ed97d85427b6c84fbe5b70d517188b6dbeeecfa4"
+    },
+    "source_is_committed": false
+  },
+  "dataset_roundtrip_sha256_validation": "passed",
+  "dataset_is_private": true,
+  "dataset_id": 12317109,
+  "smoke_versions": {
+    "1": "failed-runtime-zip-expansion",
+    "2": "failed-external-dns",
+    "3": "connectivity-diagnostic-complete",
+    "4": "connectivity-recheck-complete",
+    "5": "connectivity-after-phone-verification-passed",
+    "6": "first-inference-passed-training-loss-oom",
+    "7": "training-loss-fp32-cast-oom-confirmed",
+    "8": "invalid-fp16-gradients-no-optimizer-updates",
+    "9": "verified-two-real-optimizer-updates-finite-checkpoint"
+  },
+  "runtime_diagnostic": {
+    "python": "3.12.13",
+    "torch": "2.10.0+cpu",
+    "cuda": false,
+    "dns": {
+      "files.pythonhosted.org": "gaierror",
+      "pypi.org": "gaierror",
+      "huggingface.co": "gaierror",
+      "google.com": "gaierror"
+    }
+  },
+  "gpu_training_executed": true,
+  "gpu_resume_verified": true,
+  "runtime_recheck": {
+    "python": "3.12.13",
+    "torch": "2.10.0+cpu",
+    "torch_cuda_available": false,
+    "gpu_hardware": {
+      "error_code": "FileNotFoundError"
+    },
+    "connectivity": [
+      {
+        "host": "files.pythonhosted.org",
+        "dns": "gaierror",
+        "https": "URLError"
+      },
+      {
+        "host": "pypi.org",
+        "dns": "gaierror",
+        "https": "URLError"
+      },
+      {
+        "host": "huggingface.co",
+        "dns": "gaierror",
+        "https": "URLError"
+      },
+      {
+        "host": "google.com",
+        "dns": "gaierror",
+        "https": "URLError"
+      }
+    ]
+  },
+  "browser_verification": {
+    "observed_before_phone_verification": {
+      "internet_state": "off",
+      "internet_control_disabled": true,
+      "verification_dialog_opened": true
+    },
+    "phone_verification_completed": true,
+    "runtime_gpu_and_network_verified": true
+  },
+  "local_connectivity_recheck": {
+    "files.pythonhosted.org": 200,
+    "pypi.org": 200,
+    "huggingface.co": 200,
+    "google.com": 200
+  },
+  "runtime_after_phone_verification": {
+    "python": "3.12.13",
+    "torch": "2.10.0+cu128",
+    "torch_cuda_available": true,
+    "gpu_hardware": {
+      "returncode": 0,
+      "devices": [
+        "Tesla T4, 15360 MiB, 580.178.04",
+        "Tesla T4, 15360 MiB, 580.178.04"
+      ]
+    },
+    "connectivity": [
+      {
+        "host": "files.pythonhosted.org",
+        "dns": "ok",
+        "https": 404
+      },
+      {
+        "host": "pypi.org",
+        "dns": "ok",
+        "https": 200
+      },
+      {
+        "host": "huggingface.co",
+        "dns": "ok",
+        "https": 200
+      },
+      {
+        "host": "google.com",
+        "dns": "ok",
+        "https": 200
+      }
+    ]
+  },
+  "memory_fix": {
+    "loss_policy": "completion-logits-only",
+    "precision_policy": "bf16-supported-including-emulation",
+    "regression_tests": 9,
+    "fp16_scaler_required": true,
+    "failure_allocation_gib": 1.39,
+    "failed_gpu_capacity_gib": 14.56,
+    "single_visible_gpu": true,
+    "finite_gradients_and_real_updates_required": true
+  },
+  "invalid_fp16_attempt": {
+    "global_step": 2,
+    "optimizer_state_count": 0,
+    "scaler_after_step_1": 32768,
+    "scaler_after_step_2": 16384,
+    "peak_vram_gib": 13.391490936279297
+  },
+  "resume_versions": {
+    "1": "verified-resume-from-two-to-four-real-updates"
+  },
+  "verification_manifest": "manifests/gemma-audit-training-smoke.json"
+}
