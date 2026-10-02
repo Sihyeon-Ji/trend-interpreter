@@ -5,7 +5,7 @@
 단 terms.diffusion 은 용어 JSON 에서 채운다(마이그레이션 002 의 보정은 행이 들어오기 전, 처음 연결할 때 돈다).
 기본키가 없는 표(pipeline_runs, research_log, interpretations, video_snapshots)는 대상이 비어 있을 때만 복사한다.
 최신 파일로 다시 옮길 때는 빈 DB 에 --fresh 로 옮긴다. 이미 있는 행이 옛 값 그대로 남으면 뜻 version·검수 결정이 섞인다.
-Cloud SQL 로 보낼 사본은 --skip-user-data 로 해석 캐시(이용자가 붙여 넣은 문장)와 계정별 설정을 뺀다.
+Cloud SQL 로 보낼 사본은 --skip-user-data 로 해석 캐시·미해결 질문·계정별 설정을 뺀다.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from trend_agents.config import DATA_DIR, DATABASE_URL  # noqa: E402
 from trend_agents.storage import db, dictionary_store, store  # noqa: E402  (DDL 등록)
 
 SKIP = {"term_aliases", "schema_migrations"}  # 이관 뒤 다시 만들거나 이 DB 가 관리하는 표
-USER_DATA = {"explain_cache", "reader_prefs"}  # --skip-user-data 로 빼는 표
+USER_DATA = {"explain_cache", "lookups", "reader_prefs"}  # --skip-user-data 로 빼는 표
 RENAMED = {"reader_prefs": {"user": "reader"}}
 # PostgreSQL 기본키 색인에 들어가지 않는 행. 파이프라인도 저장하지 않는다(store.upsert_news)
 WHERE = {"news": f"length(CAST(link AS BLOB)) <= {store.NEWS_LINK_MAX}"}
@@ -73,7 +73,7 @@ def main() -> None:
     ap.add_argument("--sqlite", default=str(DATA_DIR / "trend.db"))
     ap.add_argument("--database-url", default=DATABASE_URL)
     ap.add_argument("--fresh", action="store_true", help="대상 terms 가 비어 있을 때만 옮긴다(최신 파일로 다시 옮길 때)")
-    ap.add_argument("--skip-user-data", action="store_true", help="explain_cache·reader_prefs 를 옮기지 않는다(Cloud SQL 로 보낼 사본)")
+    ap.add_argument("--skip-user-data", action="store_true", help="explain_cache·lookups·reader_prefs 를 옮기지 않는다(Cloud SQL 로 보낼 사본)")
     a = ap.parse_args()
     path = Path(a.sqlite)
     if not path.exists():

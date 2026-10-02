@@ -22,6 +22,7 @@ CREATE TABLE terms (term_id TEXT PRIMARY KEY, norm TEXT, canonical TEXT, lang TE
 CREATE TABLE news (link TEXT PRIMARY KEY, region TEXT, query TEXT, published_at TEXT, first_seen TEXT, json TEXT);
 CREATE TABLE explain_cache (key TEXT PRIMARY KEY, lang TEXT, text TEXT, term_ids_json TEXT, plain TEXT, created_at TEXT);
 CREATE TABLE reader_prefs (user TEXT PRIMARY KEY, json TEXT, updated_at TEXT);
+CREATE TABLE lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, count INTEGER, first_at TEXT, last_at TEXT);
 """
 
 
@@ -46,6 +47,7 @@ def _twin(tmp_path: Path, *terms: Term, links: tuple[str, ...] = ()) -> Path:
         src.execute("INSERT INTO news VALUES (?,?,?,?,?,?)", (link, "US", None, None, "2026-09-29T00:00:00+00:00", _news(link).model_dump_json()))
     src.execute("INSERT INTO explain_cache VALUES (?,?,?,?,?,?)", ("k1", "ko", "붙여 넣은 문장", "[]", None, "2026-09-28T00:00:00+00:00"))
     src.execute("INSERT INTO reader_prefs VALUES (?,?,?)", ("reader1", '{"generation": "20s"}', "2026-09-16T00:00:00+00:00"))
+    src.execute("INSERT INTO lookups VALUES (?,?,?,?,?,?)", ("q1", "미해결 사용자 질문", "ko", 1, "2026-09-28", "2026-09-28"))
     src.commit()
     src.close()
     return path
@@ -97,8 +99,10 @@ def test_user_data_stays_out_of_a_copy_for_cloud_sql(tmp_path):
     mig.migrate(path, local)
     assert local.execute("SELECT reader FROM reader_prefs").fetchall() == [("reader1",)]  # 열 이름 user → reader
     assert local.execute("SELECT COUNT(*) FROM explain_cache").fetchone()[0] == 1
+    assert local.execute("SELECT COUNT(*) FROM lookups").fetchone()[0] == 1
     mig.migrate(path, cloud, skip_user_data=True)
     assert cloud.execute("SELECT COUNT(*) FROM explain_cache").fetchone()[0] == 0
     assert cloud.execute("SELECT COUNT(*) FROM reader_prefs").fetchone()[0] == 0
+    assert cloud.execute("SELECT COUNT(*) FROM lookups").fetchone()[0] == 0
     local.close()
     cloud.close()
