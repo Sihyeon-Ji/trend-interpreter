@@ -161,3 +161,14 @@ smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-au
 입력·모델·프롬프트·코드·lockfile·라이브러리·학습 옵션의 `run-contract.json`이 두 실행에서 같았다. 필수 adapter/optimizer/scheduler/RNG/trainer state 파일도 확인했다. 재개 후 어댑터 SHA-256은 중단 실행의 `65d22de42d1ed1497703d22d89491065f95eb8d83ceb5bd55d7da745eb33b286`에서 `825a3aebed1531d0a1355c69e7aaa492967b395a32bf66bf4528df451c5ff676`으로 바뀌었다. `resumed_from_step=2`, `optimizer_updates=4`와 실제 저장 tensor를 대조했다.
 
 근거 manifest는 `manifests/gemma-audit-training-smoke.json`이다. 로컬 상태 파일은 Git 제외 `artifacts/kaggle/audit-smoke-v9-weights/`와 `artifacts/kaggle/audit-resume-v1-output/`에 보관했다. 이번 단계는 실제 짧은 학습·저장·다음 버전 재개 경로의 검증이다. 평가 2개는 모델 판정 정답이며, 기본 모델·2단계·4단계 모두 정확도 0.5였다. 독립 사람 평가나 품질 개선을 입증하지 않았고 모든 후보는 `promotion_eligible=false`로 유지한다. 전체 학습·팀원 두 명 재현·독립 평가·GCE 서빙·운영 배포는 남았다.
+
+
+### 독립 사람 평가 후보·비교 도구 준비
+
+[검토 절차](../개발환경/감사관-독립-평가.md)와 `scripts/prepare_audit_review.py`·`models/kaggle/audit/quality.py`를 추가했다. 실제 인수 DB에서 후보 20건·11개 언어·발췌 24개를 추출했다. 기존 자료의 표제어 328개·별칭·관련 출처 2,792개와 후보 간 중복을 제외했으며 원본 입력 해시와 SQLite 무결성을 검증했다. 자동 정답은 넣지 않았다. 상세 입력은 Git 제외 로컬에 있고, 추적 가능한 집계는 `manifests/audit-human-review-preparation.json`에 있다.
+
+출처 목록은 과거 학습 자료의 모든 실제 출처를 자동 증명하지 못하므로 담당자의 명시적 확인이 필요하다. 사람 판정·이유·검토자·시각이 있고, 두 클래스가 모두 있는 확정 판정 20건 이상이어야 봉인한다. 이후 동일 모델 계보·평가셋·추론 계약으로 기본 모델과 어댑터를 비교한다. JSON 형식 실패도 평가 분모와 미탐에 포함하며, 개선 결과는 승인 후보로만 추천한다. `promotion_eligible=false`를 유지한다.
+
+이번 단계의 완료 범위는 후보 생성과 평가 경로의 자동 검증이다. 실제 사람 정답·Gemma 독립 품질 평가·전체 학습·운영 승격은 아직 완료되지 않았다.
+
+검증 결과는 `check`의 데이터 20개·API 306개·배포/검토 13개·알림 10개 테스트와 웹 lint/build 통과, `audit-check` 40개 통과다. 이 중 새 검토 내보내기 테스트는 4개다. 실제 후보를 별도 경로에 재생성해 동일 해시를 확인했고 신규 Python lint도 통과했다. 테스트의 합성 판정 점수는 실제 모델 품질로 보고하지 않는다. UI·인프라는 바꾸지 않아 이번 단계에서 E2E·Terraform 검사는 다시 실행하지 않았다.

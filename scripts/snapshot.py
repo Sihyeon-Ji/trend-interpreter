@@ -15,7 +15,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import google_crc32c
-from google.cloud import storage
 
 ROOT = "gs://copybara-team-shared-bucket/taewoo/trend-interpreter"
 FILES = ("trend-latest.db.gz", "table-counts.txt", "updated_at.txt")
@@ -189,6 +188,8 @@ def main() -> None:
         command.add_argument("--directory", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command != "verify":
+            from google.cloud import storage
         if args.command == "capture":
             manifest = capture(args.snapshot_id, args.directory, storage.Client())
         else:

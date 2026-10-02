@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "audit-human-20261001T224511-e56b90d",
+  "case_count": 20,
+  "files": {
+    "cases.jsonl": "f10f1080a660bafd5c7cdaff7617547f783d529e588b415fd125858d3badbfb2",
+    "inventory.json": "fb6da183e7ec2850041d79338a03f9ee19107334ef951e423d7a050923f4e26f"
+  },
+  "snapshot_manifest_sha256": "dccf5843b87b8ff283c4af1d33bb3447f273c0fb0304f0397026484e272acfe8",
+  "prior_dataset_manifest_sha256": "651fe77faf04d2d1166954d5e289899889b6ba6475feb1f9a8484fa8ed7e8ecb",
+  "prompt_template_sha256": "9d0c945a3e73a94859e990ed2b354fe308f4174649695cb2fc67edc7955ce389",
+  "excluded_prior_terms": 328,
+  "excluded_source_keys": 2792,
+  "unmapped_training_terms": 0,
+  "candidate_count": 8297,
+  "human_review_status": "pending",
+  "source_lineage_confirmation": "pending",
+  "promotion_eligible": false,
+  "pack_relative_path": "artifacts/audit-human-review/20261001-e56b90d",
+  "validation": {
+    "checksum_and_overlap": "passed",
+    "reproducibility": "passed",
+    "languages": 11,
+    "reference_excerpts": 24,
+    "independent_human_gold": false,
+    "real_model_quality_evaluation": "not-run",
+    "checks": {
+      "compose_check": "passed",
+      "compose_audit_check": "passed",
+      "audit_tests": 40,
+      "review_export_tests": 4,
+      "new_python_lint": "passed"
+    }
+  }
+}
