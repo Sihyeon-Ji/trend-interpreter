@@ -359,6 +359,7 @@ class KeywordCard(BaseModel):
     last_used: datetime | None = None  # 고른 지역에서 가장 최근에 쓰인 글(커뮤니티·뉴스·쇼츠)의 때 — 원본 언급이 0 인 말의 순서와 표시
     use_confirmed: bool = True         # 그 뜻으로 쓰인 글이 확인됐다. 위키 밈 분류에서만 들어와 아직 확인 전이면 False — 목록 뒤로(dashboard.meme_use)
     mentions_mixed: bool = False       # 분류된 글 가운데 글자만 같은 딴 이야기가 더 많다 — 언급 수를 순서에 쓰지 않는다
+    dated: bool = False                # 뜻풀이(뉘앙스)가 유행이 지났다고 적었다 — '식어 가는 밈' 으로(dashboard.DATED)
 
 
 class RegionTop(BaseModel):

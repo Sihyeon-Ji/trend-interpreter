@@ -40,7 +40,7 @@ const stale = (c: KeywordCard) => {
   const last = c.last_used ?? c.last_seen;
   return !c.weekly.some((p) => p.count) && !!last && Date.parse(GENERATED_AT) - Date.parse(last) > STALE_DAYS * 86_400_000;
 };
-export const isFadingCard = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
+export const isFadingCard = (c: KeywordCard) => !!c.dated || c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
 const flagged = (c: KeywordCard) => c.risk_level === "caution" || c.risk_level === "avoid";
 
 type Lists = Record<KeywordList, KeywordCard[]>;

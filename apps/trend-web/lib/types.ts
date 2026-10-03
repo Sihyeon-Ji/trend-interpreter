@@ -139,6 +139,7 @@ export interface KeywordCard {
   last_used?: string | null;      // 고른 지역에서 가장 최근에 쓰인 글의 때
   use_confirmed?: boolean;        // 그 뜻으로 쓰인 글이 확인됐다 (없으면 true) — 목록 순서에만 쓴다
   mentions_mixed?: boolean;       // 언급에 글자만 같은 딴 이야기가 더 많다 — 언급 수를 순서에 쓰지 않는다
+  dated?: boolean;                // 뜻풀이가 유행이 지났다고 적었다 — 식어 가는 밈으로 (dashboard.DATED)
 }
 
 export type KeywordList = "rising" | "fading" | "caution";

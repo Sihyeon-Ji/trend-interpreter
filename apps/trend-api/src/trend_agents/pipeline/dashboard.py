@@ -98,8 +98,16 @@ def _stale(c: KeywordCard, now: datetime) -> bool:
     return not any(p.count for p in c.weekly) and last is not None and _utc(last) < _utc(now) - timedelta(days=STALE_DAYS)
 
 
+# 뜻풀이의 '쓰임과 주의'(뉘앙스)가 유행이 지났다고 적은 말 — 언급 수로는 아직 '꾸준히 쓰임' 이라도 브랜드가 쓰면 촌스럽게 읽힌다.
+# 럭키비키('2026년 현재 유행은 지났고 … 브랜드가 진지하게 쓰면 촌스럽게 읽힌다')가 '바로 써도 됨' 맨 위에 섰다(실데이터 10-04, 확인된 뜻 10개).
+# 뜻 자체가 '촌스럽다' 인 말(밤티)은 뉘앙스가 아니라 뜻에 있으므로 걸리지 않는다. '유사어'·'옛말에' 같은 유래 설명도 걸리지 않게 좁혔다.
+DATED = re.compile(r"유행(?:은|이)? ?(?:한참 |이미 |다 )?지[났나]|철 ?지[난나]|한물|식상|사장[된되]|더 이상 (?:잘 )?(?:쓰|사용)"
+                   r"|요즘(?:은|에는)? (?:거의 |잘 )?(?:안 |쓰지 않|사용하지 않)|촌스럽게 (?:읽|보|느껴)|올드하|옛 짤|옛날 (?:밈|유행어|짤)"
+                   r"|(?:빨리|이미|금방) 식었")
+
+
 def _is_fading(c: KeywordCard, now: datetime) -> bool:
-    return c.diffusion == "fading" or c.lifecycle in ("declining", "dormant") or _stale(c, now)
+    return c.dated or c.diffusion == "fading" or c.lifecycle in ("declining", "dormant") or _stale(c, now)
 
 
 def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[KeywordCard], list[KeywordCard], list[KeywordCard]]:
@@ -320,7 +328,8 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         gloss_ko=ko.definition if ko else base, gloss_en=en.definition if en else base, regions=[] if outside else regions,
         lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
-        tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed)
+        tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed,
+        dated=bool(m and DATED.search(m.nuance or "")))
     return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
                   held=held)
 

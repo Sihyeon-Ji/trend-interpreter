@@ -67,3 +67,21 @@ def test_meme_use_counts_labels():
     labels = {"a": ("offtopic", "none"), "b": ("offtopic", "none"), "c": ("neutral", "none")}
     held, confirmed, mixed = dashboard.meme_use(con, t, None, labels)
     assert (held, confirmed, mixed) == (False, True, True)            # 위키 분류가 아니면 빼지 않는다
+
+
+def test_memes_whose_nuance_says_they_are_dated_go_to_fading():
+    """뉘앙스가 '유행이 지났다' 고 적은 말은 언급이 꾸준해도 식어 가는 밈이다(럭키비키, 실데이터 10-04). 뜻이 '촌스럽다' 인 말은 아니다."""
+    assert dashboard.DATED.search("2026년 현재 유행은 지났고, 일부러 철 지난 밈을 쓰는 반어적 용법이 남아 있다.")
+    assert dashboard.DATED.search("따라 하기가 쉬워 폭발적으로 퍼졌고 그만큼 빨리 식었다. 가을에는 '한물간' 느낌.")
+    assert dashboard.DATED.search("2010년대 들어 거의 사장된 옛 짤이다.")
+    for fine in ["유사어로 공밀레가 있으나, 공밀레는 처량한 면이 부각된다.", "과거 옛말에 동경견을 댕댕이라고 불렀던 기록도 있다.",
+                 "촌스럽다, 별로다, 어딘가 엉성하다는 뜻의 평가.", "요즘 10대가 가장 많이 쓰는 말."]:
+        assert not dashboard.DATED.search(fine), fine
+
+    def card(tid, dated=False):
+        return KeywordCard(term_id=tid, canonical=tid, lang="ko", category="meme", gloss_ko="", gloss_en="", regions=["KR"],
+                           lifecycle="steady", weekly=[], mentions_4w=5, search=[], tone=Tone(), evidences=[], dated=dated,
+                           last_seen=datetime.now(timezone.utc))
+
+    rising, fading, _ = dashboard.split([card("lucky", dated=True), card("fresh")])
+    assert [c.term_id for c in rising] == ["fresh"] and [c.term_id for c in fading] == ["lucky"]
