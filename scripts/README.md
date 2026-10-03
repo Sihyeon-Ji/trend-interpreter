@@ -10,6 +10,8 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 | --- | --- | --- |
 | `snapshot.py` | Data intake operator | Pin source generations, verify SQLite and checksums, publish immutable copies with the manifest last, fetch only published snapshots |
 | `verify_dataset.py` | Team researcher | Verify selected DVC payload SHA-256/CRC32C, row counts and training/evaluation term separation |
+| `restore-rehearsal.sh` | Data intake operator | Migrate a verified snapshot into a throwaway PostgreSQL, round-trip it through `pg_dump`/`pg_restore` and fail on any schema or content difference |
+| `restore_rehearsal.py` | `restore-rehearsal.sh` | Snapshot hash check, user-data-free migration with per-table counts, and schema/content fingerprints of two databases |
 | `container-smoke.sh` | CI | Start a throwaway PostgreSQL, the production API and web images, verify API health and the web landing page |
 | `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |
 | `release_scope.py` | `Release GCP` workflow | Classify release changes into shared checks, infrastructure, application and relay |

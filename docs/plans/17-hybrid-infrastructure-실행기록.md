@@ -221,3 +221,15 @@ Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하�
 API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가하고 기존 텍스트/구조화 호출과 감사관 준비 검사에 연결했다. Gateway가 선택된 경우 미지원 기능과 실패를 직접 Ollama로 우회하지 않는다. 동기 worker 호출의 즉시 취소·vision/tool/stream 경로는 아직 지원하지 않는다. 상세 조건은 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다.
 
 실제 image 제작·GCP 등록·모델 승인·TLS/secret version 준비·quota/비용 승인·VM 생성·종료·Cloud Run 연결은 실행하지 않았다. 기존 전체 보안 검사 실패도 배포 차단 항목으로 유지한다.
+
+
+### 10-03 Cloud SQL 원격 현황과 복원 리허설
+
+원격 `trend-project`를 읽기 전용으로 조회했다. 자동 백업·PITR·삭제 보호 꺼짐, 백업 0건, 공개 IP, DB는 기본 `postgres`만, 사용자는 기본 `postgres`만 있다. Cloud Monitoring 디스크 사용량 약 100MB·`postgres` 연결 0으로 보존할 앱 데이터는 없다고 판단했다. 그래서 원격 DB 내용을 읽기 위한 SQL 인증 정보는 요청하지 않는다. 무료 체험 인스턴스는 최종 백업 외 백업·복원을 지원하지 않으므로 관리형 보호 설정은 유료 전환 후로 미룬다.
+
+`scripts/restore-rehearsal.sh`·`scripts/restore_rehearsal.py`를 추가했다. 별도 Compose 프로젝트의 임시 PostgreSQL 18.6에 snapshot을 `--fresh --skip-user-data`로 이관하고, `pg_dump` custom 형식 사본을 빈 DB에 복원해 표·행 수·내용 checksum·컬럼·제약·색인·sequence를 비교한다. 실제 snapshot에서 41개 표 이관 일치(`news` 6행 정책 제외), 사용자 표 3개 0행, 복원본 48개 표·659,707행·스키마 일치를 확인했다. dump 52.9MB, 이관 15초, dump+복원 8초다. 보고서는 `manifests/restore-rehearsal-20261001T224511-e56b90d.json`이며 행 내용과 접속 정보는 담지 않는다.
+
+유료 전환 직후의 백업·PITR·삭제 보호 변경안, 환경별 DB·사용자·Secret Manager 연결 문자열 기반 staging 연결안은 [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)에 정리했다. Cloud SQL 설정 변경·DB/사용자 생성·적재는 실행하지 않았다. Cloud SQL 관리형 백업 복원·실제 소켓 접속·권한 분리 검증이 남았다.
+
+검증은 새 지문 비교 테스트 2개를 포함한 `check` 통과(데이터 20개·API 331개·배포/검토/리허설 15개·알림 10개·웹 transport 13개, 웹 lint/build)와 실제 snapshot 리허설 통과다. UI·Terraform은 바꾸지 않아 E2E·infra-check는 다시 실행하지 않았다.
+

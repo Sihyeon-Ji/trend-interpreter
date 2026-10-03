@@ -26,7 +26,7 @@
 
 ## 적용 전 검증
 
-1. 기존 root가 관리하는 Cloud Run API와 기존 Cloud SQL Admin API가 활성인지 확인한다. Plan 13의 Cloud SQL 보호·백업·PITR·staging 이관과 복원을 확인한다. 현재 기존 인스턴스는 공개 IP이고 보호 설정이 완료되지 않았다. Cloud Run의 Cloud SQL connector는 기존 인스턴스만 참조한다. [공식 Cloud SQL 연결](https://docs.cloud.google.com/sql/docs/postgres/connect-run)을 기준으로 실제 소켓 접속을 검증한다.
+1. 기존 root가 관리하는 Cloud Run API와 기존 Cloud SQL Admin API가 활성인지 확인한다. Plan 13의 Cloud SQL 보호·백업·PITR·staging 이관과 복원을 확인한다. 로컬 복원 리허설 결과와 보호 설정·staging 연결안은 [Cloud SQL 복원 리허설](Cloud-SQL-복원-리허설.md)에 있다. 현재 기존 인스턴스는 공개 IP이고 보호 설정이 완료되지 않았다. Cloud Run의 Cloud SQL connector는 기존 인스턴스만 참조한다. [공식 Cloud SQL 연결](https://docs.cloud.google.com/sql/docs/postgres/connect-run)을 기준으로 실제 소켓 접속을 검증한다.
 2. 환경별 Terraform 원격 state·비용 상한·배포 이미지 digest·Secret Manager numeric version·IAM 권한을 검토한다. 공개 웹은 API invoker 바인딩 후에만 활성화되도록 의존성을 지정했다.
 3. staging에서 웹 SA의 API 호출, 익명 API 차단, staging→production 거부, DB 읽기·검수 쓰기·사진 업로드·질문 스트림·취소를 실행한다. [공식 서비스 간 인증](https://docs.cloud.google.com/run/docs/authenticating/service-to-service)의 audience를 사용한다.
 4. GPU 실행이 승인됐을 때만 [VM 배포 계약](GPU-VM-배포-계약.md)의 image·모델·TLS·자동 중지를 검증한다. 브라우저 요청을 끊어도 동기 API worker의 이미 시작된 모델 호출이 즉시 취소된다고 보장하지 않는다.
