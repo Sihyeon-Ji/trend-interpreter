@@ -93,3 +93,31 @@ docker compose run --rm infra-check
 
 현재 staging API 이미지는 `trend-api@sha256:5dce9697…`(`407c59e`)다. 사전 전체를 한 번에 내려보내는 구조라 첫 요청은 여전히 10초 안팎이다. 표제어가 더 늘면 페이지 단위 조회를 검토한다.
 
+## 2026-10-03 staging 실제 Gemini 연결
+
+사용자 결정(월 $20)에 따라 staging API에서 Vertex AI Gemini를 켰다. `services.gemini`가 없으면 API는 계속 `MODEL_PROVIDER=mock`이다.
+
+| 설정 | 값 |
+| --- | --- |
+| 금액 상한 | `GEMINI_MONTHLY_USD=20` |
+| 호출 상한 | 이용자 요청 하루 150회, 파이프라인 장부 하루 50회 |
+| 모델 사슬 | `gemini-3.8-flash`·`3.7-flash`·`3.6-flash`·`3.5-flash-lite`·`3.1-flash-lite`. 출력 단가가 높은 3.5 Flash와 단가표에 없는 preview는 뺐다 |
+| 지역 | `GOOGLE_CLOUD_LOCATION=global` |
+
+**금액 상한은 앱이 지킨다.** 예산 알림은 지출을 막지 않는다. API는 응답의 실제 토큰 사용량(입력·출력·추론)에 Vertex AI 단가를 곱해 이번 달(태평양 시각) 금액을 `gemini_calls`의 `usd:YYYY-MM`에 마이크로달러로 쌓는다. 호출 전에 누적 금액과 이번 호출의 최악 비용(입력 32,000·출력 8,192토큰)을 더해 상한을 넘으면 호출하지 않고 기존처럼 로컬 Gemma나 '오늘 한도'로 물러선다. 최악 비용이 정해지도록 모든 호출에 출력 상한 8,192토큰을 건다. `generate()`를 거치지 않는 영상 해석과 검색 grounding 조사도 같은 상한을 따른다. 단가는 2026-10-03 공식 가격표 기준이고 3.6~3.8 Flash 할인가는 2026-12-31까지다(`config.GEMINI_PRICES`).
+
+데모 흐름 확인 결과는 다음과 같다. 생성 결과는 저장하지 않았다.
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 사전에 묻기: 목록 질문 | 200, 8.4초, `list_terms` |
+| 사전에 묻기: 설명으로 찾기 | 200, 2.2초, `search_terms` |
+| 사전에 묻기: 단어 질문 | 200, 3.4초, `lookup_term` |
+| 밈 추천(홍보 문구) | 200, 6~12초, 제품 설명을 Gemini가 읽음 |
+| 카피 생성(추천 결과 이어받기) | 200, 10.2초, `source=gemini`, 모델 호출 1회 |
+| 카피 검사 | 200, 7.5초, `fit_source=gemini` |
+
+모든 시험 호출의 Vertex 토큰 지표 합계는 약 $0.017이었다. 처음에는 챗봇 목록·설명 질문이 90초를 넘겼다. 도구가 사전 전체를 훑으며 표제어마다 사용층·주간 언급·뜻·번역을 조회했기 때문이다. 목록 화면과 같은 일괄 읽기로 고쳤다(`31dc22f`, `d8ea4a5`). 현재 staging API 이미지는 `trend-api@sha256:5288049f…`(`d8ea4a5`)다.
+
+기존 Billing 예산 "Builder Cup Vertex AI Gemini 월 지출 한도"(₩100,000)를 ₩28,000으로 낮추거나 새 예산을 만들려 했지만, API가 각각 `NOT_FOUND`·`FAILED_PRECONDITION`으로 거부했다. 결제 계정 권한(`billing.budgets.update/create`)은 있다. 알림 금액은 콘솔에서 바꾼다.
+
