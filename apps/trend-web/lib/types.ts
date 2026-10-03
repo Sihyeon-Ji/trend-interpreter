@@ -216,6 +216,47 @@ export interface GenerationResult {
   source: "gemini" | "local" | "sample";
 }
 
+/* 트렌드 브리핑 — 백엔드 pipeline/views.py 의 Briefing 과 1:1. 목록·건수는 대시보드 규칙, 요약 문장만 모델(없으면 화면이 규칙 문장). */
+export interface BriefingCounts { rising: number; use_now: number; careful: number; undecided: number; avoid: number; fading: number }
+export interface Briefing {
+  generated_at: string;           // 대시보드 갱신 시각 — 보고서의 기준 시각
+  regions: string[];
+  counts: BriefingCounts;
+  use_now: KeywordCard[];         // 지금 써도 되는 밈 (위에서부터 5개)
+  careful: KeywordCard[];         // 조심해서 쓸 밈
+  avoid: KeywordCard[];           // 쓰지 말 밈
+  fading: KeywordCard[];          // 식어 가는 밈
+  summary?: string | null;        // 모델 요약. 없으면 규칙 문장
+  summary_source: "gemini" | "local" | "none";
+}
+
+/* 카피 검사 — 백엔드 pipeline/views.py 의 CopyCheck 와 1:1. 판정은 규칙, fit(뜻에 맞게 썼나)만 모델 의견. 문구는 저장하지 않는다. */
+export type CopyIssueCode = "avoid" | "caution" | "undecided" | "fading" | "not_in_region" | "no_script";
+export interface CopyIssue { code: CopyIssueCode; note: string }   // note: caution 일 때 '쓸 때 조심' 안내(한국어)
+export interface CopyMeme {
+  term_id: string;
+  canonical: string;
+  lang: string;
+  matched: string;                // 문구에서 찾은 그대로의 표기
+  gloss_ko: string;
+  gloss_en: string;
+  regions: string[];
+  lifecycle: Lifecycle;
+  diffusion?: Diffusion | null;
+  risk_level?: RiskLevel | null;
+  risk_checked_at?: string | null;
+  issues: CopyIssue[];
+  fit?: "ok" | "off" | "unsure" | null;   // 모델 의견. 없으면 보지 않았다
+  fit_note?: string | null;
+}
+export interface CopyCheck {
+  region: string;
+  memes: CopyMeme[];
+  unsafe: boolean;                // 욕설·선정 표현이 있다
+  x_length: number;               // X 가 세는 글자 수
+  fit_source: "gemini" | "local" | "none" | "busy" | "failed";
+}
+
 
 /* 콘텐츠 → 나라마다 파생된 밈 (백엔드 GET /graph/contents, /graph/content/{key} — pipeline/content_agent.py 의 contents·view).
    밈 하나(GraphMeme)는 같은 장면·대사의 나라별 이름(variants)을 묶은 것. region 'GLOBAL' 은 영어권. */

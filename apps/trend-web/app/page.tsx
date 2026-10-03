@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KeywordPager, KeywordTable } from "@/components/keyword-table";
 import { ListTabs } from "@/components/list-tabs";
+import { MakeTools } from "@/components/make-tools";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { RegionChips } from "@/components/region-chips";
@@ -76,6 +77,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           }>
           <RegionChips picked={picked} counts={board?.counts} locale={locale} list={list === "rising" ? undefined : list} />
         </PageHeader>
+        <MakeTools locale={locale} regions={targets} />
         <section aria-labelledby="dash-list" className="space-y-3">
           <h2 id="dash-list" className="sr-only">{t(locale, `dash_${list}`)}</h2>
           {!board ? (

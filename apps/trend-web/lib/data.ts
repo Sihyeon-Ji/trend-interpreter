@@ -4,7 +4,8 @@ import { apiFetch } from "@/lib/api-fetch";
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
 import { SAMPLE_GRAPH, SAMPLE_GRAPH_CONTENTS } from "./sample/graph";
-import type { GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
+import type { Briefing, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
+import { sampleBriefing } from "./sample/briefing";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
@@ -256,6 +257,18 @@ export async function getKeywordBoard(regions: string[], page = 1): Promise<Keyw
   const res = await apiFetch(`/dashboard${q.size ? `?${q}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new ApiError("/dashboard", res.status);
   return (await res.json()) as KeywordBoard;
+}
+
+/** 트렌드 브리핑 — 고른 지역의 대시보드를 한 장으로(목록·건수는 대시보드 규칙). 요약 문장은 백엔드가 모델로 처음 한 번 쓰고,
+ *  없으면 화면이 규칙 문장을 쓴다. 실데이터 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다. */
+export async function getBriefing(regions: string[], locale: Locale): Promise<Briefing> {
+  if (isSampleMode) return sampleBriefing(regions);
+  const q = new URLSearchParams({ lang: locale });
+  if (regions.length) q.set("regions", regions.join(","));
+  // 요약을 처음 쓸 때 모델 호출(수 초)이 끼므로 대시보드보다 길게 기다린다
+  const res = await apiFetch(`/briefing?${q}`, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new ApiError("/briefing", res.status);
+  return (await res.json()) as Briefing;
 }
 
 /** 용어 하나의 쓰임 신호 (사전 화면). regions 를 주면 대시보드 행과 같은 지역만 더한다(없으면 모든 지역).

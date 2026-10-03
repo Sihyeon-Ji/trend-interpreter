@@ -10,9 +10,9 @@ export function AppShell({ locale, sample, signedIn, nick, reviewer, children }:
   return (
     <ShellChrome
       skip={<a href="#main" className="sr-only z-50 rounded-md bg-background px-3 py-2 text-[14px] text-ink focus:not-sr-only focus:fixed focus:left-3 focus:top-3">{t(locale, "skip_to_main")}</a>}
-      sidebar={<Sidebar locale={locale} signedIn={signedIn} nick={nick} reviewer={reviewer} />}
-      banner={sample ? <p className="border-b border-hairline bg-surface px-4 py-2 text-[13px] text-charcoal sm:px-6 lg:px-8">{t(locale, "sample_banner")}</p> : null}
-      footer={<footer className="mt-auto border-t border-hairline px-4 py-5 text-[13px] text-steel sm:px-6 lg:px-8">© 2026 {t(locale, "site")}</footer>}>
+      sidebar={<div className="contents print:hidden"><Sidebar locale={locale} signedIn={signedIn} nick={nick} reviewer={reviewer} /></div>}
+      banner={sample ? <p className="border-b border-hairline bg-surface px-4 print:hidden py-2 text-[13px] text-charcoal sm:px-6 lg:px-8">{t(locale, "sample_banner")}</p> : null}
+      footer={<footer className="mt-auto border-t border-hairline px-4 py-5 text-[13px] text-steel sm:px-6 lg:px-8 print:hidden">© 2026 {t(locale, "site")}</footer>}>
       {children}
     </ShellChrome>
   );

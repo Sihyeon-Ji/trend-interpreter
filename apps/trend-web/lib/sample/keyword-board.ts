@@ -40,7 +40,7 @@ const stale = (c: KeywordCard) => {
   const last = c.last_used ?? c.last_seen;
   return !c.weekly.some((p) => p.count) && !!last && Date.parse(GENERATED_AT) - Date.parse(last) > STALE_DAYS * 86_400_000;
 };
-const fading = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
+export const isFadingCard = (c: KeywordCard) => c.diffusion === "fading" || c.lifecycle === "declining" || c.lifecycle === "dormant" || stale(c);
 const flagged = (c: KeywordCard) => c.risk_level === "caution" || c.risk_level === "avoid";
 
 type Lists = Record<KeywordList, KeywordCard[]>;
@@ -52,14 +52,14 @@ function split(inView: KeywordCard[]): Lists {
   const byRecent = (a: KeywordCard, b: KeywordCard) => recent(b).localeCompare(recent(a));
   const usable = inView.filter((c) => c.risk_level !== "avoid");
   return {
-    rising: usable.filter((c) => !fading(c))
+    rising: usable.filter((c) => !isFadingCard(c))
       .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b)),
-    fading: usable.filter(fading).sort(byRecent),
+    fading: usable.filter(isFadingCard).sort(byRecent),
     caution: inView.filter(flagged).sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b) || byRecent(a, b)),
   };
 }
 
-const sampleCards = () => SAMPLE_RECORDS.filter((r) => r.term.status === "verified").map(toCard).filter((c) => c.regions.length);
+export const sampleCards = () => SAMPLE_RECORDS.filter((r) => r.term.status === "verified").map(toCard).filter((c) => c.regions.length);
 
 /** 백엔드 dashboard.board 와 같다: 주의 밈은 쓰이는·식는 목록에도 남고 사용 자제는 주의 목록에만(Plan 04), 목록마다 전체 건수와 page 쪽만 싣는다.
  *  summary 면 지역마다 주의 수·대표 밈(세계 지도). */
@@ -85,6 +85,13 @@ export function sampleKeywordBoard(regions: string[], page = 1, summary = false)
       return [r, { caution: l.caution.length, top: top(l) }];
     })) }),
   };
+}
+
+/** 고른 지역의 세 목록 전체(쪽 나누기 없이) — 브리핑이 건수와 앞의 몇 개를 쓴다(백엔드 briefing.build). */
+export function sampleLists(regions: string[]): { regions: string[]; generated_at: string } & Lists {
+  const chosen = [...TARGET_REGIONS, "GLOBAL"].filter((r) => regions.includes(r));
+  const picked = chosen.length ? chosen : TARGET_REGIONS;
+  return { regions: picked, generated_at: GENERATED_AT, ...split(sampleCards().filter((c) => c.regions.some((r) => picked.includes(r)))) };
 }
 
 /** 백엔드 dashboard.cards_by_id 와 같다 — 최근 변화 행에 단계·쓸 때 조심을 붙인다. */

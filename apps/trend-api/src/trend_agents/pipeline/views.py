@@ -432,3 +432,58 @@ class GenerationResult(BaseModel):
     model_calls: int                   # 모델 호출 수 — 생성 1, 다시 만들면 2 (검사는 규칙이라 세지 않는다)
     source: Literal["gemini", "local", "sample"]
 
+
+
+# ---------- 트렌드 브리핑 — 값은 pipeline/briefing.py 가 대시보드 규칙(dashboard.split)으로 채운다. 요약 문장만 모델 ----------
+
+class BriefingCounts(BaseModel):
+    rising: int                        # 지금 쓰이는 밈 (주의 포함, 사용 자제 제외 — 대시보드와 같다)
+    use_now: int                       # 그중 리스크 '없음'
+    careful: int                       # 그중 '주의'
+    undecided: int                     # 그중 리스크 판단 보류(근거 부족·검사 전)
+    avoid: int                         # 사용 자제
+    fading: int                        # 식어 가는 밈
+
+
+class Briefing(BaseModel):
+    generated_at: datetime             # 대시보드 갱신 시각 — 보고서의 기준 시각
+    regions: list[str]
+    counts: BriefingCounts
+    use_now: list[KeywordCard]         # 지금 써도 되는 밈 (위에서부터 BRIEF_TOP 개)
+    careful: list[KeywordCard]         # 조심해서 쓸 밈
+    avoid: list[KeywordCard]           # 쓰지 말 밈
+    fading: list[KeywordCard]          # 식어 가는 밈
+    summary: str | None = None         # 모델이 위 목록·건수만 보고 쓴 요약. None 이면 화면이 규칙 문장을 쓴다
+    summary_source: Literal["gemini", "local", "none"] = "none"
+
+
+# ---------- 카피 검사 — 판정은 pipeline/copycheck.py 규칙, '뜻에 맞게 썼나' 만 모델 의견. 입력 문장은 저장·기록하지 않는다 ----------
+
+class CopyIssue(BaseModel):
+    code: Literal["avoid", "caution", "undecided", "fading", "not_in_region", "no_script"]
+    note: str = ""                     # caution 일 때 '쓸 때 조심' 안내(generate.caution_note, 한국어). 근거 글은 인용하지 않는다
+
+
+class CopyMeme(BaseModel):
+    term_id: str
+    canonical: str
+    lang: str = ""
+    matched: str                       # 문구에서 찾은 그대로의 표기
+    gloss_ko: str
+    gloss_en: str
+    regions: list[str]
+    lifecycle: Lifecycle
+    diffusion: Diffusion | None = None
+    risk_level: RiskLevel | None = None
+    risk_checked_at: datetime | None = None
+    issues: list[CopyIssue] = []
+    fit: Literal["ok", "off", "unsure"] | None = None   # 모델 의견: 사전 뜻에 맞게 썼나. None 이면 보지 않았다
+    fit_note: str | None = None        # 모델이 쓴 짧은 이유 (화면 언어)
+
+
+class CopyCheck(BaseModel):
+    region: str
+    memes: list[CopyMeme]              # 문구에 나온 순서
+    unsafe: bool                       # 문구에 욕설·선정 표현이 있다(match.unsafe)
+    x_length: int                      # X 가 세는 글자 수 (280 까지)
+    fit_source: Literal["gemini", "local", "none", "busy", "failed"]   # none: 모델 없음, busy: 자리 없음, failed: 모델 실패

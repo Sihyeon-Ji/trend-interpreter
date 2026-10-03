@@ -15,9 +15,12 @@ const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
  *  누르면 그곳만, 다른 곳을 누르면 더하고, 고른 곳을 누르면 빼고, 다 빼면 '전체'. 고른 값은 주소(?regions=KR,JP)에만 둔다 —
  *  익명은 설정을 갖지 않는다(AGENTS.md). picked 가 비면 '전체'. counts 가 없으면(불러오기 실패) 건수를 내지 않는다.
  *  순서: 전체 → 목표 지역 → 세로 선 → 글로벌(목표 지역 밖에서도 널리 쓰이는 말). */
-export function RegionChips({ picked, counts, locale, list }: { picked: string[]; counts?: Record<string, number>; locale: Locale; list?: string }) {
+export function RegionChips({ picked, counts, locale, list, base = "/" }: {
+  picked: string[]; counts?: Record<string, number>; locale: Locale; list?: string;
+  base?: string;   // 칩이 여는 화면 — 대시보드(/) 말고 브리핑(/briefing)도 같은 칩을 쓴다
+}) {
   // 지역을 바꿔도 보던 탭(목록)은 그대로, 쪽은 처음으로
-  const href = (next: string[]) => `/?regions=${next.length ? next.join(",") : "all"}${list ? `&list=${list}` : ""}`;
+  const href = (next: string[]) => `${base}?regions=${next.length ? next.join(",") : "all"}${list ? `&list=${list}` : ""}`;
   const toggled = (r: string) => (picked.includes(r) ? picked.filter((x) => x !== r) : KNOWN.filter((x) => x === r || picked.includes(x)));
   const nav = useRef<HTMLElement>(null);
   const key = picked.join(",");

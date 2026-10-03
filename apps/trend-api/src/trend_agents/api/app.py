@@ -20,6 +20,7 @@ from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
+from ..pipeline import briefing as briefing_stage, copycheck
 from ..schemas import CampaignTone, ProductBrief, RiskLevel, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
@@ -449,7 +450,7 @@ MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
 
 
 # 몸통 크기 한도 — 폼·JSON 을 읽기 전에 Content-Length 로 막는다. 만들기는 제품 설명(수백 자)과 밈 id 몇 개뿐이다(검토 3차: 수백 KB 설명이 프롬프트로 갔다)
-_BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/generate": 16 * 1024}
+_BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/generate": 16 * 1024, "/copy-check": 16 * 1024}
 
 
 @app.middleware("http")
@@ -543,6 +544,64 @@ def generate(body: GenerateIn):
         raise HTTPException(400, str(e)) from None
     except generate_stage.Unavailable as e:
         raise HTTPException(503, str(e)) from None
+
+
+_briefing_limit = recommend_stage.RateLimit(per_minute=30)
+
+
+@app.get("/briefing", response_model=views.Briefing)
+def trend_briefing(regions: str = "", lang: str = "ko"):
+    """트렌드 브리핑 — 고른 지역의 대시보드를 한 장으로. 목록·건수는 대시보드 규칙, 요약 문장만 모델(갱신 시각·지역·언어마다 한 번).
+    모델이 없거나 자리·한도가 없거나 실패하면 summary 를 비워 두고 화면이 규칙 문장을 쓴다 — 보고서는 늘 열린다."""
+    ui = "en" if lang == "en" else "ko"
+    b = briefing_stage.build(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
+    hit = briefing_stage.cached(b, ui)
+    if hit:
+        b.summary, b.summary_source = hit  # type: ignore[assignment]
+    elif briefing_stage.model_ready() and _briefing_limit.allow(time.monotonic()) and _model_slots.acquire(blocking=False):
+        try:
+            b.summary, b.summary_source = briefing_stage.summarize(_con, b, ui)  # type: ignore[assignment]
+        except Exception:      # 예산·장애·형식 — 규칙 문장으로 대신한다
+            b.summary, b.summary_source = None, "none"
+        finally:
+            _model_slots.release()
+    return b
+
+
+class CopyCheckIn(BaseModel):
+    text: str = Field(max_length=copycheck.MAX_TEXT)
+    region: str
+    lang: str = "ko"
+
+
+_copy_limit = recommend_stage.RateLimit(per_minute=20)
+
+
+@app.post("/copy-check", response_model=views.CopyCheck)
+def copy_check(body: CopyCheckIn):
+    """카피 검사 — 문구에 든 밈을 사전으로 찾고, 고른 시장에서 써도 되는지는 규칙으로, 뜻에 맞게 썼는지는 모델 의견으로.
+    문구는 저장하지 않고 기록에도 남기지 않는다. 모델 자리가 없거나 실패해도 규칙 결과는 돌려준다(fit_source 로 알린다)."""
+    region = body.region.strip().upper()
+    if region not in REGIONS_FOCUS:
+        raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, "검사할 문구를 넣어 주세요")
+    if not _copy_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    result, terms = copycheck.check(_con, text, region)
+    if not terms or not copycheck.model_ready():
+        return result
+    if not _model_slots.acquire(blocking=False):
+        result.fit_source = "busy"
+        return result
+    try:
+        return copycheck.fit(_con, text, result, terms, "en" if body.lang == "en" else "ko")
+    except Exception:
+        result.fit_source = "failed"
+        return result
+    finally:
+        _model_slots.release()
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)

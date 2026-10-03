@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils";
 
 type Item = { href: string; key: StringKey };
 // 주요 흐름(살펴보기 → 추천받기·만들기)과 그것을 돕는 화면을 나눈다 (docs/트렌드/디자인-개편.md)
-const MAIN: Item[] = [{ href: "/", key: "nav_dashboard" }, { href: "/recommend", key: "nav_recommend" }];
+const MAIN: Item[] = [
+  { href: "/", key: "nav_dashboard" }, { href: "/recommend", key: "nav_recommend" },
+  { href: "/briefing", key: "nav_briefing" }, { href: "/check", key: "nav_check" },
+];
 const MORE: Item[] = [
   { href: "/dictionary", key: "nav_dictionary" },
   { href: "/explain", key: "nav_explain" },
