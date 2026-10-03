@@ -42,3 +42,11 @@ FROM development AS browser-tests
 WORKDIR /workspace/apps/trend-web
 RUN corepack pnpm exec playwright install --with-deps chromium
 WORKDIR /workspace
+
+FROM tooling AS serving-tests
+ENV UV_PROJECT_ENVIRONMENT=/opt/gateway-venv
+WORKDIR /workspace/models/serving
+COPY models/serving/pyproject.toml models/serving/uv.lock ./
+COPY models/serving/src/ src/
+RUN uv sync --locked
+COPY models/serving/tests/ tests/

@@ -184,3 +184,14 @@ smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-au
 Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하지 않았다. 실제 Cloud Run 토큰·API 권한·staging 분리·GPU 연결은 아직 검증되지 않았으며 5단계 전체 완료로 표시하지 않는다.
 
 검증은 `check`의 기존 Python 테스트 349개와 웹 transport 테스트 13개, 웹 lint/build 통과다. `e2e`는 검색 서버/브라우저 경계 회귀 1개를 추가해 37개 통과했다. 최초 빌드에서 확인한 검색 모듈의 클라이언트 import 경로는 서버 로더 분리 후 같은 빌드로 재검증했다. 모델 품질·Google IAM·GPU 성공 근거로 이 로컬 결과를 사용하지 않는다.
+
+
+### 10-03 네트워크·IAM 기반과 GPU gateway 구현
+
+`infra/gcp/hybrid`에 기존 운영 state와 분리된 VPC·API/GPU 서브넷·환경별 SA·8443/IAP ingress·gateway secret metadata·최소 역할을 정의했다. 기본값은 비활성으로 자원을 만들지 않는다. default/staging/production의 mock plan으로 비활성·접근 범위·환경 분리를 검증한다. 실제 자원 생성·IAM 변경은 하지 않았다. 일반 provider plan은 로컬 ADC가 없어 실행되지 않았으며 mock plan 검증과 구분한다.
+
+`models/serving`의 독립 lockfile·TLS image·gateway는 고정 Ollama 모델만 받는다. 실제 짧은 추론과 resident manifest digest·양수 VRAM을 준비 조건으로 사용하고, bearer 인증·입출력 한도·한 슬롯·deadline·연결 중단·재검증 격리·중복 프로세스 잠금을 구현했다. 모델 관리 API는 노출하지 않는다. 상세 조건은 [GPU gateway·인프라 기반](../개발환경/GPU-gateway-인프라-기반.md)에 있다.
+
+이 단계는 네트워크/IAM 기반과 제한된 추론 경로의 코드·로컬 검증이다. GCE VM/디스크·모델 release·설치/자동 종료·API adapter·Cloud Run 서비스·기존 Cloud SQL 보호·운영 egress/TLS/IAM 연결은 아직 남았다. 실제 GPU readiness·모델 품질·운영 인증 성공을 합성 테스트로 주장하지 않는다.
+
+검증은 gateway Compose 테스트 18개·lint, 기존/새 Terraform fmt·validate와 mock plan 3개, gateway image build, 합성 인증서의 실제 TLS 검증·비인가 `/ready` 401, 앱 `check` 통과다. Gateway lockfile 단독 OSV 검사에서 취약점은 발견되지 않았다. 전체 OSV 검사는 수정하지 않은 기존 웹/API lockfile의 14건(critical 1·high 7·medium 6)으로 실패했다. 기존 의존성 보안 수정은 배포 전 해소해야 할 별도 차단 항목이며 이번 진행 커밋을 운영 배포 승인으로 사용하지 않는다.

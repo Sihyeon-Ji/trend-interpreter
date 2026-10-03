@@ -40,3 +40,11 @@
 **/.env
 **/.env.*
 **/.venv
+!models/serving/
+!models/serving/pyproject.toml
+!models/serving/uv.lock
+!models/serving/src/
+!models/serving/src/**
+!models/serving/tests/
+!models/serving/tests/**
+models/serving/**/__pycache__/**
