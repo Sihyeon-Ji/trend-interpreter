@@ -64,6 +64,8 @@ def test_briefing_summary_is_written_once_per_board_and_falls_back(con, monkeypa
     monkeypatch.setattr(briefing, "model_ready", lambda: True)
     monkeypatch.setattr(briefing, "structured", fake)
     c = TestClient(api.app)
+    glance = c.get("/briefing", params={"regions": "KR", "summary": "false"}).json()   # 대시보드의 '한눈에 보기' — 모델을 부르지 않는다
+    assert glance["summary"] is None and calls == [] and glance["counts"]["use_now"] >= 1
     first = c.get("/briefing", params={"regions": "KR"}).json()
     again = c.get("/briefing", params={"regions": "KR"}).json()
     assert first["summary"] == again["summary"] == "이번 주 한국에서는 럭키비키를 써 볼 만합니다."

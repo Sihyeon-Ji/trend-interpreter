@@ -271,6 +271,20 @@ export async function getBriefing(regions: string[], locale: Locale): Promise<Br
   return (await res.json()) as Briefing;
 }
 
+/** 대시보드 맨 위 '한눈에 보기' — 브리핑의 목록·건수만(요약 문장 모델은 부르지 않는다, summary=false).
+ *  실패하면 null — 대시보드는 이것 없이도 열린다. */
+export async function getGlance(regions: string[]): Promise<Briefing | null> {
+  if (isSampleMode) return sampleBriefing(regions);
+  const q = new URLSearchParams({ summary: "false" });
+  if (regions.length) q.set("regions", regions.join(","));
+  try {
+    const res = await apiFetch(`/briefing?${q}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    return res.ok ? ((await res.json()) as Briefing) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 용어 하나의 쓰임 신호 (사전 화면). regions 를 주면 대시보드 행과 같은 지역만 더한다(없으면 모든 지역).
  *  서버가 없거나 확인 전인 말이면 null — 화면은 사전 항목의 주간 수로 대신한다. */
 export async function getTermSignals(termId: string, regions: string[] = []): Promise<KeywordCard | null> {

@@ -12,6 +12,16 @@ test("home shows the three tools and carries the picked regions", async ({ page 
   for (const link of await tools.getByRole("link").all()) await expect(link).not.toHaveClass(/bg-ink/);
 });
 
+test("dashboard opens with an at-a-glance summary of the picked market", async ({ page }) => {
+  await page.goto("/?regions=KR");
+  const glance = page.getByRole("region", { name: /한눈에 보기|At a glance/ });
+  await expect(glance).toContainText(/바로 써도 됨|Safe to use/);
+  await expect(glance).toContainText(/아직 판단 전|Not judged yet/);
+  const first = glance.getByRole("listitem").first().getByRole("link");
+  await expect(first).toHaveAttribute("href", /^\/dictionary\/.+\?regions=KR$/);
+  await expect(glance.getByRole("link", { name: /브리핑 보고서로 자세히 보기|full trend briefing/ })).toHaveAttribute("href", "/briefing?regions=KR");
+});
+
 test("briefing lists the market on one page with a rule summary, print and share", async ({ page }) => {
   await page.goto("/briefing?regions=KR");
   await expect(page.getByRole("heading", { level: 1, name: /트렌드 브리핑|Trend briefing/ })).toBeVisible();

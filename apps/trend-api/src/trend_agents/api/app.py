@@ -554,15 +554,16 @@ _briefing_limit = recommend_stage.RateLimit(per_minute=30)
 
 
 @app.get("/briefing", response_model=views.Briefing)
-def trend_briefing(regions: str = "", lang: str = "ko"):
+def trend_briefing(regions: str = "", lang: str = "ko", summary: bool = True):
     """트렌드 브리핑 — 고른 지역의 대시보드를 한 장으로. 목록·건수는 대시보드 규칙, 요약 문장만 모델(갱신 시각·지역·언어마다 한 번).
-    모델이 없거나 자리·한도가 없거나 실패하면 summary 를 비워 두고 화면이 규칙 문장을 쓴다 — 보고서는 늘 열린다."""
+    모델이 없거나 자리·한도가 없거나 실패하면 summary 를 비워 두고 화면이 규칙 문장을 쓴다 — 보고서는 늘 열린다.
+    summary=false 면 모델을 부르지 않는다(이미 만든 요약은 준다) — 대시보드의 '한눈에 보기' 가 열 때마다 모델을 부르지 않게."""
     ui = "en" if lang == "en" else "ko"
     b = briefing_stage.build(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
     hit = briefing_stage.cached(b, ui)
     if hit:
         b.summary, b.summary_source = hit  # type: ignore[assignment]
-    elif briefing_stage.model_ready() and _briefing_limit.allow(time.monotonic()) and _model_slots.acquire(blocking=False):
+    elif summary and briefing_stage.model_ready() and _briefing_limit.allow(time.monotonic()) and _model_slots.acquire(blocking=False):
         try:
             b.summary, b.summary_source = briefing_stage.summarize(_con, b, ui)  # type: ignore[assignment]
         except Exception:      # 예산·장애·형식 — 규칙 문장으로 대신한다

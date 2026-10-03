@@ -8,7 +8,8 @@ import { PageShell } from "@/components/page-shell";
 import { RegionChips } from "@/components/region-chips";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
-import { getKeywordBoard, isSampleMode } from "@/lib/data";
+import { getGlance, getKeywordBoard, isSampleMode } from "@/lib/data";
+import { Glance } from "@/components/glance";
 import { t } from "@/lib/i18n";
 import { fmtDateTime, regionLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
@@ -44,11 +45,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // 실데이터 모드에서 서버가 실패하면 예시로 바꿔 넣지 않는다 — 표 자리에 알리고 같은 주소로 다시 시도하게 한다
   let board: KeywordBoard | null = null;
+  const glanceP = getGlance(picked);                                 // 표와 같이 받는다 — 실패해도 대시보드는 열린다
   try {
     board = await getKeywordBoard(picked, page);
   } catch {
     board = null;
   }
+  const glance = await glanceP;
   const total = board?.totals[list] ?? 0;
   const last = Math.max(1, Math.ceil(total / (board?.page_size ?? 30)));
   if (board && page > last) redirect(href({ page: last }));        // 범위를 넘는 쪽은 마지막 쪽으로
@@ -77,6 +80,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           }>
           <RegionChips picked={picked} counts={board?.counts} locale={locale} list={list === "rising" ? undefined : list} />
         </PageHeader>
+        {board && glance && glance.counts.rising > 0 && <Glance b={glance} locale={locale} regions={picked} />}
         <MakeTools locale={locale} regions={targets} />
         <section aria-labelledby="dash-list" className="space-y-3">
           <h2 id="dash-list" className="sr-only">{t(locale, `dash_${list}`)}</h2>
