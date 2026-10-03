@@ -52,8 +52,12 @@ resource "google_cloud_run_v2_service" "api" {
   ingress              = "INGRESS_TRAFFIC_ALL"
   invoker_iam_disabled = false
   deletion_protection  = true
+  # A fixed audience lets one ID token reach the service and its tagged candidate revisions during deployment.
+  custom_audiences = ["${local.prefix}-api"]
   lifecycle {
     prevent_destroy = true
+    # scripts/deploy-trend.sh rolls images and traffic after checking candidates; Terraform owns the rest.
+    ignore_changes = [template[0].containers[0].image, traffic, client, client_version]
     precondition {
       condition = var.services.gpu == null ? true : (
         var.gpu == null ? false : var.services.gpu.release_sha256 == var.gpu.release_sha256
@@ -181,6 +185,7 @@ resource "google_cloud_run_v2_service" "web" {
   deletion_protection  = true
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [template[0].containers[0].image, traffic, client, client_version]
   }
   template {
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"

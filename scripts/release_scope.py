@@ -6,6 +6,7 @@ import sys
 ZERO_SHA = "0" * 40
 APP_FILES = {
     "scripts/container-smoke.sh",
+    "scripts/deploy-trend.sh",
 }
 RELAY_FILES = {
     "scripts/deploy-alert-relay.sh",

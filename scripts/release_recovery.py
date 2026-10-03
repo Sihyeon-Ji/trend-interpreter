@@ -12,6 +12,10 @@ REGION = "asia-northeast1"
 SECRETS = {
     "builder-cup": ("DEMO_API_KEY", "builder-cup-demo-key"),
     "builder-cup-alert-relay": ("DISCORD_WEBHOOK_URL", "discord-webhook"),
+    "trend-production-api": ("DATABASE_URL", "trend-production-database-url"),
+    "trend-production-web": ("SESSION_SECRET", "trend-production-session-secret"),
+    "trend-staging-api": ("DATABASE_URL", "trend-staging-database-url"),
+    "trend-staging-web": ("SESSION_SECRET", "trend-staging-session-secret"),
 }
 
 
@@ -75,7 +79,25 @@ def validate_relay_iam(policy: dict) -> None:
         raise RecoveryError("Relay invoker IAM is not private or Pub/Sub cannot invoke it")
 
 
+def verify_trend(service: str, url: str) -> None:
+    """Trend web serves its first page publicly; the private API needs an ID token and must hold data."""
+    if service.endswith("-web"):
+        with urllib.request.urlopen(f"{url}/", timeout=30) as response:
+            if response.status != 200:
+                raise RecoveryError("Web first page did not load")
+        return
+    token = os.getenv("HEALTH_ID_TOKEN") or command("gcloud", "auth", "print-identity-token")
+    request = urllib.request.Request(f"{url}/health", headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = json.load(response)
+    if data.get("ok") is not True or not data.get("terms"):
+        raise RecoveryError("API health did not report a loaded dictionary")
+
+
 def verify_http(service: str, url: str) -> None:
+    if service.startswith("trend-"):
+        verify_trend(service, url)
+        return
     headers = {}
     if service == "builder-cup-alert-relay":
         token = os.getenv("HEALTH_ID_TOKEN") or command("gcloud", "auth", "print-identity-token")

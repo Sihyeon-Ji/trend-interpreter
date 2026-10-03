@@ -103,3 +103,36 @@ def test_release_report_contains_metadata_without_secret_value():
         value in result for value in ("previous", "current", "builder-cup-demo-key:1", "commit123")
     )
     assert "secret value" not in result
+
+
+def test_trend_services_use_their_own_health_contract(monkeypatch):
+    import io
+    import json as jsonlib
+
+    seen = []
+
+    class Response(io.BytesIO):
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def urlopen(request, timeout):
+        url = request if isinstance(request, str) else request.full_url
+        seen.append((url, getattr(request, "headers", {})))
+        body = {"ok": True, "terms": 3} if url.endswith("/health") else {}
+        return Response(jsonlib.dumps(body).encode())
+
+    monkeypatch.setattr(recovery.urllib.request, "urlopen", urlopen)
+    monkeypatch.setenv("HEALTH_ID_TOKEN", "synthetic")
+    recovery.verify_http("trend-production-api", "https://api.example")
+    recovery.verify_http("trend-production-web", "https://web.example")
+    assert seen[0][0] == "https://api.example/health" and seen[0][1] == {"Authorization": "Bearer synthetic"}
+    assert seen[1][0] == "https://web.example/"
+
+    monkeypatch.setattr(recovery.urllib.request, "urlopen", lambda request, timeout: Response(b'{"ok": true, "terms": 0}'))
+    with pytest.raises(recovery.RecoveryError):
+        recovery.verify_http("trend-production-api", "https://api.example")
