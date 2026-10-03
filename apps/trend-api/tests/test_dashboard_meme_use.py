@@ -14,9 +14,9 @@ def test_unconfirmed_wiki_entries_leave_the_lists_but_stay_in_the_dictionary():
     con = db.connect(":memory:")
     now = datetime.now(timezone.utc)
 
-    def term(tid, name, *, catalog=True, checked=True, on=0, off=0, verification="verified_auto", lifecycle="steady"):
+    def term(tid, name, *, catalog=True, checked=True, on=0, off=0, verification="verified_auto", lifecycle="steady", definition=None):
         ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", lifecycle=lifecycle, first_seen=now, last_seen=now))
-        m = ds.add_meaning(con, tid, MeaningDraft(definition=f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+        m = ds.add_meaning(con, tid, MeaningDraft(definition=definition or f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"],
                                                   self_confidence=0.9), verification, [])
         ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
         if catalog:
@@ -36,6 +36,8 @@ def test_unconfirmed_wiki_entries_leave_the_lists_but_stay_in_the_dictionary():
     term("human", "오살힘", verification="verified_human")               # 사람이 확인한 뜻은 그대로
     term("pending", "갓생", checked=False, lifecycle="rising")         # 점검 전 — 빼지 않고 뒤로
     term("found", "느좋", catalog=False, checked=False)                # 위키 분류가 아닌 길(쓰임에서 발굴)로 들어온 말
+    term("note", "허니", catalog=False, checked=False, on=3,             # 뜻 칸이 모델의 메모 — 근거가 있어도 뺀다
+         definition="근거에 밈으로 쓰이는 구체적인 쓰임새에 대한 설명은 없음.")
     con.commit()
     dashboard.run(con)
 
@@ -46,6 +48,7 @@ def test_unconfirmed_wiki_entries_leave_the_lists_but_stay_in_the_dictionary():
     assert ids[-1] == "pending"                                       # 막 퍼지는 말이라도 확인 전이면 확인된 말 뒤
     assert b.counts["KR"] == 4                                        # 지역 칩 건수도 목록과 같다
     assert dashboard.card(con, "tomato") is not None                  # 사전 화면·카피 검사는 그대로 찾는다
+    assert dashboard.card(con, "note") is not None
 
 
 def test_mentions_mixed_with_other_stories_do_not_lead_the_list():

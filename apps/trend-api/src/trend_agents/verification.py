@@ -31,7 +31,22 @@ REFERENCE_DOMAINS = ("namu.wiki", "wikipedia.org", "knowyourmeme.com", "dic.pixi
 # 도메인 전체가 아니라 이 경로만 참고 문서인 곳 — maily.so 는 뉴스레터 호스팅이라 Trend A Word(신조어를 하루 하나씩 정리) 만(2026-09-30 사용자 요청)
 REFERENCE_PATHS = {"maily.so": "/trendaword/posts/"}
 _EMPTY_MEANING = __import__("re").compile(r"근거 부족|확인되지 않(음|았)|정보가 (부족|없)|명확한 (사전적 )?(정의|의미)(는|가)? ?없|알 수 없는 표현")
+# 뜻 칸에 남은 조사 모델의 메모 — '근거에 밈으로 쓰이는 구체적인 설명은 없음' 처럼 근거를 두고 한 말. 화면에 뜻으로 나갔다
+# (실데이터 10-03, 확인된 뜻 7,666개 중 162개). '근거'에 조사(에·는·가·만으로는)가 붙고 쓰임을 가리키는 말과 부정이 가까이 있을 때만 —
+# 뜻 자체가 '근거 없는 자신감'(근자감)·'근거 없는 호들갑'(근들갑)·'법적 근거 없이' 인 말은 걸리지 않는다.
+_KW = r"(?:밈|쓰임|사용|설명|예시|언급|뜻|정의|의미|내용|맥락)"
+_NEG = r"(?:없|않|부족|제시되지|명시되지|제공되지)"
+_EVIDENCE_NOTE = __import__("re").compile(
+    rf"{_KW}[^.()]{{0,30}}?근거(?:에는|에|는|가|만으로는)\s?[^.()]{{0,12}}?{_NEG}"
+    rf"|{_KW}[^.()]{{0,30}}?근거\s?없음"
+    rf"|근거(?:에는|에|는|가|만으로는)\s?[^.()]{{0,40}}?{_KW}[^.()]{{0,25}}?{_NEG}"
+    rf"|해당 근거(?:는|만으로는)|위키 문서에 [^.()]{{0,30}}밈[^.()]{{0,30}}(?:설명|언급)은 없")
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
+
+
+def evidence_note(text: str) -> bool:
+    """뜻 칸에 뜻이 아니라 근거를 두고 한 메모가 들어 있나(_EVIDENCE_NOTE)."""
+    return bool(_EVIDENCE_NOTE.search(text or ""))
 
 
 def normalize_url(url: str) -> str:
@@ -119,6 +134,8 @@ def gate(
         reasons.append("뜻이 비었거나 표제어를 그대로 옮겨 적음")
     if _EMPTY_MEANING.search(definition):
         reasons.append("뜻이 '근거 부족'·'정의 없음' 같은 빈말이다")
+    elif evidence_note(definition):
+        reasons.append("뜻 칸에 근거에 대한 메모('근거에 쓰임 설명이 없음')가 들어 있다")
     if not draft.is_expression and not catalogued:
         reasons.append("표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님")
     from .collectors.community import is_community_post

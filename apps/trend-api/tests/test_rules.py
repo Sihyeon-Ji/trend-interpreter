@@ -1461,6 +1461,30 @@ def test_reference_documents_must_be_titled_by_the_term_and_empty_meanings_are_b
     assert gate(term, draft.model_copy(update={"definition": "근거 부족: 확인되지 않음"}), [namu], None)[0] == "unverified"
 
 
+def test_model_notes_about_the_evidence_are_not_meanings():
+    """뜻 칸에 남은 조사 모델의 메모(실데이터 10-03, 162건)는 막고, 뜻 자체에 '근거' 가 든 말은 통과시킨다."""
+    from trend_agents.verification import evidence_note
+
+    notes = ["근거에 밈으로 쓰이는 구체적인 쓰임새에 대한 설명은 없음. 다만, '꿀'이라는 뜻의 영어 단어와 관련되어 언급됨.",
+             "인터넷 밈으로 사용됨. (근거에 밈 사용법에 대한 구체적인 설명은 없음)",
+             "인터넷 밈으로 사용됨. (구체적인 밈 사용 방식에 대한 근거 없음)",
+             "해당 근거만으로는 '페이페인'이 무엇을 의미하는지 알 수 없습니다.",
+             "근거에 명시된 내용 없음",
+             "명확한 밈 사용처에 대한 근거가 부족하여, 위키 문서에 언급된 대로 농민 지도자에 대한 정보가 적혀 있다.",
+             "위키 문서에 밈으로 사용되는 구체적인 쓰임새에 대한 설명은 없음."]
+    meanings = ["근거가 없는 자신감을 의미하며, 인터넷 밈이나 유행어의 맥락에서 사용된다.",
+                "'호들갑'과 동일한 의미로 사용되는 유행어. 나아가 '근거 없는 호들갑'이라는 의미로도 쓰인다.",
+                "법적 근거 없이 막연한 느낌만으로 누군가를 고소하는 행태를 비꼬는 말.",
+                "상대방의 주장이 근거가 없거나 어그로라는 점을 지적하며 비꼬는 뉘앙스로 쓴다.",
+                "태어날 때부터의 환경이 인생을 좌우한다는 인식에 근거하여 부모를 가챠에 빗댄 말."]
+    assert all(evidence_note(n) for n in notes)
+    assert not any(evidence_note(m) for m in meanings)
+    term, draft = "럭키비키", _lucky_draft()
+    namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
+    v, why = gate(term, draft.model_copy(update={"definition": notes[1]}), [namu], None)
+    assert v == "unverified" and any("메모" in r for r in why)
+
+
 def test_audit_stage_logs_once_per_meaning_and_rewrites_on_fix(monkeypatch):
     """감사 단계: 자동 확인 뜻을 판마다 한 번 감사하고, 고칠 것이면 한 번 다시 쓴다. 기록(audit_log)은 INSERT OR REPLACE 로 남는다(PostgreSQL 에서도)."""
     from datetime import datetime, timezone
