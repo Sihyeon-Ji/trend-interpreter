@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import io
+from types import SimpleNamespace
 
 import pytest
 
@@ -156,6 +157,9 @@ def test_complete_install_keeps_secrets_out_of_commands(monkeypatch, tmp_path, r
     monkeypatch.setattr(install, "RUNTIME", runtime)
     monkeypatch.setattr(install, "mount_models", lambda _: None)
     monkeypatch.setattr(install, "wait_ollama", lambda: None)
+    # The installer needs free space on the model disk; the test host's free space is unrelated.
+    free = SimpleNamespace(free=1 << 40)
+    monkeypatch.setattr(install.shutil, "disk_usage", lambda _: free)
     monkeypatch.setattr(
         install,
         "metadata",
