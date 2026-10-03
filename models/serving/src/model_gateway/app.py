@@ -13,6 +13,8 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from .engine import chat_request
+
 MAX_BODY_BYTES = 64 * 1024
 MAX_OUTPUT_BYTES = 64 * 1024
 
@@ -51,16 +53,7 @@ class Gateway:
 
     async def post(self, prompt, tokens):
         async with self.client.stream(
-            "POST",
-            "/api/chat",
-            json={
-                "model": self.settings.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "think": False,
-                "keep_alive": -1,
-                "options": {"temperature": 0, "num_predict": tokens, "num_ctx": 4096},
-            },
+            "POST", "/api/chat", json=chat_request(self.settings.model, prompt, tokens)
         ) as response:
             response.raise_for_status()
             data = bytearray()

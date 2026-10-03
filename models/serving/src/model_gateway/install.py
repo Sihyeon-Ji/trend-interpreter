@@ -16,10 +16,26 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
+from model_gateway.engine import chat_request
+
 MODEL_ROOT = Path("/var/lib/trend/models")
 RUNTIME = Path("/run/trend-gateway")
 DEVICE = "/dev/disk/by-id/google-trend-models"
 MAX_METADATA = 1024 * 1024
+OLLAMA = "http://127.0.0.1:11434"
+# Loading the weights from the model disk onto the GPU takes longer than the gateway's request
+# deadline, and the first prompt of realistic length pays a further one-time cost. Both happen
+# here, before the gateway starts.
+WARM_DEADLINE = 600
+WARM_PROMPTS = (
+    ("Reply with OK.", 1),
+    (
+        "You check a slang dictionary entry against its evidence. "
+        + "Entry: a short internet expression, its meaning, origin and nuance. " * 40
+        + 'Answer only with JSON {"verdict": "ok"} or {"verdict": "fix"}.',
+        8,
+    ),
+)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -27,9 +43,9 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError("Redirect refused")
 
 
-def request(url, headers):
+def request(url, headers, data=None, timeout=30):
     opener = build_opener(ProxyHandler({}), NoRedirect())
-    return opener.open(Request(url, headers=headers), timeout=30)
+    return opener.open(Request(url, data=data, headers=headers), timeout=timeout)
 
 
 def metadata(path):
@@ -241,12 +257,46 @@ def wait_ollama():
     end = time.monotonic() + 30
     while time.monotonic() < end:
         try:
-            with request("http://127.0.0.1:11434/api/version", {}) as response:
+            with request(OLLAMA + "/api/version", {}) as response:
                 if json.loads(response.read(4096)).get("version"):
                     return
         except (OSError, ValueError):
             time.sleep(0.2)
     raise RuntimeError("Ollama startup deadline")
+
+
+def warm_model(model):
+    for prompt, tokens in WARM_PROMPTS:
+        body = json.dumps(chat_request(model, prompt, tokens)).encode()
+        with request(
+            OLLAMA + "/api/chat",
+            {"Content-Type": "application/json"},
+            data=body,
+            timeout=WARM_DEADLINE,
+        ) as response:
+            result = json.loads(response.read(MAX_METADATA))
+        if result.get("model") != model or result.get("done") is not True:
+            raise RuntimeError("Model warm-up failed")
+
+
+def start_runtime(release, assets):
+    """Start Ollama, import and warm the model, then start the gateway; remove both on failure."""
+    try:
+        for index, args in enumerate(runtime_commands(release, assets)):
+            command(args)
+            if index == 0:
+                wait_ollama()
+            elif index == 1:
+                warm_model(release["model"])
+    except Exception:
+        for name in ("trend-gateway", "trend-ollama"):
+            subprocess.run(
+                ["docker", "rm", "-f", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        raise RuntimeError("Runtime installation failed") from None
 
 
 def install():
@@ -319,21 +369,7 @@ def install():
             f"GATEWAY_TOKEN={bearer}\nGATEWAY_MODEL={release['model']}\nGATEWAY_MODEL_DIGEST={release['model_digest']}\n"
         )
         (MODEL_ROOT / "ollama").mkdir(exist_ok=True)
-        commands = runtime_commands(release, assets)
-        try:
-            for index, args in enumerate(commands):
-                command(args)
-                if index == 0:
-                    wait_ollama()
-        except Exception:
-            for name in ("trend-gateway", "trend-ollama"):
-                subprocess.run(
-                    ["docker", "rm", "-f", name],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
-            raise RuntimeError("Runtime installation failed") from None
+        start_runtime(release, assets)
 
 
 if __name__ == "__main__":

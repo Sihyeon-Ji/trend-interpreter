@@ -5,6 +5,7 @@ import io
 import pytest
 
 from model_gateway import install
+from model_gateway.engine import CONTEXT_TOKENS
 
 
 def artifact(name, content):
@@ -162,13 +163,17 @@ def test_complete_install_keeps_secrets_out_of_commands(monkeypatch, tmp_path, r
             config if key.startswith("instance/attributes") else {"access_token": "synthetic"}
         ),
     )
-    monkeypatch.setattr(
-        install,
-        "request",
-        lambda url, _: io.BytesIO(
+    warmed = []
+
+    def request(url, _, **kwargs):
+        if url.endswith("/api/chat"):
+            warmed.append((len(calls), json.loads(kwargs["data"])))
+            return io.BytesIO(json.dumps({"model": release["model"], "done": True}).encode())
+        return io.BytesIO(
             raw if "release.json" in url else modelfile if "Modelfile" in url else model
-        ),
-    )
+        )
+
+    monkeypatch.setattr(install, "request", request)
     # download's default function was bound at definition time.
     original = install.download
     monkeypatch.setattr(install, "download", lambda *args: original(*args, fetch=install.request))
@@ -206,6 +211,32 @@ def test_complete_install_keeps_secrets_out_of_commands(monkeypatch, tmp_path, r
     assert (runtime / "locks").exists()
     assert not any(token in str(args) or "test private key" in str(args) for args in calls)
     assert any(args[:2] == ["docker", "exec"] for args in calls)
+    gateway_start = next(
+        i for i, args in enumerate(calls) if "trend-gateway" in args and "run" in args
+    )
+    assert len(warmed) == len(install.WARM_PROMPTS)
+    assert all(position <= gateway_start for position, _ in warmed)
+    assert {body["options"]["num_ctx"] for _, body in warmed} == {CONTEXT_TOKENS}
+    assert all(body["keep_alive"] == -1 and body["model"] == release["model"] for _, body in warmed)
+
+
+def test_failed_warm_up_never_starts_the_gateway(monkeypatch, tmp_path, release):
+    calls, removed = [], []
+
+    def cold(_):
+        raise TimeoutError("cold start")
+
+    monkeypatch.setattr(install, "command", lambda args, **_: calls.append(args))
+    monkeypatch.setattr(install, "wait_ollama", lambda: None)
+    monkeypatch.setattr(install, "warm_model", cold)
+    monkeypatch.setattr(install.subprocess, "run", lambda args, **_: removed.append(args))
+    with pytest.raises(RuntimeError):
+        install.start_runtime(release, tmp_path)
+    assert not any("trend-gateway" in args and "run" in args for args in calls)
+    assert removed == [
+        ["docker", "rm", "-f", "trend-gateway"],
+        ["docker", "rm", "-f", "trend-ollama"],
+    ]
 
 
 @pytest.mark.parametrize("approved", [False, True])
