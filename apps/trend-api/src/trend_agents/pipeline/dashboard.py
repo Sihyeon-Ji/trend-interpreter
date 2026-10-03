@@ -361,14 +361,27 @@ def _save(con: Connection, stored: list[Stored], generated_at: str | None = None
     ds.cache_set(con, CACHE_KEY, "[" + ",".join(s.model_dump_json() for s in stored) + "]", generated_at)
 
 
+# 해석한 캐시를 프로세스에 둔다 — 대시보드·브리핑·쓰임 신호가 요청마다 8.9MB JSON 을 다시 해석해 한 번에 2~4초 걸렸다(실데이터 10-04).
+# 캐시의 시각과 내용 해시가 같을 때만 다시 쓴다(다른 프로세스의 파이프라인·검수 결정이 바꾼 것도 해시로 안다). 호출하는 쪽은 목록을 고치지 않는다.
+_MEMO: dict[str, tuple[tuple[str, str], tuple[list[Stored], datetime]]] = {}
+
+
 def _load(con: Connection) -> tuple[list[Stored], datetime] | None:
+    stamp = ds.cache_stamp(con, CACHE_KEY)
+    if not stamp:
+        return None
+    hit = _MEMO.get(CACHE_KEY)
+    if hit and hit[0] == stamp:
+        return hit[1]
     cached = ds.cache_get(con, CACHE_KEY)
     if not cached:
         return None
     try:
-        return [Stored.model_validate(x) for x in json.loads(cached[0])], datetime.fromisoformat(cached[1])
+        loaded = [Stored.model_validate(x) for x in json.loads(cached[0])], datetime.fromisoformat(cached[1])
     except Exception:            # 예전 모양의 캐시(나라별 재료 없음) — 새로 만든다
         return None
+    _MEMO[CACHE_KEY] = (stamp, loaded)
+    return loaded
 
 
 def refresh_card(con: Connection, term_id: str) -> None:
@@ -386,14 +399,13 @@ def refresh_card(con: Connection, term_id: str) -> None:
 def _live(con: Connection, stored: list[Stored]) -> list[Stored]:
     """캐시 카드에 지금의 상태·리스크를 덮어쓴다. 단계가 카드를 만드는 몇 초 사이의 검수 결정이 캐시 저장 경쟁에서 지워져도
     화면·추천은 사람의 결정을 따른다(검토 2차). 확인된 용어가 아니게 된 것은 뺀다."""
-    now = {t.term_id: t for t in ds.list_terms(con, ("verified",))}
-    out = []
-    for s in stored:
-        t = now.get(s.card.term_id)
-        if t:
-            out.append(s.model_copy(update={"card": s.card.model_copy(update={"risk_level": t.risk_level, "risk_reasons": t.risk_reasons,
-                                                                              "risk_checked_at": t.risk_checked_at})}))
-    return out
+    now = ds.verified_risk(con)
+    return [_with_risk(s, *now[s.card.term_id]) for s in stored if s.card.term_id in now]
+
+
+def _with_risk(s: Stored, level: str | None, reasons: list[str], checked: str | datetime | None) -> Stored:
+    when = datetime.fromisoformat(checked) if isinstance(checked, str) else checked
+    return s.model_copy(update={"card": s.card.model_copy(update={"risk_level": level, "risk_reasons": reasons, "risk_checked_at": when})})
 
 
 def _browsable(c: KeywordCard) -> bool:
@@ -462,12 +474,12 @@ def card(con: Connection, term_id: str, regions: list[str] | None = None) -> Key
     """용어 하나의 신호 (사전 화면의 '언급 추이'). regions 가 없으면 모든 나라를 더하고, 있으면 대시보드 행과 같은 지역만 더한다
     (대시보드와 사전 항목의 수가 달랐다, 개편 검토 2차). 목표 지역 밖 용어도 만들어 준다."""
     chosen = chosen_regions(regions) if regions else [*REGIONS_FOCUS, GLOBAL]
-    for s in _live(con, (_load(con) or ([], None))[0]):
-        if s.card.term_id == term_id:
-            return view(s, chosen)
     t = ds.get_term(con, term_id)
     if not t or t.status != "verified":
         return None
+    s = next((s for s in (_load(con) or ([], None))[0] if s.card.term_id == term_id), None)
+    if s:                        # 캐시 카드에 지금의 리스크만 덮는다(_live 와 같다) — 용어 전체를 읽지 않고 이 용어만
+        return view(_with_risk(s, t.risk_level, t.risk_reasons, t.risk_checked_at), chosen)
     s = build_card(con, t, _recent_queries(con), _Regions(con, term_id), _weeks(), outside=True)
     return view(s, chosen) if s else None
 

@@ -792,6 +792,24 @@ def cache_get(con: Connection, key: str) -> tuple[str, str] | None:
     return (row[0], row[1]) if row else None
 
 
+def cache_stamp(con: Connection, key: str) -> tuple[str, str] | None:
+    """(generated_at, 내용 해시) — 캐시 본문(대시보드 8.9MB)을 읽지 않고 바뀌었는지만 본다. 카드 하나를 고친 저장은 시각을 지키므로
+    시각만으로는 모른다(cache_set) — 내용 해시를 함께 본다."""
+    row = con.execute("SELECT generated_at, md5(json) FROM board_cache WHERE key=?", (key,)).fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def verified_risk(con: Connection) -> dict[str, tuple[str | None, list[str], str | None]]:
+    """확인된 용어마다 지금의 (리스크 수준, 이유, 점검 시각) — 용어 JSON 전체를 해석하지 않고 세 칸만 꺼낸다(대시보드 _live)."""
+    rows = con.execute("SELECT term_id, json::jsonb->>'risk_level', json::jsonb->'risk_reasons', json::jsonb->>'risk_checked_at' "
+                       "FROM terms WHERE status='verified'").fetchall()
+    return {tid: (level, list(reasons or []), checked) for tid, level, reasons, checked in rows}
+
+
+def count_terms(con: Connection, statuses: tuple[str, ...]) -> int:
+    return con.execute(f"SELECT count(*) FROM terms WHERE status IN ({','.join('?' * len(statuses))})", statuses).fetchone()[0]
+
+
 def explain_cache_get(con: Connection, lang: str, text: str) -> tuple[list[str], str | None] | None:
     key = hashlib.sha1(f"{lang}|{text.strip()}".encode()).hexdigest()
     row = con.execute("SELECT term_ids_json, plain FROM explain_cache WHERE key=?", (key,)).fetchone()
