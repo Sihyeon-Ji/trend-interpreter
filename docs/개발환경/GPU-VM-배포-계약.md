@@ -78,6 +78,42 @@ HTTPS·CA 검증·bearer·고정 release 일치를 검사하고 redirect·환경
 
 현재 연결은 동기 `local_chat` 경로다. API의 worker thread에서 실행 중인 호출을 브라우저 취소만으로 즉시 종료하는 기능은 아직 제공하지 않으며 gateway deadline으로 제한한다. 스트리밍·vision·tool 작업과 전체 API deadline/취소 조립은 후속 구현이다. Cloud Run의 Direct VPC egress·secret/CA mount와 실제 API→VM 연결도 아직 검증되지 않았다.
 
+## 2026-10-03 실제 GPU 인프라 검증
+
+기본 Gemma로 boot image·설치·TLS·인증·GPU 추론 경로를 실제 L4에서 확인했다. **인프라 확인용**이며 품질 평가나 운영 승인 release가 아니다. 범위와 승인 기록은 `manifests/gpu-validation-scope-gemma4-12b-20261003.json`이고, release는 운영 `releases/`와 분리한 `validation/` prefix에 두었다(`promotion_eligible=false`).
+
+| 단계 | 내용 |
+| --- | --- |
+| 원격 state | `infra/gcp/hybrid`에 GCS backend를 선언하고 `stunning-crane-508614-c1-tfstate`의 `hybrid/staging` prefix를 사용한다. 검사는 기존처럼 `-backend=false`로 실행한다 |
+| 기반 | 로컬 `staging.tfvars.json`(`enabled=true`, `environment=staging`)으로 VPC·서브넷·SA 6개·방화벽·gateway token secret을 적용했다(19개 생성) |
+| 모델 버킷 | 비공개 `stunning-crane-508614-c1-trend-models`(도쿄, uniform access, public access prevention) |
+| gateway image | `models/serving`을 amd64로 빌드해 `builder-cup/trend-model-gateway@sha256:ec7cc38d…`로 push |
+| boot image | `scripts/build-gpu-image.sh`가 GPU 없는 임시 builder VM으로 `trend-gpu-gemma4-12b-validation-20261003`을 만든다. 기반은 `ubuntu-accelerator-2404-amd64-with-nvidia-580-v20260925`, Docker 29.1.3·NVIDIA Container Toolkit 1.20.1·Python 3.12.3. 보고서 `manifests/gpu-image-gemma4-12b-validation-20261003.json` |
+| 모델 | Ollama 라이브러리 `gemma4:12b`의 텍스트 GGUF(Q4_K_M, 7.38GB)를 레지스트리 SHA-256으로 검증해 올렸다. Modelfile은 `gemma4` renderer·parser를 지정한다. `ollama create` digest `a9e8fc57…`는 두 번의 빌드에서 같았다 |
+| secret | `trend-staging-gpu-tls`(SAN `10.40.1.4`, 90일), `trend-staging-gpu-ca`(API용 CA), `trend-staging-gateway-token` version 1 |
+| GPU VM | 로컬 `staging-gpu-validation.tfvars.json`으로 적용, 약 3분 만에 설치 완료. tfvars는 저장소 규칙상 Git에서 제외하며 `gpu` 입력값은 위 image·release manifest와 아래 값으로 재구성한다: zone `asia-northeast1-a`, release generation `1791025228844907`, SHA-256 `ae1ac374…4087`, TLS secret version 1, token version 1, `format_model_disk=true` |
+
+builder SA의 버킷 권한은 이번 release의 두 prefix로 제한하고(목록 조회 포함) 스크립트 종료 시 회수한다. 목록 조회는 `objectListPrefix` 조건으로만 허용되므로 조건을 JSON 파일로 넘긴다.
+
+검증은 `scripts/verify-gpu-gateway.sh`로 VM 안에서 IAP SSH를 통해 실행했다. token은 VM 밖으로 나오지 않고 보고서에는 상태·시간·메모리만 남긴다. 결과는 `manifests/gpu-validation-gemma4-12b-20261003.json`이다.
+
+| 항목 | 결과 |
+| --- | --- |
+| 설치 | `installed: true`, Ollama·gateway 컨테이너 실행 |
+| TLS | staging CA로 인증서·IP SAN 검증 통과 |
+| 인증 | token 없음·잘못된 token 모두 401 (`/ready`, `/v1/generate`) |
+| 준비 | 첫 `/ready` 4회가 30초 deadline으로 504, 5회째 200. 모델·digest 일치 |
+| 추론 | 첫 호출 25.4초, 이후 0.35·0.36초. JSON 판정 형식 3/3 |
+| GPU | L4 7,938MiB / 23,034MiB 사용, 드라이버 580.178.04 |
+
+발견한 문제와 남은 일은 다음과 같다.
+
+- **cold start가 gateway deadline 30초보다 길다.** 모델 디스크에서 처음 GPU에 올리는 시간이 30초를 넘어 `/ready`가 반복 504가 된다. 준비 확인 전용으로 더 긴 deadline을 두거나, 설치기가 gateway 시작 전에 모델을 미리 올리도록 고쳐야 한다. 준비 직후 첫 추론도 25초가 걸렸다.
+- API 서브넷에서의 접속(Cloud Run Direct VPC egress)은 아직 확인하지 않았다. 이번 검증은 VM 내부에서 자기 IP로 호출했다.
+- 감사관 품질은 평가하지 않았다. 운영 release는 사람 평가와 승인 뒤 `releases/` prefix로 따로 만든다.
+
+검증 후 사용자 결정에 따라 VM·부트 디스크·모델 디스크·예약 내부 IP를 삭제하고 Terraform state에서 정리했다. GPU 사용은 약 8분이다. boot image(40GB), GCS의 모델 파일, 기반 VPC·SA·secret은 남겨 다시 만들 때 쓴다.
+
 ## 검증
 
 ```bash

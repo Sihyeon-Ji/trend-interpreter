@@ -1,0 +1,15 @@
+{
+  "approved_at": "2026-10-03T19:00:00+09:00",
+  "approved_by": "shji",
+  "budget": {
+    "gpu_hours_max": 2,
+    "usd_max": 10
+  },
+  "disks_after_validation": "delete VM, boot and model disks; keep boot image and staged model objects",
+  "model": "Ollama library gemma4:12b text weights (Q4_K_M GGUF) with the gemma4 renderer and parser, no adapter",
+  "promotion_eligible": false,
+  "purpose": "infrastructure-validation",
+  "quality_evaluated": false,
+  "release_prefix": "validation/",
+  "scope": "Boot image, install path, TLS, gateway authentication, GPU residency, inference latency and VRAM. Not an independent quality evaluation and not usable as an approved audit model release."
+}

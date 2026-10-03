@@ -1,0 +1,28 @@
+{
+  "approved": true,
+  "approved_at": "2026-10-03T20:00:00+09:00",
+  "approved_by": "shji (infrastructure validation only)",
+  "evaluation_record": "manifests/gpu-validation-scope-gemma4-12b-20261003.json",
+  "evaluation_sha256": "d9fc5623942fa0e58f60ecf53456c0ed5a831e5a69de3ee3597ce709b1782074",
+  "files": {
+    "Modelfile": {
+      "generation": "1791024878627243",
+      "sha256": "3cfee224546334e8e86b3dbc247ce70b672ec6f459325b7f39780d2e5e386426",
+      "size": 118,
+      "uri": "gs://stunning-crane-508614-c1-trend-models/validation/gemma4-12b-validation-20261003/Modelfile"
+    },
+    "model.gguf": {
+      "generation": "1791024874484706",
+      "sha256": "bb722270d54346adc198f213851dbe0207e87c3ecf2a0aff4d92262726215391",
+      "size": 7381383680,
+      "uri": "gs://stunning-crane-508614-c1-trend-models/validation/gemma4-12b-validation-20261003/model.gguf"
+    }
+  },
+  "gateway_image": "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-model-gateway@sha256:ec7cc38d0323d447474b4cd11d3ed2b80894b4f26097c2392bd2678dd81aef24",
+  "model": "trend-audit-base:gemma4-12b",
+  "model_digest": "a9e8fc57e2647378602a23cf57f118ba44b03cee3c177212cc8267ec002471dc",
+  "ollama_image": "ollama/ollama@sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c",
+  "promotion_eligible": false,
+  "purpose": "infrastructure-validation",
+  "schema_version": 1
+}

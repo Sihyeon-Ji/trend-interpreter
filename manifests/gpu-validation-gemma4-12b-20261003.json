@@ -1,0 +1,69 @@
+{
+  "accelerator": "nvidia-l4 x1",
+  "checks": {
+    "containers": [
+      "trend-gateway Up 4 minutes",
+      "trend-ollama Up 5 minutes"
+    ],
+    "generate": [
+      {
+        "chars": 17,
+        "seconds": 25.39,
+        "status": 200,
+        "verdict_parsed": true
+      },
+      {
+        "chars": 17,
+        "seconds": 0.35,
+        "status": 200,
+        "verdict_parsed": true
+      },
+      {
+        "chars": 17,
+        "seconds": 0.36,
+        "status": 200,
+        "verdict_parsed": true
+      }
+    ],
+    "generate_median_seconds": 0.36,
+    "generate_wrong_token": 401,
+    "gpu": "NVIDIA L4, 7938 MiB, 23034 MiB, 580.178.04",
+    "health": 200,
+    "install_log": "{\"installed\": true, \"gpu_readiness\": \"not-verified\"}",
+    "ready_attempts": [
+      {
+        "seconds": 30.01,
+        "status": 504
+      },
+      {
+        "seconds": 30.01,
+        "status": 504
+      },
+      {
+        "seconds": 30.01,
+        "status": 504
+      },
+      {
+        "seconds": 30.01,
+        "status": 504
+      },
+      {
+        "seconds": 28.27,
+        "status": 200
+      }
+    ],
+    "ready_model": {
+      "model": "trend-audit-base:gemma4-12b",
+      "model_digest": "a9e8fc57e2647378602a23cf57f118ba44b03cee3c177212cc8267ec002471dc"
+    },
+    "ready_without_token": 401,
+    "ready_wrong_token": 401
+  },
+  "gpu_minutes": 8,
+  "machine_type": "g2-standard-8",
+  "release_id": "gemma4-12b-validation-20261003",
+  "verified_from": "inside the VM over IAP SSH; not yet from the Cloud Run API subnet",
+  "vm_deleted_at": "2026-10-03T11:09:43Z",
+  "vm_started_at": "2026-10-03T11:01:29Z",
+  "zone": "asia-northeast1-a"
+}
