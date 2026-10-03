@@ -131,3 +131,23 @@ def test_copy_check_meaning_fit_is_a_model_opinion_and_never_blocks(con, monkeyp
     finally:
         for _ in taken:
             api._model_slots.release()
+
+
+def test_term_topic_returns_one_topic_and_follows_board_changes(con):
+    """사전 항목의 관련 표현은 주제 하나만 받는다(보드 전체 1.5MB 대신). 보드가 다시 만들어지면 바로 따른다(해석 결과를 둔 캐시라도)."""
+    from trend_agents.pipeline import board as board_stage
+    from trend_agents.schemas import Text2, Topic, TopicVariant, TrendBoard
+
+    def save(name):
+        v = TopicVariant(region="KR", local_name="럭키비키", since="2024", heat=3, what_changed=Text2(ko="", en=""), term_id="fresh")
+        t = Topic(id="t1", category="slang_meme", name=Text2(ko=name, en=name), summary=Text2(ko="", en=""), variants=[v])
+        ds.cache_set(con, "board", TrendBoard(generated_at=datetime.now(timezone.utc), items=[], topics=[t]).model_dump_json(), "2026-10-04T00:00:00+00:00")
+
+    c = TestClient(api.app)
+    assert c.get("/terms/fresh/topic").json() is None                  # 보드가 아직 없다
+    save("긍정 밈")
+    assert c.get("/terms/fresh/topic").json()["name"]["ko"] == "긍정 밈"
+    assert c.get("/terms/warn/topic").json() is None and c.get("/terms/nope/topic").json() is None
+    save("원영적 사고")                                                   # 같은 시각으로 다시 저장해도 내용이 바뀌면 새 보드
+    assert c.get("/terms/fresh/topic").json()["name"]["ko"] == "원영적 사고"
+    assert board_stage.cached(con).topics[0].name.ko == "원영적 사고"

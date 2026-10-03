@@ -146,6 +146,31 @@ def build(con: Connection) -> TrendBoard:
     return TrendBoard(generated_at=datetime.now(timezone.utc), items=items, topics=topics, why=why_list(con))
 
 
+# 해석한 보드를 프로세스에 둔다 — /trends/board 가 요청마다 1.5MB 를 다시 해석했다(10-04). 시각·내용 해시가 같을 때만 다시 쓴다(dashboard._load 와 같다).
+_MEMO: dict[str, tuple[tuple[str, str], TrendBoard]] = {}
+
+
+def cached(con: Connection) -> TrendBoard | None:
+    """마지막으로 만든 보드(board_cache 'board'). 아직 없으면 None. 돌려준 객체는 고치지 않는다."""
+    stamp = ds.cache_stamp(con, "board")
+    if not stamp:
+        return None
+    hit = _MEMO.get("board")
+    if hit and hit[0] == stamp:
+        return hit[1]
+    row = ds.cache_get(con, "board")
+    if not row:
+        return None
+    b = TrendBoard.model_validate_json(row[0])
+    _MEMO["board"] = (stamp, b)
+    return b
+
+
+def topic_of(b: TrendBoard, term_id: str, canonical: str) -> Topic | None:
+    """용어가 든 주제 — 나라별 변형의 표제어이거나 주제 이름이 표제어와 같은 것(웹의 사전 항목 '관련 표현')."""
+    return next((x for x in b.topics if any(v.term_id == term_id for v in x.variants) or canonical in (x.name.ko, x.name.en)), None)
+
+
 def run(con: Connection) -> dict:
     with stage(con, "board") as r:
         b = build(con)

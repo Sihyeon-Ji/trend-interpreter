@@ -22,7 +22,7 @@ from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
 from ..pipeline import briefing as briefing_stage, copycheck
-from ..schemas import CampaignTone, ProductBrief, RiskLevel, TrendBoard
+from ..schemas import CampaignTone, ProductBrief, RiskLevel, Topic, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
 from ..storage import db
@@ -382,10 +382,15 @@ def explain(body: ExplainIn):
 
 @app.get("/trends/board", response_model=TrendBoard)
 def trends_board():
-    cached = ds.cache_get(_con, "board")
-    if cached:
-        return TrendBoard.model_validate_json(cached[0])
-    return board_stage.build(_con)
+    return board_stage.cached(_con) or board_stage.build(_con)
+
+
+@app.get("/terms/{term_id}/topic", response_model=Topic | None)
+def term_topic(term_id: str):
+    """용어가 든 주제 하나 — 사전 항목이 관련 표현을 찾으려고 보드 전체(1.5MB)를 받지 않게. 없으면 null."""
+    t = ds.get_term(_con, term_id)
+    b = board_stage.cached(_con)
+    return board_stage.topic_of(b, term_id, t.canonical) if t and b else None
 
 
 @app.get("/candidates")

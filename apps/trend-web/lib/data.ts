@@ -82,11 +82,8 @@ export async function getTermRecord(termId: string): Promise<TermRecord | null> 
 export async function getTermTopic(termId: string, canonical: string): Promise<Topic | null> {
   const find = (b: TrendBoard) => b.topics.find((x) => x.variants.some((v) => v.term_id === termId) || x.name.ko === canonical || x.name.en === canonical) ?? null;
   if (isSampleMode) return find(SAMPLE_BOARD);
-  try {
-    return find(await api<TrendBoard>("/trends/board", 30));
-  } catch {
-    return null;
-  }
+  // 주제 하나만 받는다 — 보드 전체(1.5MB)를 받아 찾던 것(10-04). 찾는 규칙은 백엔드 board.topic_of 가 같다
+  return apiOr<Topic | null>(`/terms/${encodeURIComponent(termId)}/topic`, null, 30);
 }
 
 /** 사전 항목 머리의 '갱신' 시각 — 마지막 정상 갱신(ADR 0001). 예시 모드는 예시 대시보드와 같은 값. */
