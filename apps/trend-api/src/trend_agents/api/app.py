@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.formparsers import MultiPartParser
 from pydantic import BaseModel, Field
@@ -31,6 +32,9 @@ from ..storage.db import Connection
 configure_logging()
 app = FastAPI(title="trend-agents api", version="0.1")
 app.add_middleware(CORSMiddleware, allow_origins=WEB_ORIGINS or ["*"], allow_methods=["*"], allow_headers=["*"])
+# Cloud Run 은 스트리밍이 아닌 응답을 32MiB 까지만 보낸다. 실데이터의 사전 전체 /terms 가 29MB, status=all 은 그 이상이었다(staging 10-03).
+# gzip 으로 약 1/4 이 된다. text/event-stream(질문 스트리밍)은 Starlette 기본값으로 압축하지 않는다.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 class _Borrowed:

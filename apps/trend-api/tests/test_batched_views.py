@@ -88,3 +88,17 @@ def test_reads_outside_the_batch_are_live():
     assert ds.current_meaning(con, "t0").definition == "term 0 의 세 번째 뜻"
     with ds.batched(con, []):
         assert ds.list_meanings(con, "t0") == []
+
+
+def test_large_list_responses_are_compressed(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    con = db.connect(":memory:")
+    for i in range(3):
+        seed(con, f"t{i}", f"term {i}")
+    monkeypatch.setattr(api, "_con", con)
+    response = TestClient(api.app).get("/terms", headers={"accept-encoding": "gzip"})
+    assert response.status_code == 200 and response.headers["content-encoding"] == "gzip"
+    assert len(response.json()) == 3
