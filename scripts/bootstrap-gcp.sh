@@ -36,14 +36,9 @@ PY
 terraform -chdir=infra/gcp init -reconfigure -backend-config="bucket=$STATE_BUCKET" -backend-config="prefix=foundation"
 terraform -chdir=infra/gcp plan -out=bootstrap.tfplan
 terraform -chdir=infra/gcp apply bootstrap.tfplan
-if ! gcloud secrets versions describe latest --secret=builder-cup-demo-key --project="$PROJECT_ID" >/dev/null 2>&1; then
-  python3 -c 'import secrets; print(secrets.token_urlsafe(32), end="")' |
-    gcloud secrets versions add builder-cup-demo-key --data-file=- --project="$PROJECT_ID"
-fi
 gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$REPO" \
   --body "$(terraform -chdir=infra/gcp output -raw workload_identity_provider)"
 gh variable set GCP_DEPLOY_SERVICE_ACCOUNT --repo "$REPO" \
   --body "$(terraform -chdir=infra/gcp output -raw deploy_service_account)"
 gh api --method PUT "repos/$REPO/environments/gcp" >/dev/null
 printf '%s\n' 'Infrastructure and GitHub variables configured.'
-printf '%s\n' 'Retrieve the team access code privately from Secret Manager: builder-cup-demo-key.'

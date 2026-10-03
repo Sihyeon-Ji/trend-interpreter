@@ -4,7 +4,7 @@ from scripts import release_recovery as recovery
 from scripts.release_summary import format_summary
 
 
-def revision(service="builder-cup", version="1", ready=True):
+def revision(service="trend-production-api", version="1", ready=True):
     variable, secret = recovery.SECRETS[service]
     return {
         "metadata": {
@@ -29,7 +29,7 @@ def revision(service="builder-cup", version="1", ready=True):
 
 
 def test_revision_preflight_rejects_wrong_service_unready_or_unpinned_secret():
-    assert recovery.validate_revision("builder-cup", revision()) == (
+    assert recovery.validate_revision("trend-production-api", revision()) == (
         "example.test/app@sha256:abc",
         "1",
     )
@@ -39,7 +39,7 @@ def test_revision_preflight_rejects_wrong_service_unready_or_unpinned_secret():
         revision(version="latest"),
     ):
         with pytest.raises(recovery.RecoveryError):
-            recovery.validate_revision("builder-cup", target)
+            recovery.validate_revision("trend-production-api", target)
 
 
 def test_relay_invoker_policy_must_stay_private():
@@ -59,8 +59,8 @@ def test_check_mode_never_changes_traffic(monkeypatch):
     )
     checked = []
     monkeypatch.setattr(recovery, "verify_http", lambda *args: checked.append(args))
-    recovery.recover("builder-cup", "current", apply=False)
-    assert checked == [("builder-cup", "https://example.test")]
+    recovery.recover("trend-production-api", "current", apply=False)
+    assert checked == [("trend-production-api", "https://example.test")]
 
 
 def test_failed_postcheck_restores_previous_revision(monkeypatch):
@@ -83,14 +83,14 @@ def test_failed_postcheck_restores_previous_revision(monkeypatch):
         lambda *_: (_ for _ in ()).throw(recovery.RecoveryError("health failed")),
     )
     with pytest.raises(recovery.RecoveryError, match="health failed"):
-        recovery.recover("builder-cup", "target", apply=True)
+        recovery.recover("trend-production-api", "target", apply=True)
     assert any("--to-revisions=target=100" in args for args in commands)
     assert any("--to-revisions=previous=100" in args for args in commands)
 
 
 def test_release_report_contains_metadata_without_secret_value():
     result = format_summary(
-        "builder-cup",
+        "trend-production-api",
         "previous",
         "current",
         "image@sha256:abc",

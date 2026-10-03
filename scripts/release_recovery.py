@@ -10,7 +10,6 @@ import urllib.request
 PROJECT_ID = "stunning-crane-508614-c1"
 REGION = "asia-northeast1"
 SECRETS = {
-    "builder-cup": ("DEMO_API_KEY", "builder-cup-demo-key"),
     "builder-cup-alert-relay": ("DISCORD_WEBHOOK_URL", "discord-webhook"),
     "trend-production-api": ("DATABASE_URL", "trend-production-database-url"),
     "trend-production-web": ("SESSION_SECRET", "trend-production-session-secret"),
@@ -98,30 +97,12 @@ def verify_http(service: str, url: str) -> None:
     if service.startswith("trend-"):
         verify_trend(service, url)
         return
-    headers = {}
-    if service == "builder-cup-alert-relay":
-        token = os.getenv("HEALTH_ID_TOKEN") or command("gcloud", "auth", "print-identity-token")
-        headers["Authorization"] = f"Bearer {token}"
-    path = "/api/health" if service == "builder-cup" else "/health"
-    request = urllib.request.Request(f"{url}{path}", headers=headers)
+    token = os.getenv("HEALTH_ID_TOKEN") or command("gcloud", "auth", "print-identity-token")
+    request = urllib.request.Request(f"{url}/health", headers={"Authorization": f"Bearer {token}"})
     with urllib.request.urlopen(request, timeout=20) as response:
         data = json.load(response)
-    if data.get("status") != "ok" or (
-        service == "builder-cup" and data.get("provider") != "gemini"
-    ):
+    if data.get("status") != "ok":
         raise RecoveryError("Health response did not match the service contract")
-    if service == "builder-cup":
-        request = urllib.request.Request(
-            f"{url}/api/analyze",
-            data=b'{"text":"Deployment verification"}',
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            urllib.request.urlopen(request, timeout=20)
-        except urllib.error.HTTPError as exc:
-            if exc.code == 401:
-                return
-        raise RecoveryError("Anonymous analysis request was not rejected with HTTP 401")
 
 
 def preflight(service: str, revision_name: str) -> tuple[str, str, str]:

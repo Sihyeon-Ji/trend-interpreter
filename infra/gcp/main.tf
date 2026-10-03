@@ -2,23 +2,24 @@ data "google_project" "current" {}
 
 locals {
   alert_relay_service = "builder-cup-alert-relay"
+  trend_services      = "one_of(\"trend-production-api\", \"trend-production-web\")"
   alert_relay_url     = "https://${local.alert_relay_service}-${data.google_project.current.number}.${var.region}.run.app"
   alert_channels = concat(
     [google_monitoring_notification_channel.discord_pubsub.name],
     google_monitoring_notification_channel.email[*].name,
   )
   dashboard_definition = {
-    displayName = "Builder Cup operations"
+    displayName = "Trend operations"
     gridLayout = { columns = 2, widgets = [
-      { title = "Cloud Run requests", xyChart = { dataSets = [{ timeSeriesQuery = {
+      { title = "Trend requests", xyChart = { dataSets = [{ timeSeriesQuery = {
         timeSeriesFilter = {
-          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.labels.service_name=\"builder-cup\""
+          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.label.service_name=${local.trend_services}"
           aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
         }
       } }] } },
-      { title = "Application errors", xyChart = { dataSets = [{ timeSeriesQuery = {
+      { title = "Trend server errors", xyChart = { dataSets = [{ timeSeriesQuery = {
         timeSeriesFilter = {
-          filter      = "metric.type=\"logging.googleapis.com/user/builder_cup_api_errors\" resource.type=\"cloud_run_revision\""
+          filter      = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" resource.label.service_name=${local.trend_services} metric.label.response_code_class=\"5xx\""
           aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_RATE" }
         }
       } }] } },
@@ -77,12 +78,6 @@ resource "google_artifact_registry_repository" "app" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_service_account" "runtime" {
-  account_id   = "builder-cup-runtime"
-  display_name = "Builder Cup application runtime"
-  depends_on   = [google_project_service.apis]
-}
-
 resource "google_service_account" "deploy" {
   account_id   = "builder-cup-deploy"
   display_name = "Builder Cup GitHub deployer"
@@ -99,12 +94,6 @@ resource "google_service_account" "alert_push" {
   account_id   = "builder-cup-alert-push"
   display_name = "Builder Cup authenticated alert push"
   depends_on   = [google_project_service.apis]
-}
-
-resource "google_project_iam_member" "vertex" {
-  project = var.project_id
-  role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.runtime.email}"
 }
 
 # run.admin is needed to create the service and set its public invoker policy.
@@ -128,37 +117,10 @@ resource "google_artifact_registry_repository_iam_member" "writer" {
   member     = "serviceAccount:${google_service_account.deploy.email}"
 }
 
-resource "google_service_account_iam_member" "act_as_runtime" {
-  service_account_id = google_service_account.runtime.name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${google_service_account.deploy.email}"
-}
-
 resource "google_service_account_iam_member" "act_as_alert_relay" {
   service_account_id = google_service_account.alert_relay.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.deploy.email}"
-}
-
-resource "google_secret_manager_secret" "demo_key" {
-  secret_id = "builder-cup-demo-key"
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.apis]
-}
-
-# Secret value is provisioned by bootstrap, never placed in Terraform state.
-resource "google_secret_manager_secret_iam_member" "runtime_key" {
-  secret_id = google_secret_manager_secret.demo_key.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.runtime.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "deploy_demo_key_viewer" {
-  secret_id = google_secret_manager_secret.demo_key.id
-  role      = "roles/secretmanager.viewer"
-  member    = "serviceAccount:${google_service_account.deploy.email}"
 }
 
 resource "google_secret_manager_secret" "discord_webhook" {
@@ -211,23 +173,13 @@ resource "google_service_account_iam_member" "github" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
 }
 
-resource "google_logging_metric" "api_errors" {
-  name   = "builder_cup_api_errors"
-  filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"builder-cup\" AND jsonPayload.status>=500"
-  metric_descriptor {
-    metric_kind = "DELTA"
-    value_type  = "INT64"
-  }
-  depends_on = [google_project_service.apis]
-}
-
 resource "terraform_data" "dashboard_definition" {
   input = sha256(jsonencode(local.dashboard_definition))
 }
 
 resource "google_monitoring_dashboard" "app" {
   dashboard_json = jsonencode(local.dashboard_definition)
-  depends_on     = [google_logging_metric.api_errors]
+  depends_on     = [google_project_service.apis]
   # Cloud Monitoring injects output-only fields and chart defaults into the stored JSON.
   # Replace only when the desired chart definition changes, not on API normalization.
   lifecycle {
@@ -330,7 +282,11 @@ resource "google_monitoring_notification_channel" "email" {
 }
 
 resource "google_monitoring_uptime_check_config" "api_health" {
-  display_name       = "Builder Cup API health"
+  display_name = "Trend web map"
+  # The alert policy references this check; create the replacement first so the policy can move to it.
+  lifecycle {
+    create_before_destroy = true
+  }
   timeout            = "10s"
   period             = "300s"
   checker_type       = "STATIC_IP_CHECKERS"
@@ -341,12 +297,13 @@ resource "google_monitoring_uptime_check_config" "api_health" {
     type = "uptime_url"
     labels = {
       project_id = var.project_id
-      host       = "builder-cup-${data.google_project.current.number}.${var.region}.run.app"
+      # The map page reads the private API and the database, so it fails when any of them is down.
+      host = "trend-production-web-${data.google_project.current.number}.${var.region}.run.app"
     }
   }
 
   http_check {
-    path           = "/api/health"
+    path           = "/map"
     port           = 443
     request_method = "GET"
     use_ssl        = true
@@ -356,16 +313,11 @@ resource "google_monitoring_uptime_check_config" "api_health" {
     }
   }
 
-  content_matchers {
-    content = "\"status\":\"ok\""
-    matcher = "CONTAINS_STRING"
-  }
-
   depends_on = [google_project_service.apis]
 }
 
 resource "google_monitoring_alert_policy" "api_unavailable" {
-  display_name          = "Builder Cup API unavailable"
+  display_name          = "Trend web unavailable"
   combiner              = "OR"
   severity              = "CRITICAL"
   notification_channels = local.alert_channels
@@ -394,15 +346,15 @@ resource "google_monitoring_alert_policy" "api_unavailable" {
 }
 
 resource "google_monitoring_alert_policy" "api_errors" {
-  display_name          = "Builder Cup API server errors"
+  display_name          = "Trend server errors"
   combiner              = "OR"
   severity              = "ERROR"
   notification_channels = local.alert_channels
 
   conditions {
-    display_name = "At least one API server error in 5 minutes"
+    display_name = "At least one Trend 5xx response in 5 minutes"
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/builder_cup_api_errors\" AND resource.type=\"cloud_run_revision\""
+      filter          = "metric.type=\"run.googleapis.com/request_count\" AND resource.type=\"cloud_run_revision\" AND resource.label.service_name=${local.trend_services} AND metric.label.response_code_class=\"5xx\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "0s"
@@ -419,10 +371,7 @@ resource "google_monitoring_alert_policy" "api_errors" {
     auto_close           = "1800s"
     notification_prompts = ["OPENED", "CLOSED"]
   }
-  depends_on = [
-    google_logging_metric.api_errors,
-    google_pubsub_topic_iam_member.monitoring_publisher,
-  ]
+  depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
 }
 
 resource "google_monitoring_alert_policy" "relay_errors" {
