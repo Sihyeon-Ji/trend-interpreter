@@ -1,0 +1,41 @@
+{
+  "code_path": "trend_agents.interpreters.local_chat with the GPU gateway configured, audit PROMPT and AuditCheck schema, synthetic public entry",
+  "execution": "trend-staging-gpu-probe-gmkmr",
+  "network": "Direct VPC egress, trend-staging-private / trend-staging-api, private ranges only",
+  "probe": {
+    "audit_checks": [
+      {
+        "ok": true,
+        "seconds": 2.14,
+        "value": {
+          "schema_valid": true
+        }
+      },
+      {
+        "ok": true,
+        "seconds": 2.1,
+        "value": {
+          "schema_valid": true
+        }
+      },
+      {
+        "ok": true,
+        "seconds": 2.1,
+        "value": {
+          "schema_valid": true
+        }
+      }
+    ],
+    "generate_wrong_token": 401,
+    "other_model_available": false,
+    "ready": {
+      "ok": true,
+      "seconds": 0.76,
+      "value": true
+    },
+    "ready_without_token": 401
+  },
+  "release_id": "gemma4-12b-validation-20261003-r2",
+  "runtime": "temporary Cloud Run job, trend-api image sha256:9c279a4a001885c671a0ff51f434914fc5cb1f7b6d24511194dc596cd7a11f66",
+  "service_account": "trend-staging-api"
+}

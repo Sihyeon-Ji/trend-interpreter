@@ -251,3 +251,9 @@ GPU 검증은 승인됐지만 [GPU VM 배포 계약](../개발환경/GPU-VM-배�
 
 boot image 빌드는 다섯 번째 실행에서 성공했다. 첫 실행은 실행 중인 스크립트를 수정해 중단됐고, 이후 두 번은 builder 권한을 prefix로 좁히면서 생긴 목록 조회 권한 문제, 한 번은 조건 인자 형식 문제였다. 각 실패 뒤 builder VM·네트워크·권한이 정리된 것을 확인했다.
 
+### 10-03 GPU 준비 지연 수정과 Cloud Run 연결 확인
+
+첫 검증에서 찾은 cold start 문제를 고쳤다. 설치기가 gateway와 같은 요청 옵션으로 모델을 미리 적재한 뒤 gateway를 시작한다. boot image r2로 다시 확인한 결과 `/ready`는 첫 시도 0.42초, 첫 추론은 0.38초였다(수정 전 504 4회·25초).
+
+같은 VM에 대해 trend-api 이미지를 임시 Cloud Run Job으로 실행했다. API SA와 API 서브넷의 Direct VPC egress로 실제 감사관 `local_chat` 경로를 호출해 준비 확인과 `AuditCheck` 구조화 호출 3/3(각 약 2.1초)이 통과했다. 무인증·잘못된 token은 401이었다. 검증 뒤 VM·디스크·내부 IP·Job·임시 권한을 삭제했고 r1 image와 모델 파일도 지웠다(GPU r2 약 10분). 상세는 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다. 남은 일은 운영 release(사람 평가 후)와 웹·API Cloud Run 서비스 배포다.
+

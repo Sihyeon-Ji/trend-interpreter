@@ -1,0 +1,27 @@
+{
+  "base_image": "projects/ubuntu-os-accelerator-images/global/images/ubuntu-accelerator-2404-amd64-with-nvidia-580-v20260925",
+  "boot_image": "projects/stunning-crane-508614-c1/global/images/trend-gpu-gemma4-12b-validation-20261003-r2",
+  "docker": "29.1.3",
+  "files": {
+    "Modelfile": {
+      "generation": "1791031016118664",
+      "sha256": "3cfee224546334e8e86b3dbc247ce70b672ec6f459325b7f39780d2e5e386426",
+      "size": 118,
+      "uri": "gs://stunning-crane-508614-c1-trend-models/validation/gemma4-12b-validation-20261003-r2/Modelfile"
+    },
+    "model.gguf": {
+      "generation": "1791031011023182",
+      "sha256": "bb722270d54346adc198f213851dbe0207e87c3ecf2a0aff4d92262726215391",
+      "size": 7381383680,
+      "uri": "gs://stunning-crane-508614-c1-trend-models/validation/gemma4-12b-validation-20261003-r2/model.gguf"
+    }
+  },
+  "gateway_image": "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-model-gateway@sha256:68dc69c4325d8fb1f32911aa52eafb886113a7191a098744f61cf39feb1038af",
+  "model": "trend-audit-base:gemma4-12b",
+  "model_digest": "a9e8fc57e2647378602a23cf57f118ba44b03cee3c177212cc8267ec002471dc",
+  "nvidia_container_toolkit": "NVIDIA Container Toolkit CLI version 1.20.1",
+  "nvidia_driver_packages": "libnvidia-compute-580-server 580.178.04-0ubuntu0.24.04.1\nnvidia-driver-580-server",
+  "ollama_image": "ollama/ollama@sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c",
+  "python": "Python 3.12.3",
+  "release_id": "gemma4-12b-validation-20261003-r2"
+}

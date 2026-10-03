@@ -1,0 +1,54 @@
+{
+  "accelerator": "nvidia-l4 x1",
+  "checks": {
+    "containers": [
+      "trend-gateway Up 21 seconds",
+      "trend-ollama Up 3 minutes"
+    ],
+    "generate": [
+      {
+        "chars": 17,
+        "seconds": 0.38,
+        "status": 200,
+        "verdict_parsed": true
+      },
+      {
+        "chars": 17,
+        "seconds": 0.35,
+        "status": 200,
+        "verdict_parsed": true
+      },
+      {
+        "chars": 17,
+        "seconds": 0.35,
+        "status": 200,
+        "verdict_parsed": true
+      }
+    ],
+    "generate_median_seconds": 0.35,
+    "generate_wrong_token": 401,
+    "gpu": "NVIDIA L4, 7944 MiB, 23034 MiB, 580.178.04",
+    "health": 200,
+    "install_log": "{\"installed\": true, \"gpu_readiness\": \"not-verified\"}",
+    "ready_attempts": [
+      {
+        "seconds": 0.42,
+        "status": 200
+      }
+    ],
+    "ready_model": {
+      "model": "trend-audit-base:gemma4-12b",
+      "model_digest": "a9e8fc57e2647378602a23cf57f118ba44b03cee3c177212cc8267ec002471dc"
+    },
+    "ready_without_token": 401,
+    "ready_wrong_token": 401
+  },
+  "gpu_minutes": 10,
+  "installer": "warms the model with the gateway's request options before starting the gateway",
+  "machine_type": "g2-standard-8",
+  "release_id": "gemma4-12b-validation-20261003-r2",
+  "verified_from": "inside the VM over IAP SSH",
+  "vm_deleted_at": "2026-10-03T12:54:26Z",
+  "vm_started_at": "2026-10-03T12:44:15Z",
+  "zone": "asia-northeast1-a"
+}

@@ -88,10 +88,10 @@ HTTPS·CA 검증·bearer·고정 release 일치를 검사하고 redirect·환경
 | 기반 | 로컬 `staging.tfvars.json`(`enabled=true`, `environment=staging`)으로 VPC·서브넷·SA 6개·방화벽·gateway token secret을 적용했다(19개 생성) |
 | 모델 버킷 | 비공개 `stunning-crane-508614-c1-trend-models`(도쿄, uniform access, public access prevention) |
 | gateway image | `models/serving`을 amd64로 빌드해 `builder-cup/trend-model-gateway@sha256:ec7cc38d…`로 push |
-| boot image | `scripts/build-gpu-image.sh`가 GPU 없는 임시 builder VM으로 `trend-gpu-gemma4-12b-validation-20261003`을 만든다. 기반은 `ubuntu-accelerator-2404-amd64-with-nvidia-580-v20260925`, Docker 29.1.3·NVIDIA Container Toolkit 1.20.1·Python 3.12.3. 보고서 `manifests/gpu-image-gemma4-12b-validation-20261003.json` |
+| boot image | `scripts/build-gpu-image.sh`가 GPU 없는 임시 builder VM으로 `trend-gpu-gemma4-12b-validation-20261003`(r1, r2로 대체돼 삭제)을 만든다. 기반은 `ubuntu-accelerator-2404-amd64-with-nvidia-580-v20260925`, Docker 29.1.3·NVIDIA Container Toolkit 1.20.1·Python 3.12.3. 보고서 `manifests/gpu-image-gemma4-12b-validation-20261003.json` |
 | 모델 | Ollama 라이브러리 `gemma4:12b`의 텍스트 GGUF(Q4_K_M, 7.38GB)를 레지스트리 SHA-256으로 검증해 올렸다. Modelfile은 `gemma4` renderer·parser를 지정한다. `ollama create` digest `a9e8fc57…`는 두 번의 빌드에서 같았다 |
 | secret | `trend-staging-gpu-tls`(SAN `10.40.1.4`, 90일), `trend-staging-gpu-ca`(API용 CA), `trend-staging-gateway-token` version 1 |
-| GPU VM | 로컬 `staging-gpu-validation.tfvars.json`으로 적용, 약 3분 만에 설치 완료. tfvars는 저장소 규칙상 Git에서 제외하며 `gpu` 입력값은 위 image·release manifest와 아래 값으로 재구성한다: zone `asia-northeast1-a`, release generation `1791025228844907`, SHA-256 `ae1ac374…4087`, TLS secret version 1, token version 1, `format_model_disk=true` |
+| GPU VM | 로컬 `staging-gpu-validation.tfvars.json`으로 적용, 약 3분 만에 설치 완료. tfvars는 저장소 규칙상 Git에서 제외하며 `gpu` 입력값은 위 image·release manifest와 아래 값으로 재구성한다: zone `asia-northeast1-a`, TLS secret version 1, token version 1, `format_model_disk=true`(새 디스크일 때). release 값은 아래 r2 기준을 쓴다 |
 
 builder SA의 버킷 권한은 이번 release의 두 prefix로 제한하고(목록 조회 포함) 스크립트 종료 시 회수한다. 목록 조회는 `objectListPrefix` 조건으로만 허용되므로 조건을 JSON 파일로 넘긴다.
 
@@ -106,13 +106,40 @@ builder SA의 버킷 권한은 이번 release의 두 prefix로 제한하고(목�
 | 추론 | 첫 호출 25.4초, 이후 0.35·0.36초. JSON 판정 형식 3/3 |
 | GPU | L4 7,938MiB / 23,034MiB 사용, 드라이버 580.178.04 |
 
-발견한 문제와 남은 일은 다음과 같다.
+첫 검증(r1)에서 발견한 문제와 처리 결과는 다음과 같다.
 
-- **cold start가 gateway deadline 30초보다 길다.** 모델 디스크에서 처음 GPU에 올리는 시간이 30초를 넘어 `/ready`가 반복 504가 된다. 준비 확인 전용으로 더 긴 deadline을 두거나, 설치기가 gateway 시작 전에 모델을 미리 올리도록 고쳐야 한다. 준비 직후 첫 추론도 25초가 걸렸다.
-- API 서브넷에서의 접속(Cloud Run Direct VPC egress)은 아직 확인하지 않았다. 이번 검증은 VM 내부에서 자기 IP로 호출했다.
+- **cold start가 gateway deadline 30초보다 길었다.** 처음 GPU에 올리는 동안 `/ready`가 504를 4회 반환했고, 준비 직후 첫 추론도 25초가 걸렸다. 설치기가 gateway와 같은 요청 옵션(`model_gateway.engine.chat_request`)으로 짧은 요청과 실제 길이의 요청을 보내 모델을 미리 적재한 뒤에만 gateway를 시작하도록 고쳤다(예열 제한 600초). 예열이 실패하면 gateway를 띄우지 않고 두 컨테이너를 지운다. 같은 모델로 boot image r2를 다시 만들어 확인했다.
+
+| 항목 | r1 (수정 전) | r2 (수정 후) |
+| --- | --- | --- |
+| 설치 완료까지 | 약 3분 | 약 5분(예열 포함) |
+| 첫 `/ready` | 504 4회 뒤 200 | 1회에 200, 0.42초 |
+| 첫 추론 | 25.4초 | 0.38초 |
+| 이후 추론 중앙값 | 0.36초 | 0.35초 |
+| GPU 메모리 | 7,938MiB | 7,944MiB |
+
+r2 결과는 `manifests/gpu-validation-gemma4-12b-20261003-r2.json`이다. r1 boot image와 r1 모델 파일은 r2로 대체돼 삭제했다. r1 manifest는 기록으로 남긴다.
+
+### Cloud Run에서 GPU로의 연결
+
+`scripts/probe-gpu-from-cloud-run.sh`는 서비스를 공개하지 않고 이 경로를 확인한다. trend-api 이미지(`trend-api@sha256:9c279a4a…`)를 임시 Cloud Run Job으로 한 번 실행한다. API와 같은 `trend-staging-api` SA를 쓰고, `trend-staging-private`의 API 서브넷으로 private range만 내보내는 Direct VPC egress를 쓴다. gateway token은 Secret Manager에서 env로, CA는 파일 mount로 받는다. Job은 감사관 파이프라인과 같은 `local_chat` 경로로 실제 감사관 프롬프트(`audit.PROMPT`)와 `AuditCheck` 스키마를 호출한다. 입력은 공개된 합성 항목이다. 실행 후 Job과 CA 읽기 임시 권한을 지운다.
+
+| 항목 | 결과 |
+| --- | --- |
+| 준비 확인 | 통과, 0.76초 |
+| 감사관 구조화 호출 | 3/3 스키마 통과, 각 약 2.1초 |
+| 다른 모델 요청 | 사용 불가로 거부 |
+| 같은 서브넷의 무인증·잘못된 token | 모두 401 |
+
+결과는 `manifests/gpu-cloud-run-probe-gemma4-12b-20261003-r2.json`이다. Job 출력은 Cloud Logging에 `jsonPayload`로 남는다. 상태·시간·스키마 통과 여부만 기록하며 프롬프트와 모델 출력은 남기지 않는다. Job은 Service와 실행 형태만 다르고 이미지·SA·네트워크·secret 주입은 같다. 공개 웹과 비공개 API Cloud Run 서비스 배포(`services`)는 이미지·secret 준비와 함께 별도로 진행한다.
+
+남은 일은 다음과 같다.
+
 - 감사관 품질은 평가하지 않았다. 운영 release는 사람 평가와 승인 뒤 `releases/` prefix로 따로 만든다.
+- API 서비스 배포 때 `services.gpu`로 같은 설정을 Terraform에 연결하고, 웹→API→GPU 흐름을 확인한다.
+- TLS 서버 인증서는 90일짜리다(2026-10-03 발급). 운영 전에 갱신 절차를 정한다.
 
-검증 후 사용자 결정에 따라 VM·부트 디스크·모델 디스크·예약 내부 IP를 삭제하고 Terraform state에서 정리했다. GPU 사용은 약 8분이다. boot image(40GB), GCS의 모델 파일, 기반 VPC·SA·secret은 남겨 다시 만들 때 쓴다.
+두 검증 모두 끝난 뒤 사용자 결정에 따라 VM·부트 디스크·모델 디스크·예약 내부 IP를 삭제하고 Terraform state에서 정리했다. GPU 사용은 r1 약 8분, r2 약 10분이다. r2 boot image(40GB), GCS의 r2 모델 파일, 기반 VPC·SA·secret은 남겨 다시 만들 때 쓴다. 다시 띄울 때는 로컬 `staging-gpu-validation.tfvars.json`을 r2 release(`validation/gemma4-12b-validation-20261003-r2/release.json`, generation `1791031398067509`, SHA-256 `40982f99…8492`)로 맞춘다.
 
 ## 검증
 
