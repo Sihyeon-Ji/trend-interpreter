@@ -242,5 +242,5 @@ API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가�
 
 GPU 검증은 승인됐지만 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)상 승인 release·준비된 boot image·TLS/token secret version이 먼저 필요하다. 이후 사용자 승인으로 Compute API를 활성화했다. 조직 정책이 없어 자동 생성된 `default` 네트워크와 SSH·RDP·ICMP를 `0.0.0.0/0`에 연 기본 방화벽 규칙 4개는 VM이 없는 상태에서 바로 삭제했다. 현재 프로젝트에 VPC·방화벽 규칙·VM은 없다.
 
-도쿄 `asia-northeast1-a/b/c` 모두 L4를 제공하고 지역 할당량 `NVIDIA_L4_GPUS`는 1이다. 그러나 프로젝트 전체 `GPUS_ALL_REGIONS`가 **0**이라 할당량 증가 승인 전에는 GPU VM을 만들 수 없다. 증가 요청은 아직 제출하지 않았다.
+도쿄 `asia-northeast1-a/b/c` 모두 L4를 제공하고 지역 할당량 `NVIDIA_L4_GPUS`는 1이다. 그러나 프로젝트 전체 `GPUS_ALL_REGIONS`가 **0**이라 할당량 증가 승인 전에는 GPU VM을 만들 수 없다. 사용자 승인으로 Cloud Quotas API를 켜고 `GPUS-ALL-REGIONS-per-project`를 1로 요청했으며 즉시 승인돼 현재 값은 1이다. 남은 선행 조건은 준비된 boot image·기본 Gemma 검증용 release·TLS/token secret version이다.
 
