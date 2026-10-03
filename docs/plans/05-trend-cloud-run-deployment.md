@@ -2,11 +2,17 @@
 
 > **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **Cloud SQL 체험 인스턴스 생성 완료(콘솔에서 만듦, Terraform 밖), 앱 배포 구현 대기 – 코드 쪽(PostgreSQL·마이그레이션·JSON 로그·연결 풀, 유지보수 작업·운영 신호 – 10-01 develop)만 끝났고, GCP 자원 생성·배포는 제출 직전 사용자 확인 뒤** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **부분 구현 – 웹→API ID token·네트워크/IAM 기반 추가, Trend 실배포·Cloud SQL 운영 연결·게시/예약/복구 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
 > **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+
+## 2026-10-03 점검
+
+공통 API 인증 fetch와 분리된 `infra/gcp/hybrid`의 VPC·SA·gateway secret 기반이 추가됐다. 유지보수·운영 신호 코드는 준비됐지만 Trend 배포 job·Cloud Run 서비스·Cloud SQL staging·예약 백업/경보는 남았다. 초안 공개 조회·승인 게시·운영 연결을 배포 차단으로 기록한다. 최초 보안 실패는 후속 13건 수정·개발 도구 1건 기한부 예외 후 재검사에서 통과했다. 실제 GCP 상태는 이번에 재조회하지 않았다.
+
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 배경
 
@@ -103,7 +109,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 ## 구현 순서
 
 1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. Plan 01의 GCS 고정 SQLite 스냅숏은 `scripts/migrate_sqlite_to_postgres.py`로 staging 이관·대조한 뒤 최초 적재합니다. SQLite `.sql.gz`를 `pg_dump`로 취급하지 않습니다. 검증한 PostgreSQL 사본은 `pg_dump`로 옮길 수 있습니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
-2. `infra/gcp/main.tf`에 Trend용 service account, secret metadata, IAM을 추가하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
+2. 기존 운영 state와 분리한 `infra/gcp/hybrid`에 Trend용 service account, secret metadata, IAM을 구성하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
    Cloud SQL 연결 총량은 `max-instances × DB_POOL_SIZE`에 유지보수 작업과 로컬 게시 연결 수를 더해 인스턴스의 허용 연결 수보다 작게 설계합니다.
@@ -128,7 +134,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 
-아래 표·목록은 당시 점검 기록이다. 현재 진척도는 [10-01 실측 점검](구현-완료도-실측-점검-2026-10-01.md)을 따른다. 현재 구축에는 Plan 17을 적용하며, 기존 Cloud SQL은 소유 범위 확인·참조/import 후 무변경 plan부터 검토한다. 아래 과거 목록을 근거로 인스턴스를 중복 생성하지 않는다.
+아래 표·목록은 당시 점검 기록이다. 현재 진척도는 [10-03 실측 점검](구현-완료도-실측-점검-2026-10-03.md)을 따른다. 현재 구축에는 Plan 17을 적용하며, 기존 Cloud SQL은 소유 범위 확인·참조/import 후 무변경 plan부터 검토한다. 아래 과거 목록을 근거로 인스턴스를 중복 생성하지 않는다.
 
 완료 기준 8개 중 충족한 것은 없고, 코드가 준비된 것이 일부 있다.
 

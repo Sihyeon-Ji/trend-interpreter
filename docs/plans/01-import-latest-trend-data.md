@@ -1,8 +1,14 @@
 # Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **기존 스냅숏 이관 검증 완료(09-29) · GCS 최신 고정 스냅숏의 staging 이관·대조는 남음 · 수집 서버 PostgreSQL 전환은 미실행** · 선행 **없음** · 목표일 **2026-10-01**
+작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **부분 완료 – 10-01 고정 사본 인수·로컬 PostgreSQL 41표 대조 완료(10-02 기록), GCS 게시·Cloud SQL·수집 DB 전환 남음** · 선행 **없음** · 목표일 **2026-10-01**
 
 [계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
+
+## 2026-10-03 점검
+
+고정 사본 `20261001T224511-e56b90d`의 무결성·41표 건수·이용자 표 제외를 다시 확인했다. 10-02 실행 기록의 로컬 PostgreSQL 대조는 완료이며 Cloud SQL staging·API 모드·복원·수집 PostgreSQL 전환·승인 변경 게시와 구분한다. 목표일 10-01은 지났으나 전체 완료 조건은 남아 있다.
+
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 배경
 
@@ -46,12 +52,12 @@ Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_c
 스크립트로 바로 옮기면 `--fresh --skip-user-data`, 로컬 DB에서 내보내면
 `pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
 
-현재 이관 스크립트의 `--skip-user-data`는 `explain_cache`·`reader_prefs`만 제외합니다. GCS 인수본에서 `lookups`도 없는지 확인하고, 향후 원본에 존재할 수 있는 `lookups`까지 제외하도록 스크립트를 보완해야 합니다. 이 세 표 제외 검증은 최초 이관의 필수 조건입니다.
+현재 이관 스크립트의 `--skip-user-data`는 `explain_cache`·`lookups`·`reader_prefs`를 모두 제외합니다(10-02 수정·테스트). 고정 인수본에서 세 표가 없음을 다시 검증했으며, 10-02 로컬 PostgreSQL 이관 기록에서도 세 표 0행을 확인했습니다. Cloud SQL 최초 적재에서도 이 조건을 다시 확인합니다.
 
 ## 완료 기준
 
-- 선택한 GCS snapshot manifest와 staging PostgreSQL의 용어·뜻·근거·검수 기록을 대조하고, 호환성 때문에 제외한 항목을 건수와 사유로 기록한다. → 최신본은 미검증
-- staging에서 `health_check.py`와 API 모드 실데이터 흐름을 검증한다. → 09-29 사본은 확인, 최신본은 남음
+- 선택한 GCS snapshot manifest와 staging PostgreSQL의 용어·뜻·근거·검수 기록을 대조하고, 호환성 때문에 제외한 항목을 건수와 사유로 기록한다. → 10-01 22:45 고정 사본의 로컬 PostgreSQL 대조 완료(10-02 기록), Cloud SQL staging은 남음
+- staging에서 `health_check.py`와 API 모드 실데이터 흐름을 검증한다. → 09-29 사본의 건강 점검은 확인했으나 API 모드 e2e는 10건 실패. 10-01 고정 사본의 건강 점검·API 모드 흐름은 남음
 - 이용자 표 제외를 확인하고 Cloud SQL 최초 이관·복원 결과에 snapshot ID를 연결한다. → 남음
 - 수집 파이프라인의 PostgreSQL 쓰기·재실행·백업/복원을 검증하고, 전환 후 SQLite에 이중으로 쓰지 않는지 확인한다. 전환 대상 DB와 실행 위치는 결정·구축이 필요하다. → 미실행
 - 수집 DB와 공개 승인 데이터의 경계를 유지하며 이후 승인 배치를 중복·뜻 버전 충돌 없이 게시한다. → Plan 17의 게시 구현·검증과 연결

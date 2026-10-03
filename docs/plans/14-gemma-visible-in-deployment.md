@@ -2,9 +2,15 @@
 
 > **2026-10-01 인프라 결정:** Gemma 운영 서빙 위치는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU로 확정했다. 운영 기반은 아래 GCE runtime·내부 gateway·비동기 작업 설계를 따른다. 사용자 화면과 관리자 실행 UX는 계속 팀 검토 대상으로 두며 품질·로그·장애 시 조회 유지 조건은 적용한다.
 
-작성일 **2026-09-30** · 상태 **GCE 운영 기반 확정 · 화면/권한 정책 검토와 구현은 남음** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
+작성일 **2026-09-30** · 상태 **모델 기록·GPU gateway 기반 준비 – Gemma 표시 UI·live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
 [계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](03-term-risk.md) · [Plan 12 문서 대조](12-dictionary-crosscheck.md)
+
+## 2026-10-03 점검
+
+모델 ID 저장과 Plan 17의 gateway 기반은 준비됐지만 /about/gemma·문장별 모델 표시·live-risk endpoint·관리자 수동 실행은 없다. 미커밋 API adapter·VM/설치 도구는 구현 중으로 별도 분류한다. 실제 GPU 버튼·중단 시 조회·청구 검증은 아직 없다.
+
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 목적
 
@@ -34,7 +40,7 @@ Trend Interpreter는 사전을 만드는 여러 단계에서 Gemma 4를 사용�
 | `spot` | 쇼츠 제목·커뮤니티 글·해석 실패 메시지에서 '뜻을 찾아볼 표현' 제안 | 후보 | 없음 | 후보 목록만 |
 | `crosscheck` | 사전 뜻과 참고 위키 설명 비교 서술 | `crosscheck_log`, 검수 큐 | `crosscheck_log.model` | 관리자 검수 화면 |
 | `risk` | 근거 문장마다 뉘앙스·위험 유형·그 뜻으로 쓰였는지 | `evidence_labels` | `evidence_labels.model` | 수준·이유만. 문장별 분류는 안 보임 |
-| `translate` | 검증된 뜻의 언어판 | 뜻 텍스트 | 엔진 이름 반환(`gemma-local`) | 언어판만 |
+| `translate` | 검증된 뜻의 언어판 | 뜻 텍스트 | `translations.model`에 실제 ID `local:<모델>` 저장 | 언어판만 |
 | `fit` | 광고 쓰임 낱말(느낌·쓰임·분야·말투) | `term_fit` | `term_fit.model` | 추천 점수에 섞여 안 보임 |
 | 요청 때 `explain` | '쉽게 풀어 쓰면' 재작성 (`gemma_rewrite`) | 저장 안 함 | 없음 | 운영은 `USE_LOCAL_GEMMA=0`이라 쓰지 않음 |
 

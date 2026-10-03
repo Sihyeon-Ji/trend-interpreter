@@ -2,11 +2,17 @@
 
 > **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-01** · 상태 **실험 위치를 Colab에서 Kaggle로 변경, Kaggle 합성 표본 실행 확인(10-01)·실표본은 대기 · 운영 게시 경계·PC 독립 정리/감시·클라우드 전용 /ask·Gemma 평가는 미구현(Plan 05 Cloud SQL 대기) · 그동안 Gemma 편집은 원작자 PC 파이프라인이 하루 4회 대신 돌린다(아래 '현재 상태') · 12B QLoRA는 학습 서버에서 실행했다([Plan 16](16-wiki-meme-catalog-and-tendency.md))** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 팀 재현·독립 품질·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
 [계획 목록](README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
+
+## 2026-10-03 점검
+
+10-02 기록과 manifest에 실제 T4의 optimizer update 2→4회·체크포인트 재개가 있다. 기존 합성 리스크 노트북과 별도 감사관 학습 경로이며, 전체 학습이나 품질 승격 완료가 아니다. DVC 도구·비공개 Dataset·독립 평가 후보 20개는 준비됐으나 사람 판정은 0개, 팀원 2명 재현·GCS 게시·운영 게시가 남았다.
+
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 목적
 
@@ -36,7 +42,7 @@ Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을
 | 대기 | 붐빌 때는 GPU를 기다릴 수 있다 |
 | 모델 | Kaggle Models에 Gemma 4 12B·12B IT가 있다(`kagglehub`). 리스크 노트북은 서버와 같은 조건을 위해 Ollama `gemma4:12b`를 받는다 |
 
-**T4와 P100은 bf16을 지원하지 않는다.** 추론은 Ollama 양자화 모델이라 영향이 적지만, `models/lora/audit_qlora.py`처럼 `torch.bfloat16`으로 학습하는 코드는 그대로 돌지 않는다. fp16으로 바꾸면 Gemma가 불안정해질 수 있다는 보고가 있으므로, 학습은 짧은 시험으로 손실이 정상인지 먼저 확인한다(아래 '가중치 미세조정 실험').
+10-01 조사에서는 T4/P100의 bf16 제약 때문에 학습 가능성을 미확인으로 뒀다. 이후 실제 T4 시험에서 FP16 gradient NaN을 확인했고, **에뮬레이션을 포함한 BF16 경로와 정답 위치 logits 계산으로 짧은 학습·재개를 검증**했다. 현재 구현과 제약은 [Kaggle 감사관 학습](../개발환경/Kaggle-감사관-학습.md) 및 Plan 17 실행 기록을 따른다. 이 결과를 P100 검증이나 전체 학습 완료로 확대하지 않는다.
 
 출처: [Kaggle 무료 등급 정리](https://agentdeals.dev/vendor/kaggle), [Colab 대안 비교(2026-09)](https://www.thundercompute.com/blog/colab-alternatives-for-cheap-deep-learning-in-2025), [무료 클라우드 GPU 조건](https://aimultiple.com/free-cloud-gpu), [휴대폰 인증 안내](https://neuroai.neuromatch.io/tutorial-kaggle), [T4의 bf16 문제](https://discuss.vllm.ai/t/gemma3-on-a-t4-gpu/643), [Kaggle의 Gemma 4 12B IT](https://www.llmreference.com/provider/kaggle/gemma-4-12b-it).
 
@@ -154,7 +160,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 ## 구현 순서
 
 1. **Kaggle 입력과 첫 실행.** 할당량은 확인했다(10-01). 실행 담당자가 휴대폰 인증을 마치고 세션 한도·GPU 종류를 첫 실행에서 확인한다. 합성 표본으로 설치·추론·저장·재개를 확인한 뒤, Plan 01의 데이터 시점·근거 ID를 포함한 제한된 공개 표본을 비공개 Dataset으로 올리고 팀원 한 명의 계정에서도 같은 Dataset으로 실행해 본다. 실표본 실험은 최신 데이터가 준비되는 범위에서 진행하고 Cloud SQL 배포를 기다릴 필요는 없다.
-2. **리스크 기준선과 선택적 미세조정 실험.** 현행 `gemma4:12b` 추론의 GPU 메모리·시간과 사람이 판정한 표본의 품질을 측정한다. 기존 감사관을 Kaggle에서 재현하되 fp16 짧은 시험을 통과한 경우에만 이어 간다. 학습 서버 결과는 기준선이며, Kaggle에서 실패하면 원인과 대체 실험 경로를 기록한다. 성공·실패·보류 결정을 기록한다.
+2. **리스크 기준선과 선택적 미세조정 실험.** 현행 `gemma4:12b` 추론의 GPU 메모리·시간과 사람이 판정한 표본의 품질을 측정한다. 기존 감사관은 검증한 BF16·정답 위치 logits 경로에서 재현하고 손실·gradient·실제 optimizer update와 체크포인트를 확인한다. 학습 서버 결과는 기준선이며, Kaggle에서 실패하면 원인과 대체 실험 경로를 기록한다. 성공·실패·보류 결정을 기록한다.
 3. **Kaggle 편집 배치.** 검증된 뜻과 근거를 받아 사전 언어판·국가별 해석 초안을 만드는 입출력 계약과 배치를 구현한다. 원자료 수집·영상·검색 grounding은 현행 PC 파이프라인에 둔다. 출력에 입력 스냅샷·뜻 버전·모델 ID·프롬프트·검수 상태를 연결하고, 세션이 끊기면 완료된 항목부터 이어서 처리한다. 초안을 Output에 저장하는 것만으로 승인하지 않는다.
 4. **검수와 운영 게시.** 스키마·근거·언어별 뜻 보존을 검사하고 사람이 승인한 결과만 별도 게시 도구로 Plan 05의 Cloud SQL에 반영한다. 게시 도구는 Plan 17의 Cloud Run 게시 Job으로 구현하고 관리되는 개발 환경에서 검증하며 Kaggle에는 운영 DB 자격증명을 주지 않는다. 배치 ID와 뜻 버전으로 중복·오래된 결과의 덮어쓰기를 막고, 실패 시 마지막 정상 게시본을 유지한다. Cloud SQL Auth Proxy를 쓰더라도 private IP에는 별도 네트워크 경로가 필요하다. 자격증명·사용자 원문·생성 결과 전문은 운영 로그나 Git에 기록하지 않는다.
    현재 `/meta`와 유지보수 작업은 `pipeline_runs`의 `board`·`dashboard` 성공 행으로 게시 시각을 판단한다(`ds.PUBLISH_STAGES`). Plan 17에서는 게시 트랜잭션의 활성 `publication_id`와 성공 시각을 기준으로 바꾸고, 두 소비자를 함께 수정한다. 전환 전 검증에서는 현행 신호를 유지하며, 완료되지 않은 게시를 성공 행으로 꾸미지 않는다.
@@ -176,7 +182,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 
-아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-01 실측 점검](구현-완료도-실측-점검-2026-10-01.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달을 선택하는 실행 지시로 사용하지 않는다. 수집 서버 PostgreSQL 전환의 현재 계획은 Plan 01을 따른다.
+아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-03 실측 점검](구현-완료도-실측-점검-2026-10-03.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달을 선택하는 실행 지시로 사용하지 않는다. 수집 서버 PostgreSQL 전환의 현재 계획은 Plan 01을 따른다.
 
 **지금 실제로 도는 Gemma 편집은 클라우드 노트북이 아니라 원작자 PC 다.** 원작자 서버 파이프라인(cron 9·14·19·23시 :15)이 로컬 Ollama 의 `gemma4:e4b`(그 서버 `.env` 의 `GEMMA_LOCAL_MODEL`; 코드 기본값은 `gemma4:12b`, 공유 Ollama 에는 12b 가 설치돼 있지 않다)로 번역·국가별 해석·추천 낱말·근거 라벨을 만든다. 09-29 기준 번역 표에는 `gemma-local` 276행과 `team` 96행이 있고 주제별 국가 해설(`topic_notes`)은 88건이 `local:gem…` 로 표시돼 있다. 6건은 `local:gpt-oss` 가 만들었다.
 
