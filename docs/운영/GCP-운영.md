@@ -1,6 +1,6 @@
 # GCP 설정 및 운영
 
-> `builder-cup` 서비스, 팀 접근 코드, `/api/analyze` 관련 내용은 2026-09-28까지의 이전 실습 앱 기준입니다. Trend 앱 배포는 [Plan 05](../plans/05-trend-cloud-run-deployment.md)에서 정하며, 그전까지 이전 서비스는 그대로 운영됩니다.
+> **2026-10-04 변경:** 이전 실습 앱 `builder-cup` 서비스와 팀 접근 코드 secret, 전용 런타임 계정을 삭제했다. 운영 서비스는 `trend-production-web`(공개)과 `trend-production-api`(IAM 인증 필수)이며 `release/gcp`의 `trend_app` job이 `scripts/deploy-trend.sh`로 배포한다. uptime check는 웹 `/map`, 오류 경보는 두 서비스의 5xx를 본다. 현재 구성과 명령은 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)를 따른다. 아래의 `builder-cup`·`/api/analyze` 명령은 이전 기록이며, Artifact Registry `builder-cup` repository와 `builder-cup-deploy` 배포 계정·알림 relay는 계속 쓴다.
 
 Project는 `stunning-crane-508614-c1`입니다. Cloud Run과 Artifact Registry는 도쿄
 `asia-northeast1`을 사용합니다. Gemini location은 `global`이며 이는 한국 내 데이터 보관을

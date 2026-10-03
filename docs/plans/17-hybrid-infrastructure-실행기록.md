@@ -269,3 +269,7 @@ staging에서 사전 화면 504와 검수 목록 멈춤을 고쳤다. 목록을 
 
 사용자 결정에 따라 staging API에서 Vertex AI Gemini를 월 $20 상한으로 켰다. 앱이 실제 토큰 사용량과 공식 단가로 월 금액을 세고 상한 전에 호출을 멈추며, 모든 호출에 출력 상한을 둔다. 데모 흐름(사전에 묻기 3종·밈 추천·카피 생성·카피 검사)이 실제 Gemini로 동작했고 시험 비용은 약 $0.017이었다. 챗봇 도구의 표제어별 조회도 일괄 읽기로 고쳤다. Billing 예산 알림 금액 조정은 API가 거부해 콘솔 작업으로 남았다. 상세는 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
 
+### 10-04 production 배포와 이전 서비스 정리
+
+사용자 결정(운영 DB는 체험 인스턴스의 분리 DB, Gemini production $15·staging $5, 확인 뒤 `builder-cup` 삭제)에 따라 production 기반·DB·secret·웹/API를 만들고, `release/gcp` 배포 경로를 구현해 실제 push로 배포했다. 후보 검사와 트래픽 전환까지 성공했고 이미지 digest가 release 커밋 빌드와 일치했다. CI가 세 번 실패해(설치기 테스트의 디스크 의존, E2E 첫 컴파일 시간, 웹 `public` 폴더) 각각 고쳤다. 이후 uptime check와 오류 경보를 Trend로 옮기고 `builder-cup` 서비스와 데모 키·전용 계정을 삭제했다. 상세는 [Plan 05](05-trend-cloud-run-deployment.md)와 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
+

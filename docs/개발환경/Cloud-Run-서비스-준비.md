@@ -121,3 +121,22 @@ docker compose run --rm infra-check
 
 기존 Billing 예산 "Builder Cup Vertex AI Gemini 월 지출 한도"(₩100,000)를 ₩28,000으로 낮추거나 새 예산을 만들려 했지만, API가 각각 `NOT_FOUND`·`FAILED_PRECONDITION`으로 거부했다. 결제 계정 권한(`billing.budgets.update/create`)은 있다. 알림 금액은 콘솔에서 바꾼다.
 
+## 2026-10-04 production 배포
+
+사용자 결정에 따라 production 웹·API를 배포했다.
+
+| 항목 | 값 |
+| --- | --- |
+| 웹 | `https://trend-production-web-7jftqxfz3q-an.a.run.app` (주소를 아는 사람에게 공개, 검수는 로그인) |
+| API | `https://trend-production-api-7jftqxfz3q-an.a.run.app` (IAM 인증 필수) |
+| Terraform | `infra/gcp/hybrid`, state prefix `hybrid/production`, 로컬 `production.tfvars.json`(Git 제외). 네트워크 10.41 대역과 SA 6개는 staging과 분리 |
+| DB | 체험 인스턴스의 `trend` DB. `trend_app`이 소유하고 `cloudsqlsuperuser`에 속하지 않는다. 두 DB 모두 PUBLIC 접속을 회수해 staging·production 사용자가 상대 DB에 접속하지 못하는 것을 확인했다 |
+| secret | `trend-production-database-url`·`-accounts`(staging과 같은 검수 계정 해시)·`-frontend-token`·`-session-secret` |
+| Gemini | 월 $15(staging $5), 이용자 요청 하루 150회 |
+
+배포는 `release/gcp`의 `trend_app` job이 한다. 이미지를 빌드하고 `scripts/deploy-trend.sh`로 후보를 검사한 뒤 트래픽을 옮긴다. 서비스 리소스는 이미지·트래픽 변경을 무시하므로 Terraform 적용이 배포된 이미지를 되돌리지 않는다. API에는 고정 audience `trend-<env>-api`가 있어 배포 계정 ID token 하나로 후보 URL을 검사한다.
+
+처음 Terraform으로 서비스를 만들 때 웹의 API 호출 권한이 반영되기 전 몇 초 동안 웹이 403을 받았고, Next.js가 그 실패 화면을 60초 캐시해 `/map`이 잠시 500이었다. 이후 정상이다. 현재 revision은 API `00002-kob`, 웹 `00002-miz`(`b0e1826`)다.
+
+staging은 같은 스크립트를 `ENVIRONMENT=staging`으로 수동 실행해 배포한다. Terraform의 `api_image`·`web_image`는 서비스를 처음 만들 때만 쓴다.
+

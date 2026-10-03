@@ -64,28 +64,6 @@ Trend 앱은 아직 Cloud Run에 배포하지 않았습니다. [Plan 05](../plan
 배포 스크립트를 만들 때 위 값을 Cloud Run 환경변수로 넘기고, 중지·재개는 새 revision 배포로 적용합니다.
 배포 후에는 이 절에 실제 명령을 채웁니다.
 
-## 이전 서비스(`builder-cup`) 임시 조치
+## Trend 서비스의 Gemini 사용과 상한
 
-이전 실습 앱은 `builder-cup` Cloud Run 서비스로 계속 운영 중이며, 그 코드와 설정 파일은 2026-09-28에 저장소에서
-제거했습니다. Trend 릴리스가 대체하기 전에 모델 호출을 멈춰야 하면 저장소를 거치지 않고 환경변수만 바꿉니다.
-
-```bash
-gcloud run services update builder-cup \
-  --project=stunning-crane-508614-c1 --region=asia-northeast1 \
-  --update-env-vars=MODEL_REQUESTS_ENABLED=false
-```
-
-이 명령은 같은 이미지로 새 revision을 만들어 트래픽을 옮깁니다. 재개는 `true`로 되돌립니다. 확인은 비용이 들지
-않는 health와 인증 거부 응답으로 합니다.
-
-```bash
-curl --fail --silent --show-error \
-  https://builder-cup-266542883304.asia-northeast1.run.app/api/health
-curl --silent --output /dev/null --write-out '%{http_code}\n' \
-  --header 'Content-Type: application/json' \
-  --data '{"text":"검증용 합성 문장"}' \
-  https://builder-cup-266542883304.asia-northeast1.run.app/api/analyze
-```
-
-첫 응답의 `status`는 `ok`, 인증 코드 없이 보낸 두 번째 요청은 `401`이어야 합니다. 서비스를 이전 revision으로
-되돌리는 절차는 [배포 복구](배포-복구.md)에 있습니다. 팀 접근 코드는 문서·Git·로그에 기록하지 않습니다.
+이전 실습 앱 `builder-cup`은 2026-10-04에 삭제했다. Trend API의 Gemini 사용은 `infra/gcp/hybrid`의 `services.gemini`로 정한다. 값이 없으면 `MODEL_PROVIDER=mock`이고, 있으면 Vertex AI를 쓰면서 앱이 실제 토큰 사용량으로 월 금액(`GEMINI_MONTHLY_USD`)을 세어 상한 전에 호출을 멈춘다. 현재 production $15, staging $5다. 호출을 멈추려면 해당 환경의 tfvars에서 `gemini`를 빼고 Terraform을 적용한다. 상세는 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
