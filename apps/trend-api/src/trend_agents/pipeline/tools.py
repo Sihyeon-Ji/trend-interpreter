@@ -196,7 +196,9 @@ def usable(con, t) -> bool:
 
 
 def _entries(con) -> list:
-    return [t for t in ds.list_terms(con, ("verified", "needs_review")) if usable(con, t)]
+    terms = ds.list_terms(con, ("verified", "needs_review"))
+    with ds.batched(con, [t.term_id for t in terms], tables=("meanings",)):   # 표제어마다 뜻을 조회하면 Cloud SQL 에서 느리다
+        return [t for t in terms if usable(con, t)]
 
 
 def _find(con, q: str):
@@ -446,30 +448,33 @@ def list_terms(ctx: Ctx, args: dict) -> str:
     region = _arg(args, "region").upper()[:2]
     cat = _arg(args, "category")
     want = _categories(cat)
-    rows = []
-    for t in ds.list_terms(ctx.con, ("verified",)):
-        if want and t.category not in want:
-            continue
-        if gen or region:
-            use = ds.get_usage(ctx.con, t.term_id)
-            if gen and not any(u["generation"] in (gen, "all") for u in use):
+    terms = ds.list_terms(ctx.con, ("verified",))
+    # 표제어마다 사용층·주간 언급을 조회하면 Cloud SQL 에서 90초를 넘겼다(staging 10-03) — 두 표만 한 번에 읽는다
+    with ds.batched(ctx.con, [t.term_id for t in terms], tables=("usage", "weekly")):
+        rows = []
+        for t in terms:
+            if want and t.category not in want:
                 continue
-            if region and not any(u["region"] == region for u in use):
-                continue
-        rows.append(t)
-    if not rows:
-        what = " · ".join(filter(None, [GEN.get(gen, gen), REGION.get(region, region), CATEGORY.get(cat, cat)])) or "조건 없음"
-        return f"{what} 에 해당하는 표제어가 사전에 없습니다. 조건을 빼고 list_terms 를 한 번 더 불러 보라."
-    # 나라를 물었으면 그 나라 말로 된 표제어를 앞에 — "한국 밈" 에 영어판 문서 제목이 먼저 나오면 엉뚱하다.
-    # 그다음은 실제로 쓰이는 걸 본 표현. 위키에서 막 받아 온 것들은 last_seen 이 전부 지금이라 그냥 두면 목록을 덮는다.
-    # 나라를 물었으면 그 나라 말, 아니면 지금 답하는 말. 한국어로 물었는데 일본어 표제어가 먼저 나오면 엉뚱하다.
-    lang_of = {"KR": "ko", "JP": "ja", "ID": "id", "US": "en", "GB": "en"}.get(region, "") or ctx.lang
-    # '요즘' 은 실제 언급으로 잰다. last_seen 은 예전에 조사할 때마다 덮여서 '최근 조사한 순' 이 돼 있었다.
-    rows = [t for t in rows if not unsafe(t.canonical) or t.risk_level == "none"]   # 검수자가 '문제 없음' 으로 푼 오탐은 보인다
-    recent = {t.term_id: sum(c for _, c in ds.get_weekly(ctx.con, t.term_id, weeks=4)) for t in rows}
-    rows.sort(key=lambda t: (1 if lang_of and t.lang == lang_of else 0, recent[t.term_id],
-                             1 if ds.get_usage(ctx.con, t.term_id) else 0), reverse=True)
-    rows = rows[:12]
+            if gen or region:
+                use = ds.get_usage(ctx.con, t.term_id)
+                if gen and not any(u["generation"] in (gen, "all") for u in use):
+                    continue
+                if region and not any(u["region"] == region for u in use):
+                    continue
+            rows.append(t)
+        if not rows:
+            what = " · ".join(filter(None, [GEN.get(gen, gen), REGION.get(region, region), CATEGORY.get(cat, cat)])) or "조건 없음"
+            return f"{what} 에 해당하는 표제어가 사전에 없습니다. 조건을 빼고 list_terms 를 한 번 더 불러 보라."
+        # 나라를 물었으면 그 나라 말로 된 표제어를 앞에 — "한국 밈" 에 영어판 문서 제목이 먼저 나오면 엉뚱하다.
+        # 그다음은 실제로 쓰이는 걸 본 표현. 위키에서 막 받아 온 것들은 last_seen 이 전부 지금이라 그냥 두면 목록을 덮는다.
+        # 나라를 물었으면 그 나라 말, 아니면 지금 답하는 말. 한국어로 물었는데 일본어 표제어가 먼저 나오면 엉뚱하다.
+        lang_of = {"KR": "ko", "JP": "ja", "ID": "id", "US": "en", "GB": "en"}.get(region, "") or ctx.lang
+        # '요즘' 은 실제 언급으로 잰다. last_seen 은 예전에 조사할 때마다 덮여서 '최근 조사한 순' 이 돼 있었다.
+        rows = [t for t in rows if not unsafe(t.canonical) or t.risk_level == "none"]   # 검수자가 '문제 없음' 으로 푼 오탐은 보인다
+        recent = {t.term_id: sum(c for _, c in ds.get_weekly(ctx.con, t.term_id, weeks=4)) for t in rows}
+        rows.sort(key=lambda t: (1 if lang_of and t.lang == lang_of else 0, recent[t.term_id],
+                                 1 if ds.get_usage(ctx.con, t.term_id) else 0), reverse=True)
+        rows = rows[:12]
     for t in rows:
         ctx.seen(t.term_id)
     ctx.card(_list_card(ctx.con, " · ".join(filter(None, [GEN.get(gen, gen), REGION.get(region, region),

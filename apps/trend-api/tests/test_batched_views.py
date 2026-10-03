@@ -102,3 +102,33 @@ def test_large_list_responses_are_compressed(monkeypatch):
     response = TestClient(api.app).get("/terms", headers={"accept-encoding": "gzip"})
     assert response.status_code == 200 and response.headers["content-encoding"] == "gzip"
     assert len(response.json()) == 3
+
+
+def test_selected_tables_are_cached_and_the_rest_read_live():
+    con = db.connect(":memory:")
+    seed(con, "t0", "term 0")
+    expected = (ds.get_usage(con, "t0"), ds.list_meanings(con, "t0"))
+    with ds.batched(con, ["t0"], tables=("usage",)):
+        con.execute("DELETE FROM usage WHERE term_id='t0'")
+        assert ds.get_usage(con, "t0") == expected[0]          # 블록이 읽어 둔 표
+        assert ds.list_meanings(con, "t0") == expected[1]      # 고르지 않은 표는 직접 조회
+        ds.add_meaning(con, "t0", draft("term 0 의 새 뜻"), "verified_auto", [])
+        assert ds.current_meaning(con, "t0").definition == "term 0 의 새 뜻"
+
+
+def test_chat_list_tool_and_entry_lookup_query_counts_do_not_grow_with_the_dictionary():
+    """목록 도구는 고른 12개의 뜻만 따로 읽는다 — 12개가 넘으면 사전이 커져도 조회 수가 같아야 한다."""
+    from trend_agents.pipeline import tools
+
+    con = db.connect(":memory:")
+    for i in range(13):
+        seed(con, f"t{i}", f"term {i}")
+    calls = counting(con)
+    first = tools.list_terms(tools.Ctx(con), {"region": "US"})
+    tools._entries(con)
+    few = len(calls)
+    for i in range(13, 20):
+        seed(con, f"t{i}", f"term {i}")
+    calls.clear()
+    assert tools.list_terms(tools.Ctx(con), {"region": "US"}) and len(tools._entries(con)) == 20
+    assert len(calls) == few and "term" in first
