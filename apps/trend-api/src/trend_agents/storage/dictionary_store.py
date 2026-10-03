@@ -7,12 +7,49 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 
 from ..config import CANTONESE_LANGS
 from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, MemeFit, Term, TrendQuery, WikiTop
 from . import db
 from .db import Connection
+
+# 목록 화면(사전 전체·검수 큐)을 만드는 동안만 표제어별 행을 표마다 한 번에 읽어 둔다. 표제어마다 조회하면 Cloud SQL 에서는
+# 조회마다 네트워크 왕복이 붙어 1만여 개 표제어가 90초를 넘겼다(staging 10-03). 아래 읽기 함수들만 이 값을 보고, batched 블록 밖에서는 None 이다.
+_BATCH: ContextVar[dict | None] = ContextVar("dictionary_batch", default=None)
+
+
+@contextmanager
+def batched(con: Connection, term_ids: list[str]):
+    ids = list(dict.fromkeys(term_ids))
+
+    def grouped(sql: str) -> dict[str, list[tuple]]:
+        out: dict[str, list[tuple]] = {}
+        for row in con.execute(sql, (ids,)).fetchall():
+            out.setdefault(row[0], []).append(tuple(row[1:]))
+        return out
+
+    batch = {
+        "terms": grouped("SELECT term_id, json FROM terms WHERE term_id = ANY(?)"),
+        "meanings": grouped("SELECT term_id, json, valid_to FROM meanings WHERE term_id = ANY(?) ORDER BY term_id, version"),
+        "evidences": grouped("SELECT term_id, json FROM evidences WHERE term_id = ANY(?) ORDER BY term_id, observed_at DESC"),
+        "usage": grouped("SELECT term_id, segment_id, generation, region, first_seen, share, COALESCE(source, 'model') FROM usage "
+                         "WHERE term_id = ANY(?) ORDER BY term_id, share DESC"),
+        "weekly": grouped("SELECT term_id, week_start, count FROM mentions_weekly WHERE term_id = ANY(?) ORDER BY term_id, week_start DESC"),
+        "translations": grouped("SELECT term_id, lang, json FROM translations WHERE term_id = ANY(?)"),
+        "media": grouped("SELECT term_id, kind, url, page_url, title, license, attribution FROM term_media "
+                         "WHERE term_id = ANY(?) ORDER BY term_id, kind DESC, added_at"),
+        "gate": grouped("SELECT term_id, reasons_json FROM review_queue "
+                        "WHERE term_id = ANY(?) AND decision IS NULL AND COALESCE(kind, 'new')='new'"),
+        "outlets": grouped("SELECT term_id, home, source, published_at FROM mention_samples WHERE term_id = ANY(?) AND home IS NOT NULL"),
+    }
+    token = _BATCH.set(batch)
+    try:
+        yield
+    finally:
+        _BATCH.reset(token)
 
 DDL = """
 CREATE TABLE IF NOT EXISTS trend_queries (
@@ -277,7 +314,10 @@ def rebuild_aliases(con: Connection) -> int:
 
 
 def get_term(con: Connection, term_id: str) -> Term | None:
-    row = con.execute("SELECT json FROM terms WHERE term_id=?", (term_id,)).fetchone()
+    if (batch := _BATCH.get()) is not None:
+        row = next(iter(batch["terms"].get(term_id, [])), None)
+    else:
+        row = con.execute("SELECT json FROM terms WHERE term_id=?", (term_id,)).fetchone()
     return Term.model_validate_json(row[0]) if row else None
 
 
@@ -303,12 +343,18 @@ def list_terms(con: Connection, statuses: tuple[str, ...] | None = None) -> list
 # ---------- 뜻 (버전) ----------
 
 def current_meaning(con: Connection, term_id: str) -> Meaning | None:
-    row = con.execute("SELECT json FROM meanings WHERE term_id=? AND valid_to IS NULL ORDER BY version DESC LIMIT 1", (term_id,)).fetchone()
+    if (batch := _BATCH.get()) is not None:
+        row = next((r for r in reversed(batch["meanings"].get(term_id, [])) if r[1] is None), None)
+    else:
+        row = con.execute("SELECT json FROM meanings WHERE term_id=? AND valid_to IS NULL ORDER BY version DESC LIMIT 1", (term_id,)).fetchone()
     return Meaning.model_validate_json(row[0]) if row else None
 
 
 def list_meanings(con: Connection, term_id: str) -> list[Meaning]:
-    rows = con.execute("SELECT json FROM meanings WHERE term_id=? ORDER BY version", (term_id,)).fetchall()
+    if (batch := _BATCH.get()) is not None:
+        rows = batch["meanings"].get(term_id, [])
+    else:
+        rows = con.execute("SELECT json FROM meanings WHERE term_id=? ORDER BY version", (term_id,)).fetchall()
     return [Meaning.model_validate_json(r[0]) for r in rows]
 
 
@@ -392,7 +438,10 @@ def add_evidences(con: Connection, term_id: str, evs: list[Evidence]) -> int:
 
 
 def list_evidences(con: Connection, term_id: str) -> list[Evidence]:
-    rows = con.execute("SELECT json FROM evidences WHERE term_id=? ORDER BY observed_at DESC", (term_id,)).fetchall()
+    if (batch := _BATCH.get()) is not None:
+        rows = batch["evidences"].get(term_id, [])
+    else:
+        rows = con.execute("SELECT json FROM evidences WHERE term_id=? ORDER BY observed_at DESC", (term_id,)).fetchall()
     return [Evidence.model_validate_json(r[0]) for r in rows]
 
 
@@ -412,9 +461,12 @@ def clear_usage(con: Connection, term_id: str) -> None:
 
 
 def get_usage(con: Connection, term_id: str) -> list[dict]:
-    return [dict(zip(("segment_id", "generation", "region", "first_seen", "share", "source"), r))
-            for r in con.execute("SELECT segment_id, generation, region, first_seen, share, COALESCE(source, 'model') FROM usage WHERE term_id=? ORDER BY share DESC",
-                                 (term_id,)).fetchall()]
+    if (batch := _BATCH.get()) is not None:
+        rows = batch["usage"].get(term_id, [])
+    else:
+        rows = con.execute("SELECT segment_id, generation, region, first_seen, share, COALESCE(source, 'model') FROM usage WHERE term_id=? ORDER BY share DESC",
+                           (term_id,)).fetchall()
+    return [dict(zip(("segment_id", "generation", "region", "first_seen", "share", "source"), r)) for r in rows]
 
 
 def set_timeline(con: Connection, term_id: str, rows: list[dict]) -> None:
@@ -460,7 +512,10 @@ def get_weekly_region(con: Connection, term_id: str) -> dict[str, dict[str, int]
 
 
 def get_weekly(con: Connection, term_id: str, weeks: int = 12) -> list[tuple[str, int]]:
-    rows = con.execute("SELECT week_start, count FROM mentions_weekly WHERE term_id=? ORDER BY week_start DESC LIMIT ?", (term_id, weeks)).fetchall()
+    if (batch := _BATCH.get()) is not None:
+        rows = batch["weekly"].get(term_id, [])[:weeks]
+    else:
+        rows = con.execute("SELECT week_start, count FROM mentions_weekly WHERE term_id=? ORDER BY week_start DESC LIMIT ?", (term_id, weeks)).fetchall()
     return list(reversed(rows))
 
 
@@ -470,7 +525,10 @@ def set_translation(con: Connection, term_id: str, lang: str, text: MeaningText,
 
 
 def get_translation(con: Connection, term_id: str, lang: str) -> MeaningText | None:
-    row = con.execute("SELECT json FROM translations WHERE term_id=? AND lang=?", (term_id, lang)).fetchone()
+    if (batch := _BATCH.get()) is not None:
+        row = next(((j,) for code, j in batch["translations"].get(term_id, []) if code == lang), None)
+    else:
+        row = con.execute("SELECT json FROM translations WHERE term_id=? AND lang=?", (term_id, lang)).fetchone()
     return MeaningText.model_validate_json(row[0]) if row else None
 
 
@@ -613,8 +671,11 @@ def review_history(con: Connection, term_id: str) -> list[dict]:
 
 def gate_reasons(con: Connection, term_id: str) -> list[str]:
     """게이트가 남긴 사유 — 조사 결과(new) 줄만. 문서 대조의 제안 사유는 게이트의 판단이 아니다."""
-    row = con.execute("SELECT reasons_json FROM review_queue WHERE term_id=? AND decision IS NULL AND COALESCE(kind, 'new')='new'",
-                      (term_id,)).fetchone()
+    if (batch := _BATCH.get()) is not None:
+        row = next(iter(batch["gate"].get(term_id, [])), None)
+    else:
+        row = con.execute("SELECT reasons_json FROM review_queue WHERE term_id=? AND decision IS NULL AND COALESCE(kind, 'new')='new'",
+                          (term_id,)).fetchone()
     return json.loads(row[0]) if row else []
 
 
@@ -1040,8 +1101,11 @@ def add_media(con: Connection, term_id: str, kind: str, url: str, *, page_url: s
 
 
 def get_media(con: Connection, term_id: str, limit: int = 4) -> list[dict]:
-    rows = con.execute("SELECT kind, url, page_url, title, license, attribution FROM term_media "
-                       "WHERE term_id=? ORDER BY kind DESC, added_at LIMIT ?", (term_id, limit)).fetchall()
+    if (batch := _BATCH.get()) is not None:
+        rows = batch["media"].get(term_id, [])[:limit]
+    else:
+        rows = con.execute("SELECT kind, url, page_url, title, license, attribution FROM term_media "
+                           "WHERE term_id=? ORDER BY kind DESC, added_at LIMIT ?", (term_id, limit)).fetchall()
     return [{"kind": k, "url": u, "page_url": p, "title": t, "license": lic, "attribution": a}
             for k, u, p, t, lic, a in rows]
 
@@ -1127,6 +1191,8 @@ def indicator_mentions(con: Connection, term_id: str) -> list[tuple[str, str]]:
 
 def mention_outlets(con: Connection, term_id: str, since: str) -> list[tuple[str, str]]:
     """(매체의 나라, 매체) — since 이후 발행된 키워드 검색 기사 가운데 나라를 아는 매체의 것마다(같은 매체가 여러 번 나온다)."""
+    if (batch := _BATCH.get()) is not None:
+        return [(home, source) for home, source, published in batch["outlets"].get(term_id, []) if published is not None and published >= since]
     return con.execute("SELECT home, source FROM mention_samples WHERE term_id=? AND home IS NOT NULL AND published_at >= ?",
                        (term_id, since)).fetchall()
 

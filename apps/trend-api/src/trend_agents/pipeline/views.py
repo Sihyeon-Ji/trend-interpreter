@@ -142,7 +142,9 @@ def term_record(con: Connection, t: Term) -> TermRecord:
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",)) -> list[TermRecord]:
-    return [term_record(con, t) for t in ds.list_terms(con, statuses)]
+    terms = ds.list_terms(con, statuses)
+    with ds.batched(con, [t.term_id for t in terms]):
+        return [term_record(con, t) for t in terms]
 
 
 def pipeline_stages(con: Connection) -> list[PipelineStage]:
@@ -162,8 +164,14 @@ def pipeline_stages(con: Connection) -> list[PipelineStage]:
 
 
 def review_items(con: Connection) -> list[ReviewItem]:
+    queue = ds.review_queue(con)
+    with ds.batched(con, [q["term_id"] for q in queue]):
+        return _review_items(con, queue)
+
+
+def _review_items(con: Connection, queue: list[dict]) -> list[ReviewItem]:
     out = []
-    for q in ds.review_queue(con):
+    for q in queue:
         t = ds.get_term(con, q["term_id"])
         m = ds.current_meaning(con, q["term_id"])
         kind = q["kind"] if q["kind"] in ds.REVIEW_KINDS else "new"
