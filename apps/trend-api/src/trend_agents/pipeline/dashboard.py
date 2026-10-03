@@ -17,9 +17,10 @@ from pydantic import BaseModel
 
 from ..collectors.community import COMMUNITY_SITES, is_community_post
 from ..config import REGIONS_FOCUS, home_region
-from ..schemas import Evidence, EvidenceBrief, Term
+from ..schemas import Evidence, EvidenceBrief, Meaning, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
+from .audit import NO_USAGE
 from .match import mentions, unsafe
 from .runs import stage
 from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, Tone, WeeklyPoint
@@ -33,6 +34,7 @@ WEEKS = 12
 DIFFUSION_ORDER = {"spreading": 0, "underground": 1, "mainstream": 2}
 LIFECYCLE_ORDER = {"emerging": 0, "rising": 0, "peak": 1, "steady": 2}
 USAGE_KINDS = ("community", "news", "short")
+MIXED_MIN = 2          # 글자만 같은 딴 이야기가 이만큼 넘고 그 뜻으로 쓰인 글보다 많으면 언급 수를 순서에 쓰지 않는다(meme_use)
 # 조사가 쓰는 나라로 정하지 않은 목표 지역도 그 나라 매체 이만큼이 12주 안에 이 말을 쓰면 그 지역 용어로 본다(Plan 04). 뉴스판(版)의 기사 수로
 # 세면 전 세계 매체가 섞여, 확인된 영어·중국어 44개에서 조사가 정하지 않은 나라 60쌍이 3건을 넘었다('vibe' 싱가포르판 16건에 싱가포르 매체 0곳).
 # 매체 수로는 1쌍(喪女, 대만 매체 5곳)뿐이고 조사가 정한 나라도 29쌍 중 2쌍만 3곳 이상이다(2026-09-30 실측) — 드물게, 근거가 뚜렷할 때만 더한다.
@@ -110,12 +112,18 @@ def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[K
     def recent(c: KeywordCard) -> float:
         return max((d.timestamp() for d in (c.last_used, c.last_seen) if d), default=0.0)
 
+    # 그 뜻으로 쓰인 것이 확인된 말이 먼저다. 언급에 딴 이야기가 더 많은 말은 언급 수로 앞서지 않는다 — '도리'·'부분'·'지옥' 같은
+    # 흔한 낱말이 글자만 같은 기사 수로 맨 앞에 섰다(실데이터 10-03)
+    def mentions(c: KeywordCard) -> int:
+        return 0 if c.mentions_mixed else c.mentions_4w
+
     usable = [c for c in cards if c.risk_level != "avoid"]
     rising = sorted((c for c in usable if not _is_fading(c, now)),
-                    key=lambda c: (DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3), -c.mentions_4w, -recent(c)))
-    fading = sorted((c for c in usable if _is_fading(c, now)), key=lambda c: -recent(c))
+                    key=lambda c: (not c.use_confirmed, DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3),
+                                   -mentions(c), -recent(c)))
+    fading = sorted((c for c in usable if _is_fading(c, now)), key=lambda c: (not c.use_confirmed, -recent(c)))
     caution = sorted((c for c in cards if c.risk_level in ("caution", "avoid")),
-                     key=lambda c: (c.risk_level != "avoid", -c.mentions_4w, -recent(c)))
+                     key=lambda c: (c.risk_level != "avoid", not c.use_confirmed, -mentions(c), -recent(c)))
     return rising, fading, caution
 
 
@@ -162,6 +170,7 @@ class Stored(BaseModel):
     tone: dict[str, dict[str, int]] = {}            # 나라별 뉘앙스 수 (커뮤니티 글 포함 — 수만 나간다)
     evidences: dict[str, list[EvidenceBrief]] = {}  # 나라별 최근 근거(커뮤니티·SNS 글은 빼고). "" = 나라를 가를 수 없는 문서(위키 등)
     last_used: dict[str, datetime] = {}             # 나라별 가장 최근에 쓰인 글의 때
+    held: bool = False                              # 밈으로 쓰인다는 것이 확인되지 않아 둘러보는 목록에서 뺀다(meme_use). 사전·카피 검사에는 남는다
 
 
 class _Regions:
@@ -239,6 +248,26 @@ def regions_for(con: Connection, t: Term) -> list[str]:
     return term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)}, local_outlets(con, t.term_id))
 
 
+def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tuple[str, str]]) -> tuple[bool, bool, bool]:
+    """(목록에서 뺄까, 그 뜻으로 쓰인 것이 확인됐나, 언급에 딴 이야기가 더 많나). 규칙이다 — 이미 있는 감사·근거 분류만 읽는다.
+    위키 '인터넷 밈' 분류는 밈이 된 대상(인물·작품·노래·일반명사)의 문서도 담아, 김여정·토마토·비트코인·FIESTA 가 '지금 쓰이는 밈'
+    상위를 채웠다(실데이터 10-03, 용어 11,292개 중 10,906개가 위키 분류에서). 다음 둘이면 뺀다:
+    - 감사관이 다시 써도 '밈으로 어떻게 쓰이는지가 없다' 고 본 뜻(audit_log 'flagged')
+    - 위키 분류에서만 들어온 말인데, 리스크 점검까지 거치고도 그 뜻으로 쓰인 글이 하나도 없다
+    리스크 점검 전이라 근거 분류가 아직 없는 말은 빼지 않고 뒤로 보낸다(use_confirmed=False). 사람이 확인한 뜻은 그대로 둔다."""
+    on = sum(1 for p, _ in labels.values() if p != "offtopic")
+    off = len(labels) - on
+    mixed = off >= MIXED_MIN and off > on
+    if m and m.verification == "verified_human":
+        return False, True, mixed
+    row = con.execute("SELECT action, reasons_json FROM audit_log WHERE term_id=? AND meaning_id=?",
+                      (t.term_id, m.meaning_id)).fetchone() if m else None
+    no_usage = bool(row) and row[0] == "flagged" and NO_USAGE in json.loads(row[1] or "[]")
+    catalog = con.execute("SELECT 1 FROM wiki_catalog WHERE term_id=? LIMIT 1", (t.term_id,)).fetchone() is not None
+    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0)
+    return hold, on > 0 or not catalog, mixed
+
+
 def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regions, weeks: list[str], *,
                outside: bool = False) -> Stored | None:
     """카드 재료 하나. 목표 지역 밖 용어는 대시보드에 없으므로 None — outside 면 지역을 비운 채 만든다(사전 화면용)."""
@@ -255,6 +284,7 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
                                    and mentions(f"{e.title or ''} {e.excerpt or ''}", t.canonical, t.aliases)))
            and _has_path(e.url)]
     labels = ds.evidence_labels(con, t.term_id)
+    held, confirmed, mixed = meme_use(con, t, m, labels)
     weekly: dict[str, list[int]] = {}
     for r, cnt in ds.get_weekly_region(con, t.term_id).items():
         row = weekly.setdefault(r if r in REGIONS_FOCUS else GLOBAL, [0] * len(weeks))
@@ -288,8 +318,9 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         gloss_ko=ko.definition if ko else base, gloss_en=en.definition if en else base, regions=[] if outside else regions,
         lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
-        tone=Tone(), evidences=[], last_seen=t.last_seen)
-    return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used)
+        tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed)
+    return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
+                  held=held)
 
 
 def view(s: Stored, chosen: list[str]) -> KeywordCard:
@@ -374,7 +405,7 @@ def _loaded(con: Connection) -> tuple[list[Stored], datetime]:
         _save(con, build(con))
         loaded = _load(con) or ([], datetime.now())
     stored, generated_at = loaded
-    return [s for s in _live(con, stored) if _browsable(s.card)], generated_at
+    return [s for s in _live(con, stored) if _browsable(s.card) and not s.held], generated_at
 
 
 def chosen_regions(regions: list[str] | None) -> list[str]:

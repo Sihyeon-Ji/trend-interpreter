@@ -59,6 +59,10 @@ verdict 는 ok(문서와 맞고, 이 표현이 밈으로 어떻게 쓰이는지 
 JSON 하나로만 답한다: {{"verdict": "ok" 또는 "fix", "reason": "..."}}"""
 
 
+# 대시보드가 이 까닭으로 남은 뜻(다시 써도 대상 소개뿐)의 말을 둘러보는 목록에서 뺀다(dashboard.meme_use)
+NO_USAGE = "밈으로 어떻게 쓰이는지가 없다"
+
+
 class AuditVerdict(BaseModel):
     verdict: Literal["ok", "fix"]
     reason: str = ""
@@ -82,7 +86,7 @@ def verdict(c: AuditCheck) -> tuple[str, list[str]]:
     if c.translation_only:
         why.append("제목을 옮긴 것뿐이다")
     if not c.describes_usage:
-        why.append("밈으로 어떻게 쓰이는지가 없다")
+        why.append(NO_USAGE)
     if c.matches_doc == "no":
         why.append("뜻·유래가 문서와 어긋난다")
     if not c.origin_ok:

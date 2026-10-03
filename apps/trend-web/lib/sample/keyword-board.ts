@@ -45,17 +45,19 @@ const flagged = (c: KeywordCard) => c.risk_level === "caution" || c.risk_level =
 
 type Lists = Record<KeywordList, KeywordCard[]>;
 
-// 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
+// 쓰임이 확인된 말 먼저, 원본 언급이 같으면 가장 최근에 쓰인 글 순 (백엔드 dashboard.split 과 같다)
 function split(inView: KeywordCard[]): Lists {
-  const byMentions = (a: KeywordCard, b: KeywordCard) => b.mentions_4w - a.mentions_4w;
+  const mentions = (c: KeywordCard) => (c.mentions_mixed ? 0 : c.mentions_4w);
+  const byMentions = (a: KeywordCard, b: KeywordCard) => mentions(b) - mentions(a);
+  const byConfirmed = (a: KeywordCard, b: KeywordCard) => Number(a.use_confirmed === false) - Number(b.use_confirmed === false);
   const recent = (c: KeywordCard) => [c.last_used, c.last_seen].filter(Boolean).sort().at(-1) ?? "";
   const byRecent = (a: KeywordCard, b: KeywordCard) => recent(b).localeCompare(recent(a));
   const usable = inView.filter((c) => c.risk_level !== "avoid");
   return {
     rising: usable.filter((c) => !isFadingCard(c))
-      .sort((a, b) => (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b)),
-    fading: usable.filter(isFadingCard).sort(byRecent),
-    caution: inView.filter(flagged).sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byMentions(a, b) || byRecent(a, b)),
+      .sort((a, b) => byConfirmed(a, b) || (DIFFUSION_ORDER[a.diffusion ?? ""] ?? 3) - (DIFFUSION_ORDER[b.diffusion ?? ""] ?? 3) || (LIFECYCLE_ORDER[a.lifecycle] ?? 3) - (LIFECYCLE_ORDER[b.lifecycle] ?? 3) || byMentions(a, b) || byRecent(a, b)),
+    fading: usable.filter(isFadingCard).sort((a, b) => byConfirmed(a, b) || byRecent(a, b)),
+    caution: inView.filter(flagged).sort((a, b) => Number(a.risk_level !== "avoid") - Number(b.risk_level !== "avoid") || byConfirmed(a, b) || byMentions(a, b) || byRecent(a, b)),
   };
 }
 
