@@ -1,0 +1,223 @@
+{
+  "database": "trend",
+  "instance": "stunning-crane-508614-c1:asia-northeast1:trend-project",
+  "load": {
+    "database_sha256": "a36671658bd999ec4f6a8cb471498d47b3f04c1ca303b0a3af796536d9a95e23",
+    "excluded_user_tables": {
+      "explain_cache": 0,
+      "lookups": 0,
+      "reader_prefs": 0
+    },
+    "migrated_tables": {
+      "agent_trace": {
+        "destination": 648,
+        "excluded": 0,
+        "source": 648
+      },
+      "audit_log": {
+        "destination": 12596,
+        "excluded": 0,
+        "source": 12596
+      },
+      "board_cache": {
+        "destination": 2,
+        "excluded": 0,
+        "source": 2
+      },
+      "candidates": {
+        "destination": 1387,
+        "excluded": 0,
+        "source": 1387
+      },
+      "catalog_failed": {
+        "destination": 189,
+        "excluded": 0,
+        "source": 189
+      },
+      "content_findings": {
+        "destination": 77,
+        "excluded": 0,
+        "source": 77
+      },
+      "content_index": {
+        "destination": 3,
+        "excluded": 0,
+        "source": 3
+      },
+      "content_pairs": {
+        "destination": 9,
+        "excluded": 0,
+        "source": 9
+      },
+      "crosscheck_log": {
+        "destination": 180,
+        "excluded": 0,
+        "source": 180
+      },
+      "edges": {
+        "destination": 8028,
+        "excluded": 0,
+        "source": 8028
+      },
+      "evidence_labels": {
+        "destination": 2142,
+        "excluded": 0,
+        "source": 2142
+      },
+      "evidences": {
+        "destination": 40176,
+        "excluded": 0,
+        "source": 40176
+      },
+      "gemini_calls": {
+        "destination": 32,
+        "excluded": 0,
+        "source": 32
+      },
+      "gen_curves": {
+        "destination": 106750,
+        "excluded": 0,
+        "source": 106750
+      },
+      "interpretations": {
+        "destination": 104,
+        "excluded": 0,
+        "source": 104
+      },
+      "meanings": {
+        "destination": 16085,
+        "excluded": 0,
+        "source": 16085
+      },
+      "media_tried": {
+        "destination": 502,
+        "excluded": 0,
+        "source": 502
+      },
+      "mention_queries": {
+        "destination": 300,
+        "excluded": 0,
+        "source": 300
+      },
+      "mentions_weekly": {
+        "destination": 125614,
+        "excluded": 0,
+        "source": 125614
+      },
+      "mentions_weekly_region": {
+        "destination": 3463,
+        "excluded": 0,
+        "source": 3463
+      },
+      "news": {
+        "destination": 51626,
+        "excluded": 6,
+        "source": 51632
+      },
+      "pageviews_done": {
+        "destination": 440,
+        "excluded": 0,
+        "source": 440
+      },
+      "pipeline_runs": {
+        "destination": 1536,
+        "excluded": 0,
+        "source": 1536
+      },
+      "research_log": {
+        "destination": 16187,
+        "excluded": 0,
+        "source": 16187
+      },
+      "review_history": {
+        "destination": 107,
+        "excluded": 0,
+        "source": 107
+      },
+      "review_queue": {
+        "destination": 3752,
+        "excluded": 0,
+        "source": 3752
+      },
+      "shopping_trends": {
+        "destination": 525,
+        "excluded": 0,
+        "source": 525
+      },
+      "term_fit": {
+        "destination": 4544,
+        "excluded": 0,
+        "source": 4544
+      },
+      "term_media": {
+        "destination": 2382,
+        "excluded": 0,
+        "source": 2382
+      },
+      "term_pageviews": {
+        "destination": 39577,
+        "excluded": 0,
+        "source": 39577
+      },
+      "terms": {
+        "destination": 11244,
+        "excluded": 0,
+        "source": 11244
+      },
+      "topic_notes": {
+        "destination": 132,
+        "excluded": 0,
+        "source": 132
+      },
+      "translations": {
+        "destination": 242,
+        "excluded": 0,
+        "source": 242
+      },
+      "trend_class": {
+        "destination": 6292,
+        "excluded": 0,
+        "source": 6292
+      },
+      "trend_explanations": {
+        "destination": 260,
+        "excluded": 0,
+        "source": 260
+      },
+      "trend_queries": {
+        "destination": 32716,
+        "excluded": 0,
+        "source": 32716
+      },
+      "usage": {
+        "destination": 11985,
+        "excluded": 0,
+        "source": 11985
+      },
+      "video_snapshots": {
+        "destination": 121933,
+        "excluded": 0,
+        "source": 121933
+      },
+      "videos": {
+        "destination": 15242,
+        "excluded": 0,
+        "source": 15242
+      },
+      "wiki_catalog": {
+        "destination": 12246,
+        "excluded": 0,
+        "source": 12246
+      },
+      "wiki_top": {
+        "destination": 7840,
+        "excluded": 0,
+        "source": 7840
+      }
+    },
+    "snapshot_id": "20261001T224511-e56b90d"
+  },
+  "load_seconds": 118,
+  "loaded_at": "2026-10-03T15:22:37+00:00",
+  "snapshot_id": "20261001T224511-e56b90d"
+}
