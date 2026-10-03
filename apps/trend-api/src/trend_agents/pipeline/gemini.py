@@ -127,14 +127,15 @@ def spent_usd(con: Connection) -> float:
     return _count(con, _month_key()) / MICRO_USD
 
 
-def affordable(con: Connection, model: str) -> bool:
-    """이번 달 금액 상한 안에서 이 모델로 최악의 호출 한 번을 더 할 수 있나. 상한이 꺼져 있으면 늘 True."""
+def affordable(con: Connection, model: str, calls: int = 1) -> bool:
+    """이번 달 금액 상한 안에서 이 모델로 최악의 호출을 calls 번 더 할 수 있나. 상한이 꺼져 있으면 늘 True.
+    generate() 를 거치지 않는 직접 호출(영상 해석·검색 grounding 조사)도 이것과 charge 로 같은 상한을 따른다."""
     if GEMINI_MONTHLY_USD <= 0:
         return True
-    return model in GEMINI_PRICES and _count(con, _month_key()) + _reserve(model) <= GEMINI_MONTHLY_USD * MICRO_USD
+    return model in GEMINI_PRICES and _count(con, _month_key()) + _reserve(model) * calls <= GEMINI_MONTHLY_USD * MICRO_USD
 
 
-def _charge(con: Connection, model: str, resp: Any) -> None:
+def charge(con: Connection, model: str, resp: Any) -> None:
     """성공한 호출(Vertex 는 200 응답만 과금한다)의 실제 사용량을 금액 장부에 더한다. 사용량이 없으면 최악 비용으로 센다."""
     if model not in GEMINI_PRICES:
         return
@@ -251,7 +252,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                 _called(m, ledger, "error")
                 raise
             _called(m, ledger, "ok")
-            _charge(con, m, resp)
+            charge(con, m, resp)
             record_model(m)
             return resp, m
     assert last is not None

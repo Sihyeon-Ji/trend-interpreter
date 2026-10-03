@@ -6,9 +6,11 @@ grounding: 월 5,000회 무료, 이후 $14/1,000.
 """
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from google.genai import types
 
-from ..config import GEMINI_MODEL
+from ..config import GEMINI_MAX_OUTPUT_TOKENS, GEMINI_MODEL
 from .. import model_client
 from ..schemas import MeaningDraft
 
@@ -29,14 +31,17 @@ is_expression 은 이 항목이 유행어·밈·줄임말·챌린지·노래 후
 _client = model_client.client
 
 
-def research_term(term: str, model: str = GEMINI_MODEL) -> tuple[MeaningDraft, list[str], str]:
-    """(초안, 출처 URL 목록, 원본 조사 메모)"""
+def research_term(term: str, model: str = GEMINI_MODEL, charge: Callable[[str, Any], None] | None = None) -> tuple[MeaningDraft, list[str], str]:
+    """(초안, 출처 URL 목록, 원본 조사 메모). charge(모델, 응답)는 호출마다 실제 사용량을 금액 장부에 더한다."""
     c = _client()
     r1 = c.models.generate_content(
         model=model,
         contents=RESEARCH_PROMPT.format(term=term),
-        config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())], temperature=0.2),
+        config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())], temperature=0.2,
+                                           max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS),
     )
+    if charge:
+        charge(model, r1)
     notes = r1.text or ""
     urls: list[str] = []
     gm = r1.candidates[0].grounding_metadata if r1.candidates else None
@@ -46,7 +51,10 @@ def research_term(term: str, model: str = GEMINI_MODEL) -> tuple[MeaningDraft, l
     r2 = c.models.generate_content(
         model=model,
         contents=STRUCTURE_PROMPT.format(term=term, notes=notes),
-        config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=MeaningDraft, temperature=0.1),
+        config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=MeaningDraft, temperature=0.1,
+                                           max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS),
     )
+    if charge:
+        charge(model, r2)
     draft = r2.parsed if isinstance(r2.parsed, MeaningDraft) else MeaningDraft.model_validate(r2.parsed)
     return draft, urls, notes

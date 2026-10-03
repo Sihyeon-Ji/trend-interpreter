@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any, Callable
 
 from google.genai import types
 
-from ..config import GEMINI_MODEL
+from ..config import GEMINI_MAX_OUTPUT_TOKENS, GEMINI_MODEL
 from .. import model_client
 from ..schemas import ShortsInterpretation
 
@@ -45,8 +46,9 @@ class InterpretResult:
 _client = model_client.client
 
 
-def interpret_shorts(urls: list[str], model: str = GEMINI_MODEL, low_res: bool = True) -> InterpretResult:
-    """urls 1~10개를 요청 하나로 보낸다."""
+def interpret_shorts(urls: list[str], model: str = GEMINI_MODEL, low_res: bool = True,
+                     charge: Callable[[str, Any], None] | None = None) -> InterpretResult:
+    """urls 1~10개를 요청 하나로 보낸다. charge(모델, 응답)는 실제 사용량을 금액 장부에 더한다."""
     if not 1 <= len(urls) <= 10:
         raise ValueError("요청당 1~10개 URL")
     parts = [types.Part(file_data=types.FileData(file_uri=u)) for u in urls]
@@ -56,10 +58,13 @@ def interpret_shorts(urls: list[str], model: str = GEMINI_MODEL, low_res: bool =
         response_schema=list[ShortsInterpretation],
         temperature=0.2,
         media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW if low_res else None,
+        max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
     )
     resp = _client().models.generate_content(
         model=model, contents=types.Content(role="user", parts=parts), config=cfg
     )
+    if charge:
+        charge(model, resp)
     parsed = resp.parsed or []
     items = [p if isinstance(p, ShortsInterpretation) else ShortsInterpretation.model_validate(p) for p in parsed]
     items, dropped = _attribute(items, urls)

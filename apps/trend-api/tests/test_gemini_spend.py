@@ -76,3 +76,31 @@ def test_without_usage_metadata_the_worst_case_is_charged_and_no_cap_means_no_bl
     gemini.generate(con, "prompt", model="gemini-3.8-flash", request=True)
     assert gemini._count(con, gemini._month_key()) == gemini._reserve("gemini-3.8-flash")
     assert gemini.affordable(con, "unpriced-model")
+
+
+def test_direct_calls_outside_generate_follow_the_same_cap(monkeypatch):
+    """영상 해석·검색 grounding 조사는 generate() 를 거치지 않는다 — 출력 상한·금액 장부·사전 확인을 같이 따른다."""
+    from trend_agents.interpreters import gemini_research, gemini_video
+
+    con = db.connect(":memory:")
+    capped(monkeypatch, 20)
+    configs = []
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            configs.append(config.max_output_tokens)
+            return SimpleNamespace(text="notes", candidates=[], parsed=[] if config.response_schema is not None and
+                                   "list" in str(config.response_schema) else {"definition": "d", "origin": "o", "nuance": "n",
+                                                                               "generations": [], "regions": [], "self_confidence": 0.5},
+                                   usage_metadata=USAGE)
+
+    monkeypatch.setattr(gemini_research, "_client", lambda: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(gemini_video, "_client", lambda: SimpleNamespace(models=Models()))
+    spend = lambda m, resp: gemini.charge(con, m, resp)  # noqa: E731
+    gemini_research.research_term("term", model="gemini-3.8-flash", charge=spend)
+    gemini_video.interpret_shorts(["https://youtube.com/shorts/x"], model="gemini-3.8-flash", charge=spend)
+    one = (1000 * 0.75 + 1500 * 3.75) / 1_000_000
+    assert gemini.spent_usd(con) == pytest.approx(3 * one)
+    assert configs == [gemini.GEMINI_MAX_OUTPUT_TOKENS] * 3
+    gemini._bump(con, gemini._month_key(), 20 * gemini.MICRO_USD)
+    assert not gemini.affordable(con, "gemini-3.8-flash", calls=2)

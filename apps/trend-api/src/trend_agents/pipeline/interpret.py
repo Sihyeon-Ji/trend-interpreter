@@ -8,7 +8,7 @@ from ..config import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, REGIONS_FOCUS
 from ..interpreters.gemini_video import interpret_shorts
 from ..storage import dictionary_store as ds
 from ..storage import store as db
-from .gemini import budget_left
+from .gemini import affordable, budget_left, charge
 from .runs import stage
 from ..storage.db import Connection
 
@@ -35,15 +35,21 @@ def run(con: Connection, max_batches: int = 2) -> dict:
                 r.note = "예산 부족"
                 break
             used = GEMINI_MODEL
+            if not affordable(con, GEMINI_MODEL):
+                r.note = "금액 상한"
+                break
             try:
                 ds.gemini_spend(con, 1)
-                res = interpret_shorts(chunk, model=GEMINI_MODEL)
+                res = interpret_shorts(chunk, model=GEMINI_MODEL, charge=lambda m, resp: charge(con, m, resp))
             except errors.APIError as e:
                 if e.code not in (429, 503):
                     raise
+                if not affordable(con, GEMINI_FALLBACK_MODEL):
+                    r.note = "금액 상한"
+                    break
                 ds.gemini_spend(con, 1)
                 used = GEMINI_FALLBACK_MODEL
-                res = interpret_shorts(chunk, model=GEMINI_FALLBACK_MODEL)
+                res = interpret_shorts(chunk, model=GEMINI_FALLBACK_MODEL, charge=lambda m, resp: charge(con, m, resp))
             n += db.save_interpretations(con, res.items, used)
             r.detail.setdefault("models", []).append(used)
             r.models.add(used)   # 영상 해석은 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서 적는다

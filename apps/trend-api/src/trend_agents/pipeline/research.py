@@ -18,7 +18,7 @@ from ..schemas import Evidence, MeaningDraft, ShortsInterpretation, ShortsVideo,
 from ..storage import dictionary_store as ds
 from ..collectors.naver_search import for_model
 from ..verification import anchor_hit, gate, normalize_url, reference_doc
-from .gemini import BudgetExhausted, budget_left, local_ok, note_call, note_quota, structured
+from .gemini import BudgetExhausted, affordable, budget_left, charge, local_ok, note_call, note_quota, structured
 from .gemini import models as gemini_models
 from .match import mentions, same_term
 from .runs import record_model, stage
@@ -515,10 +515,12 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     # 모델 사슬은 3.5 부터 — 영상 해석(interpret)이 3.8 을 먼저 쓴다(같은 모델을 두 단계가 뺏으면 아침에 둘 다 바닥난다, 09-28).
     # 그날 끝난 모델·닫힌 검색 grounding 은 gemini.models 가 뺀다(모델마다 무료 몫이 따로다, 10-01).
     for model in (gemini_models(con, GEMINI_FALLBACK_MODEL, grounded=True)[:3] if budget_left(con) >= 2 and not lean else ()):
+        if not affordable(con, model, calls=2):
+            continue                     # 이번 달 금액 상한 — 더 싼 모델이 남았으면 그쪽으로
         try:
             ds.gemini_spend(con, 2)  # research_term 은 호출 2회
             note_call(con, model, 2)
-            draft, urls, notes = research_term(term.canonical, model=model)
+            draft, urls, notes = research_term(term.canonical, model=model, charge=lambda m, resp: charge(con, m, resp))
             method = model
             record_model(model)   # 검색 grounding 조사는 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서
             break
