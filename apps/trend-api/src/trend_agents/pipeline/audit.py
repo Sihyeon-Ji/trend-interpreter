@@ -275,7 +275,10 @@ def run(con: Connection) -> dict:
 
     with stage(con, "audit") as r:
         try:
-            names = {x.model for x in local_chat._client(AUDIT_OLLAMA_HOST or None).list().models}
+            if local_chat.gpu_gateway.configured():
+                names = {AUDIT_MODEL} if local_chat.gpu_gateway.available(AUDIT_MODEL) else set()
+            else:
+                names = {x.model for x in local_chat._client(AUDIT_OLLAMA_HOST or None).list().models}
         except Exception:
             names = set()
         if AUDIT_MODEL not in names:

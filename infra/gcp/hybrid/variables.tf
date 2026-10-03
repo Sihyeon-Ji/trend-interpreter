@@ -26,3 +26,32 @@ variable "gateway_port" {
     error_message = "The private TLS gateway uses port 8443."
   }
 }
+variable "gpu" {
+  description = "Approved GPU deployment inputs; null creates no VM or disk."
+  type = object({
+    zone               = string
+    boot_image         = string
+    release_uri        = string
+    release_generation = string
+    release_sha256     = string
+    models_bucket      = string
+    models_prefix      = string
+    tls_secret_version = string
+    token_version      = number
+    format_model_disk  = optional(bool, false)
+  })
+  default = null
+  validation {
+    condition = var.gpu == null ? true : (
+      can(regex("^projects/[a-z0-9-]+/global/images/[a-z0-9-]+$", var.gpu.boot_image)) &&
+      can(regex("^[1-9][0-9]*$", var.gpu.release_generation)) &&
+      can(regex("^[a-f0-9]{64}$", var.gpu.release_sha256)) &&
+      can(regex("^[a-z0-9][a-z0-9._-]+$", var.gpu.models_bucket)) &&
+      can(regex("^[A-Za-z0-9][A-Za-z0-9._/-]*/$", var.gpu.models_prefix)) &&
+      startswith(var.gpu.release_uri, "gs://${var.gpu.models_bucket}/${var.gpu.models_prefix}") &&
+      can(regex("^projects/[a-z0-9-]+/secrets/[A-Za-z0-9_-]+/versions/[1-9][0-9]*$", var.gpu.tls_secret_version)) &&
+      var.gpu.token_version >= 1 && floor(var.gpu.token_version) == var.gpu.token_version
+    )
+    error_message = "Pin boot image, release generation/hash, object scope and numeric secret versions."
+  }
+}

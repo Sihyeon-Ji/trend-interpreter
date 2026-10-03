@@ -14,7 +14,7 @@
 | 최소 권한 | API의 Vertex·Cloud SQL 접속 역할, API/GPU만 gateway secret 읽기 |
 | 비밀값 | Secret Manager metadata만 생성 대상으로 정의. 값·version은 Terraform 밖에서 관리 |
 
-이 기반에는 **GCE VM·디스크·Cloud Run 서비스·Cloud SQL 변경·NAT·예약 종료·게시 Job이 아직 없다**. 서브넷 허용은 API SA 신원 검증을 대체하지 않는다. 해당 서브넷에 배치할 실행 주체와 `actAs` 권한도 배포 단계에서 제한해야 한다. GPU의 모델 객체 읽기 권한·웹의 해당 API invoke 권한·Job의 DB 역할은 대상 자원이 확정된 뒤 부여한다. 현재 서브넷의 기본 egress를 운영 제한 정책으로 간주하지 않는다.
+선택 입력에 따른 GCE VM·디스크·예약 종료 코드는 [GPU VM 배포 계약](GPU-VM-배포-계약.md)에 추가했다. **Cloud Run 서비스·Cloud SQL 변경·NAT·게시 Job은 아직 없다**. 서브넷 허용은 API SA 신원 검증을 대체하지 않는다. 해당 서브넷에 배치할 실행 주체와 `actAs` 권한도 배포 단계에서 제한해야 한다. 선택 GPU 입력이 주어지면 모델 객체 읽기 권한을 지정 prefix에만 부여한다. 웹의 해당 API invoke 권한·Job의 DB 역할은 대상 자원이 확정된 뒤 부여한다. 현재 서브넷의 기본 egress를 운영 제한 정책으로 간주하지 않는다.
 
 실제 적용 전에 사용자 비용 승인, 기존 네트워크 주소 충돌 확인, 환경별 원격 state 분리, 생성·변경 목록 검토가 필요하다. 현재 root는 로컬 backend라서 같은 작업 디렉터리를 staging/production에 번갈아 apply하면 안 된다. 승인된 배포 설정에서 별도 backend를 구성한 뒤 사용한다. `enabled=true`는 승인 증거가 아니다.
 

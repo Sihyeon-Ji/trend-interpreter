@@ -22,6 +22,7 @@ import ollama
 from pydantic import TypeAdapter, ValidationError
 
 from ..config import GEMMA_LOCAL_MODEL, LOCAL_LLM_BASE_URL
+from . import gpu_gateway
 
 NUM_CTX = 8192  # Ollama 기본 컨텍스트가 크면(이 서버는 131k) KV 캐시가 VRAM 을 먹어 GPU 에 덜 올라간다
 TIMEOUT = 180.0
@@ -45,6 +46,8 @@ def _client(host: str | None) -> ollama.Client:
 
 def available(model: str = GEMMA_LOCAL_MODEL) -> bool:
     """모델이 서버에 실제로 있는가. 서버가 없으면 False."""
+    if gpu_gateway.configured():
+        return gpu_gateway.available(model)
     try:
         if LOCAL_LLM_BASE_URL:
             r = httpx.get(f"{LOCAL_LLM_BASE_URL}/models", timeout=5)
@@ -82,6 +85,8 @@ def structured(prompt: str, schema: Any, temperature: float = 0.1, model: str = 
 def _problem(e: Exception) -> str:
     """재질문에 넣을 짧은 오류 — 어느 키가 틀렸는지. '4 validation errors' 만 알려 주면 작은 모델이 같은 자리(최상위 thumbnail 을
     script 안에 넣기)를 또 틀렸다(2026-09-29 실측)."""
+    if gpu_gateway.configured():
+        return "invalid_json_or_schema"
     if isinstance(e, ValidationError):
         return "; ".join(f"{'.'.join(map(str, x['loc'])) or '(전체)'}: {x['msg']}" for x in e.errors()[:4])[:300]
     return str(e).splitlines()[0][:200]
@@ -175,6 +180,10 @@ def describe_schema(js: dict) -> str:
 
 def _chat(prompt: str, temperature: float, model: str, json_schema: dict | None = None, image: tuple[bytes, str] | None = None,
           host: str | None = None) -> str:
+    if gpu_gateway.configured():
+        if image is not None or host:
+            raise gpu_gateway.GatewayUnavailable("GPU gateway supports fixed-model text requests only")
+        return gpu_gateway.generate(prompt, model)
     messages: list[dict] = [{"role": "user", "content": prompt}]
     if image and LOCAL_LLM_BASE_URL:   # OpenAI 호환: 글과 그림을 한 메시지의 조각으로
         data = base64.b64encode(image[0]).decode()
@@ -215,6 +224,8 @@ class ToolCall:
 def chat_with_tools(messages: list[dict], tools: list[dict], temperature: float = 0.2,
                     model: str = GEMMA_LOCAL_MODEL, timeout: float = TIMEOUT) -> tuple[str, list[ToolCall]]:
     """(본문, 도구 호출 목록). tools 가 비면 도구 없이 답만 받는다 — 루프의 마지막 턴이 그렇게 쓴다."""
+    if gpu_gateway.configured():
+        raise gpu_gateway.GatewayUnavailable("GPU gateway does not expose tool execution")
     if LOCAL_LLM_BASE_URL:
         return _tools_openai(messages, tools, temperature, model, timeout)
     return _tools_ollama(messages, tools, temperature, model, timeout)

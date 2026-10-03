@@ -29,6 +29,12 @@ AUDIT_MODEL = os.getenv("AUDIT_MODEL", "gemma4:12b")
 AUDIT_OLLAMA_HOST = os.getenv("AUDIT_OLLAMA_HOST", "")
 RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "gemma4:12b")  # 콘텐츠 조사 에이전트·ADK 조사 에이전트(AUDIT_OLLAMA_HOST 에서)
 LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "").rstrip("/")  # 비우면 Ollama(localhost:11434). OpenAI 호환 서버(vLLM 등)면 예: http://127.0.0.1:11437/v1 — 모델 이름은 GEMMA_LOCAL_MODEL(served-model-name)
+GPU_GATEWAY_URL = os.getenv("GPU_GATEWAY_URL", "").rstrip("/")
+GPU_GATEWAY_REQUESTS_ENABLED = os.getenv("GPU_GATEWAY_REQUESTS_ENABLED", "false").lower() == "true"
+GPU_GATEWAY_TOKEN = os.getenv("GPU_GATEWAY_TOKEN", "")
+GPU_GATEWAY_CA_FILE = os.getenv("GPU_GATEWAY_CA_FILE", "")
+GPU_GATEWAY_MODEL = os.getenv("GPU_GATEWAY_MODEL", "")
+GPU_GATEWAY_MODEL_DIGEST = os.getenv("GPU_GATEWAY_MODEL_DIGEST", "")
 GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash")  # 3.8 이 503(무료 등급 용량)일 때만
 # 무료 등급 한도는 모델마다 따로다 — AI Studio 'Rate limit' 화면(무료 등급, 2026-10-01 사용자 확인):
 #   3.8·3.7·3.6·3.5·3 Flash: 분당 5 · 하루 20 / 3.5·3.1 Flash Lite: 분당 15 · 하루 500 / Gemma 4 31B·26B: 분당 30 · 하루 14,400(토큰 분당 16K)

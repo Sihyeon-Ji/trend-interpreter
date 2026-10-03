@@ -195,3 +195,12 @@ Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하�
 이 단계는 네트워크/IAM 기반과 제한된 추론 경로의 코드·로컬 검증이다. GCE VM/디스크·모델 release·설치/자동 종료·API adapter·Cloud Run 서비스·기존 Cloud SQL 보호·운영 egress/TLS/IAM 연결은 아직 남았다. 실제 GPU readiness·모델 품질·운영 인증 성공을 합성 테스트로 주장하지 않는다.
 
 검증은 gateway Compose 테스트 18개·lint, 기존/새 Terraform fmt·validate와 mock plan 3개, gateway image build, 합성 인증서의 실제 TLS 검증·비인가 `/ready` 401, 앱 `check` 통과다. Gateway lockfile 단독 OSV 검사에서 취약점은 발견되지 않았다. 전체 OSV 검사는 수정하지 않은 기존 웹/API lockfile의 14건(critical 1·high 7·medium 6)으로 실패했다. 기존 의존성 보안 수정은 배포 전 해소해야 할 별도 차단 항목이며 이번 진행 커밋을 운영 배포 승인으로 사용하지 않는다.
+
+
+### 10-03 GPU VM·모델 설치·API 연결 코드 추가
+
+선택 GPU 입력이 있을 때만 L4 1장·별도 모델 디스크·예약 내부 IP·GCE 2시간 STOP을 정의했다. 고정 boot image의 설치기는 승인 release와 객체 generation/해시·GGUF·Modelfile을 검사하고, 준비된 image에서 loopback Ollama·TLS gateway를 시작한다. 새 빈 디스크 초기화는 명시한 옵션이 있어야 하며 기존 데이터 signature를 덮어쓰지 않는다. 비밀값은 metadata/state·명령에 넣지 않는다.
+
+API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가하고 기존 텍스트/구조화 호출과 감사관 준비 검사에 연결했다. Gateway가 선택된 경우 미지원 기능과 실패를 직접 Ollama로 우회하지 않는다. 동기 worker 호출의 즉시 취소·vision/tool/stream 경로는 아직 지원하지 않는다. 상세 조건은 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다.
+
+실제 image 제작·GCP 등록·모델 승인·TLS/secret version 준비·quota/비용 승인·VM 생성·종료·Cloud Run 연결은 실행하지 않았다. 기존 전체 보안 검사 실패도 배포 차단 항목으로 유지한다.
