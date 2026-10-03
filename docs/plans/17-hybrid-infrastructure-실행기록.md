@@ -233,3 +233,12 @@ API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가�
 
 검증은 새 지문 비교 테스트 2개를 포함한 `check` 통과(데이터 20개·API 331개·배포/검토/리허설 15개·알림 10개·웹 transport 13개, 웹 lint/build)와 실제 snapshot 리허설 통과다. UI·Terraform은 바꾸지 않아 E2E·infra-check는 다시 실행하지 않았다.
 
+
+### 10-03 사용자 결정과 Cloud SQL staging 적재
+
+사용자가 다음을 결정했다. Cloud SQL 새 인스턴스는 공유 코어 소형·월 상한 약 $30으로 하고 Plan 13 일정(10-24 확정, 10-26 실행)을 따른다. staging은 지금 체험 인스턴스에 적재한다. 최초 GPU 검증은 L4 최대 2시간·$10 상한으로 승인했다. 사람 평가와 학습 출처 확인은 팀원 ejchoi에게 요청한다. 백업·PITR 사용 여부는 아직 정하지 않았다.
+
+체험 인스턴스에 `trend_staging` DB와 `trend_staging_app` 사용자를 만들고, 연결 문자열을 Secret Manager `trend-staging-database-url`에만 저장했다. 첫 version은 셸 변수 확장 오류로 연결 이름이 잘못 저장돼 폐기하고 비밀번호를 다시 발급해 version 2로 교체했다. `scripts/load-cloud-sql.sh`로 Cloud SQL Auth Proxy를 거쳐 snapshot을 적재했고 41개 표 건수 일치·사용자 표 0행을 확인했다(115초). 보고서는 `manifests/cloud-sql-load-staging-20261001T224511-e56b90d.json`, 절차는 [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)에 있다.
+
+GPU 검증은 승인됐지만 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)상 승인 release·준비된 boot image·TLS/token secret version이 먼저 필요하다. Compute API는 아직 비활성이며 활성화하지 않았다.
+

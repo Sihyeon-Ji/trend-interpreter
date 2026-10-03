@@ -66,21 +66,33 @@ gcloud sql instances patch trend-project --project=stunning-crane-508614-c1 \
 
 경로 B(새 소형 인스턴스)를 선택하면 새 인스턴스 생성 시 같은 설정을 처음부터 켜고, 이 리허설과 같은 적재 절차로 데이터를 넣는다.
 
-## staging 연결안
+## staging 연결과 적재 – 2026-10-03 완료
 
-| 항목 | 결정안 |
+사용자 결정에 따라 체험 인스턴스에 staging을 먼저 적재했다. 체험 기간 동안은 무료이고, 데이터는 snapshot에서 다시 적재할 수 있다.
+
+| 항목 | 상태 |
 | --- | --- |
-| DB | 같은 인스턴스에 `trend_staging`과 `trend` DB를 따로 만든다. 기본 `postgres` DB에는 앱 데이터를 두지 않는다 |
-| 사용자 | 환경별 앱 사용자 `trend_staging_app`·`trend_app`을 만들고 자기 DB만 소유한다. 기본 `postgres` 사용자는 앱에서 쓰지 않는다 |
-| 비밀번호 | 생성한 값을 바로 Secret Manager `trend-staging-database-url`·`trend-production-database-url`의 새 version으로 넣는다. 채팅·로그·Terraform state에 남기지 않는다 |
-| 연결 문자열 | `postgresql://<user>:<password>@/<db>?host=/cloudsql/stunning-crane-508614-c1:asia-northeast1:trend-project` – `infra/gcp/hybrid`의 `/cloudsql` 소켓 mount와 맞춘다 |
-| 적재 | 리허설과 같은 snapshot·`--fresh --skip-user-data` 이관을 staging DB에 실행하고 표별 건수를 이 보고서와 대조한다 |
-| 분리 확인 | staging API SA가 production secret을 읽지 못하고, staging 사용자가 `trend` DB에 접속하지 못하는지 확인한다 |
+| DB | `trend_staging` 생성. 기본 `postgres` DB에는 앱 데이터를 두지 않는다 |
+| 사용자 | `trend_staging_app` 생성. 기본 `postgres` 사용자는 앱에서 쓰지 않는다 |
+| 비밀번호 | 생성 즉시 Secret Manager에만 저장했다. 채팅·로그·명령줄·Terraform state에 남기지 않았다 |
+| Secret | `trend-staging-database-url`(도쿄 단일 지역 복제), 현재 version 2. 잘못된 연결 이름으로 만든 version 1은 폐기하고 비밀번호를 다시 발급했다 |
+| 연결 문자열 | `postgresql://trend_staging_app:<password>@/trend_staging?host=/cloudsql/stunning-crane-508614-c1:asia-northeast1:trend-project` – `infra/gcp/hybrid`의 `/cloudsql` 소켓 mount와 맞춘다 |
+| 적재 | 아래 명령으로 snapshot `20261001T224511-e56b90d`를 적재했다. 41개 표 건수 일치(`news` 6행 정책 제외), 사용자 표 3개 0행, 115초. [보고서](../../manifests/cloud-sql-load-staging-20261001T224511-e56b90d.json) |
 
-DB·사용자 생성은 인스턴스 사양을 바꾸지 않아 추가 과금이 거의 없다. 다만 체험 인스턴스에 적재한 데이터는 백업되지 않으므로, 유료 전환 또는 이전 경로가 정해진 뒤 적재하는 것을 기본으로 한다.
+```sh
+scripts/load-cloud-sql.sh 20261001T224511-e56b90d trend-staging-database-url \
+  manifests/cloud-sql-load-staging-20261001T224511-e56b90d.json
+```
+
+스크립트는 Secret Manager의 연결 문자열을 읽어 Cloud SQL Auth Proxy 2.26.0(digest 고정)으로 접속하고, 리허설과 같은 `load` 검사를 실행한다. 연결 문자열은 환경변수로만 전달하며 보고서에 남기지 않는다. 대상 DB의 `terms`가 비어 있지 않으면 적재를 거부한다. proxy는 현재 `gcloud` 계정의 단기 토큰을 사용한다.
+
+남은 확인은 다음과 같다.
+
+- `gcloud sql users create`로 만든 사용자는 `cloudsqlsuperuser` 역할을 받아 같은 인스턴스의 다른 DB에도 접속할 수 있다. production `trend` DB를 만들 때 환경별 `REVOKE CONNECT`와 접속 거부 시험으로 분리한다.
+- staging API SA가 production secret을 읽지 못하는지는 Cloud Run 배포 때 확인한다.
+- 체험 인스턴스의 staging 데이터는 백업되지 않는다. 문제가 생기면 DB를 다시 만들고 위 명령으로 재적재한다.
 
 ## 남은 결정
 
-- Plan 13의 전환 경로 A/B와 월 비용 상한, 실행 일자
-- 보호 설정안의 백업 보존 수·PITR 로그 일수
-- staging DB 적재 시점 – 유료 전환 전 시험 적재를 허용할지 여부
+- 사양과 비용: **공유 코어 소형, Cloud SQL 월 상한 약 $30**으로 결정했다(10-03). 공유 코어는 기존 Enterprise Plus 인스턴스를 제자리 전환할 수 없으므로 Plan 13 일정의 실행은 새 인스턴스 경로가 된다. 정확한 견적은 Plan 13의 10-20~22 일정에 다시 만든다.
+- 백업·PITR: 사용 여부 미정. 결정 전까지 이 문서의 보호 설정안을 적용하지 않는다.

@@ -10,6 +10,7 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import sqlite3
 import tempfile
@@ -173,11 +174,14 @@ def main() -> None:
     load_command = commands.add_parser("load")
     load_command.add_argument("--manifest", type=Path, required=True)
     load_command.add_argument("--snapshot-dir", type=Path, required=True)
-    load_command.add_argument("--database-url", required=True)
+    load_command.add_argument("--database-url", default=os.environ.get("LOAD_DATABASE_URL"),
+                              help="defaults to LOAD_DATABASE_URL so a Cloud SQL password stays out of the process list")
     compare_command = commands.add_parser("compare")
     compare_command.add_argument("--source-url", required=True)
     compare_command.add_argument("--restored-url", required=True)
     args = parser.parse_args()
+    if args.command == "load" and not args.database_url:
+        parser.error("load needs --database-url or LOAD_DATABASE_URL")
     if args.command == "load":
         result = load(args.manifest, args.snapshot_dir, args.database_url)
     else:
