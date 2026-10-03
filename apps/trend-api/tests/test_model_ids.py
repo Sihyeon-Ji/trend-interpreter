@@ -86,7 +86,7 @@ def test_video_interpretation_records_the_model_that_answered(monkeypatch):
                                        duration_sec=30, view_count=10, region=config.REGIONS_FOCUS[0], source="most_popular")])
     tried = []
 
-    def fake_interpret(urls, model):
+    def fake_interpret(urls, model, charge=None):
         tried.append(model)
         if model == config.GEMINI_MODEL:
             raise errors.APIError(503, {"error": {"message": "overloaded"}})
@@ -112,7 +112,7 @@ def test_grounded_research_records_the_model_that_answered(monkeypatch):
     ds.upsert_term(con, term)
     tried = []
 
-    def fake_research(name, model):
+    def fake_research(name, model, charge=None):
         tried.append(model)
         if model == config.GEMINI_FALLBACK_MODEL:
             raise errors.APIError(503, {"error": {"message": "overloaded"}})
