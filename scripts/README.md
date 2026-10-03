@@ -13,6 +13,7 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 | `restore-rehearsal.sh` | Data intake operator | Migrate a verified snapshot into a throwaway PostgreSQL, round-trip it through `pg_dump`/`pg_restore` and fail on any schema or content difference |
 | `build-gpu-image.sh` | GPU release operator | Build the prepared GPU boot image and stage one model release with a temporary, prefix-scoped builder VM |
 | `verify-gpu-gateway.sh` | GPU release operator | Check an installed gateway from inside its VM over IAP SSH: TLS, credential rejection, readiness, timed inference and GPU memory |
+| `rotate-gpu-tls.sh` | GPU release operator | Issue a new 90-day gateway server certificate from the environment's private CA, or create a new CA with `--new-ca`, storing keys only in Secret Manager |
 | `probe-gpu-from-cloud-run.sh` | GPU release operator | Run `probe_gpu_gateway.py` once as a temporary Cloud Run job with the API image, identity and VPC egress, then delete the job and its temporary grant |
 | `load-cloud-sql.sh` | Data intake operator | Load a verified snapshot into an empty Cloud SQL database through a pinned Cloud SQL Auth Proxy, reading the connection string from Secret Manager |
 | `restore_rehearsal.py` | `restore-rehearsal.sh` | Snapshot hash check, user-data-free migration with per-table counts, and schema/content fingerprints of two databases |

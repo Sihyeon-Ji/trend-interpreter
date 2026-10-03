@@ -42,3 +42,38 @@ docker compose run --rm infra-check
 ```
 
 `infra-check`는 기존 root와 새 root의 fmt/validate, 비활성·staging/production·GPU·웹/API·잘못된 GPU release 시나리오를 검사한다. 이 검사는 리소스를 생성하지 않는다.
+
+## 2026-10-03 staging 배포
+
+사용자 결정에 따라 staging만 Terraform으로 직접 배포했다. production은 계속 `release/gcp` 경로로만 배포하며, 그 job은 아직 꺼져 있다. 웹은 주소를 아는 사람만 들어오는 공개 상태이고 검수 기능은 로그인으로 보호한다. GPU는 연결하지 않았다(`services.gpu=null`, API는 `MODEL_PROVIDER=mock`).
+
+| 항목 | 값 |
+| --- | --- |
+| 웹 | `https://trend-staging-web-7jftqxfz3q-an.a.run.app` |
+| API | `https://trend-staging-api-7jftqxfz3q-an.a.run.app` (IAM 인증 필수) |
+| 이미지 | `trend-api@sha256:9c279a4a…`, `trend-web@sha256:adbc4c38…` (`a3cb2bd`·`c499d6b` 기준) |
+| DB | 체험 인스턴스의 `trend_staging`, `trend-staging-database-url` version 2 |
+| secret | `trend-staging-accounts` 1(검수 계정 1개), `trend-staging-frontend-token` 1, `trend-staging-session-secret` 1 |
+
+입력값은 로컬 `infra/gcp/hybrid/staging.tfvars.json`(Git 제외)에 있으며 위 값으로 다시 만들 수 있다. 적용 결과는 생성 12개였다.
+
+웹 이미지는 Apple Silicon의 amd64 에뮬레이션에서 Next.js 빌드가 exit 139로 죽어 Cloud Build로 만들었다. 기본 Compute 계정으로는 빌드 생성이 거부돼, 로그 쓰기·`builder-cup` push·소스 버킷 읽기만 가진 `trend-cloud-build` SA를 지정했다.
+
+검수 계정은 사용자가 직접 만들었다. 비밀번호를 터미널에서 입력받아 PBKDF2 해시만 secret에 넣는 일회성 명령을 썼다. 로컬 개발용 `set_account.py`는 `.env`·`.env.local`을 고치므로 쓰지 않았다.
+
+| 확인 | 결과 |
+| --- | --- |
+| API 익명 요청 | `/health`·`/terms` 403 |
+| API 인증 호출 | `/health` 200, 표제어 11,244개 |
+| 잘못된 비밀번호 로그인 | 401 |
+| 웹 → API → DB | `/briefing` 200, API 대시보드 표제어 14개가 화면에 표시, sample 표시 없음 |
+| 웹 화면 | `/`·`/map`·`/updates`·`/graph`·`/check`·`/login` 200, `/trends` 307 |
+| 관리자 화면 | `/admin` 비로그인 시 `/login?next=/admin`으로 이동 |
+| URL 로그 제외 | 규칙 반영까지 몇 분 걸렸고, 이후 새 요청의 URL 로그는 저장되지 않음 |
+
+남은 문제는 다음과 같다.
+
+- **`/dictionary`가 504로 실패한다.** API `/terms`가 Cloud Run에서 90초 제한을 넘긴다. 표제어마다 DB를 여러 번 따로 조회하는 구조(`views.term_records`가 표제어별 `term_record` 호출)라 로컬 DB에서는 빨랐지만 Cloud SQL의 조회당 왕복 지연이 누적된다. 조회를 묶어 가져오도록 고쳐야 한다.
+- API의 `/review/queue`·`/review/stats` 읽기에는 앱 수준 인증이 없다(기존 설계). API가 IAM으로 막혀 웹 SA와 관리자만 부를 수 있고, 쓰기는 검수 token이 필요하다. 공개 범위를 넓히기 전에 다시 검토한다.
+- 로그인·검수 화면은 사용자가 계정으로 직접 확인한다.
+

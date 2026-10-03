@@ -137,9 +137,17 @@ r2 결과는 `manifests/gpu-validation-gemma4-12b-20261003-r2.json`이다. r1 bo
 
 - 감사관 품질은 평가하지 않았다. 운영 release는 사람 평가와 승인 뒤 `releases/` prefix로 따로 만든다.
 - API 서비스 배포 때 `services.gpu`로 같은 설정을 Terraform에 연결하고, 웹→API→GPU 흐름을 확인한다.
-- TLS 서버 인증서는 90일짜리다(2026-10-03 발급). 운영 전에 갱신 절차를 정한다.
+- TLS 갱신 절차는 아래 'TLS 인증서 갱신'에 정리했다.
 
 두 검증 모두 끝난 뒤 사용자 결정에 따라 VM·부트 디스크·모델 디스크·예약 내부 IP를 삭제하고 Terraform state에서 정리했다. GPU 사용은 r1 약 8분, r2 약 10분이다. r2 boot image(40GB), GCS의 r2 모델 파일, 기반 VPC·SA·secret은 남겨 다시 만들 때 쓴다. 다시 띄울 때는 로컬 `staging-gpu-validation.tfvars.json`을 r2 release(`validation/gemma4-12b-validation-20261003-r2/release.json`, generation `1791031398067509`, SHA-256 `40982f99…8492`)로 맞춘다.
+
+## TLS 인증서 갱신
+
+`scripts/rotate-gpu-tls.sh <staging|production> [--new-ca]`가 환경별 사설 CA로 서버 인증서(90일, SAN은 예약 내부 IP)를 발급해 `trend-<env>-gpu-tls`의 새 version으로 넣는다. `--new-ca`는 CA(365일)를 새로 만들어 개인키는 `trend-<env>-gpu-ca-key`에, 인증서는 API가 신뢰하는 `trend-<env>-gpu-ca`에 넣는다. CA 개인키 secret에는 런타임 SA 권한을 주지 않는다. 키는 임시 디렉터리에만 두고 종료 시 지운다. openssl은 digest를 고정한 컨테이너에서 실행한다.
+
+갱신 뒤에는 출력된 version을 VM의 `gpu.tls_secret_version`에 고정한다. 설치기가 부팅 때 읽는다. CA를 바꿨다면 API의 `services.gpu.ca_secret_version`도 함께 바꾸고, 새 CA로 발급한 서버 인증서와 같이 적용한다.
+
+2026-10-03에 처음 만든 CA는 개인키를 보관하지 않아 다시 서명할 수 없었다. 그래서 `--new-ca`로 CA를 새로 만들고(`gpu-ca` version 2, `gpu-ca-key` version 1), 보관된 CA로 서버 인증서만 다시 발급하는 갱신 경로를 실행해 `gpu-tls` version 3을 확인했다. 두 인증서 모두 CA 검증을 통과했고 만료는 2027-01-01이다. 이전 CA와 인증서(version 1)는 비활성화했다. 다음 GPU 적용 때는 `tls_secret_version` 3을 쓴다.
 
 ## 검증
 

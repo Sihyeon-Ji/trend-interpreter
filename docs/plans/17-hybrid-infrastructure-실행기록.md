@@ -257,3 +257,7 @@ boot image 빌드는 다섯 번째 실행에서 성공했다. 첫 실행은 실�
 
 같은 VM에 대해 trend-api 이미지를 임시 Cloud Run Job으로 실행했다. API SA와 API 서브넷의 Direct VPC egress로 실제 감사관 `local_chat` 경로를 호출해 준비 확인과 `AuditCheck` 구조화 호출 3/3(각 약 2.1초)이 통과했다. 무인증·잘못된 token은 401이었다. 검증 뒤 VM·디스크·내부 IP·Job·임시 권한을 삭제했고 r1 image와 모델 파일도 지웠다(GPU r2 약 10분). 상세는 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다. 남은 일은 운영 release(사람 평가 후)와 웹·API Cloud Run 서비스 배포다.
 
+### 10-03 TLS 갱신 체계와 staging 웹·API 배포
+
+GPU gateway TLS를 갱신할 수 있게 CA 개인키를 런타임이 읽지 못하는 secret에 보관하고 `scripts/rotate-gpu-tls.sh`를 추가했다. 서버 인증서 재발급까지 실제로 확인했다. 사용자 결정에 따라 staging 웹·API만 Terraform으로 직접 배포했다(GPU 미연결, API mock). 웹은 주소를 아는 사람에게 공개하고 검수는 로그인으로 보호하며, 검수 계정은 사용자 1명이다. API 익명 403, 웹→API→DB 실데이터 표시, `/admin` 로그인 이동을 확인했다. `/dictionary`는 API `/terms`의 N+1 조회가 Cloud SQL 지연과 겹쳐 90초를 넘겨 504이며 다음 수정 대상이다. 상세는 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)와 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다.
+
