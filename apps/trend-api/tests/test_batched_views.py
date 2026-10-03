@@ -132,3 +132,22 @@ def test_chat_list_tool_and_entry_lookup_query_counts_do_not_grow_with_the_dicti
     calls.clear()
     assert tools.list_terms(tools.Ctx(con), {"region": "US"}) and len(tools._entries(con)) == 20
     assert len(calls) == few and "term" in first
+
+
+def test_dictionary_scans_by_description_do_not_query_per_entry():
+    """이름을 모를 때 뜻으로 찾는 도구(search_terms·_by_meaning)도 사전 전체를 훑는다 — 표제어마다 조회하지 않는다."""
+    from trend_agents.pipeline import tools
+
+    con = db.connect(":memory:")
+    for i in range(13):
+        seed(con, f"t{i}", f"term {i}")
+    calls = counting(con)
+    tools._by_meaning(con, "커뮤니티 농담 가볍게 놀리는 말")
+    tools.search_terms(tools.Ctx(con), {"query": "가볍게 놀리는"})
+    few = len(calls)
+    for i in range(13, 20):
+        seed(con, f"t{i}", f"term {i}")
+    calls.clear()
+    assert len(tools._by_meaning(con, "커뮤니티 농담 가볍게 놀리는 말")) == 5
+    assert "가장 가까운 것" in tools.search_terms(tools.Ctx(con), {"query": "가볍게 놀리는"})
+    assert len(calls) == few

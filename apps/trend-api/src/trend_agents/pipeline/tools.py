@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
@@ -195,10 +196,18 @@ def usable(con, t) -> bool:
     return len(d) >= 8 and not _UNUSABLE.search(d)
 
 
-def _entries(con) -> list:
+@contextmanager
+def _dictionary(con, tables: tuple[str, ...] = ("meanings",)):
+    """사람에게 보여 줄 만한 표제어 전부. 블록 안에서는 tables 를 한 번에 읽어 둔 값을 쓴다 — 사전 전체를 훑으며 표제어마다
+    뜻·번역을 조회하면 Cloud SQL 에서 질문 하나가 90초를 넘겼다(staging 10-03)."""
     terms = ds.list_terms(con, ("verified", "needs_review"))
-    with ds.batched(con, [t.term_id for t in terms], tables=("meanings",)):   # 표제어마다 뜻을 조회하면 Cloud SQL 에서 느리다
-        return [t for t in terms if usable(con, t)]
+    with ds.batched(con, [t.term_id for t in terms], tables=tables):
+        yield [t for t in terms if usable(con, t)]
+
+
+def _entries(con) -> list:
+    with _dictionary(con) as entries:
+        return entries
 
 
 def _find(con, q: str):
@@ -241,17 +250,18 @@ def _by_meaning(con, text: str, limit: int = 5) -> list[tuple[int, object, objec
     if not ws:
         return []
     out = []
-    for t in _entries(con):
-        m = ds.current_meaning(con, t.term_id)
-        tr = ds.get_translation(con, t.term_id, "ko")
-        hay = " ".join(filter(None, [t.canonical, *t.aliases,
-                                     (m.definition if m else ""), (m.origin if m else ""), (m.nuance if m else ""),
-                                     (tr.definition if tr else "")])).lower()
-        hits = sum(1 for w in ws if w in hay)
-        # 낱말 하나가 우연히 걸린 것을 '가장 가까운 것' 이라고 내놓으면 틀린 답이 된다 —
-        # "Italian brainrot" 에 skibidi 를 답하던 문제(2026-09-16 실측). 낱말이 둘 이상이면 둘 이상 맞아야 한다.
-        if hits >= (1 if len(ws) == 1 else 2):
-            out.append((hits, t, m))
+    with _dictionary(con, ("meanings", "translations")) as entries:
+        for t in entries:
+            m = ds.current_meaning(con, t.term_id)
+            tr = ds.get_translation(con, t.term_id, "ko")
+            hay = " ".join(filter(None, [t.canonical, *t.aliases,
+                                         (m.definition if m else ""), (m.origin if m else ""), (m.nuance if m else ""),
+                                         (tr.definition if tr else "")])).lower()
+            hits = sum(1 for w in ws if w in hay)
+            # 낱말 하나가 우연히 걸린 것을 '가장 가까운 것' 이라고 내놓으면 틀린 답이 된다 —
+            # "Italian brainrot" 에 skibidi 를 답하던 문제(2026-09-16 실측). 낱말이 둘 이상이면 둘 이상 맞아야 한다.
+            if hits >= (1 if len(ws) == 1 else 2):
+                out.append((hits, t, m))
     out.sort(key=lambda x: -x[0])
     return out[:limit]
 
@@ -314,13 +324,14 @@ def search_terms(ctx: Ctx, args: dict) -> str:
         return lookup_term(ctx, {"term": hit.canonical})
     q = raw.lower()
     exact = []
-    for t in _entries(ctx.con):
-        m = ds.current_meaning(ctx.con, t.term_id)
-        hay = " ".join([t.canonical, *t.aliases, (m.definition if m else "")]).lower()
-        if q in hay:
-            exact.append((t, m))
-        if len(exact) >= 8:
-            break
+    with _dictionary(ctx.con) as entries:
+        for t in entries:
+            m = ds.current_meaning(ctx.con, t.term_id)
+            hay = " ".join([t.canonical, *t.aliases, (m.definition if m else "")]).lower()
+            if q in hay:
+                exact.append((t, m))
+            if len(exact) >= 8:
+                break
     rows = [(t, m) for t, m in exact] or [(t, m) for _, t, m in _by_meaning(ctx.con, raw)]
     if not rows:
         ctx.missed(raw)
