@@ -64,6 +64,18 @@ GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "1500"))
 # 이용자 요청(추천의 사진·문구 읽기, 만들기)이 쓰는 하루 Gemini 호출 — 파이프라인 예산과 장부를 따로 둔다. 익명 요청이 파이프라인 몫을 다 쓰면
 # 그날 조사·해석이 멈췄다(2026-09-29 검토). 다 쓰면 로컬 Gemma 로, 그것도 없으면 '오늘 한도' 로 알린다.
 REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "300"))  # 이용자 요청 하루 상한 — 챗봇을 Gemini 로 돌리면서(질문 하나에 2~3회) 12 → 300(Flash Lite 하루 500 두 개가 받친다, 10-01)
+# Vertex AI 유료 호출의 한 달 금액 상한(USD). 0 이면 금액으로 막지 않는다 — 개발 기본값은 호출 자체가 꺼져 있다.
+# Cloud Run 서비스는 Terraform 이 넣는다(10-03 사용자 결정: 월 $20). 예산 알림은 지출을 막지 않으므로 이 장부가 실제로 막는다.
+GEMINI_MONTHLY_USD = float(os.getenv("GEMINI_MONTHLY_USD", "0"))
+# 출력(추론 토큰 포함) 상한 — 호출 한 번의 최악 비용을 정해 두려고. 구조화 응답·질문 답은 수백~수천 토큰이다.
+GEMINI_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192"))
+GEMINI_RESERVE_INPUT_TOKENS = 32_000  # 호출 전에 잡아 두는 입력 토큰. 실제 비용은 응답의 사용량으로 다시 센다
+# Vertex AI global 단가(USD / 100만 토큰: 입력, 출력·추론). 2026-10-03 공식 가격표. 3.6~3.8 Flash 는 2026-12-31 까지 할인가 —
+# 2027-01-01 부터 1.5 / 7.5. 금액 상한이 켜져 있으면 이 표에 없는 모델은 부르지 않는다.
+GEMINI_PRICES = {
+    "gemini-3.8-flash": (0.75, 3.75), "gemini-3.7-flash": (0.75, 3.75), "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.5-flash": (1.50, 9.00), "gemini-3.5-flash-lite": (0.30, 2.50), "gemini-3.1-flash-lite": (0.25, 1.50),
+}
 USE_LOCAL_GEMMA = os.getenv("USE_LOCAL_GEMMA", "0") == "1"  # 번역·재작성에 로컬 Gemma 를 쓸지 (꺼져 있으면 Gemini)
 # Know Your Meme 수집기(Plan 12). 기본 꺼짐 — 이용 약관(자동 접근은 사람 수준의 속도만, 내용은 개인적 정보 이용만·동의 없는 복제·게시 금지,
 # 서면 허락 없는 상업적 이용 금지) 때문에 제품에 쓸지는 사용자가 정한다. 켜도 문서 주소와 제목만 근거로 둔다.

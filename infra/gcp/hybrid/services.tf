@@ -10,6 +10,19 @@ locals {
     FRONTEND_API_TOKEN = var.services.frontend_token_secret_version
     SESSION_SECRET     = var.services.session_secret_version
   } : {}
+  # Without services.gemini the API answers from rules and mocks and never calls Vertex AI.
+  gemini_env = local.services_enabled ? (var.services.gemini == null ? {
+    MODEL_PROVIDER         = "mock"
+    MODEL_REQUESTS_ENABLED = "false"
+    } : {
+    MODEL_PROVIDER         = "vertex"
+    MODEL_REQUESTS_ENABLED = "true"
+    GOOGLE_CLOUD_LOCATION  = "global"
+    GEMINI_MONTHLY_USD     = tostring(var.services.gemini.monthly_usd)
+    REQUEST_GEMINI_DAILY   = tostring(var.services.gemini.request_daily)
+    GEMINI_DAILY_BUDGET    = tostring(var.services.gemini.pipeline_daily)
+    GEMINI_MODELS          = join(",", var.services.gemini.models)
+  }) : {}
   secret_access = local.services_enabled ? merge(
     { for name, version in local.api_secret_versions : "api-${name}" => { account = "api", version = version } },
     { for name, version in local.web_secret_versions : "web-${name}" => { account = "web", version = version } },
@@ -103,13 +116,12 @@ resource "google_cloud_run_v2_service" "api" {
           mount_path = "/secrets/gpu"
         }
       }
-      env {
-        name  = "MODEL_PROVIDER"
-        value = "mock"
-      }
-      env {
-        name  = "MODEL_REQUESTS_ENABLED"
-        value = "false"
+      dynamic "env" {
+        for_each = local.gemini_env
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name  = "GCP_PROJECT_ID"

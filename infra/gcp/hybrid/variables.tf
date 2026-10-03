@@ -71,6 +71,12 @@ variable "services" {
       release_sha256    = string
       ca_secret_version = string
     }), null)
+    gemini = optional(object({
+      monthly_usd    = number
+      request_daily  = number
+      pipeline_daily = number
+      models         = list(string)
+    }), null)
   })
   default = null
   validation {
@@ -79,6 +85,12 @@ variable "services" {
       can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/builder-cup/trend-web@sha256:[a-f0-9]{64}$", var.services.web_image)) &&
       can(regex("^${var.project_id}:${var.region}:[a-z][a-z0-9-]+$", var.services.sql_connection_name)) &&
       alltrue([for version in [var.services.database_secret_version, var.services.accounts_secret_version, var.services.frontend_token_secret_version, var.services.session_secret_version] : can(regex("^projects/${var.project_id}/secrets/trend-${var.environment}-[A-Za-z0-9_-]+/versions/[1-9][0-9]*$", version))]) &&
+      (var.services.gemini == null ? true : (
+        var.services.gemini.monthly_usd > 0 && var.services.gemini.monthly_usd <= 100 &&
+        var.services.gemini.request_daily >= 0 && var.services.gemini.pipeline_daily >= 0 &&
+        length(var.services.gemini.models) > 0 &&
+        alltrue([for model in var.services.gemini.models : can(regex("^gemini-[0-9a-z.-]+$", model))])
+      )) &&
       (var.services.gpu == null ? true : (
         can(regex("^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+$", var.services.gpu.model)) &&
         can(regex("^[a-f0-9]{64}$", var.services.gpu.digest)) &&
@@ -86,6 +98,6 @@ variable "services" {
         can(regex("^projects/${var.project_id}/secrets/trend-${var.environment}-gpu-ca/versions/[1-9][0-9]*$", var.services.gpu.ca_secret_version))
       ))
     )
-    error_message = "Pin immutable images, an existing Cloud SQL instance, and numeric secret versions."
+    error_message = "Pin immutable images, an existing Cloud SQL instance, numeric secret versions, and a bounded Gemini budget."
   }
 }

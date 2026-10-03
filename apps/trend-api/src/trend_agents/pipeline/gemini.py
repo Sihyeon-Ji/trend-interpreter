@@ -11,8 +11,9 @@ from google.genai import errors, types
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from ..config import (GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_LIMITS, GEMINI_MODEL, GEMINI_MODELS,
-                      GEMINI_PER_MODEL_DAILY, GEMINI_SEARCH_GROUNDING, REQUEST_GEMINI_DAILY, USE_LOCAL_GEMMA)
+from ..config import (GEMINI_DAILY_BUDGET, GEMINI_FALLBACK_MODEL, GEMINI_LIMITS, GEMINI_MAX_OUTPUT_TOKENS, GEMINI_MODEL, GEMINI_MODELS,
+                      GEMINI_MONTHLY_USD, GEMINI_PER_MODEL_DAILY, GEMINI_PRICES, GEMINI_RESERVE_INPUT_TOKENS, GEMINI_SEARCH_GROUNDING,
+                      REQUEST_GEMINI_DAILY, USE_LOCAL_GEMMA)
 from .. import model_client
 from ..logging_setup import event
 from ..storage import dictionary_store as ds
@@ -104,6 +105,58 @@ def note_quota(con: Connection, model: str, e: Exception, grounded: bool = False
     return False
 
 
+MICRO_USD = 1_000_000
+
+
+def _month_key() -> str:
+    return "usd:" + datetime.now(ZoneInfo("America/Los_Angeles")).strftime("%Y-%m")
+
+
+def _cost(model: str, input_tokens: int, output_tokens: int) -> int:
+    """마이크로달러. 단가가 100만 토큰당 달러라 토큰 수 × 단가가 곧 마이크로달러다."""
+    price_in, price_out = GEMINI_PRICES[model]
+    return round(input_tokens * price_in + output_tokens * price_out)
+
+
+def _reserve(model: str) -> int:
+    return _cost(model, GEMINI_RESERVE_INPUT_TOKENS, GEMINI_MAX_OUTPUT_TOKENS)
+
+
+def spent_usd(con: Connection) -> float:
+    """이번 달(태평양 시각) 실제 사용량으로 센 Gemini 금액."""
+    return _count(con, _month_key()) / MICRO_USD
+
+
+def affordable(con: Connection, model: str) -> bool:
+    """이번 달 금액 상한 안에서 이 모델로 최악의 호출 한 번을 더 할 수 있나. 상한이 꺼져 있으면 늘 True."""
+    if GEMINI_MONTHLY_USD <= 0:
+        return True
+    return model in GEMINI_PRICES and _count(con, _month_key()) + _reserve(model) <= GEMINI_MONTHLY_USD * MICRO_USD
+
+
+def _charge(con: Connection, model: str, resp: Any) -> None:
+    """성공한 호출(Vertex 는 200 응답만 과금한다)의 실제 사용량을 금액 장부에 더한다. 사용량이 없으면 최악 비용으로 센다."""
+    if model not in GEMINI_PRICES:
+        return
+    usage = getattr(resp, "usage_metadata", None)
+    if usage is None:
+        cost = _reserve(model)
+    else:
+        prompt = (getattr(usage, "prompt_token_count", 0) or 0) + (getattr(usage, "tool_use_prompt_token_count", 0) or 0)
+        output = (getattr(usage, "candidates_token_count", 0) or 0) + (getattr(usage, "thoughts_token_count", 0) or 0)
+        cost = _cost(model, prompt, output)
+    _bump(con, _month_key(), cost)
+
+
+def _bounded(config: types.GenerateContentConfig | None) -> types.GenerateContentConfig:
+    """출력 상한을 건다. 호출부가 더 작게 정했으면 그대로 둔다."""
+    if config is None:
+        return types.GenerateContentConfig(max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS)
+    if config.max_output_tokens and config.max_output_tokens <= GEMINI_MAX_OUTPUT_TOKENS:
+        return config
+    return config.model_copy(update={"max_output_tokens": GEMINI_MAX_OUTPUT_TOKENS})
+
+
 def budget_left(con: Connection, request: bool = False) -> int:
     if request:
         return ds.gemini_budget_left(con, REQUEST_GEMINI_DAILY, REQUEST_LEDGER)
@@ -149,10 +202,15 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
         raise BudgetExhausted(f"오늘 Gemini 예산 {REQUEST_GEMINI_DAILY if request else GEMINI_DAILY_BUDGET}회 소진")
     grounded = bool(config and any(getattr(t, "google_search", None) for t in (config.tools or [])))
     chain = models(con, model or GEMINI_MODEL, grounded) if allow_fallback else [model or GEMINI_MODEL]
+    priced = [m for m in chain if affordable(con, m)]
+    if chain and not priced:
+        raise BudgetExhausted(f"이번 달 Gemini 금액 상한 ${GEMINI_MONTHLY_USD:g} 에 닿았다")
+    chain = priced
     if request:
         chain = chain[:2]         # 사람이 기다린다 — 쓸 수 있는 앞의 두 모델만(끝난 모델은 이미 빠졌다)
     if not chain:
         raise BudgetExhausted("오늘 쓸 수 있는 Gemini 모델(또는 검색 grounding) 몫이 끝났다")
+    config = _bounded(config)
     ledger = REQUEST_LEDGER if request else ""
     c = client()  # 호출이 꺼져 있으면 여기서 끝난다 — 보내지 않은 요청으로 장부를 깎거나 이벤트를 남기지 않는다
     last: Exception | None = None
@@ -193,6 +251,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                 _called(m, ledger, "error")
                 raise
             _called(m, ledger, "ok")
+            _charge(con, m, resp)
             record_model(m)
             return resp, m
     assert last is not None

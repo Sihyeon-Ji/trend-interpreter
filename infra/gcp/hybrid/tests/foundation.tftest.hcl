@@ -108,6 +108,60 @@ run "private_api_and_public_web_are_separate" {
     condition     = one(google_cloud_run_v2_service.api[0].template).vpc_access[0].egress == "PRIVATE_RANGES_ONLY" && toset(one(google_cloud_run_v2_service.api[0].template).volumes[0].cloud_sql_instance[0].instances) == toset(["stunning-crane-508614-c1:asia-northeast1:trend-project"])
     error_message = "The API must use VPC egress and the existing Cloud SQL attachment."
   }
+  assert {
+    condition     = contains([for e in one(google_cloud_run_v2_service.api[0].template).containers[0].env : "${e.name}=${e.value != null ? e.value : ""}"], "MODEL_PROVIDER=mock") && contains([for e in one(google_cloud_run_v2_service.api[0].template).containers[0].env : "${e.name}=${e.value != null ? e.value : ""}"], "MODEL_REQUESTS_ENABLED=false")
+    error_message = "Without services.gemini the API must not call Vertex AI."
+  }
+}
+
+run "gemini_is_opt_in_and_bounded" {
+  command = plan
+  variables {
+    enabled = true
+    services = {
+      api_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      web_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      sql_connection_name           = "stunning-crane-508614-c1:asia-northeast1:trend-project"
+      database_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-db/versions/1"
+      accounts_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-accounts/versions/1"
+      frontend_token_secret_version = "projects/stunning-crane-508614-c1/secrets/trend-staging-frontend/versions/1"
+      session_secret_version        = "projects/stunning-crane-508614-c1/secrets/trend-staging-session/versions/1"
+      gemini = {
+        monthly_usd    = 20
+        request_daily  = 150
+        pipeline_daily = 50
+        models         = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+      }
+    }
+  }
+  assert {
+    condition = alltrue([for pair in ["MODEL_PROVIDER=vertex", "MODEL_REQUESTS_ENABLED=true", "GEMINI_MONTHLY_USD=20", "REQUEST_GEMINI_DAILY=150", "GEMINI_MODELS=gemini-3.8-flash,gemini-3.5-flash-lite"] :
+    contains([for e in one(google_cloud_run_v2_service.api[0].template).containers[0].env : "${e.name}=${e.value != null ? e.value : ""}"], pair)])
+    error_message = "Gemini must be enabled only with an explicit monthly cap, daily limits and model list."
+  }
+}
+
+run "gemini_without_a_cap_is_rejected" {
+  command = plan
+  variables {
+    enabled = true
+    services = {
+      api_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      web_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      sql_connection_name           = "stunning-crane-508614-c1:asia-northeast1:trend-project"
+      database_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-db/versions/1"
+      accounts_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-accounts/versions/1"
+      frontend_token_secret_version = "projects/stunning-crane-508614-c1/secrets/trend-staging-frontend/versions/1"
+      session_secret_version        = "projects/stunning-crane-508614-c1/secrets/trend-staging-session/versions/1"
+      gemini = {
+        monthly_usd    = 0
+        request_daily  = 150
+        pipeline_daily = 50
+        models         = ["gemini-3.8-flash"]
+      }
+    }
+  }
+  expect_failures = [var.services]
 }
 
 run "gpu_api_requires_matching_vm_release" {
