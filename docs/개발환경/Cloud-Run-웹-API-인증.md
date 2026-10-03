@@ -35,3 +35,5 @@ docker compose run --rm --build e2e
 `check`에 웹 transport 테스트를 포함했다. 메타데이터·토큰·API 응답은 합성 자료로 확인한다. 로컬 E2E는 기존 사용자 흐름의 회귀 검사이며 실제 Google IAM 접근 성공을 뜻하지 않는다.
 
 배포 이후에는 웹 SA의 실제 토큰 발급, 인증 필수 API 호출, 권한 없는 호출의 401/403, staging→production 접근 거부, 읽기·쓰기·사진·스트리밍·취소를 확인해야 한다. 현재 상태는 **서버 인증 연결 코드와 로컬 검증 준비 완료, 운영 연결 미검증**이다.
+
+인증이 필요한 Cloud Run API·공개 웹·Cloud SQL 연결의 Terraform 설정과 적용 전 조건은 [Cloud Run 서비스 준비](Cloud-Run-서비스-준비.md)에 정리했다.

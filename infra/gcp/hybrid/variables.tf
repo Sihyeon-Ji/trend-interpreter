@@ -55,3 +55,37 @@ variable "gpu" {
     error_message = "Pin boot image, release generation/hash, object scope and numeric secret versions."
   }
 }
+variable "services" {
+  description = "Pinned web/API images, existing Cloud SQL, and numeric secret versions. Null creates no Cloud Run services."
+  type = object({
+    api_image                     = string
+    web_image                     = string
+    sql_connection_name           = string
+    database_secret_version       = string
+    accounts_secret_version       = string
+    frontend_token_secret_version = string
+    session_secret_version        = string
+    gpu = optional(object({
+      model             = string
+      digest            = string
+      release_sha256    = string
+      ca_secret_version = string
+    }), null)
+  })
+  default = null
+  validation {
+    condition = var.services == null ? true : (
+      can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/builder-cup/trend-api@sha256:[a-f0-9]{64}$", var.services.api_image)) &&
+      can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/builder-cup/trend-web@sha256:[a-f0-9]{64}$", var.services.web_image)) &&
+      can(regex("^${var.project_id}:${var.region}:[a-z][a-z0-9-]+$", var.services.sql_connection_name)) &&
+      alltrue([for version in [var.services.database_secret_version, var.services.accounts_secret_version, var.services.frontend_token_secret_version, var.services.session_secret_version] : can(regex("^projects/${var.project_id}/secrets/trend-${var.environment}-[A-Za-z0-9_-]+/versions/[1-9][0-9]*$", version))]) &&
+      (var.services.gpu == null ? true : (
+        can(regex("^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+$", var.services.gpu.model)) &&
+        can(regex("^[a-f0-9]{64}$", var.services.gpu.digest)) &&
+        can(regex("^[a-f0-9]{64}$", var.services.gpu.release_sha256)) &&
+        can(regex("^projects/${var.project_id}/secrets/trend-${var.environment}-gpu-ca/versions/[1-9][0-9]*$", var.services.gpu.ca_secret_version))
+      ))
+    )
+    error_message = "Pin immutable images, an existing Cloud SQL instance, and numeric secret versions."
+  }
+}

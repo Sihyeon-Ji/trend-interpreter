@@ -15,4 +15,4 @@ RUN uv sync --locked --no-dev \
 USER trend
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8080
-CMD ["uvicorn", "trend_agents.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "trend_agents.api.app:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
