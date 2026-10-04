@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { KeywordPager, KeywordTable } from "@/components/keyword-table";
@@ -23,6 +24,12 @@ const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
 const LISTS = ["rising", "fading", "caution"] as const satisfies readonly KeywordList[];
 
 const one = (v: string | string[] | undefined) => [v].flat().filter(Boolean).join(",");
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "dash_title")} — ${t(locale, "site")}` };
+}
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [locale, sp] = await Promise.all([getLocale(), searchParams]);

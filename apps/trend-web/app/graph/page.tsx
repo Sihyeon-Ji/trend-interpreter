@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { regionName } from "@/components/graph-memes";
 import { PageHeader } from "@/components/page-header";
@@ -7,6 +8,12 @@ import { getGraphContents } from "@/lib/data";
 import { t } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { getLocale } from "@/lib/locale";
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "graph_title")} — ${t(locale, "site")}` };
+}
 
 /* 콘텐츠 목록 — 콘텐츠를 고르면 그 작품에서 나라마다 나온 밈이 나온다. */
 export default async function GraphIndexPage() {

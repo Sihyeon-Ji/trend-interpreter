@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { RecommendForm } from "@/components/recommend-form";
@@ -8,6 +9,12 @@ import { langTag } from "@/lib/lang";
 import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { getReader } from "@/lib/reader-server";
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "rec_title")} — ${t(locale, "site")}` };
+}
 
 /* 사용 흐름 2단계 '추천받기' (ADR 0001, Plan 07). 사진·문구 → 제품 설명 → 규칙 순위 → 저장된 뜻·국가별 해석으로 어울리는 점.
    주소: ?regions=KR,JP 로 처음 고른 지역(목표 지역만), ?term=<id> 로 사전 항목의 '이 밈으로 만들기' 가 먼저 고른 밈. */

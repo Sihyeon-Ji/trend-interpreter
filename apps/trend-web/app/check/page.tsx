@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CopyCheckForm } from "@/components/copy-check-form";
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
@@ -7,6 +8,12 @@ import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { getReader } from "@/lib/reader-server";
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "check_title")} — ${t(locale, "site")}` };
+}
 
 /* 카피 검사 — 마케터가 쓴 문구의 밈을 사전으로 찾아, 고른 시장에서 써도 되는지(규칙)와 뜻에 맞게 썼는지(모델 의견)를 본다.
    시장은 ?regions= 의 첫 목표 지역, 없으면 로그인한 사람의 나라, 그것도 없으면 한국. 문구는 저장하지 않는다. */

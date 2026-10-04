@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BriefingActions } from "@/components/briefing-actions";
 import { PageHeader } from "@/components/page-header";
@@ -72,6 +73,12 @@ function Section({ kind, cards, total, locale, regions }: { kind: Kind; cards: K
       {total > cards.length && <p className="text-[13px] text-steel">{fill(t(locale, "brief_more"), { n: total - cards.length })}</p>}
     </section>
   );
+}
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "brief_title")} — ${t(locale, "site")}` };
 }
 
 export default async function BriefingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

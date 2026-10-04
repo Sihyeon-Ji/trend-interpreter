@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DictionaryList, type DictionaryState } from "@/components/dictionary-list";
 import { PageHeader } from "@/components/page-header";
@@ -13,6 +14,12 @@ import { getReader } from "@/lib/reader-server";
 
 type Search = { q?: string; regions?: string; kind?: string; lang?: string; risk?: string; sort?: string; page?: string };
 const SORTS: SortKey[] = ["name", "used", "changed", "unfamiliar"];
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "dict_title")} — ${t(locale, "site")}` };
+}
 
 export default async function DictionaryPage({ searchParams }: { searchParams: Promise<Search> }) {
   const [{ records, ok }, locale, reader, meta, sp] = await Promise.all([loadTermRecords(true), getLocale(), getReader(), getMeta(), searchParams]);

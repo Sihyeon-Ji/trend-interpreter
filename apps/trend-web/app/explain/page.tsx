@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { DictionaryChat } from "@/components/dictionary-chat";
 import { ExplainCards, ResultHeader, foundSummary } from "@/components/explain-cards";
@@ -19,6 +20,12 @@ async function ExampleResult({ locale, text }: { locale: Locale; text: string })
       <ExplainCards result={result} locale={locale} original={text} />
     </section>
   );
+}
+
+// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return { title: `${t(locale, "home_title")} — ${t(locale, "site")}` };
 }
 
 export default async function ExplainPage() {
