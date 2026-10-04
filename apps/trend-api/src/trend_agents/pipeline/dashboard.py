@@ -20,7 +20,7 @@ from ..config import REGIONS_FOCUS, home_region
 from ..schemas import Evidence, EvidenceBrief, Meaning, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from ..verification import evidence_note
+from ..verification import evidence_note, vacuous_meaning
 from .audit import NO_USAGE
 from .match import mentions, unsafe
 from .runs import stage
@@ -264,6 +264,7 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
     - 감사관이 다시 써도 '밈으로 어떻게 쓰이는지가 없다' 고 본 뜻(audit_log 'flagged')
     - 위키 분류에서만 들어온 말인데, 리스크 점검까지 거치고도 그 뜻으로 쓰인 글이 하나도 없다
     - 뜻 칸이 뜻이 아니라 근거를 두고 한 모델의 메모다('근거에 쓰임 설명이 없음', verification.evidence_note — 확인된 뜻 162개)
+    - 뜻이 '인터넷 밈으로 사용됨' 말고는 내용이 없다(verification.vacuous_meaning — 확인된 뜻 56개)
     리스크 점검 전이라 근거 분류가 아직 없는 말은 빼지 않고 뒤로 보낸다(use_confirmed=False). 사람이 확인한 뜻은 그대로 둔다."""
     on = sum(1 for p, _ in labels.values() if p != "offtopic")
     off = len(labels) - on
@@ -274,7 +275,8 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
                       (t.term_id, m.meaning_id)).fetchone() if m else None
     no_usage = bool(row) and row[0] == "flagged" and NO_USAGE in json.loads(row[1] or "[]")
     catalog = con.execute("SELECT 1 FROM wiki_catalog WHERE term_id=? LIMIT 1", (t.term_id,)).fetchone() is not None
-    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(m.definition if m else "")
+    text = m.definition if m else ""
+    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(text) or vacuous_meaning(text)
     return hold, on > 0 or not catalog, mixed
 
 

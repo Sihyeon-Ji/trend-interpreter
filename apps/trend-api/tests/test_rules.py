@@ -1547,3 +1547,18 @@ def test_pageviews_store_and_peak(monkeypatch):
     p = ds.pageview_peak(con, "t_x")
     assert p == {"lang": "ko", "peak_month": "202003", "peak_views": 5100, "last12_views": 120, "first_month": "202001"}
     assert len(ds.get_pageviews(con, "t_x")) == 24
+
+
+def test_meanings_that_only_say_it_is_a_meme_are_not_meanings():
+    """'인터넷 밈으로 사용됨.' 처럼 밈이라는 말 말고는 내용이 없는 뜻(10-04, 56개)은 막고, 대상을 말한 뜻은 통과시킨다."""
+    from trend_agents.verification import vacuous_meaning
+
+    empty = ["인터넷 밈으로 사용됨.", "인터넷 밈으로 사용되는 노래 제목이다.", "인터넷 밈/유행어의 한 종류로 분류됨.",
+             "인터넷 밈으로 사용되는 작품에 대한 설명이 필요함.", "이 표현은 위키의 '인터넷 밈·유행어' 분류에 든 것이다."]
+    told = ["PSY의 싱글 곡 제목이자, 인터넷 밈으로 사용됨.", "인터넷 밈으로 사용되는 의인화된 박제 여우의 이미지.",
+            "나쁜 상황에서도 좋은 면을 찾아 '오히려 운이 좋다'고 여기는 태도를 뜻하는 말.", "근거가 없는 자신감을 의미하며, 인터넷 밈이나 유행어의 맥락에서 사용된다."]
+    assert all(vacuous_meaning(d) for d in empty)
+    assert not any(vacuous_meaning(d) for d in told)
+    term, draft = "럭키비키", _lucky_draft()
+    namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
+    assert gate(term, draft.model_copy(update={"definition": empty[0]}), [namu], None)[0] == "unverified"

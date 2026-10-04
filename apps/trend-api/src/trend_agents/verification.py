@@ -44,6 +44,26 @@ _EVIDENCE_NOTE = __import__("re").compile(
 NO_REFERENCE = "참고 문서(나무위키·위키백과·Know Your Meme 등)에 유래가 없어 사람이 확인한 뒤에만 실립니다"
 
 
+# '인터넷 밈으로 사용됨.' 처럼 밈이라는 말 말고는 내용이 없는 뜻(실데이터 10-04, 확인된 뜻 56개). 상투적인 '밈으로 사용됨' 마디와
+# 군말을 지우고 남는 글자가 거의 없을 때만 — 'PSY의 싱글 곡 제목이자, 인터넷 밈으로 사용됨'·'의인화된 박제 여우의 이미지' 처럼
+# 대상을 말한 뜻은 걸리지 않는다.
+_GENERIC_USE = __import__("re").compile(
+    r"(?:인터넷(?:에서|상에서|상)?\s?)?['\"]?(?:밈|유행어)['\"]?(?:이나|나|으로|로|/유행어|\s?또는\s?유행어|의|과|와)?[^.,]{0,14}?"
+    r"(?:사용|분류|쓰이|쓰|언급|재조명)[가-힣]*")
+_FILLER = __import__("re").compile(r"관련하여|관련된|관련|에서|형태로|맥락에서|한 종류로|일부로|대한|설명이 필요함|이다|입니다|이며|되며|됨|된|되는|"
+                                   r"표현|단어|이름|제목|노래|작품|캐릭터|챌린지|존재|것|에|의|으로|로|은|는|이|가|을|를|와|과|및|또는|그|한|이자")
+
+
+def vacuous_meaning(text: str) -> bool:
+    """뜻이 '밈으로 사용됨' 말고는 아무것도 말하지 않나."""
+    import re
+
+    rest = _GENERIC_USE.sub(" ", text or "")
+    if rest == (text or ""):
+        return False
+    return len(re.sub(r"[\s\W_]+", "", _FILLER.sub(" ", rest))) < 5
+
+
 def evidence_note(text: str) -> bool:
     """뜻 칸에 뜻이 아니라 근거를 두고 한 메모가 들어 있나(_EVIDENCE_NOTE)."""
     return bool(_EVIDENCE_NOTE.search(text or ""))
@@ -136,6 +156,8 @@ def gate(
         reasons.append("뜻이 '근거 부족'·'정의 없음' 같은 빈말이다")
     elif evidence_note(definition):
         reasons.append("뜻 칸에 근거에 대한 메모('근거에 쓰임 설명이 없음')가 들어 있다")
+    elif vacuous_meaning(definition):
+        reasons.append("뜻이 '인터넷 밈으로 사용됨' 말고는 내용이 없다")
     if not draft.is_expression and not catalogued:
         reasons.append("표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님")
     from .collectors.community import is_community_post
