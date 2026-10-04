@@ -36,7 +36,7 @@ export interface DictionaryRow {
   risk_level: RiskLevel | null;
   risk_checked_at: string | null;
   generations: Generation[];
-  search: string;                // 표제어·다른 표기·뜻을 소문자로 이은 것
+  alt: string | null;            // 보이는 뜻과 다른 원문 뜻(영어 화면에서 번역된 말의 한국어 원문) — 검색에만 쓴다
 }
 
 export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
@@ -50,7 +50,7 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     regions: termRegions(r), last_used: lastUsedOf(r), changed: m?.valid_from ?? null,
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at ?? null,
     generations: m?.generations ?? [],
-    search: [r.term.canonical, ...(r.term.aliases ?? []), expansion ?? "", definition ?? "", m?.definition ?? ""].join(" ").toLowerCase(),
+    alt: m?.definition && m.definition !== definition ? m.definition : null,
   };
 }
 
@@ -100,7 +100,18 @@ export function matchesExceptRegion(r: DictionaryRow, f: Filters): boolean {
   if (f.lang && r.lang !== f.lang) return false;
   if (f.risk && riskKey(r) !== f.risk) return false;
   const q = f.q.trim().toLowerCase();
-  return !q || r.search.includes(q);
+  return !q || searchText(r).includes(q);
+}
+
+// 검색 문자열은 브라우저에서 처음 찾을 때 만든다 — 행마다 뜻을 한 번 더 이어 보내 사전 첫 화면이 8.5MB 였다(10-04)
+const searchCache = new WeakMap<DictionaryRow, string>();
+function searchText(r: DictionaryRow): string {
+  let s = searchCache.get(r);
+  if (s === undefined) {
+    s = [r.canonical, ...r.aliases, r.expansion ?? "", r.definition ?? "", r.alt ?? ""].join(" ").toLowerCase();
+    searchCache.set(r, s);
+  }
+  return s;
 }
 
 export const inRegions = (r: DictionaryRow, regions: string[]) => !regions.length || r.regions.some((x) => regions.includes(x));

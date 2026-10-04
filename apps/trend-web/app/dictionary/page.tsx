@@ -15,7 +15,7 @@ type Search = { q?: string; regions?: string; kind?: string; lang?: string; risk
 const SORTS: SortKey[] = ["name", "used", "changed", "unfamiliar"];
 
 export default async function DictionaryPage({ searchParams }: { searchParams: Promise<Search> }) {
-  const [{ records, ok }, locale, reader, meta, sp] = await Promise.all([loadTermRecords(), getLocale(), getReader(), getMeta(), searchParams]);
+  const [{ records, ok }, locale, reader, meta, sp] = await Promise.all([loadTermRecords(true), getLocale(), getReader(), getMeta(), searchParams]);
   // 거르기·정렬 상태는 주소에 둔다 — 뒤로 가기·공유·대시보드에서 고른 지역(?regions=)을 이어받게
   const known = [...TARGET_REGIONS, "GLOBAL"];
   const initial: DictionaryState = {

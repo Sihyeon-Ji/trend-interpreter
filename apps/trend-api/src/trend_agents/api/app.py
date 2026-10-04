@@ -135,10 +135,10 @@ def health():
 
 
 @app.get("/terms", response_model=list[views.TermRecord])
-def terms(status: str = "verified"):
-    """공개 사전은 확인된 것만. status=all 이면 확인 중인 것까지 (관리자·내보내기용)."""
+def terms(status: str = "verified", slim: bool = False):
+    """공개 사전은 확인된 것만. status=all 이면 확인 중인 것까지 (관리자·내보내기용). slim 이면 사전 색인 한 줄에 필요한 칸만(views._slim)."""
     statuses = ("verified", "needs_review") if status == "all" else ("verified",)
-    return views.term_records(_con, statuses)
+    return views.term_records(_con, statuses, slim=slim)
 
 
 @app.get("/terms/{term_id}", response_model=views.TermRecord | None)

@@ -56,10 +56,11 @@ async function apiBig<T>(path: string, ttlMs = 60_000): Promise<T> {
 
 /** 사전 색인용. 서버가 실패하면 예시 데이터로 바꿔 넣지 않고 실패를 알린다 — 운영 사용자가 예시 52개를 실제 사전으로
  *  보게 되던 것(2026-09-29 검토). 예시 모드도 공개 사전처럼 확인된 표현만 싣는다. */
-export async function loadTermRecords(): Promise<{ records: TermRecord[]; ok: boolean }> {
+export async function loadTermRecords(slim = false): Promise<{ records: TermRecord[]; ok: boolean }> {
   if (isSampleMode) return { records: SHOWN_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
   try {
-    return { records: await apiBig<TermRecord[]>("/terms"), ok: true };
+    // slim: 사전 색인 한 줄에 필요한 칸만(현재 뜻·마지막 쓰임 근거 하나) — 전체 기록은 29.6MB 였다(10-04)
+    return { records: await apiBig<TermRecord[]>(slim ? "/terms?slim=true" : "/terms"), ok: true };
   } catch {
     return { records: [], ok: false };
   }

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 
@@ -141,10 +142,24 @@ def term_record(con: Connection, t: Term) -> TermRecord:
                       gate_reasons=reasons or None, regions=regions_for(con, t))
 
 
-def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",)) -> list[TermRecord]:
+def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:
     terms = ds.list_terms(con, statuses)
     with ds.batched(con, [t.term_id for t in terms]):
-        return [term_record(con, t) for t in terms]
+        records = [term_record(con, t) for t in terms]
+    return [_slim(r) for r in records] if slim else records
+
+
+_USED_KINDS = ("community", "news", "short")
+
+
+def _slim(r: TermRecord) -> TermRecord:
+    """사전 색인 한 줄에 필요한 것만 — 현재 뜻, 마지막 쓰임을 셀 근거 하나. 뜻 이력·근거 전부·주간 수·매체는 뺀다.
+    전체 기록은 용어 7,600개에 29.6MB(7.8초)라 사전 첫 화면이 18초 걸렸다(10-04). 웹의 lastUsedOf·currentMeaning 이 같은 답을 낸다."""
+    open_ = [m for m in r.meanings if not m.valid_to]
+    current = (open_ or r.meanings)[-1:]
+    used = [e for e in r.evidences if e.kind in _USED_KINDS and urlsplit(e.url or "").path not in ("", "/")]
+    latest = max(used, key=lambda e: e.observed_at, default=None)
+    return r.model_copy(update={"meanings": current, "evidences": [latest] if latest else [], "usage": [], "weekly": [], "media": []})
 
 
 def pipeline_stages(con: Connection) -> list[PipelineStage]:

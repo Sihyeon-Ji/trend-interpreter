@@ -157,6 +157,8 @@ export default async function TermPage({ params, searchParams }: Props) {
           </>}
           actions={canMake ? makeButton("hidden sm:inline-flex") : undefined}>
           {!verified && <p className="text-[14px] leading-[1.55] text-charcoal">{t(locale, "term_draft_notice")}</p>}
+          {/* 영어판이 없으면 뜻·유래·뉘앙스가 한국어 원문으로 나온다 — 영어 독자에게 알린다(본문은 숨기지 않는다) */}
+          {tx && txLang && <p className="text-[14px] leading-[1.55] text-charcoal">{t(locale, "term_untranslated_notice")}</p>}
         </PageHeader>
 
         <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,720px)_280px] xl:gap-12">
