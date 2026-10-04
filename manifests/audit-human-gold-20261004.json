@@ -1,0 +1,20 @@
+{
+  "evaluation_id": "audit-human-20261001T224511-e56b90d",
+  "sealed_at": "2026-10-04T09:35:44+09:00",
+  "cases": 20,
+  "labels": {
+    "fix": 10,
+    "ok": 10
+  },
+  "reviewer": "ejchoi",
+  "source_attestation": {
+    "confirmed_by": "ejchoi",
+    "relayed_by": "shji",
+    "training_source_inventory_complete": true,
+    "inventory_sha256": "fb6da183e7ec2850041d79338a03f9ee19107334ef951e423d7a050923f4e26f"
+  },
+  "gold_sha256": "4a4a8e946991ee5696a51b385bf4b0e1e71d7f4b86707ffbe77fde403d2d2fc1",
+  "annotations_sha256": "fd5943d67e78bc7b7d7eae370aa00da8b4a891f2b3d26d32a61ae650fab381e2",
+  "promotion_eligible": false,
+  "note": "Gold labels and texts stay in the Git-excluded pack. Labels judge agreement with the quoted reference excerpts."
+}
