@@ -495,6 +495,36 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 | 문서 순서대로 전체 기반 삭제 | 예상대로 직접 CD 실패 | Bootstrap 후 release |
 | 결제 비활성화 또는 project 삭제 | Bootstrap과 CD 실패 | Project와 결제를 먼저 복구 |
 
+## 운영 DB 백업
+
+운영 Cloud SQL의 `trend` DB는 매일 03:00 KST에 논리 백업한다. 체험 인스턴스는 관리형 백업·PITR을 지원하지 않으므로 이 백업이 유일한 복구 수단이다([Plan 13](../plans/13-cloud-sql-trial-to-paid-transition.md)). 리소스는 `infra/gcp/hybrid/backup.tf`에 있다.
+
+| 항목 | 값 |
+| --- | --- |
+| 실행 | Scheduler `trend-production-backup-daily`가 Cloud Run Job `trend-production-backup`을 실행한다 |
+| 내용 | `pg_dump --format=custom --no-owner --no-privileges --schema=public`. 검수 기록·계정 설정·Gemini 장부 같은 사용자 표도 포함한다. Cloud SQL 전용 `google_vacuum_mgmt` 스키마는 일반 PostgreSQL에서 복원되지 않아 뺀다 |
+| 보관 | 비공개 버킷 `stunning-crane-508614-c1-trend-production-backups`. 14일 뒤 삭제, 지운 객체는 soft delete로 7일 더 남는다 |
+| 권한 | `trend-production-backup` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 버킷 객체 읽기·쓰기, 이 Job 실행만 가진다. DB 접속은 앱과 같은 `trend_app` 계정이다(10-04 결정) |
+| 경보 | Job 실행이 실패하면 "Trend database backup failed"가 Discord와 운영 이메일로 온다. Scheduler가 Job을 실행하지 못한 경우는 이 경보에 잡히지 않으므로 아래 확인 명령으로 본다 |
+
+수동 실행과 상태 확인은 다음과 같다.
+
+```bash
+gcloud scheduler jobs run trend-production-backup-daily --location=asia-northeast1 --project=stunning-crane-508614-c1
+gcloud run jobs executions list --job=trend-production-backup --region=asia-northeast1 --project=stunning-crane-508614-c1 --limit=5
+gcloud storage ls -l gs://stunning-crane-508614-c1-trend-production-backups/
+```
+
+복원 검증은 최신 백업(또는 인자로 준 객체)을 내려받아 임시 PostgreSQL 18.6에 복원하고 표별 행 수만 보고한다. 덤프는 임시 디렉터리에만 두고 끝나면 지운다.
+
+```bash
+scripts/verify-production-backup.sh "" manifests/production-backup-verify-<날짜>.json
+```
+
+2026-10-04 첫 실행 결과([보고서](../../manifests/production-backup-verify-20261004.json)): 덤프 52.9MB, Job 8초, 로컬 복원 2초, 표 48개·659,712행, `schema_migrations` 15개가 저장소 migration 수와 같다.
+
+다른 DB에 복원할 때는 덤프에 `CREATE SCHEMA public`이 들어 있으므로 빈 DB의 기본 `public` 스키마를 먼저 지우고 `pg_restore --no-owner --no-privileges --exit-on-error`로 복원한다. 사용자 표가 포함된 사본을 복원한 뒤에는 보존 기간 정리(`prune_user_text`)를 실행한다. 운영 DB에 덮어쓰는 복원은 하지 않는다.
+
 ## 로그와 모니터링
 
 ```bash

@@ -25,8 +25,8 @@ run "staging_is_private_and_scoped" {
     error_message = "Keep runtime identities separate and token access limited."
   }
   assert {
-    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_service.web) == 0
-    error_message = "Enabling the foundation alone must not publish web or API services."
+    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_service.web) == 0 && length(google_cloud_run_v2_job.backup) == 0 && length(google_storage_bucket.backups) == 0
+    error_message = "Enabling the foundation alone must not publish web or API services or create backups."
   }
 }
 run "production_is_separate" {
@@ -69,6 +69,13 @@ run "gpu_is_private_persistent_and_time_limited" {
 run "private_api_and_public_web_are_separate" {
   command = plan
   override_resource {
+    target          = google_cloud_run_v2_job.backup
+    override_during = plan
+    values = {
+      id = "projects/stunning-crane-508614-c1/locations/asia-northeast1/jobs/trend-staging-backup"
+    }
+  }
+  override_resource {
     target          = google_service_account.runtime["web"]
     override_during = plan
     values = {
@@ -97,8 +104,20 @@ run "private_api_and_public_web_are_separate" {
     error_message = "Only the web service is public, and its identity invokes the private API."
   }
   assert {
-    condition     = length(google_secret_manager_secret_iam_member.runtime) == 5 && length(google_compute_instance.gpu) == 0
-    error_message = "Web/API need scoped secrets and must not start a GPU VM."
+    condition     = length(google_secret_manager_secret_iam_member.runtime) == 6 && google_secret_manager_secret_iam_member.runtime["backup-DATABASE_URL"].secret_id == "projects/stunning-crane-508614-c1/secrets/trend-staging-db" && length(google_compute_instance.gpu) == 0
+    error_message = "Web/API and the backup job need scoped secrets and must not start a GPU VM."
+  }
+  assert {
+    condition     = google_storage_bucket.backups[0].public_access_prevention == "enforced" && google_storage_bucket.backups[0].uniform_bucket_level_access && one(one(google_storage_bucket.backups[0].lifecycle_rule).condition).age == 14
+    error_message = "Backups stay in a private bucket and expire after 14 days."
+  }
+  assert {
+    condition     = strcontains(one(one(one(google_cloud_run_v2_job.backup[0].template).template).containers).command[2], "--schema=public") && contains([for e in one(one(one(google_cloud_run_v2_job.backup[0].template).template).containers).env : one(one(e.value_source).secret_key_ref).secret], "projects/stunning-crane-508614-c1/secrets/trend-staging-db")
+    error_message = "The backup job dumps the public schema with the service database secret."
+  }
+  assert {
+    condition     = google_cloud_scheduler_job.backup[0].time_zone == "Asia/Seoul" && google_cloud_scheduler_job.backup[0].http_target[0].uri == "https://run.googleapis.com/v2/projects/stunning-crane-508614-c1/locations/asia-northeast1/jobs/trend-staging-backup:run"
+    error_message = "A daily schedule runs the backup job."
   }
   assert {
     condition     = strcontains(google_logging_project_exclusion.trend_requests[0].filter, "trend-staging-api") && strcontains(google_logging_project_exclusion.trend_requests[0].filter, "trend-staging-web")

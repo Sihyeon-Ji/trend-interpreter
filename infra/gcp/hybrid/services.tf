@@ -26,6 +26,7 @@ locals {
   secret_access = local.services_enabled ? merge(
     { for name, version in local.api_secret_versions : "api-${name}" => { account = "api", version = version } },
     { for name, version in local.web_secret_versions : "web-${name}" => { account = "web", version = version } },
+    { "backup-DATABASE_URL" = { account = "backup", version = var.services.database_secret_version } },
     local.gpu_service_enabled ? { "api-gpu-ca" = { account = "api", version = var.services.gpu.ca_secret_version } } : {}
   ) : {}
 }
