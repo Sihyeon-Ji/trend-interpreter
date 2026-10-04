@@ -5,6 +5,7 @@ import { t, type Locale } from "@/lib/i18n";
 import { isCountryCode, whyAnchor } from "@/lib/country";
 import { langTag, scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
+import { glossFor } from "@/lib/gloss";
 
 /* 최근 변화 표. 날짜는 묶음 행으로 올리고 행에는 시각만 — 매 행 같은 날짜를 되풀이해 휴대폰에서 이름 칸이 좁았다(화면 개편 2차 검토).
    뜻·단계·리스크·지역은 대시보드 카드에서 온다(없으면 '—'). 목적지가 있는 행만 표현이 링크이고 hover 바탕이 생긴다. */
@@ -38,7 +39,7 @@ const href = (r: UpdateRow) =>
     : r.kind === "spike" && r.region && isCountryCode(r.region) ? `/country/${r.region}?tab=why#${encodeURIComponent(whyAnchor(r.label))}` : null;
 
 const labelLang = (r: UpdateRow) => (r.card ? langTag(r.card.lang) : scriptLang(r.label, r.region));
-const gloss = (r: UpdateRow, locale: Locale) => (r.card ? (locale === "ko" ? r.card.gloss_ko : r.card.gloss_en) || t(locale, "dict_pending") : null);
+const gloss = (r: UpdateRow, locale: Locale) => (r.card ? glossFor(r.card, locale) || t(locale, "dict_pending") : null);
 const Dash = () => <span className="text-steel">—</span>;
 
 /** 뜻 또는 이유. 뜻 바뀜은 '이전 뜻'·'지금 뜻' 두 줄(이전 뜻은 번역이 없어 원문), 검색 급증은 이유 한 문장. */

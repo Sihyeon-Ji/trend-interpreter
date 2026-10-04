@@ -329,7 +329,7 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
         tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed,
-        dated=bool(m and DATED.search(m.nuance or "")))
+        dated=bool(m and DATED.search(m.nuance or "")), en_pending=en is None)
     return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
                   held=held)
 

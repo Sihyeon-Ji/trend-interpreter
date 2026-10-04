@@ -122,6 +122,7 @@ export interface KeywordCard {
   category: string;
   gloss_ko: string;
   gloss_en: string;
+  en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   regions: string[];              // 목표 지역 코드, 목표 지역 밖에서 널리 쓰이면 GLOBAL
   lifecycle: Lifecycle;
   diffusion?: Diffusion;
@@ -174,6 +175,7 @@ export interface RecommendItem {
   lang: string;                   // 표제어의 말(KeywordCard.lang) — 원문에 lang 을 붙인다
   gloss_ko: string;
   gloss_en: string;
+  en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   regions: string[];
   diffusion?: Diffusion;
   lifecycle: Lifecycle;
@@ -243,6 +245,7 @@ export interface CopyMeme {
   matched: string;                // 문구에서 찾은 그대로의 표기
   gloss_ko: string;
   gloss_en: string;
+  en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   regions: string[];
   lifecycle: Lifecycle;
   diffusion?: Diffusion | null;

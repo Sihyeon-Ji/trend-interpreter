@@ -8,6 +8,7 @@ from ..schemas import Meaning, MeaningText
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, structured
 from .runs import record_model, stage
+from . import dashboard
 from ..storage.db import Connection
 
 LANG_NAME = {"ko": "Korean", "en": "English"}
@@ -39,19 +40,37 @@ def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[Mean
     return (parsed if isinstance(parsed, MeaningText) else MeaningText.model_validate(parsed)), model
 
 
+def priority(con: Connection) -> list:
+    """번역할 순서 — 대시보드 목록(지역마다 지금 쓰이는·주의·식어 가는 순)에 앞서 보이는 말부터, 나머지는 이름순.
+    이름순으로 한 번에 12개씩만 하던 탓에 영어 화면 첫 쪽 뜻풀이의 75~85% 가 한국어 그대로였다(실데이터 10-04, 영어판 121개)."""
+    terms = ds.list_terms(con, ("verified",))
+    rank: dict[str, int] = {}
+    loaded = dashboard._load(con)
+    if loaded:
+        shown = [s for s in loaded[0] if not s.held]
+        for region in (*dashboard.REGIONS_FOCUS, dashboard.GLOBAL):
+            rising, fading, caution = dashboard.split([dashboard.view(s, [region]) for s in shown if region in s.card.regions], loaded[1])
+            for i, c in enumerate([*rising, *caution, *fading]):
+                rank[c.term_id] = min(rank.get(c.term_id, i), i)
+    last = len(terms) + len(rank)
+    return sorted(terms, key=lambda t: (rank.get(t.term_id, last), t.canonical))
+
+
 def run(con: Connection, max_calls: int = 12) -> dict:
     with stage(con, "translate") as r:
         calls = 0
-        for t in ds.list_terms(con, ("verified",)):
+        for t in priority(con):
+            if calls >= max_calls:                         # 한도에 닿으면 남은 용어를 더 돌지 않는다
+                r.note = "이번 실행 한도"
+                break
             m = ds.current_meaning(con, t.term_id)
             if not m or m.verification not in ("verified_auto", "verified_human"):
                 continue
-            for lang in ("ko", "en"):
+            for lang in ("en", "ko"):                       # 영어 먼저 — 한국어 화면은 한국어 원문 뜻으로도 읽힌다
                 have = ds.get_translation(con, t.term_id, lang)
                 if have:
                     continue
                 if calls >= max_calls:
-                    r.note = "이번 실행 한도"
                     break
                 try:
                     text, model = make_text(con, t.canonical, m, lang)

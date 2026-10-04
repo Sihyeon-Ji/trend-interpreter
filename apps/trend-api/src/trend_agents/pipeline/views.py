@@ -360,6 +360,7 @@ class KeywordCard(BaseModel):
     use_confirmed: bool = True         # 그 뜻으로 쓰인 글이 확인됐다. 위키 밈 분류에서만 들어와 아직 확인 전이면 False — 목록 뒤로(dashboard.meme_use)
     mentions_mixed: bool = False       # 분류된 글 가운데 글자만 같은 딴 이야기가 더 많다 — 언급 수를 순서에 쓰지 않는다
     dated: bool = False                # 뜻풀이(뉘앙스)가 유행이 지났다고 적었다 — '식어 가는 밈' 으로(dashboard.DATED)
+    en_pending: bool = False           # 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문이다. 영어 화면은 원문 대신 '번역 전' 으로 보인다
 
 
 class RegionTop(BaseModel):
@@ -395,6 +396,7 @@ class RecommendItem(BaseModel):
     lang: str = ""                     # 표제어의 말(KeywordCard.lang) — 화면이 원문에 lang 을 붙인다
     gloss_ko: str
     gloss_en: str
+    en_pending: bool = False
     regions: list[str]
     diffusion: Diffusion | None = None
     lifecycle: Lifecycle
@@ -482,6 +484,7 @@ class CopyMeme(BaseModel):
     matched: str                       # 문구에서 찾은 그대로의 표기
     gloss_ko: str
     gloss_en: str
+    en_pending: bool = False
     regions: list[str]
     lifecycle: Lifecycle
     diffusion: Diffusion | None = None

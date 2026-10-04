@@ -16,6 +16,7 @@ import { TARGET_REGIONS } from "@/lib/reader";
 import type { CampaignTone, GenerationResult, RecommendItem, RecommendResult } from "@/lib/types";
 import { chipClass } from "@/lib/ui";
 import { cn } from "@/lib/utils";
+import { glossFor } from "@/lib/gloss";
 
 const MAX_IMAGE = 5 * 1024 * 1024;
 const MAX_PICK = 3;
@@ -31,7 +32,7 @@ const chipInput = "relative cursor-pointer has-[:focus-visible]:outline-2 has-[:
 // 같은 종류의 값 목록은 쉼표로 — 가운뎃점은 서로 다른 사실을 잇는 것처럼 읽혔다(원칙 6)
 const list = (xs: string[]) => xs.join(", ");
 const fmtSize = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-const gloss = (it: RecommendItem, locale: Locale) => (locale === "ko" ? it.gloss_ko : it.gloss_en);
+const gloss = (it: RecommendItem, locale: Locale) => glossFor(it, locale);
 const hasDetails = (it: RecommendItem) => it.matched_feelings.length > 0 || it.matched_category || it.any_category || !!(it.local_note && it.local_region)
   || riskOf(it) === "caution" || riskOf(it) === "unknown";
 

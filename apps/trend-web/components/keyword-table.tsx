@@ -6,9 +6,10 @@ import { langTag } from "@/lib/lang";
 import { fmtDate, fmtInt, regionLabel } from "@/lib/labels";
 import type { KeywordCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { glossFor } from "@/lib/gloss";
 
 const lastUsed = (c: KeywordCard) => c.last_used ?? c.last_seen ?? null;
-const gloss = (c: KeywordCard, locale: Locale) => (locale === "ko" ? c.gloss_ko : c.gloss_en);
+const gloss = (c: KeywordCard, locale: Locale) => glossFor(c, locale);
 const quiet = (c: KeywordCard) => !c.weekly.some((p) => p.count);   // 12주 동안 언급이 없다 — '0' 대신 '—'
 
 // 행 전체가 사전 항목 링크 하나다(탭 멈춤도 하나): 표제어 링크의 ::after 가 행을 덮고, 초점은 그 ::after 에 파랑 테두리로 보인다

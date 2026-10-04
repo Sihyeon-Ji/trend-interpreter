@@ -14,6 +14,7 @@ import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { getReader } from "@/lib/reader-server";
 import type { Briefing, KeywordCard } from "@/lib/types";
+import { glossFor } from "@/lib/gloss";
 
 /* 트렌드 브리핑 — 고른 시장의 대시보드를 마케터가 들고 갈 한 장으로. 목록·건수는 대시보드 규칙(백엔드 pipeline/briefing.py),
    요약 문장만 모델이 쓰고 없으면 규칙 문장. 지역은 주소에만 둔다(링크 복사 = 같은 보고서). 브라우저 인쇄로 PDF 저장. */
@@ -52,7 +53,7 @@ function Section({ kind, cards, total, locale, regions }: { kind: Kind; cards: K
                   <Link href={`/dictionary/${encodeURIComponent(c.term_id)}${q}`} lang={langTag(c.lang)} className="text-[15px] font-semibold text-ink hover:underline">
                     {c.canonical}
                   </Link>
-                  <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">{locale === "en" ? c.gloss_en : c.gloss_ko}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">{glossFor(c, locale)}</p>
                   {ev && (
                     <a href={ev.url} target="_blank" rel="noreferrer" className="mt-0.5 inline-block text-[12px] text-steel hover:underline">
                       {t(locale, "brief_sources")} · {sourceName(locale, ev.source_domain)} · {fmtDate(ev.observed_at)}

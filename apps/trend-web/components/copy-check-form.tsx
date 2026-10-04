@@ -12,6 +12,7 @@ import { regionLabel } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
 import type { CopyCheck, CopyMeme } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { glossFor } from "@/lib/gloss";
 
 const MAX_TEXT = 1000;   // 백엔드 copycheck.MAX_TEXT
 const X_LIMIT = 280;
@@ -113,7 +114,7 @@ function MemeRow({ m, locale, where, region }: { m: CopyMeme; locale: Locale; wh
           <p className="text-[16px] font-semibold text-ink" lang={langTag(m.lang)}>
             {m.canonical}{m.matched.toLowerCase() !== m.canonical.toLowerCase() && <span className="ml-1.5 text-[13px] font-normal text-steel">“{m.matched}”</span>}
           </p>
-          <p className="mt-0.5 text-[14px] leading-[1.55] text-charcoal">{locale === "en" ? m.gloss_en : m.gloss_ko}</p>
+          <p className="mt-0.5 text-[14px] leading-[1.55] text-charcoal">{glossFor(m, locale)}</p>
         </div>
         <div className="flex flex-col items-start gap-1.5 sm:items-end">
           <StageCell diffusion={m.diffusion} lifecycle={m.lifecycle} locale={locale} />

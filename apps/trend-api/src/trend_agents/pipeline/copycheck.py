@@ -84,7 +84,8 @@ def check(con: Connection, text: str, region: str) -> tuple[CopyCheck, list]:
         elif not writable(t, region, regions):
             issues.append(CopyIssue(code="no_script"))
         memes.append(CopyMeme(term_id=t.term_id, canonical=t.canonical, lang=t.lang or "", matched=_matched(text, t),
-                              gloss_ko=card.gloss_ko if card else "", gloss_en=card.gloss_en if card else "", regions=regions,
+                              gloss_ko=card.gloss_ko if card else "", gloss_en=card.gloss_en if card else "",
+                              en_pending=card.en_pending if card else True, regions=regions,
                               lifecycle=card.lifecycle if card else t.lifecycle, diffusion=card.diffusion if card else t.diffusion,
                               risk_level=t.risk_level, risk_checked_at=t.risk_checked_at, issues=issues))
     out = CopyCheck(region=region, memes=memes, unsafe=unsafe(text), x_length=x_length(text), fit_source="none")
