@@ -23,6 +23,16 @@ def term_pattern(candidate: str) -> re.Pattern:
     return re.compile(rf"(?<![A-Za-z0-9_-]){body}(?![A-Za-z0-9_-])", re.I)
 
 
+# 이용자가 쓴 문구에서 표현을 찾을 때(메시지 해석·카피 검사). 한 글자 한글 표제어는 앞뒤에 다른 한글이 없을 때만 —
+# '팀장님' 의 '님', '과몰입함' 의 '입' 이 밈으로 잡혔다(10-04). 근거 매칭(mentions)은 등재 판정이라 그대로 둔다. 프론트 lib/explain.ts 와 같다
+@lru_cache(maxsize=65536)
+def text_pattern(candidate: str) -> re.Pattern:
+    core = "".join(candidate.split())
+    if len(core) == 1 and HANGUL.search(core):
+        return re.compile(rf"(?<![가-힣]){re.escape(core)}(?![가-힣])")
+    return term_pattern(candidate)
+
+
 def numeric_like(term: str) -> bool:
     core = re.sub(r"[\W_]+", "", term)
     return bool(core) and core.isdigit()

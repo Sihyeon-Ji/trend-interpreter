@@ -10,7 +10,7 @@ from ..schemas import Term
 from ..storage import db
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, generate
-from .match import term_pattern  # noqa: F401  (tests 와 다른 단계가 여기서 가져간다)
+from .match import term_pattern, text_pattern  # noqa: F401  (tests 와 다른 단계가 여기서 가져간다)
 from ..storage.db import Connection
 
 def match_terms(text: str, terms: list[Term]) -> list[Term]:
@@ -18,7 +18,7 @@ def match_terms(text: str, terms: list[Term]) -> list[Term]:
     for t in terms:
         best = None
         for cand in [t.canonical, *t.aliases]:
-            m = term_pattern(cand).search(text)
+            m = text_pattern(cand).search(text)
             if m and (best is None or m.start() < best):
                 best = m.start()
         if best is not None:

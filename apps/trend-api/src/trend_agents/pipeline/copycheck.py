@@ -22,7 +22,7 @@ from . import dashboard
 from .explain import match_terms
 from .gemini import configured, structured
 from .generate import caution_note, writable, x_length
-from .match import term_pattern, unsafe
+from .match import text_pattern, unsafe
 from .views import CopyCheck, CopyIssue, CopyMeme
 
 MAX_TEXT = 1000
@@ -56,7 +56,7 @@ def model_ready() -> bool:
 
 def _matched(text: str, t) -> str:
     for cand in (t.canonical, *t.aliases):
-        m = term_pattern(cand).search(text)
+        m = text_pattern(cand).search(text)
         if m:
             return m.group(0)
     return t.canonical

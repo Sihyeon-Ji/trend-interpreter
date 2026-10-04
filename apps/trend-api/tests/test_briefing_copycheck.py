@@ -151,3 +151,13 @@ def test_term_topic_returns_one_topic_and_follows_board_changes(con):
     save("원영적 사고")                                                   # 같은 시각으로 다시 저장해도 내용이 바뀌면 새 보드
     assert c.get("/terms/fresh/topic").json()["name"]["ko"] == "원영적 사고"
     assert board_stage.cached(con).topics[0].name.ko == "원영적 사고"
+
+
+def test_single_hangul_terms_match_only_as_a_word():
+    """한 글자 한글 표제어('님'·'입')는 다른 낱말 안에서 잡지 않는다 — '팀장님' 의 '님'(10-04). 두 글자 이상은 전처럼 붙여 써도 잡는다."""
+    from trend_agents.pipeline.explain import match_terms
+
+    terms = [Term(term_id="nim", canonical="님", lang="ko", status="needs_review"),
+             Term(term_id="gol", canonical="과몰입", lang="ko", status="verified")]
+    assert [t.term_id for t in match_terms("팀장님 갑자기 과몰입함", terms)] == ["gol"]
+    assert [t.term_id for t in match_terms("오늘 님 최고", terms)] == ["nim"]

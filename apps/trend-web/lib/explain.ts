@@ -30,6 +30,9 @@ const hasHangul = (s: string) => /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/.tes
  *  - 한국어: 부분 문자열 매칭(조사·어미가 붙어도 잡힘) + 띄어쓰기 변형 허용("원영적사고").
  *  - 영문·숫자·기타 문자: 단어 경계 필수("6-7" 이 "2026-7" 에 걸리지 않게), 대소문자 무시. */
 export function termPattern(candidate: string): RegExp {
+  // 한 글자 한글 표제어는 앞뒤에 다른 한글이 없을 때만 — '팀장님' 의 '님' 이 잡혔다(10-04, 백엔드 match.text_pattern 과 같다)
+  const core = candidate.replace(/\s+/g, "");
+  if (core.length === 1 && hasHangul(core)) return new RegExp(`(?<![가-힣])${escapeRe(core)}(?![가-힣])`, "u");
   const body = candidate.trim().split(/\s+/).map(escapeRe).join(hasHangul(candidate) ? "\\s*" : "\\s+");
   if (hasHangul(candidate)) return new RegExp(body, "iu");
   return new RegExp(`(?<![\\p{L}\\p{N}-])${body}(?![\\p{L}\\p{N}-])`, "iu");
