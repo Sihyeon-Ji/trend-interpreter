@@ -806,7 +806,9 @@ def verified_risk(con: Connection) -> dict[str, tuple[str | None, list[str], str
     return {tid: (level, list(reasons or []), checked) for tid, level, reasons, checked in rows}
 
 
-def count_terms(con: Connection, statuses: tuple[str, ...]) -> int:
+def count_terms(con: Connection, statuses: tuple[str, ...] | None = None) -> int:
+    if not statuses:
+        return con.execute("SELECT count(*) FROM terms").fetchone()[0]
     return con.execute(f"SELECT count(*) FROM terms WHERE status IN ({','.join('?' * len(statuses))})", statuses).fetchone()[0]
 
 

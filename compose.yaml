@@ -76,7 +76,8 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # 가벼운 주소만 — 첫 화면(/)을 점검하면 몇 초마다 대시보드·브리핑 API 를 불러 API·DB 가 늘 바빴다
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 10s
       retries: 20

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 HANGUL = re.compile(r"[ᄀ-ᇿ㄰-㆏가-힯]")
 # 숫자꼴 용어('6-7')는 점수·날짜·시간과 글자만으로는 구별되지 않는다 → 이런 단서가 같이 있어야 '그 밈'을 말한 것으로 본다
@@ -11,6 +12,8 @@ CUES = re.compile(r"meme|slang|viral|trend|brainrot|gen ?alpha|gen ?z|tiktok|sho
                   r"nghĩa là|artinya|bahasa gaul|istilah|ibig sabihin|maksud", re.I)
 
 
+# 표기는 1만 개가 넘어 re 모듈의 캐시(512개)에 들지 않는다 — 카피 검사 한 번이 표기마다 다시 컴파일해 2.5초였다(10-04)
+@lru_cache(maxsize=65536)
 def term_pattern(candidate: str) -> re.Pattern:
     toks = [re.escape(t) for t in candidate.strip().split()]
     if HANGUL.search(candidate):

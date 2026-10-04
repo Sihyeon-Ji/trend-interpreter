@@ -130,7 +130,8 @@ def graph_content(key: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "time": datetime.now(timezone.utc).isoformat(), "terms": len(ds.list_terms(_con))}
+    # 용어 JSON 을 읽지 않고 센다 — 3초마다 부르는 상태 점검이 용어 11,000개를 해석해 API·DB 가 늘 바빴다(모든 요청이 2~3초, 10-04)
+    return {"ok": True, "time": datetime.now(timezone.utc).isoformat(), "terms": ds.count_terms(_con)}
 
 
 @app.get("/terms", response_model=list[views.TermRecord])
