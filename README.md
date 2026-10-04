@@ -7,6 +7,52 @@ AI Builder Cup 2026. The repository holds the Next.js web app, the FastAPI API w
 and dictionary pipeline, the Discord alert relay, and the GCP infrastructure.
 Other candidate projects under `prototype/` are kept for reference only.
 
+## What it does
+
+Brand marketers and creators ask one question about a meme: can we use it now, here, without trouble?
+Trend Interpreter answers it per market (ten Asia-Pacific markets plus a global group) from collected public data.
+
+| Feature | What the user gets |
+| --- | --- |
+| Trend dashboard | Memes in use now, fading and needing care, with lifecycle stage, risk, 12-week mentions and an at-a-glance summary of what is safe to use |
+| Meme dictionary | Versioned meanings with cited sources, regions, per-country variants and history |
+| Trend briefing | One-page market report to save as PDF or share, with a summary written only from the listed facts |
+| Campaign kit | Meme picks for a product photo or copy, then SNS copy, a short-form script and a thumbnail plan, checked against the dictionary |
+| Copy check | Flags memes in your own copy that are risky, fading or foreign to the market, and gives an AI opinion on whether each is used in the right sense |
+| Message explain and dictionary chat | Rewrites a pasted message in plain words; a read-only tool-calling chat answers only from the dictionary |
+| World map and recent changes | Where a meme is used and what changed lately |
+| Reviewer console | Human approval queue for new meanings, corrections and risk decisions |
+
+## How AI is used
+
+Rules decide, models write. Listing, lifecycle, verification status, risk level, list filtering and
+recommendation ranking are deterministic code; a model never sets a status.
+
+- **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): researches new terms with
+  grounding, reads trending short videos, turns a product photo or copy into a product brief, writes campaign
+  copy, summarises the briefing and judges whether copy uses a meme in the right sense.
+- **Gemma 4** (local or on a GPU VM): drafts dictionary translations, classifies evidence sentences for risk and
+  audits dictionary meanings against their sources. The auditor is being fine-tuned with QLoRA on Kaggle and is
+  compared with the base model on a sealed human-labelled set before use.
+- Every model output is checked by rules before it is shown: a meaning needs a matching reference document,
+  generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
+  held back.
+
+## Google Cloud services
+
+| Service | Use |
+| --- | --- |
+| Cloud Run | Web app, private API and alert relay; new revisions are tested before traffic moves |
+| Cloud SQL for PostgreSQL | Published dictionary, evidence and dashboard data |
+| Vertex AI (Gemini) | Request-time research, generation and summaries |
+| Compute Engine GPU (L4) | Gemma auditor gateway, started only when needed |
+| Cloud Storage | Fixed data snapshots handed from the collection server |
+| Cloud Logging, Monitoring, Pub/Sub | Alerts relayed to the team's Discord channel |
+| Secret Manager | Runtime secrets |
+
+Collection runs on a separate team server; only verified snapshots are published to Cloud SQL.
+Details are in the [architecture document](docs/운영/시스템-아키텍처.md) (Korean).
+
 ## Local development
 
 Install Git and Docker with Compose v2. No host Node, Python, uv, model key or GPU is required
