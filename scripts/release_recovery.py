@@ -13,8 +13,6 @@ SECRETS = {
     "builder-cup-alert-relay": ("DISCORD_WEBHOOK_URL", "discord-webhook"),
     "trend-production-api": ("DATABASE_URL", "trend-production-database-url"),
     "trend-production-web": ("SESSION_SECRET", "trend-production-session-secret"),
-    "trend-staging-api": ("DATABASE_URL", "trend-staging-database-url"),
-    "trend-staging-web": ("SESSION_SECRET", "trend-staging-session-secret"),
 }
 
 

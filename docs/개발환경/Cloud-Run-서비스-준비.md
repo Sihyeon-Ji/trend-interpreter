@@ -140,3 +140,9 @@ docker compose run --rm infra-check
 
 staging은 같은 스크립트를 `ENVIRONMENT=staging`으로 수동 실행해 배포한다. Terraform의 `api_image`·`web_image`는 서비스를 처음 만들 때만 쓴다.
 
+## 2026-10-04 staging 정리
+
+사용자 결정에 따라 staging 웹·API를 두지 않는다. production 배포의 CI 검사·후보 revision 검사·되돌리기가 같은 역할을 한다. `trend-staging-web`·`trend-staging-api`, `trend_staging` DB와 `trend_staging_app` 사용자, `trend-staging-database-url`·`-accounts`·`-frontend-token`·`-session-secret`, staging 요청 URL 로그 제외 규칙을 삭제했다. 보호 설정이 걸린 서비스·로그 제외 규칙은 gcloud로 지운 뒤 Terraform state에서 빼고, 로컬 `staging.tfvars.json`에서 `services`를 지워 나머지 권한을 Terraform으로 정리했다. 위의 staging 기록은 당시 기록으로 남긴다.
+
+staging 네트워크·서비스 계정·GPU gateway token·`trend-staging-gpu-tls`·`-gpu-ca`·`-gpu-ca-key`는 감사관 모델 GPU 시험용으로 남겼다. 정리 뒤 production API·웹이 정상인 것을 확인했다.
+

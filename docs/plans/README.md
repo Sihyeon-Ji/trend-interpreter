@@ -44,7 +44,7 @@ Cloud SQL 30일 체험 종료 전 비용 판단과 수동 전환 절차는 [Plan
 | [15](15-overseas-generation-signals.md) | 데이터 | 해외 세대·관심 신호 (네이버 데이터랩이 없는 나라) | 세대 출처·페이지뷰 수집 구현 – 비한국어 387개, 생애주기 연결 미완료 | 02, 04 | 10-10 |
 | [16](16-wiki-meme-catalog-and-tendency.md) | 데이터 | 위키 밈 분류 일괄 등재와 밈 성향 분석 | 분류·감사·성향 구현 – 날짜 있는 verified 2,014개, 최종 처리·품질 검수 남음 | 12, 15 | 10-06 |
 | [17](17-hybrid-infrastructure.md) | 통합 인프라 | Kaggle·DVC/GCS 학습, Cloud Run 웹/API, Cloud SQL, GCE Gemma 서빙 | 단계 0~5 부분 구현 – 데이터·학습 재개·웹 인증·gateway 기반, 승인 게시·실제 GCP 통합 남음 | 선행 없음, 01·05·06·09·14를 단계별 통합 | 10-12 (통합 평가 10-15) |
-| [18](18-ci-parallelization.md) | 배포 | CI 병렬화·빌드 캐시로 release 시간 단축, staging 배포 경로 결정 | 계획 – staging 경로 결정 대기 | 05 | 10-08 |
+| [18](18-ci-parallelization.md) | 배포 | CI 병렬화·빌드 캐시로 release 시간 단축 | 계획 – staging은 두지 않기로 결정 | 05 | 10-08 |
 
 순서를 정한 기준은 다음과 같습니다.
 

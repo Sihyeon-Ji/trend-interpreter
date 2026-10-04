@@ -1,6 +1,6 @@
 # Plan 18. CI 병렬화와 배포 시간 단축
 
-작성일 **2026-10-04** · 상태 **계획 – staging 배포 경로 결정 대기** · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
+작성일 **2026-10-04** · 상태 **계획 – staging은 두지 않기로 결정(10-04)** · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
 
 [계획 목록](README.md) · [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md) · [GCP 운영](../운영/GCP-운영.md)
 
@@ -48,32 +48,23 @@
 - E2E 예열(`e2e/global-setup.ts`)은 개발 서버 컴파일 때문에 필요하다. production 빌드(`next build` + `next start`)를 대상으로 E2E를 돌리면 예열이 필요 없고 실제 배포 형태와도 같아진다. 다만 Compose 구성이 바뀌므로 3.1·3.2의 효과를 본 뒤 결정한다.
 - 바뀐 경로에 따라 job을 건너뛰는 방식(예: 웹만 바뀌면 `models` 생략)은 검사 누락 위험이 있어 이번 범위에서 제외한다.
 
-## 4. staging 배포 경로 – 결정 필요
+## 4. staging – 두지 않음 (10-04 결정)
 
-**현재 `release/gcp`는 production만 배포한다**(`trend_app` job의 `ENVIRONMENT=production`). staging은 자동 경로가 없고, 10-03~04에는 작업자가 로컬에서 Terraform과 `scripts/deploy-trend.sh`(`ENVIRONMENT=staging`)로 직접 올렸다. 그래서 staging과 production의 이미지가 다를 수 있다(10-04 기준 staging API는 `d8ea4a5`, production은 `b0e1826`).
+`release/gcp`는 production만 배포한다. 10-03에 만든 staging 웹·API는 작업자가 로컬에서 직접 배포했고 자동 경로가 없었다. 공모전 제출물 하나를 팀이 함께 고치는 상황이라 사용자는 staging을 두지 않기로 했다. production 배포에는 이미 같은 역할의 안전장치가 있다. CI 전체 검사를 통과해야 배포가 시작되고, 새 revision을 트래픽 없이 띄워 검사한 뒤에만 전환하며, `scripts/rollback-gcp.sh`로 이전 revision에 바로 되돌릴 수 있다.
 
-| 안 | 동작 | 장점 | 단점 |
-| --- | --- | --- | --- |
-| **A. release에서 staging 먼저 (추천)** | `release/gcp` → 검사 → 같은 이미지를 staging에 배포·검사 → production에 배포·검사 | staging이 늘 production 직전 판이 되고 실제 Cloud SQL·IAM 환경에서 한 번 더 걸러진다. 같은 digest를 두 환경에 쓴다 | release당 2~3분 추가(3.1·3.2로 상쇄) |
-| B. 수동 staging 배포 | `workflow_dispatch`로 고른 커밋을 staging에만 배포 | production과 독립된 시험이 쉽다 | staging이 오래된 판으로 남기 쉽다 |
-| C. develop push마다 staging | `develop`에 push하면 staging 자동 배포 | 늘 최신 개발판 | 여러 명이 자주 push해 Actions 사용량이 크게 는다 |
-
-A와 B는 함께 둘 수 있다. A를 기본으로 하고, GPU 연결처럼 production과 따로 시험할 일만 B로 한다.
+10-04에 staging 웹·API 서비스, `trend_staging` DB와 사용자, staging 앱 secret 4개, staging 로그 제외 규칙을 삭제했다. GPU 검증에 쓴 staging 네트워크·서비스 계정·GPU gateway token·TLS/CA secret은 감사관 모델 시험용으로 남겼다.
 
 ## 5. 구현 순서
 
 1. 최근 실행의 단계별 실제 시간을 Actions 기록에서 확인해 1장의 추정치를 바꾼다.
-2. 4장의 staging 경로를 결정한다.
-3. `ci.yml`을 3.1의 job으로 나누고, 실패 artifact 수집을 `e2e` job으로 옮긴다.
-4. 3.2의 이미지·개발 이미지 캐시를 적용한다.
-5. 결정한 staging 경로를 `release-gcp.yml`과 `scripts/deploy-trend.sh`(`ENVIRONMENT`)에 반영한다.
-6. `release/gcp`로 실제 배포해 시간과 안전 조건을 확인한다.
+2. `ci.yml`을 3.1의 job으로 나누고, 실패 artifact 수집을 `e2e` job으로 옮긴다.
+3. 3.2의 이미지·개발 이미지 캐시를 적용한다.
+4. `release/gcp`로 실제 배포해 시간과 안전 조건을 확인한다.
 
 ## 6. 완료 기준
 
 - `release/gcp` push부터 production 전환까지 8분 이내를 두 번 연속 확인한다.
 - 검사 job 하나를 일부러 실패시켰을 때 배포 job이 시작되지 않는다.
-- 결정한 경로대로 staging이 갱신되고, 그 이미지 digest가 기록과 일치한다.
 - 로컬 Compose 명령과 문서의 검사 절차가 그대로 동작한다.
 
 ## 7. 비용과 위험

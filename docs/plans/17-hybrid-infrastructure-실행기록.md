@@ -273,3 +273,7 @@ staging에서 사전 화면 504와 검수 목록 멈춤을 고쳤다. 목록을 
 
 사용자 결정(운영 DB는 체험 인스턴스의 분리 DB, Gemini production $15·staging $5, 확인 뒤 `builder-cup` 삭제)에 따라 production 기반·DB·secret·웹/API를 만들고, `release/gcp` 배포 경로를 구현해 실제 push로 배포했다. 후보 검사와 트래픽 전환까지 성공했고 이미지 digest가 release 커밋 빌드와 일치했다. CI가 세 번 실패해(설치기 테스트의 디스크 의존, E2E 첫 컴파일 시간, 웹 `public` 폴더) 각각 고쳤다. 이후 uptime check와 오류 경보를 Trend로 옮기고 `builder-cup` 서비스와 데모 키·전용 계정을 삭제했다. 상세는 [Plan 05](05-trend-cloud-run-deployment.md)와 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
 
+### 10-04 staging 정리와 사람 판정 수령
+
+공모전 범위에서는 staging이 필요하지 않다는 사용자 판단에 따라 staging 웹·API·DB·앱 secret을 삭제하고 GPU 시험용 기반만 남겼다([Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)). ejchoi의 사람 판정 20건(ok 10·fix 10)을 받아 입력 변경 없음·필수 값·시간대를 확인했다. 봉인에 필요한 학습 출처 확인은 응답 해석을 확인하는 중이다.
+
