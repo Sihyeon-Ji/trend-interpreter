@@ -4,7 +4,7 @@ import { RiskCell, StageCell } from "@/components/term-status";
 import type { ExplainResult, Explanation } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
-import { L, fmtDate, regionLabel, sourceName } from "@/lib/labels";
+import { L, fmtDate, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
 
 /* 메시지 해석 결과. 원문 → 쉽게 풀어 쓰면 → 찾은 표현(표현마다 뜻과 라벨 행). 상자·그림자 없이 행 사이 선만 둔다.
    표현마다 단계·쓸 때 조심을 대시보드와 같은 말로 보인다 — '이 말을 지금 써도 되나' 에 답하는 것이 이 화면의 일이다. */
@@ -67,7 +67,12 @@ export function ExpressionRow({ e, locale }: { e: Explanation; locale: Locale })
       <dl className="mt-2">
         <Row label={t(locale, "dash_col_stage")}><StageCell diffusion={term.diffusion} lifecycle={term.lifecycle ?? "unknown"} locale={locale} /></Row>
         <Row label={t(locale, "dash_col_risk")}><RiskCell item={term} locale={locale} /></Row>
-        {text?.nuance && <Row label={t(locale, "term_nuance")}><span lang={untranslated}>{text.nuance}</span></Row>}
+        {text?.nuance && (
+          <Row label={t(locale, "term_nuance")}>
+            <span lang={untranslated}>{text.nuance}</span>
+            {!nuanceChecked(meaning) && <StatusBadge tone="muted" className="ml-2 align-middle">{t(locale, "nuance_unchecked")}</StatusBadge>}
+          </Row>
+        )}
         {text?.origin && text.origin !== "unknown" && <Row label={t(locale, "term_origin")}><span lang={untranslated}>{text.origin}</span></Row>}
         {gens.length > 0 && <Row label={t(locale, "term_used_by")}>{list(gens.map((g) => labels.generation[g]))}</Row>}
         {e.regions.length > 0 && <Row label={t(locale, "pg_ex_regions")}>{list(e.regions.map((r) => regionLabel(locale, r)))}</Row>}

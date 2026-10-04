@@ -51,3 +51,11 @@ test("the phone layout never scrolls sideways", async ({ page }) => {
   expect(width).toBeLessThanOrEqual(390);
   await expect(page.getByRole("link", { name: /이 밈으로 만들기|Create with this meme/ })).toBeVisible();   // 요약 바로 아래 전폭 버튼
 });
+
+test("a nuance not checked against sources says so; a human-reviewed one does not", async ({ page }) => {
+  await page.goto("/dictionary/t_aurafarming");
+  const usage = page.locator("section", { has: page.locator("#usage") });
+  await expect(usage.getByText(/근거 미확인|Not checked against sources/)).toBeVisible();
+  await page.goto("/dictionary/t_luckyvicky");
+  await expect(page.locator("section", { has: page.locator("#usage") }).getByText(/근거 미확인|Not checked against sources/)).toHaveCount(0);
+});

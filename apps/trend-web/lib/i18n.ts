@@ -248,6 +248,8 @@ const ko = {
   home_plain: "쉽게 풀어 쓰면",
   home_in_message: "메시지에서는",
   home_pending: "확인 중인 뜻",
+  nuance_unchecked: "근거 미확인",
+  nuance_unchecked_note: "참고 문서에서 직접 확인하지 않은 설명입니다.",
   home_more: "사전에서 자세히 보기",
 
   dict_title: "사전",
@@ -1077,6 +1079,8 @@ const en = {
   home_plain: "In plain words",
   home_in_message: "in the message:",
   home_pending: "meaning under review",
+  nuance_unchecked: "Not checked against sources",
+  nuance_unchecked_note: "This description was not checked against the reference documents.",
   home_more: "See the full entry",
 
   dict_title: "Dictionary",

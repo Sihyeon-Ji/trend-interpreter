@@ -18,7 +18,7 @@ import { currentMeaning, headlineFor, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
 import { langTag, scriptLang } from "@/lib/lang";
-import { L, fmtDate, fmtDateTime, fmtInt, joinGens, joinRegions, listJoin, regionLabel, sourceName } from "@/lib/labels";
+import { L, fmtDate, fmtDateTime, fmtInt, joinGens, joinRegions, listJoin, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { cleanSource, kindCounts } from "@/lib/sources";
@@ -183,6 +183,12 @@ export default async function TermPage({ params, searchParams }: Props) {
               <section className="space-y-3">
                 <SectionHeading id="usage">{title("usage")}</SectionHeading>
                 <p lang={txLang} className="text-[16px] leading-[1.55] text-ink">{tx.nuance}</p>
+                {!nuanceChecked(m) && (
+                  <p className="flex flex-wrap items-center gap-2 text-[13px] text-steel">
+                    <StatusBadge tone="muted">{t(locale, "nuance_unchecked")}</StatusBadge>
+                    {t(locale, "nuance_unchecked_note")}
+                  </p>
+                )}
               </section>
             )}
 

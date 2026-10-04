@@ -100,6 +100,10 @@ const TERM_LANG: Record<Locale, Record<string, string>> = {
 };
 export const termLangLabel = (locale: Locale, code: string) => TERM_LANG[locale][code] ?? code;
 
+/** 뉘앙스가 근거로 확인됐는가. 출처는 뜻 전체에 참고 문서로만 붙고 뉘앙스 칸을 따로 대조한 기록은 없다 —
+ *  사람 판정(10-04)에서 근거에 없는 뉘앙스가 여럿 나왔다. 사람이 검수한 뜻만 확인된 것으로 본다. */
+export const nuanceChecked = (meaning?: { verification?: string } | null) => meaning?.verification === "verified_human";
+
 export const fmtDate = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).replace(/-/g, ".") : "—");
 /** 시각까지. 한국어 화면은 서울 시간, 영어 화면은 UTC 로 고정(서버 렌더와 브라우저가 같은 값을 내야 한다). */
 export function fmtDateTime(iso: string | null | undefined, locale: Locale) {
