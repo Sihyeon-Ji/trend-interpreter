@@ -44,8 +44,16 @@ _NUANCE_WARN = re.compile(r"욕설|비속어|(?<!자기)(?<!자기 )비하|멸�
                           r"profan|vulgar|slur|derogat|offensive|obscene|sexual|insult", re.I)   # '이성적'·'차별화'·'시험 성적' 은 경고가 아니다(검토 2차)
 # 민감한 소재(2026-09-30): 위키에서 들어온 말은 쓰임 문장이 없어 판단 보류로만 남았다 — 'Diddy Heil Epstein'(나치 경례·성범죄 소재)
 # 같은 것도. 뜻 칸까지 보고 이 소재면 '주의'. 소재를 다룬다는 뜻일 뿐 표현이 나쁘다는 판정은 아니다.
+# 자살·자해(10-04): '죽고 싶지만 떡볶이는 먹고 싶어' 가 리스크 판단 전이라 라떼 광고 추천에 들었다
 _SENSITIVE = re.compile(r"나치|히틀러|홀로코스트|학살|테러|가자|팔레스타인|이스라엘|우크라이나 침공|성범죄|성폭력|아동 성|인종차별|혐오|정치인|대통령|선거|"
-                        r"nazi|hitler|holocaust|genocide|terror|gaza|palestin|sex offender|epstein|racis", re.I)   # '전쟁' 하나로는 잡지 않는다(きのこたけのこ戦争)
+                        r"자살|자해|극단적 선택|죽고 싶|"
+                        r"nazi|hitler|holocaust|genocide|terror|gaza|palestin|sex offender|epstein|racis|suicid|self-harm", re.I)
+
+
+def sensitive_topic(text: str) -> str:
+    """민감한 소재 낱말(없으면 빈 문자열). 소재를 다룬다는 뜻일 뿐 표현이 나쁘다는 판정은 아니다."""
+    m = _SENSITIVE.search(text or "")
+    return m.group(0) if m else ""   # '전쟁' 하나로는 잡지 않는다(きのこたけのこ戦争)
 SENSITIVE_GENRES = {"정치 및 사회", "종교", "정치인", "종교인"}      # 나무위키가 이렇게 분류한 밈 — 브랜드가 쓰기 조심스러운 소재
 _NEGATED_AFTER = re.compile(r"^[^.。!?]{0,12}(없|아니|않)")      # '비하하는 뜻은 없다'
 _NEGATED_BEFORE = re.compile(r"(not|no|non-?)\s*$", re.I)       # 'not offensive'

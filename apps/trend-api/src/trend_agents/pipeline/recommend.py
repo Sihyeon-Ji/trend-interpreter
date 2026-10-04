@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import threading
+from datetime import datetime, timezone
 
 from ..collectors.community import is_community_post
 from ..config import USE_LOCAL_GEMMA
@@ -18,6 +19,7 @@ from ..schemas import MemeFit, ProductBrief, Text2
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from . import dashboard
+from .risk import sensitive_topic
 from .gemini import BudgetExhausted, configured, structured
 from .generate import REGION_LANG, writable
 from .views import KeywordCard, RecommendItem, RecommendResult
@@ -49,6 +51,12 @@ def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tu
     """(점수, 분야가 맞았나, 겹친 느낌). 추천하면 안 되는 것은 None. 모든 판단이 규칙이다."""
     voices, liked = TONES[tone]
     if card.risk_level == "avoid" or fit.voice == "crude" or fit.voice not in voices:
+        return None
+    # 식어 가는 밈(대시보드와 같은 기준)과, 리스크를 아직 판단하지 않았는데 민감한 소재(자살·정치 등)인 밈은 권하지 않는다 —
+    # 라떼 광고에 저메추·점메추(줄어드는 중)와 '죽고 싶지만 떡볶이는 먹고 싶어'(판단 전)가 들었다(실데이터 10-04)
+    if dashboard._is_fading(card, datetime.now(timezone.utc)):
+        return None
+    if card.risk_level is None and sensitive_topic(f"{card.canonical} {card.gloss_ko}"):
         return None
     cat = brief.category in fit.fits
     if fit.fits and not cat and not fit.any_category:

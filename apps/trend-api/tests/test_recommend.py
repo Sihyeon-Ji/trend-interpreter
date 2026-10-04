@@ -293,3 +293,21 @@ def test_category_memes_stay_in_their_category_and_popularity_only_breaks_ties()
     got = [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items]
     assert "fandom" not in got and "one" not in got and "two" in got
     assert got.index("food") < got.index("hot")                     # 분야가 맞는 쪽이 인기 가산보다 앞선다
+
+
+def test_score_skips_fading_and_unjudged_sensitive_memes():
+    """식어 가는 밈과, 리스크 판단 전인데 자살·정치 같은 민감한 소재인 밈은 권하지 않는다(라떼 광고에 점메추·'죽고 싶지만…', 10-04)."""
+    from trend_agents.pipeline.views import KeywordCard, Tone
+
+    fit = MemeFit(feelings=["joy", "comfort"], uses=["reaction"], fits=[], any_category=True, voice="wholesome")
+
+    def card(name, gloss="", lifecycle="steady", risk="none", dated=False):
+        return KeywordCard(term_id=name, canonical=name, lang="ko", category="meme", gloss_ko=gloss, gloss_en="", regions=["KR"],
+                           lifecycle=lifecycle, diffusion="mainstream", risk_level=risk, weekly=[], mentions_4w=3, search=[], tone=Tone(),
+                           evidences=[], dated=dated, last_seen=datetime.now(timezone.utc))
+
+    assert recommend.score(LATTE, fit, card("럭키"), "friendly") is not None
+    assert recommend.score(LATTE, fit, card("점메추", lifecycle="declining"), "friendly") is None
+    assert recommend.score(LATTE, fit, card("철지난", dated=True), "friendly") is None
+    assert recommend.score(LATTE, fit, card("죽고 싶지만 떡볶이는 먹고 싶어", "우울한 감정", risk=None), "friendly") is None
+    assert recommend.score(LATTE, fit, card("오살힘", "하루를 버티게 해 주는 것", risk=None), "friendly") is not None   # 판단 전이어도 소재가 무난하면
