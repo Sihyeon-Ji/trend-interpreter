@@ -31,7 +31,7 @@ export default async function RecommendPage({ searchParams }: { searchParams: Pr
   ]);
   const pinned = record && record.term.status === "verified" ? { id: record.term.term_id, name: record.term.canonical, lang: langTag(record.term.lang) } : null;
   // 추천 순위는 저장된 사전·대시보드 데이터로 매긴다 — 그 데이터의 시각을 보인다(예시 모드는 예시 보드의 시각)
-  const updated = meta?.board_generated_at ?? meta?.last_run ?? (isSampleMode ? (await getKeywordBoard(initial)).generated_at : null);
+  const updated = meta?.collected_at ?? meta?.board_generated_at ?? meta?.last_run ?? (isSampleMode ? (await getKeywordBoard(initial)).generated_at : null);
   return (
     <PageShell>
       <div className="space-y-6">

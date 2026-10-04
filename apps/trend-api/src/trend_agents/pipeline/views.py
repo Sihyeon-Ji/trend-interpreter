@@ -260,7 +260,7 @@ def country_page(con: Connection, region: str) -> CountryPage:
                 share[u.segment.generation] = share.get(u.segment.generation, 0) + u.share
     total = sum(share.values()) or 1
     return CountryPage(region=region, items=items, why=why, terms=recs, generation_share={k: round(v / total, 3) for k, v in share.items()},
-                       updated_at=board.generated_at.isoformat() if board else None)
+                       updated_at=ds2.last_collected(con) or (board.generated_at.isoformat() if board else None))   # 화면의 '자료 수집'
 
 
 # ---------- 지식그래프 (급증 검색어 ↔ 인물·위키·근거·사전 용어) ----------
@@ -392,6 +392,7 @@ class RegionSummary(BaseModel):
 
 class KeywordBoard(BaseModel):
     generated_at: datetime
+    collected_at: datetime | None = None   # 자료를 마지막으로 모은 때(ds.last_collected) — 화면의 '자료 수집'. generated_at 은 캐시를 만든 때
     regions: list[str]                 # 고른 지역
     counts: dict[str, int]             # 지역마다 카드 수 (지역 고르기 버튼에 쓴다). 'ALL' 은 목표 지역 어디든(전 세계만인 것은 빼고)
     totals: dict[str, int] = {}        # 목록마다 전체 건수 {rising, fading, caution}. 주의 밈은 쓰이는·식는 목록에도 있다(Plan 04)
@@ -474,7 +475,8 @@ class BriefingCounts(BaseModel):
 
 
 class Briefing(BaseModel):
-    generated_at: datetime             # 대시보드 갱신 시각 — 보고서의 기준 시각
+    generated_at: datetime             # 대시보드 캐시를 만든 때
+    collected_at: datetime | None = None   # 자료를 마지막으로 모은 때 — 보고서의 기준 시각
     regions: list[str]
     counts: BriefingCounts
     use_now: list[KeywordCard]         # 지금 써도 되는 밈 (위에서부터 BRIEF_TOP 개)

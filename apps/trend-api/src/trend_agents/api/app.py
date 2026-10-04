@@ -414,6 +414,7 @@ def meta():
     stamp = ds.cache_stamp(_con, "board")              # 보드 본문(1.3MB)·용어 11,000개를 읽지 않는다 — 150바이트 응답이 2.6초였다(10-04)
     published = ds.last_published(_con)
     return {"last_run": published, "stale": ds.is_stale(published), "board_generated_at": stamp[0] if stamp else None,
+            "collected_at": ds.last_collected(_con),
             "terms": ds.count_terms(_con, ("verified", "needs_review")), "explanations": len(ds.explanations_by_region(_con))}
 
 

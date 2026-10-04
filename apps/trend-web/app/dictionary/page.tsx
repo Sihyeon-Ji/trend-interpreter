@@ -32,7 +32,8 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
     sort: SORTS.includes(sp.sort as SortKey) ? (sp.sort as SortKey) : "name",
     page: Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1),
   };
-  const updated = !isSampleMode && meta?.last_run ? `${t(locale, "dash_updated")} ${fmtDateTime(meta.last_run, locale)}` : null;
+  const asOf = meta?.collected_at ?? meta?.last_run;
+  const updated = !isSampleMode && asOf ? `${t(locale, "dash_updated")} ${fmtDateTime(asOf, locale)}` : null;
   return (
     <PageShell>
       <div className="space-y-6">

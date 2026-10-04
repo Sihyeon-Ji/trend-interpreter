@@ -473,7 +473,7 @@ def board(con: Connection, regions: list[str] | None = None, page: int = 1, summ
     cut = slice((page - 1) * LIST_MAX, page * LIST_MAX)
     counts = {r: sum(1 for s in stored if r in s.card.regions) for r in known}
     counts["ALL"] = sum(1 for s in stored if set(s.card.regions) & set(REGIONS_FOCUS))   # '전체' 칩 — 목표 지역 어디든(전 세계만인 것은 빼고)
-    out = KeywordBoard(generated_at=generated_at, regions=chosen, counts=counts,
+    out = KeywordBoard(generated_at=generated_at, collected_at=ds.last_collected(con), regions=chosen, counts=counts,
                        totals={"rising": len(rising), "fading": len(fading), "caution": len(caution)}, page=page, page_size=LIST_MAX,
                        rising=rising[cut], fading=fading[cut], caution=caution[cut])
     if summary:   # 지역마다 그 지역만의 수로 다시 나눈다 — 대시보드에서 그 지역을 골랐을 때와 같은 1위

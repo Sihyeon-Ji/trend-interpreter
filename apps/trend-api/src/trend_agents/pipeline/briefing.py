@@ -16,6 +16,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from ..config import USE_LOCAL_GEMMA
+from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from . import dashboard
 from .gemini import configured, structured
@@ -64,7 +65,7 @@ def build(con: Connection, regions: list[str] | None) -> Briefing:
     avoid = [c for c in caution if c.risk_level == "avoid"]
     counts = BriefingCounts(rising=len(rising), use_now=len(use_now), careful=len(careful),
                             undecided=sum(1 for c in rising if c.risk_level is None), avoid=len(avoid), fading=len(fading))
-    return Briefing(generated_at=generated_at, regions=chosen, counts=counts, use_now=use_now[:BRIEF_TOP], careful=careful[:BRIEF_TOP],
+    return Briefing(generated_at=generated_at, collected_at=ds.last_collected(con), regions=chosen, counts=counts, use_now=use_now[:BRIEF_TOP], careful=careful[:BRIEF_TOP],
                     avoid=avoid[:BRIEF_TOP], fading=fading[:BRIEF_TOP])
 
 

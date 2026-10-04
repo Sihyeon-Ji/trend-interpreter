@@ -1057,6 +1057,13 @@ def last_published(con: Connection) -> str | None:
     return min(last.values(), key=datetime.fromisoformat)
 
 
+def last_collected(con: Connection) -> str | None:
+    """자료를 마지막으로 모은 때 — 수집 단계(collect.*)가 마지막으로 성공한 때. 화면의 '자료 수집' 시각이다.
+    대시보드 캐시를 다시 만든 때(generated_at)를 갱신으로 보이면, 10-01 자료로 오늘 캐시를 만들어도 오늘 자료처럼 보였다(10-05)."""
+    row = con.execute("SELECT MAX(finished_at) FROM pipeline_runs WHERE status='ok' AND stage LIKE 'collect.%'").fetchone()
+    return row[0] if row and row[0] else None
+
+
 def is_stale(published: str | None) -> bool:
     """게시가 없거나 STALE_AFTER_HOURS 보다 오래됐나."""
     return not published or now() - datetime.fromisoformat(published) > timedelta(hours=STALE_AFTER_HOURS)

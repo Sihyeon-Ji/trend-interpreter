@@ -433,7 +433,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
   return (
     <div className={cn("space-y-6", tab === "regions" && !empty && "pb-[72px] md:pb-0")}>
       <PageHeader title={t(locale, "mp_title")} description={t(locale, "mp_intro")} divider={false}
-        meta={<span>{t(locale, "mp_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(keywords.generated_at, locale)}</span></span>}
+        meta={<span>{t(locale, "mp_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(keywords.collected_at ?? keywords.generated_at, locale)}</span></span>}
         actions={!empty && <Link href={dashHref} className={cn(PRIMARY, "hidden md:inline-flex")}>{t(locale, "mp_open_dashboard")}</Link>}>
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0 md:flex-1"><ListTabs items={tabs} current={tab} label={t(locale, "mp_tabs_label")} /></div>

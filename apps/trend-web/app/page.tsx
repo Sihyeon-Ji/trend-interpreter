@@ -78,7 +78,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <PageHeader title={t(locale, "dash_title")} description={t(locale, "dash_intro")}
           meta={!board ? null : isSampleMode
             ? <StatusBadge tone="muted">{t(locale, "dash_sample_badge")}</StatusBadge>   // 예시의 고정 시각을 갱신 시각처럼 내지 않는다
-            : <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(board.generated_at, locale)}</span></span>}
+            : <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(board.collected_at ?? board.generated_at, locale)}</span></span>}
           actions={
             <span className="flex flex-wrap gap-2">
               <Link href={mapQ.size ? `/map?${mapQ}` : "/map"} className={`${btn} border-hairline-strong text-ink hover:border-ink`}>{t(locale, "dash_pick_on_map")}</Link>

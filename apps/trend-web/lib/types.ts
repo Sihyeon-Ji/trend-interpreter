@@ -153,6 +153,7 @@ export interface RegionSummary {
 
 export interface KeywordBoard {
   generated_at: string;
+  collected_at?: string | null;   // 자료를 마지막으로 모은 때 — 화면의 '자료 수집' (generated_at 은 캐시를 만든 때)
   regions: string[];
   counts: Record<string, number>;       // 지역마다 카드 수, 'ALL' 은 목표 지역 어디든(전 세계만인 것은 빼고)
   totals: Record<KeywordList, number>;  // 목록마다 전체 건수. 주의 밈은 쓰이는·식는 목록에도 있다(Plan 04)
@@ -224,7 +225,8 @@ export interface GenerationResult {
 /* 트렌드 브리핑 — 백엔드 pipeline/views.py 의 Briefing 과 1:1. 목록·건수는 대시보드 규칙, 요약 문장만 모델(없으면 화면이 규칙 문장). */
 export interface BriefingCounts { rising: number; use_now: number; careful: number; undecided: number; avoid: number; fading: number }
 export interface Briefing {
-  generated_at: string;           // 대시보드 갱신 시각 — 보고서의 기준 시각
+  generated_at: string;           // 대시보드 캐시를 만든 때
+  collected_at?: string | null;   // 자료를 마지막으로 모은 때 — 보고서의 기준 시각
   regions: string[];
   counts: BriefingCounts;
   use_now: KeywordCard[];         // 지금 써도 되는 밈 (위에서부터 5개)

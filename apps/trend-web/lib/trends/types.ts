@@ -68,7 +68,7 @@ export interface UpdateItem { kind: string; at: string; label: string; region?: 
 /* GET /updates — counts 는 한도로 자르기 전의 종류별 48시간 합계, total 은 그 합 */
 export interface UpdateFeed { items: UpdateItem[]; counts: Record<string, number>; total: number }
 export interface GenerationCurve { generation: string; points: [string, number][]; peak_date: string | null }
-export interface Meta { last_run: string | null; board_generated_at: string | null; terms: number; explanations: number }
+export interface Meta { last_run: string | null; board_generated_at: string | null; collected_at?: string | null; terms: number; explanations: number }
 
 export interface TrendBoard {
   generated_at: string;

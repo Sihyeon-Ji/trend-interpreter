@@ -103,7 +103,7 @@ export default async function BriefingPage({ searchParams }: { searchParams: Pro
         <PageHeader title={t(locale, "brief_title")} description={t(locale, "brief_intro")}
           meta={!b ? null : isSampleMode
             ? <StatusBadge tone="muted">{t(locale, "dash_sample_badge")}</StatusBadge>
-            : <span>{t(locale, "brief_as_of")} <span className="tabular-nums text-charcoal">{fmtDateTime(b.generated_at, locale)}</span></span>}
+            : <span>{t(locale, "brief_as_of")} <span className="tabular-nums text-charcoal">{fmtDateTime(b.collected_at ?? b.generated_at, locale)}</span></span>}
           actions={<BriefingActions locale={locale} />}>
           <div className="print:hidden"><RegionChips picked={picked} locale={locale} base="/briefing" /></div>
         </PageHeader>
@@ -116,7 +116,7 @@ export default async function BriefingPage({ searchParams }: { searchParams: Pro
           <article className="space-y-7">
             <div className="space-y-1 text-[13px] text-steel">
               <p><span className="font-medium text-charcoal">{t(locale, "brief_market")}</span> {names}</p>
-              <p>{t(locale, "brief_period")} · {t(locale, "brief_as_of")} {fmtDateTime(b.generated_at, locale)}</p>
+              <p>{t(locale, "brief_period")} · {t(locale, "brief_as_of")} {fmtDateTime(b.collected_at ?? b.generated_at, locale)}</p>
             </div>
             <section aria-labelledby="brief-summary" className="rounded-md border border-hairline-strong p-4">
               <h2 id="brief-summary" className="text-[14px] font-semibold text-ink">{t(locale, "brief_summary")}</h2>

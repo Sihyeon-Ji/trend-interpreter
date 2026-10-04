@@ -90,7 +90,8 @@ export async function getTermTopic(termId: string, canonical: string): Promise<T
 /** 사전 항목 머리의 '갱신' 시각 — 마지막 정상 갱신(ADR 0001). 예시 모드는 예시 대시보드와 같은 값. */
 export async function getUpdatedAt(): Promise<string | null> {
   if (isSampleMode) return sampleKeywordBoard([]).generated_at;
-  return (await getMeta())?.last_run ?? null;
+  const meta = await getMeta();
+  return meta?.collected_at ?? meta?.last_run ?? null;   // 자료를 모은 때 — 캐시를 다시 만든 때가 아니라
 }
 
 /** 관리 화면 조회 — 예시 데이터로 바꾸지 않고(예시 문구를 보고 실제 뜻을 승인하게 된다), 캐시하지 않는다(결정 뒤 건수가 그대로였다).
@@ -190,7 +191,7 @@ export async function getUpdateFeed(hours = 48): Promise<UpdatePage | null> {
   const ids = feedIds(feed.items).slice(0, 200);
   // getKeywordBoard 와 같은 이유로 Next 데이터 캐시에 넣지 않는다
   const cards = cardIndex(ids.length ? await apiOrNull<KeywordCard[]>(`/dashboard/cards?ids=${ids.map(encodeURIComponent).join(",")}`, false) : []);
-  return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: meta?.last_run ?? null };
+  return { ...feed, items: feed.items.map((i) => ({ ...i, card: i.term_id ? cards.get(i.term_id) : undefined })), updated_at: meta?.collected_at ?? meta?.last_run ?? null };
 }
 
 /** 백엔드 pipeline/views.py CountryPage 와 1:1 */
