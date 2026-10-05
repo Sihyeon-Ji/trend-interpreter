@@ -1,6 +1,6 @@
 # Plan 19. 운영 DB 데이터 갱신 경로
 
-작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **설계 확정 – 갱신 도구 구현 대기** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
+작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **도구 구현·운영 리허설 진행(10-05) – 첫 전환 10-10** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
 
 [계획 목록](README.md) · [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)
 
@@ -36,7 +36,9 @@
 
 ## 4. 권장안 A의 절차
 
-도구는 `scripts/refresh-production-db.sh <snapshot-id>` 하나로 만들고, 단계마다 건수만 담은 보고서를 남긴다. 행 내용·접속 정보는 남기지 않는다.
+도구는 `scripts/refresh-production-db.sh`(단계별 하위 명령)와 `scripts/refresh_production.py`(덮어 얹기·재계산·대조)다. 단계마다 건수만 담은 보고서를 남기고 행 내용·접속 정보는 남기지 않는다. 실행 명령은 [운영 DB 갱신](../운영/GCP-운영.md#운영-db-갱신)에 있다.
+
+**10-05 변경:** 생애주기 재계산(track)은 표제어마다 뉴스 전체를 읽어 수집 PC에서도 7,500개에 37분이 걸린다. Cloud SQL proxy 너머로는 몇 시간이 걸려 리허설 중 멈췄다. 그래서 3~4단계와 재계산을 로컬 임시 PostgreSQL에서 끝낸 뒤 덤프를 새 Cloud SQL DB에 올린다(`build` → `create` → `upload`). 전환 직전 덮어 얹기만 Cloud SQL에서 다시 실행한다.
 
 1. **입력 고정.** Plan 17 도구로 GCS `db/latest/`의 새 snapshot을 manifest와 함께 고정하고 해시를 확인한다.
 2. **백업.** Scheduler로 백업을 한 번 실행하고 `scripts/verify-production-backup.sh`로 복원을 확인한다.
@@ -51,6 +53,20 @@
 7. **확인과 정리.** 운영 URL의 사전·지도·해석, 검수 한 건, `/meta`의 갱신 시각을 확인한다. 이전 DB는 다음 갱신까지 남겨 두고(되돌리기 대상), 그다음 갱신 때 지운다.
 
 되돌리기는 이전 secret version으로 6단계를 반대로 실행한다. 전환 뒤 새 DB에서 생긴 검수가 있으면 같은 덮어 얹기로 이전 DB에 옮긴 뒤 되돌린다.
+
+## 2026-10-05 운영 리허설 (전환 제외)
+
+snapshot `20261005T124512-e56b90d`(10-05 12:45 KST, 표제어 11,356개)로 전환 직전까지 실행했다. 운영 서비스는 계속 `trend` DB를 썼다.
+
+| 단계 | 결과 | 시간 |
+| --- | --- | --- |
+| `capture` | manifest 고정, 표제어 11,356개 | 1분 미만 |
+| `build` | 사람 결정 표제어 139개 덮어 얹기, 판정 재계산(track 11,279·risk 7,655·board 82·dashboard 7,318), 대조 통과, 덤프 61.8MB | 14분 |
+| `create` | `trend_20261005`, 소유자 `trend_app`, PUBLIC 접속 회수, 임시 관리자 삭제 확인 | 1분 미만 |
+| `upload` | 표 48개 | 30초 |
+| `overlay`(전환 직전) | 빠진 결정 0 – 검수 기록 107·사람 승인 뜻 121·제외 28·Gemini 장부 40행 모두 일치 | 25초 |
+
+생애주기 재계산 뒤 verified의 `unknown`은 7,020개에서 6,663개로 줄었다. 처음 build는 재계산에 73분이 걸렸고, 그 사이 proxy access token(1시간)이 만료돼 대조 단계가 실패했다. 뉴스를 표제어마다 다시 읽던 track을 한 번 읽어 재사용하도록 고친 뒤 결과 분포가 같고 build가 14분이 됐다. proxy는 운영 DB를 읽는 단계마다 새로 띄운다.
 
 ## 5. 결정 (2026-10-05 사용자)
 

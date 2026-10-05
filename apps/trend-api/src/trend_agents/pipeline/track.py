@@ -1,6 +1,8 @@
 """5단계 추적. 뉴스 제목·쇼츠 해석·트렌드 검색어에서 용어 언급을 주 단위로 세고, 생애주기 규칙으로 단계와 재검증 주기를 정한다."""
 from __future__ import annotations
 
+import itertools
+from bisect import bisect_right
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
@@ -9,7 +11,7 @@ from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
 from .collect import home_edition
 from ..verification import reference_doc
-from .match import evidence_mentions, mentions, same_term
+from .match import CUES, evidence_mentions, mentions, numeric_like, same_term, term_pattern
 from .runs import stage
 from ..storage.db import Connection
 
@@ -78,8 +80,48 @@ def newest_usage(con: Connection, term_id: str) -> datetime | None:
     return newest
 
 
+TITLE_SEP = "\x00"
+
+
+class TitleIndex:
+    """뉴스 제목을 한 덩어리로 이어 표기 패턴을 표기마다 한 번만 돌린다. 제목마다 mentions() 를 부르면 1만여 개 표제어 × 6만여 제목이라
+    재계산이 40분 걸렸다(10-05). 구분자 \\x00 은 공백도 영문·숫자도 아니어서 표기 패턴이 제목 경계를 넘어 맞지 않으므로 답은 mentions() 와 같다."""
+
+    def __init__(self, titles: list[str]):
+        self.titles = titles
+        self.joined = not any(TITLE_SEP in t for t in titles)
+        self.text = TITLE_SEP.join(titles)
+        self.starts = list(itertools.accumulate((len(t) + 1 for t in titles[:-1]), initial=0))
+
+    def matching(self, term: str, aliases: list[str] | tuple[str, ...]) -> list[int]:
+        """mentions(title, term, aliases) 가 참인 제목의 번호들, 오름차순."""
+        if not self.joined:
+            return [i for i, title in enumerate(self.titles) if mentions(title, term, aliases)]
+        hits: dict[int, list[str]] = {}
+        for c in (term, *aliases):
+            if not c or not c.strip():
+                continue
+            for m in term_pattern(c).finditer(self.text):
+                hits.setdefault(bisect_right(self.starts, m.start()) - 1, []).append(c)
+        return sorted(i for i, hit in hits.items() if not all(numeric_like(c) for c in hit) or CUES.search(self.titles[i]))
+
+
+class Sources:
+    """주간 언급을 셀 원본을 한 번만 읽어 둔다 – 표제어마다 뉴스 전체를 다시 읽고 JSON 을 풀었다."""
+
+    def __init__(self, con: Connection):
+        self.news = [NewsItem.model_validate_json(j) for (j,) in con.execute("SELECT json FROM news").fetchall()]
+        self.titles = TitleIndex([n.title for n in self.news])
+        self.shorts = [(ShortsInterpretation.model_validate_json(j), vj, created) for j, vj, created in con.execute(
+            "SELECT i.json, v.json, i.created_at FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall()]
+        self.queries: dict[str, list[tuple[str, str]]] = {}
+        for t, d, region in con.execute("SELECT term, date, region FROM trend_queries").fetchall():
+            self.queries.setdefault(_norm(t), []).append((d, region))
+
+
 def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str | None = None,
-                  by_region: dict[str, Counter] | None = None, queried: Counter | None = None, home: str | None = None) -> Counter:
+                  by_region: dict[str, Counter] | None = None, queried: Counter | None = None, home: str | None = None,
+                  sources: Sources | None = None) -> Counter:
     """원본(뉴스 제목·쇼츠 해석·검색어)에서 주별 언급 수. by_region 을 주면 같은 한 번의 훑기로 나라별로도 센다(Plan 04).
     queried 를 주면 용어별 뉴스 검색(query 가 있는 뉴스)에서 온 것을 따로 센다 — 잰 주에만 몰리는 몫이다.
     home(표제어의 나라 판)을 주면 이 말을 다른 판에서 키워드로 잰 기사(영어의 SG·MY·PH, 중국어의 홍콩판)는 나라별 수에만 센다 — 전체 수와
@@ -93,24 +135,23 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
         if by_region is not None and region:
             by_region.setdefault(region, Counter())[week] += 1
 
-    for (j,) in con.execute("SELECT json FROM news").fetchall():
-        n = NewsItem.model_validate_json(j)
-        if mentions(n.title, term, aliases):
-            d = (n.published_at or datetime.now(timezone.utc)).date()
-            other = bool(home and n.query and n.region != home and _norm(n.query) in keys)
-            add(_week(d), n.region, total=not other)
-            if queried is not None and n.query and not other:
-                queried[_week(d)] += 1
-    for j, vj, created in con.execute("SELECT i.json, v.json, i.created_at FROM interpretations i LEFT JOIN videos v ON v.video_id=i.video_id").fetchall():
-        it = ShortsInterpretation.model_validate_json(j)
+    src = sources or Sources(con)
+    for i in src.titles.matching(term, aliases):
+        n = src.news[i]
+        d = (n.published_at or datetime.now(timezone.utc)).date()
+        other = bool(home and n.query and n.region != home and _norm(n.query) in keys)
+        add(_week(d), n.region, total=not other)
+        if queried is not None and n.query and not other:
+            queried[_week(d)] += 1
+    for it, vj, created in src.shorts:
         if any(same_term(m.name, term, aliases) for m in it.memes):
             v = ShortsVideo.model_validate_json(vj) if vj else None
             # 영상 행은 30일 보존 뒤 지워진다 — 그때는 해석한 날로 둔다(오늘로 두면 옛 쇼츠가 매번 '이번 주' 언급이 됐다, 검토 2차). 나라는 모른다
             when = v.published_at.date() if v else (datetime.fromisoformat(created).date() if created else None)
             if when:
                 add(_week(when), v.region if v else None)
-    for t, d, region in con.execute("SELECT term, date, region FROM trend_queries").fetchall():
-        if _norm(t) in keys:
+    for key in keys:
+        for d, region in src.queries.get(key, ()):
             add(_week(date.fromisoformat(d)), region)
     if term_id:
         c.update(evidence_weeks(con, term_id))
@@ -151,10 +192,12 @@ def run(con: Connection) -> dict:
         sampled = {k: datetime.fromisoformat(v) for k, v in ds.mention_sampled(con).items() if v}
         queried = {q: datetime.fromisoformat(at) for q, at in con.execute(
             "SELECT query, MAX(first_seen) FROM news WHERE query IS NOT NULL GROUP BY query").fetchall() if q and at}
+        sources = Sources(con)
         for t in ds.list_terms(con, ("verified", "needs_review", "researching")):
             by_region: dict[str, Counter] = {}
             query_hits: Counter = Counter()
-            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region, queried=query_hits, home=home_edition(t))
+            raw = weekly_counts(con, t.canonical, t.aliases, by_region=by_region, queried=query_hits, home=home_edition(t),
+                                sources=sources)
             for region, at in ds.indicator_mentions(con, t.term_id):   # 근거로 넣지 않은 다른 판의 기사 — 나라별 수에만(Plan 04)
                 by_region.setdefault(region, Counter())[_week(datetime.fromisoformat(at).date())] += 1
             # 주간 언급·마지막 본 때는 원본만. 조사 근거는 조사한 주에 몰려 '최근 조사한 것' 이 '요즘 뜨는 것' 으로

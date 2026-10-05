@@ -525,6 +525,66 @@ scripts/verify-production-backup.sh "" manifests/production-backup-verify-<날�
 
 다른 DB에 복원할 때는 덤프에 `CREATE SCHEMA public`이 들어 있으므로 빈 DB의 기본 `public` 스키마를 먼저 지우고 `pg_restore --no-owner --no-privileges --exit-on-error`로 복원한다. 사용자 표가 포함된 사본을 복원한 뒤에는 보존 기간 정리(`prune_user_text`)를 실행한다. 운영 DB에 덮어쓰는 복원은 하지 않는다.
 
+## 운영 DB 갱신
+
+수집 PC의 새 snapshot을 운영에 반영하는 절차다. 설계와 결정은 [Plan 19](../plans/19-production-data-refresh.md)에 있다. 운영 DB에 직접 덮어쓰지 않고, 새 DB를 만들어 운영의 사람 결정(검수 기록·사람 승인 뜻·사람 리스크·제외)과 Gemini 장부·사용자 표를 덮어 얹은 뒤 API 연결만 바꾼다. 도구는 `scripts/refresh-production-db.sh`다.
+
+### 준비 – 서비스에 영향 없음
+
+```bash
+# 1. 수집 PC가 올린 최신본 고정. ID는 updated_at.txt의 수집 시각과 수집기 커밋이다.
+gcloud storage cat gs://copybara-team-shared-bucket/taewoo/trend-interpreter/db/latest/updated_at.txt
+scripts/refresh-production-db.sh capture <snapshot-id>
+
+# 2. 로컬 임시 PostgreSQL에서 적재·덮어 얹기·재계산·대조 후 덤프. 운영 DB는 읽기만 한다. 생애주기 재계산 때문에 40분 넘게 걸린다.
+scripts/refresh-production-db.sh build <snapshot-id>
+
+# 3. Cloud SQL에 빈 DB를 만들고(임시 관리자 계정은 끝나면 지운다) 덤프를 올린다.
+scripts/refresh-production-db.sh create trend_<날짜>
+scripts/refresh-production-db.sh upload trend_<날짜> artifacts/refresh/<snapshot-id>/trend.dump
+```
+
+`build`의 보고서는 `artifacts/refresh/<snapshot-id>/`(Git 제외)에 남는다. `compare.json`의 `differences`가 비어 있어야 한다. 덤프에는 사용자 표가 들어 있으므로 권한 600으로 두고 공유하지 않는다.
+
+### 전환 – 검수 5분 중지
+
+```bash
+# 4. 검수자에게 알리고 검수를 멈춘 뒤, 그 사이 결정을 다시 옮기고 대조한다. 빠진 결정이 있으면 실패한다.
+scripts/refresh-production-db.sh overlay trend_<날짜> artifacts/refresh/<snapshot-id>/catchup.json
+
+# 5. 새 DB를 가리키는 secret version을 추가한다. 출력의 마지막 숫자가 새 version이다.
+scripts/refresh-production-db.sh secret trend_<날짜>
+```
+
+6. `infra/gcp/hybrid/production.tfvars.json`의 `services.database_secret_version`을 새 version으로 바꾸고, API와 백업 Job만 적용한다. API는 새 revision이 생기지만 트래픽은 지금 revision에 남는다.
+
+```bash
+terraform plan -var-file=production.tfvars.json \
+  -target=google_cloud_run_v2_service.api -target=google_cloud_run_v2_job.backup \
+  -target='google_secret_manager_secret_iam_member.runtime["api-DATABASE_URL"]' \
+  -target='google_secret_manager_secret_iam_member.runtime["backup-DATABASE_URL"]' -out=switch.tfplan
+terraform apply switch.tfplan
+```
+
+7. 새 API revision이 Ready인지 보고 트래픽을 옮긴다. 웹은 DB를 직접 쓰지 않아 바꾸지 않는다.
+
+```bash
+gcloud run services describe trend-production-api --region=asia-northeast1 --format='value(status.latestCreatedRevisionName,status.latestReadyRevisionName)'
+gcloud run services update-traffic trend-production-api --region=asia-northeast1 --to-revisions=<새 revision>=100
+```
+
+8. 운영 웹의 사전·지도·해석과 사전 항목 한 건을 열어 보고, 백업을 한 번 실행해 새 DB가 백업되는지 확인한다. 검수 재개를 알린다.
+
+### 되돌리기
+
+이전 API revision은 이전 secret version, 즉 이전 DB를 가리킨다. 트래픽만 돌리면 바로 이전 DB로 돌아간다.
+
+```bash
+gcloud run services update-traffic trend-production-api --region=asia-northeast1 --to-revisions=<이전 revision>=100
+```
+
+그 뒤 `production.tfvars.json`의 version을 되돌리고 같은 `terraform apply`로 백업 Job도 맞춘다. 전환 뒤 새 DB에 생긴 검수가 있으면, 되돌린 다음 반대 방향으로 옮겨야 하므로 Plan 19 4단계 규칙을 따른다. 이전 DB는 다음 갱신 때까지 지우지 않는다. 지울 때는 소유자인 `trend_app`으로 `DROP DATABASE`를 실행한다.
+
 ## 로그와 모니터링
 
 ```bash
