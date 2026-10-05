@@ -134,7 +134,7 @@ docker compose run --rm infra-check
 | secret | `trend-production-database-url`·`-accounts`(staging과 같은 검수 계정 해시)·`-frontend-token`·`-session-secret` |
 | Gemini | 월 $15(staging $5), 이용자 요청 하루 150회 |
 
-배포는 `release/gcp`의 `trend_app` job이 한다. 이미지를 빌드하고 `scripts/deploy-trend.sh`로 후보를 검사한 뒤 트래픽을 옮긴다. 서비스 리소스는 이미지·트래픽 변경을 무시하므로 Terraform 적용이 배포된 이미지를 되돌리지 않는다. API에는 고정 audience `trend-<env>-api`가 있어 배포 계정 ID token 하나로 후보 URL을 검사한다.
+배포는 `release/gcp`의 두 job이 나눠 한다. `trend_images`가 CI 검사와 동시에 이미지를 빌드해 push하고, `trend_app`이 검사 통과 뒤 그 digest로 `scripts/deploy-trend.sh`를 실행해 후보를 검사한 다음 트래픽을 옮긴다. 서비스 리소스는 이미지·트래픽 변경을 무시하므로 Terraform 적용이 배포된 이미지를 되돌리지 않는다. API에는 고정 audience `trend-<env>-api`가 있어 배포 계정 ID token 하나로 후보 URL을 검사한다.
 
 처음 Terraform으로 서비스를 만들 때 웹의 API 호출 권한이 반영되기 전 몇 초 동안 웹이 403을 받았고, Next.js가 그 실패 화면을 60초 캐시해 `/map`이 잠시 500이었다. 이후 정상이다. 현재 revision은 API `00002-kob`, 웹 `00002-miz`(`b0e1826`)다.
 

@@ -1,19 +1,25 @@
 # Plan 18. CI 병렬화와 배포 시간 단축
 
-작성일 **2026-10-04** · 상태 **계획 – staging은 두지 않기로 결정(10-04)** · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
+작성일 **2026-10-04** · 상태 **진행 중 – 병렬 job과 이미지 선빌드 적용(10-05), 실측 확인 중** · staging은 두지 않음(10-04 결정) · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
 
 [계획 목록](README.md) · [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md) · [GCP 운영](../운영/GCP-운영.md)
 
 ## 1. 배경
 
-`release/gcp` push 한 번에 약 16분이 걸린다(10-04 첫 production 배포 기준). Trend 앱이 바뀔 때마다 비슷하게 걸리고, 문서만 바뀌면 `scripts/release_scope.py`가 검사와 배포를 건너뛴다. 시간은 두 곳에서 쓰인다.
+`release/gcp` push 한 번에 약 16분이 걸린다. Trend 앱이 바뀔 때마다 비슷하게 걸리고, 문서만 바뀌면 `scripts/release_scope.py`가 검사와 배포를 건너뛴다. 10-04 성공 실행(run 37165654584, push부터 끝까지 15분 38초)의 실제 단계별 시간은 아래와 같다.
 
-| 단계 | 구성 | 대략 |
+| job | 단계 | 시간 |
 | --- | --- | --- |
-| `checks` (`ci.yml`의 `verify` job 하나) | 앱 검사 → audit → gateway → 보안 → 개발 스택 기동 → E2E(예열 포함) → Terraform → API·웹·relay 이미지 빌드 → smoke 순서 실행 | 약 12분 |
-| `trend_app` | API·웹 이미지를 다시 빌드·push → 후보 검사 → 트래픽 전환 | 약 3~4분 |
+| `checks / verify` (10분 44초) | `check` – 개발 이미지 빌드 약 95초 + Python·웹 테스트·lint·build 약 105초 | 210초 |
+| | `audit-check` · `gateway-check` | 58초 · 8초 |
+| | `security-check` · 개발 스택 기동 | 11초 · 14초 |
+| | `e2e` – 브라우저 이미지 빌드 약 45초 + 예열 41초 + 테스트 43개 118초 | 228초 |
+| | `infra-check` | 15초 |
+| | API·웹·relay 이미지 빌드 + smoke | 19초 + 59초 + 8초 + 4초 + 2초 |
+| `trend_app` (4분 40초) | API·웹 이미지 빌드·push | 61초 + 101초 |
+| | 후보 검사·트래픽 전환(`deploy-trend.sh`) | 79초 |
 
-모든 단계가 job 하나에서 차례로 돈다. 서로 기다릴 이유가 없는 검사가 대부분이다. 같은 API·웹 이미지를 CI와 배포 job이 두 번 빌드한다. 단계별 시간은 추정치이므로 착수 전에 Actions 실행 기록에서 실제 값을 확인한다.
+모든 단계가 job 하나에서 차례로 돈다. 서로 기다릴 이유가 없는 검사가 대부분이다. 같은 API·웹 이미지를 CI와 배포 job이 두 번 빌드하고, 배포 job의 빌드(약 2분 40초)는 검사가 끝난 뒤에야 시작한다.
 
 ## 2. 목표와 지켜야 할 조건
 
@@ -35,13 +41,13 @@
 | `e2e` | 개발 스택 기동 → `e2e` | 가장 길다. 실패 artifact 수집은 이 job으로 옮긴다 |
 | `images` | API·웹·relay 이미지 빌드 → smoke | 아래 3.2의 캐시를 쓴다 |
 
-벽시계 시간은 가장 긴 `e2e`(예열 포함 약 5~6분)로 정해진다. job마다 `Dockerfile.dev`를 따로 빌드하므로 3.2의 캐시가 없으면 이득이 줄어든다.
+벽시계 시간은 가장 긴 `e2e`(개발·브라우저 이미지 빌드 약 2분 20초 + 기동 + 예열·테스트 약 2분 40초, 합 약 5분 20초)로 정해진다.
 
-### 3.2 빌드 캐시 공유
+### 3.2 배포 이미지 선빌드와 빌드 캐시 공유
 
-- `images` job과 배포 job이 같은 GitHub Actions 캐시 scope(`trend-api`·`trend-web`)를 쓰게 한다. CI 이미지 빌드를 `docker build`에서 `docker/build-push-action`(`load: true`, `cache-to: type=gha`)으로 바꾸면, 배포 job의 재빌드는 대부분 캐시 적중으로 끝난다(예상 2~3분 단축).
-- `Dockerfile.dev`의 개발 이미지도 `docker/bake-action`으로 Compose 파일을 빌드하면서 캐시를 남겨, 병렬 job들이 같은 층을 다시 만들지 않게 한다.
-- 이미지를 CI에서 Artifact Registry로 바로 push해 배포가 재사용하는 방식도 있다. 이 방식은 `ci.yml`이 `workflow_call` 외의 실행에서도 GCP 인증을 요구하게 된다. 그래서 캐시 공유를 먼저 적용하고 효과를 잰다.
+- **배포 이미지는 검사와 동시에 만든다(10-05 적용).** `release-gcp.yml`의 `trend_app`을 둘로 나눴다. `trend_images`는 `scope`만 기다려 API·웹 이미지를 빌드해 Artifact Registry에 push하고 digest를 output으로 넘긴다. `trend_app`은 `checks`와 `trend_images`가 모두 성공해야 시작하고, 넘겨받은 digest로 `deploy-trend.sh`만 실행한다. push된 이미지는 트래픽을 받지 않으므로 "검사 실패 시 배포하지 않는다"는 조건은 그대로다. 빌드 약 2분 40초가 검사 뒤의 임계 경로에서 빠진다. 인증은 release workflow 안에서만 하므로 `ci.yml`은 GCP 인증 없이 수동 실행할 수 있다.
+- `images` job은 `docker build` 대신 `docker/build-push-action`(`load: true`)으로 빌드하고 배포와 같은 GitHub Actions 캐시 scope(`trend-api`·`trend-web`·`alert-relay`)를 읽고 쓴다. 같은 실행 안에서는 두 job이 동시에 돌아 서로의 캐시를 쓰지 못하지만, 다음 실행부터는 lockfile이 그대로면 의존성 층을 다시 만들지 않는다.
+- **개발 이미지(`Dockerfile.dev`) 캐시는 보류한다.** 병렬 job들은 같은 실행 안에서 동시에 빌드하므로 서로의 캐시를 쓸 수 없다. 다음 실행을 위해 GitHub Actions 캐시에 남기려면 `docker-container` builder가 필요하고, 이 builder는 1GB 이상의 개발 이미지를 서비스마다 docker로 다시 옮겨(load) 빌드 시간 절약분(약 1분)을 상당 부분 잃는다. 개발·브라우저·audit 이미지 층이 저장소 캐시 한도(10GB)를 채워 배포 이미지 캐시를 밀어낼 위험도 있다. 실측에서 8분을 넘기면 다시 검토한다.
 
 ### 3.3 그 밖의 단축
 
@@ -56,9 +62,9 @@
 
 ## 5. 구현 순서
 
-1. 최근 실행의 단계별 실제 시간을 Actions 기록에서 확인해 1장의 추정치를 바꾼다.
-2. `ci.yml`을 3.1의 job으로 나누고, 실패 artifact 수집을 `e2e` job으로 옮긴다.
-3. 3.2의 이미지·개발 이미지 캐시를 적용한다.
+1. ~~최근 실행의 단계별 실제 시간을 Actions 기록에서 확인해 1장의 추정치를 바꾼다.~~ (10-05 완료)
+2. ~~`ci.yml`을 3.1의 job으로 나누고, 실패 artifact 수집을 `e2e` job으로 옮긴다.~~ (10-05 완료)
+3. ~~3.2의 배포 이미지 선빌드와 이미지 캐시를 적용한다.~~ (10-05 완료, 개발 이미지 캐시는 보류)
 4. `release/gcp`로 실제 배포해 시간과 안전 조건을 확인한다.
 
 ## 6. 완료 기준

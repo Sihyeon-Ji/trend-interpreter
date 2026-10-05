@@ -85,9 +85,52 @@ jobs:
           HEALTH_ID_TOKEN: ${{ steps.auth.outputs.id_token }}
         run: bash scripts/deploy-alert-relay.sh "$IMAGE@$IMAGE_DIGEST"
 
+  # Images are built and pushed while the checks run; nothing serves them until trend_app passes the checks.
+  trend_images:
+    needs: scope
+    if: needs.scope.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGION: asia-northeast1
+      REGISTRY: asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup
+    outputs:
+      api_digest: ${{ steps.api.outputs.digest }}
+      web_digest: ${{ steps.web.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: api
+        with:
+          context: apps/trend-api
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.REGISTRY }}/trend-api:${{ github.sha }}
+          cache-from: type=gha,scope=trend-api
+          cache-to: type=gha,mode=max,scope=trend-api
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: web
+        with:
+          context: apps/trend-web
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.REGISTRY }}/trend-web:${{ github.sha }}
+          cache-from: type=gha,scope=trend-web
+          cache-to: type=gha,mode=max,scope=trend-web
+
   trend_app:
-    needs: [scope, checks]
-    if: always() && needs.scope.outputs.app == 'true' && needs.checks.result == 'success'
+    needs: [scope, checks, trend_images]
+    if: always() && needs.scope.outputs.app == 'true' && needs.checks.result == 'success' && needs.trend_images.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     concurrency:
@@ -112,29 +155,9 @@ jobs:
           token_format: id_token
           id_token_audience: trend-production-api
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        id: api
-        with:
-          context: apps/trend-api
-          push: true
-          platforms: linux/amd64
-          tags: ${{ env.REGISTRY }}/trend-api:${{ github.sha }}
-          cache-from: type=gha,scope=trend-api
-          cache-to: type=gha,mode=max,scope=trend-api
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        id: web
-        with:
-          context: apps/trend-web
-          push: true
-          platforms: linux/amd64
-          tags: ${{ env.REGISTRY }}/trend-web:${{ github.sha }}
-          cache-from: type=gha,scope=trend-web
-          cache-to: type=gha,mode=max,scope=trend-web
       - name: Deploy checked candidates and move traffic
         env:
           API_ID_TOKEN: ${{ steps.auth.outputs.id_token }}
-          API_DIGEST: ${{ steps.api.outputs.digest }}
-          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          API_DIGEST: ${{ needs.trend_images.outputs.api_digest }}
+          WEB_DIGEST: ${{ needs.trend_images.outputs.web_digest }}
         run: bash scripts/deploy-trend.sh "$REGISTRY/trend-api@$API_DIGEST" "$REGISTRY/trend-web@$WEB_DIGEST"

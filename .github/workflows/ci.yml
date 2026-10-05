@@ -1,4 +1,5 @@
 name: CI
+# Independent checks run as parallel jobs; each calls the same Compose services as the local commands.
 on:
   workflow_call:
   workflow_dispatch:
@@ -8,23 +9,36 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
 jobs:
-  verify:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose run --rm --build check
+
+  models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose run --rm --build audit-check
+      - run: docker compose run --rm --build gateway-check
+
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose run --rm security-check
+      - run: docker compose run --rm infra-check
+
+  e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker compose run --rm --build check
-      - run: docker compose run --rm --build audit-check
-      - run: docker compose run --rm --build gateway-check
-      - run: docker compose run --rm security-check
       - run: docker compose up -d --build --wait
       - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
-      - run: docker compose run --rm infra-check
-      - run: docker build -t builder-cup-trend-api:ci apps/trend-api
-      - run: docker build -t builder-cup-trend-web:ci apps/trend-web
-      - run: bash scripts/container-smoke.sh builder-cup-trend-api:ci builder-cup-trend-web:ci
-      - run: docker build -f apps/alert-relay/Dockerfile -t builder-cup-alert-relay:ci .
-      - run: bash scripts/alert-relay-smoke.sh builder-cup-alert-relay:ci
       - name: Collect browser failure artifacts
         if: failure()
         run: docker cp builder-cup-e2e:/tmp/test-results ./browser-test-results || true
@@ -37,3 +51,38 @@ jobs:
       - name: Stop development services
         if: always()
         run: docker compose down --remove-orphans
+
+  # Cache scopes match the release image jobs, so release builds and these smoke builds reuse each other's layers.
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/trend-api
+          load: true
+          platforms: linux/amd64
+          tags: builder-cup-trend-api:ci
+          cache-from: type=gha,scope=trend-api
+          cache-to: type=gha,mode=max,scope=trend-api
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps/trend-web
+          load: true
+          platforms: linux/amd64
+          tags: builder-cup-trend-web:ci
+          cache-from: type=gha,scope=trend-web
+          cache-to: type=gha,mode=max,scope=trend-web
+      - run: bash scripts/container-smoke.sh builder-cup-trend-api:ci builder-cup-trend-web:ci
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/alert-relay/Dockerfile
+          load: true
+          platforms: linux/amd64
+          tags: builder-cup-alert-relay:ci
+          cache-from: type=gha,scope=alert-relay
+          cache-to: type=gha,mode=max,scope=alert-relay
+      - run: bash scripts/alert-relay-smoke.sh builder-cup-alert-relay:ci
