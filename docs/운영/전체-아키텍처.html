@@ -4577,12 +4577,12 @@
         <path data-edge-from="users" data-edge-to="web" data-edge-label="HTTPS" data-edge-key="0" data-composition-points="170,330;240,330" d="M 170 330 L 240 330" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="web" data-edge-to="api" data-edge-label="ID token" data-edge-key="1" data-composition-points="370,330;440,330" d="M 370 330 L 440 330" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         <path data-edge-from="api" data-edge-to="sql" data-edge-label="SQL" data-edge-key="2" data-composition-points="580,330;650,330" d="M 580 330 L 650 330" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="gcs" data-edge-to="sql" data-edge-label="검증 적재" data-edge-key="3" data-composition-points="860,330;790,330" d="M 860 330 L 790 330" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="gcs" data-edge-to="sql" data-edge-label="수동 적재" data-edge-key="3" data-composition-points="860,330;790,330" d="M 860 330 L 790 330" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="collector" data-edge-to="gcs" data-edge-label="업로드" data-edge-key="4" data-composition-points="1070,330;1000,330" d="M 1070 330 L 1000 330" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="api" data-edge-to="gemini" data-edge-label="생성·해석" data-edge-key="5" data-composition-points="503,300;503,276;519,276;519,194;490,194;490,170" d="M 503 300 L 503 284 Q 503 276 511 276 L 511 276 Q 519 276 519 268 L 519 202 Q 519 194 511 194 L 498 194 Q 490 194 490 186 L 490 170" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="api" data-edge-to="gpu" data-edge-label="TLS 추론" data-edge-key="6" data-composition-points="517,300;517,235;670,235;670,170" d="M 517 300 L 517 243 Q 517 235 525 235 L 662 235 Q 670 235 670 227 L 670 170" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="api" data-edge-to="gpu" data-edge-label="꺼짐" data-edge-key="6" data-composition-points="517,300;517,235;670,235;670,170" d="M 517 300 L 517 243 Q 517 235 525 235 L 662 235 Q 670 235 670 227 L 670 170" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="monitor" data-edge-to="web" data-edge-label="/map 점검" data-edge-key="7" data-composition-points="305,170;305,300" d="M 305 170 L 305 300" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="ci" data-edge-to="web" data-edge-label="배포" data-edge-key="8" data-composition-points="310,700;310,676;326,676;326,384;305,384;305,360" d="M 310 700 L 310 684 Q 310 676 318 676 L 318 676 Q 326 676 326 668 L 326 392 Q 326 384 318 384 L 313 384 Q 305 384 305 376 L 305 360" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="ci" data-edge-to="web" data-edge-label="웹·API 배포" data-edge-key="8" data-composition-points="310,700;310,676;326,676;326,384;305,384;305,360" d="M 310 700 L 310 684 Q 310 676 318 676 L 318 676 Q 326 676 326 668 L 326 392 Q 326 384 318 384 L 313 384 Q 305 384 305 376 L 305 360" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="sql" data-edge-to="backup" data-edge-label="pg_dump" data-edge-key="9" data-composition-points="720,360;720,500" d="M 720 360 L 720 500" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         <path data-edge-from="gcs" data-edge-to="kaggle" data-edge-label="학습 데이터" data-edge-key="10" data-composition-points="930,360;930,700" d="M 930 360 L 930 700" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
@@ -4651,8 +4651,8 @@
         <text data-detail="fine" x="930" y="352" class="t-cloud" font-size="7" text-anchor="middle">snapshot</text>
         </g>
 
-        <g id="node-collector" data-node-id="collector" data-node-label="수집 파이프라인" tabindex="0" role="button" aria-label="Focus 수집 파이프라인, 원작자 PC · cron, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="원작자 PC · cron" data-node-tag="SQLite + Gemma e4b" data-node-context="Architecture component">
-          <title>수집 파이프라인 · 원작자 PC · cron · Architecture component · SQLite + Gemma e4b</title>
+        <g id="node-collector" data-node-id="collector" data-node-label="수집 파이프라인" tabindex="0" role="button" aria-label="Focus 수집 파이프라인, 원작자 PC · cron 하루 4회, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="원작자 PC · cron 하루 4회" data-node-tag="SQLite + Gemma e4b" data-node-context="Architecture component">
+          <title>수집 파이프라인 · 원작자 PC · cron 하루 4회 · Architecture component · SQLite + Gemma e4b</title>
           <rect x="1070" y="300" width="140" height="60" rx="6" class="c-mask"/>
           <rect x="1070" y="300" width="140" height="60" rx="6" class="c-external" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1076 306) scale(0.6875)">
@@ -4660,7 +4660,7 @@
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-detail-anchor x="1140" y="328" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">수집 파이프라인</text>
-        <text data-detail="context" x="1140" y="344" class="t-muted" font-size="9" text-anchor="middle">원작자 PC · cron</text>
+        <text data-detail="context" x="1140" y="344" class="t-muted" font-size="8.8" text-anchor="middle">원작자 PC · cron 하루 4회</text>
         <text data-detail="fine" x="1140" y="352" class="t-external" font-size="7" text-anchor="middle">SQLite + Gemma e4b</text>
         </g>
 
@@ -4675,15 +4675,15 @@
         <text data-detail="context" x="490" y="154" class="t-muted" font-size="9" text-anchor="middle">월 $15 앱 상한</text>
         </g>
 
-        <g id="node-gpu" data-node-id="gpu" data-node-label="GCE GPU gateway" tabindex="0" role="button" aria-label="Focus GCE GPU gateway, L4 · 검증 후 삭제, GCP stunning-crane · asia-northeast1" aria-pressed="false" data-node-kind="backend" data-node-sublabel="L4 · 검증 후 삭제" data-node-tag="Gemma 12B" data-node-context="GCP stunning-crane · asia-northeast1">
-          <title>GCE GPU gateway · L4 · 검증 후 삭제 · GCP stunning-crane · asia-northeast1 · Gemma 12B</title>
+        <g id="node-gpu" data-node-id="gpu" data-node-label="GCE GPU gateway" tabindex="0" role="button" aria-label="Focus GCE GPU gateway, 검증 후 VM 삭제 · 미사용, GCP stunning-crane · asia-northeast1" aria-pressed="false" data-node-kind="backend" data-node-sublabel="검증 후 VM 삭제 · 미사용" data-node-tag="Gemma 12B" data-node-context="GCP stunning-crane · asia-northeast1">
+          <title>GCE GPU gateway · 검증 후 VM 삭제 · 미사용 · GCP stunning-crane · asia-northeast1 · Gemma 12B</title>
           <rect x="600" y="110" width="140" height="60" rx="6" class="c-mask"/>
           <rect x="600" y="110" width="140" height="60" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(606 116) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-detail-anchor x="670" y="138" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">GCE GPU gateway</text>
-        <text data-detail="context" x="670" y="154" class="t-muted" font-size="9" text-anchor="middle">L4 · 검증 후 삭제</text>
+        <text data-detail="context" x="670" y="154" class="t-muted" font-size="9" text-anchor="middle">검증 후 VM 삭제 · 미사용</text>
         <text data-detail="fine" x="670" y="162" class="t-backend" font-size="7" text-anchor="middle">Gemma 12B</text>
         </g>
 
@@ -4749,9 +4749,9 @@
           <rect x="600" y="310" width="30" height="14" rx="3" class="c-mask"/>
           <text x="615" y="320" class="t-backend" font-size="8" text-anchor="middle">SQL</text>
         </g>
-        <g data-detail="context" data-edge-from="gcs" data-edge-to="sql" data-edge-label="검증 적재" data-edge-key="3">
+        <g data-detail="context" data-edge-from="gcs" data-edge-to="sql" data-edge-label="수동 적재" data-edge-key="3">
           <rect x="798.4" y="310" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
-          <text x="825" y="320" class="t-messagebus" font-size="8" text-anchor="middle">검증 적재</text>
+          <text x="825" y="320" class="t-messagebus" font-size="8" text-anchor="middle">수동 적재</text>
         </g>
         <g data-detail="context" data-edge-from="collector" data-edge-to="gcs" data-edge-label="업로드" data-edge-key="4">
           <rect x="1015.6" y="310" width="38.8" height="14" rx="3" class="c-mask"/>
@@ -4761,17 +4761,17 @@
           <rect x="454.4" y="256" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="481" y="266" class="t-muted" font-size="8" text-anchor="middle">생성·해석</text>
         </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="gpu" data-edge-label="TLS 추론" data-edge-key="6">
-          <rect x="569.3" y="215" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="593.5" y="225" class="t-messagebus" font-size="8" text-anchor="middle">TLS 추론</text>
+        <g data-detail="context" data-edge-from="api" data-edge-to="gpu" data-edge-label="꺼짐" data-edge-key="6">
+          <rect x="578.5" y="215" width="30" height="14" rx="3" class="c-mask"/>
+          <text x="593.5" y="225" class="t-messagebus" font-size="8" text-anchor="middle">꺼짐</text>
         </g>
         <g data-detail="context" data-edge-from="monitor" data-edge-to="web" data-edge-label="/map 점검" data-edge-key="7">
           <rect x="278.4" y="174" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="305" y="184" class="t-messagebus" font-size="8" text-anchor="middle">/map 점검</text>
         </g>
-        <g data-detail="context" data-edge-from="ci" data-edge-to="web" data-edge-label="배포" data-edge-key="8">
-          <rect x="303" y="656" width="30" height="14" rx="3" class="c-mask"/>
-          <text x="318" y="666" class="t-messagebus" font-size="8" text-anchor="middle">배포</text>
+        <g data-detail="context" data-edge-from="ci" data-edge-to="web" data-edge-label="웹·API 배포" data-edge-key="8">
+          <rect x="286.6" y="656" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="318" y="666" class="t-messagebus" font-size="8" text-anchor="middle">웹·API 배포</text>
         </g>
         <g data-detail="context" data-edge-from="sql" data-edge-to="backup" data-edge-label="pg_dump" data-edge-key="9">
           <rect x="698.2" y="364" width="43.6" height="14" rx="3" class="c-mask"/>
@@ -4997,7 +4997,7 @@
         <ul>
           <li>&bull; 수집·해석·조사 파이프라인은 원작자 PC cron에서 돈다</li>
           <li>&bull; PC가 꺼지면 새 자료만 멈추고 서비스는 마지막 적재본으로 동작한다</li>
-          <li>&bull; 운영 DB 갱신은 Plan 19 수동 절차(10-10, 10-16)</li>
+          <li>&bull; 운영 DB는 10-01 사본, 갱신은 Plan 19 수동 절차(10-10, 10-16)</li>
         </ul>
       </div>
 
@@ -5010,6 +5010,7 @@
           <li>&bull; 웹만 공개, API는 웹 서비스 계정의 ID token으로만 호출</li>
           <li>&bull; Gemini는 Vertex AI, 앱 장부로 월 $15 상한</li>
           <li>&bull; 요청 기반 CPU 과금(10-05)</li>
+          <li>&bull; GPU 추론은 검증만 마쳤고 운영 API에서는 꺼져 있다</li>
         </ul>
       </div>
 
