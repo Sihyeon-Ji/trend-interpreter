@@ -1,6 +1,8 @@
 """API 응답 뷰 모델 — 프론트 `apps/trend-web/lib/types.ts` 와 1:1. 화면은 이 모양만 안다."""
 from __future__ import annotations
 
+import hashlib
+
 from datetime import datetime
 from typing import Literal
 from urllib.parse import urlsplit
@@ -169,21 +171,43 @@ _USED_KINDS = ("community", "news", "short")
 
 # 사전 색인(slim)은 용어 7,600개를 조립하느라 한 번에 5~7초 걸렸다(10-05). 만든 JSON 을 두고, 용어·뜻·번역·근거 수가 바뀌거나
 # INDEX_TTL 이 지나면 다시 만든다. 검수자가 리스크만 바꾼 것은 색인에 INDEX_TTL 안에 반영된다(사전 항목·대시보드는 바로).
-INDEX_TTL = 600
-_INDEX: dict[str, tuple[tuple, float, bytes]] = {}
+INDEX_KEY = "term_index"
+_INDEX: dict[str, tuple[str, bytes]] = {}
+
+
+def _index_stamp(con: Connection) -> str:
+    """사전 색인을 다시 만들어야 하나 — 확인된 용어 JSON(상태·별칭·리스크), 뜻 판, 번역, 근거 가운데 무엇이든 바뀌면 달라진다(40ms 남짓)."""
+    row = con.execute(
+        "SELECT (SELECT md5(string_agg(md5(json), '' ORDER BY term_id)) FROM terms WHERE status='verified'), "
+        "(SELECT count(*) || ':' || coalesce(max(valid_from)::text, '') FROM meanings), "
+        "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM translations), "
+        "(SELECT count(*) FROM evidences)").fetchone()
+    return hashlib.md5("|".join(str(v) for v in row).encode()).hexdigest()
+
+
+def save_term_index(con: Connection) -> bytes:
+    """사전 색인(slim)을 만들어 board_cache 에 둔다 — dashboard 단계가 부른다. 요청 기반 CPU 과금에서는 API 의 시작 예열이 CPU 를 못 받아
+    운영 사전 첫 요청이 21초였다(10-05, 로컬에서도 만드는 데 10.7초). 열쇠에 상태값을 넣어, 자료가 바뀐 뒤의 옛 색인은 읽지 않는다."""
+    stamp = _index_stamp(con)
+    body = ("[" + ",".join(r.model_dump_json() for r in term_records(con, slim=True)) + "]").encode()
+    con.execute("DELETE FROM board_cache WHERE key LIKE ?", (f"{INDEX_KEY}:%",))
+    ds.cache_set(con, f"{INDEX_KEY}:{stamp}", body.decode())
+    _INDEX["slim"] = (stamp, body)
+    return body
 
 
 def term_index_json(con: Connection) -> bytes:
-    import time
-
-    stamp = tuple(con.execute("SELECT (SELECT count(*) FROM terms WHERE status='verified'), (SELECT max(valid_from) FROM meanings), "
-                              "(SELECT count(*) FROM translations), (SELECT count(*) FROM evidences)").fetchone())
+    """사전 색인 JSON. 프로세스 메모 → board_cache(파이프라인이 만들어 둔 것) → 새로 만들어 저장, 순서로 찾는다."""
+    stamp = _index_stamp(con)
     hit = _INDEX.get("slim")
-    if hit and hit[0] == stamp and time.monotonic() - hit[1] < INDEX_TTL:
-        return hit[2]
-    body = ("[" + ",".join(r.model_dump_json() for r in term_records(con, slim=True)) + "]").encode()
-    _INDEX["slim"] = (stamp, time.monotonic(), body)
-    return body
+    if hit and hit[0] == stamp:
+        return hit[1]
+    row = ds.cache_get(con, f"{INDEX_KEY}:{stamp}")
+    if row:
+        body = row[0].encode()
+        _INDEX["slim"] = (stamp, body)
+        return body
+    return save_term_index(con)
 
 
 def _slim(r: TermRecord) -> TermRecord:

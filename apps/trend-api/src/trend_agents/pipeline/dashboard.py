@@ -522,6 +522,8 @@ def run(con: Connection) -> dict:
     with stage(con, "dashboard") as r:
         stored = build(con)
         _save(con, stored)
+        from . import views                  # 사전 색인도 같이 — API 가 첫 요청에 10초 넘게 만들지 않게(views.save_term_index)
+        views.save_term_index(con)
         r.count = len(stored)
         r.detail = {k: sum(1 for s in stored if k in s.card.regions) for k in (*REGIONS_FOCUS, GLOBAL)}
     return {"dashboard": r}

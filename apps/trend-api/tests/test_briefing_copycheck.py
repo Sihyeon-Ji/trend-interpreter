@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from trend_agents.api import app as api
-from trend_agents.pipeline import briefing, copycheck, dashboard
+from trend_agents.pipeline import briefing, copycheck, dashboard, views
 from trend_agents.schemas import MeaningDraft, Term
 from trend_agents.storage import dictionary_store as ds
 from trend_agents.storage import store as db
@@ -194,3 +194,21 @@ def test_slim_dictionary_index_is_reused_until_the_data_changes(con):
     ds.set_translation(con, "fresh", "en", MeaningText(definition="lucky vicky", origin="o", nuance="n"), "test")
     again = next(r for r in c.get("/terms", params={"slim": "true"}).json() if r["term"]["term_id"] == "fresh")
     assert again["en"]["definition"] == "lucky vicky"
+
+
+
+def test_slim_dictionary_index_is_kept_in_the_database_for_a_cold_api(con, monkeypatch):
+    """dashboard 단계가 만들어 둔 사전 색인을 새로 뜬 API 가 다시 만들지 않고 읽는다 – 운영 첫 요청이 21초였다(10-05).
+    자료가 바뀌면(번역이 늘면) 옛 색인을 읽지 않는다."""
+    from trend_agents.schemas import MeaningText
+
+    dashboard.run(con)
+    assert con.execute("SELECT count(*) FROM board_cache WHERE key LIKE 'term_index:%'").fetchone()[0] == 1
+    built = views.term_index_json(con)
+    views._INDEX.clear()                                           # 새 인스턴스
+    monkeypatch.setattr(views, "term_records", lambda *a, **k: pytest.fail("색인을 다시 만들면 안 된다"))
+    assert views.term_index_json(con) == built
+    monkeypatch.undo()
+    ds.set_translation(con, "fresh", "en", MeaningText(definition="lucky vicky", origin="o", nuance="n"), "test")
+    assert b"lucky vicky" in views.term_index_json(con)
+    assert con.execute("SELECT count(*) FROM board_cache WHERE key LIKE 'term_index:%'").fetchone()[0] == 1   # 옛 색인은 지운다
