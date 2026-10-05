@@ -41,4 +41,4 @@ for attempt in $(seq 1 30); do
   sleep 1
 done
 curl -fsS "http://127.0.0.1:$web_port/" |
-  python3 -c 'import sys; assert "Trend Interpreter" in sys.stdin.read()'
+  python3 -c 'import sys; page = sys.stdin.read(); assert "트렌드 통역" in page or "Trend Interpreter" in page'
