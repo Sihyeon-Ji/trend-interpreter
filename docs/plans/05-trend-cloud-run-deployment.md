@@ -2,7 +2,7 @@
 
 > **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04). 승인 게시·예약 유지보수 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05). 승인 게시 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -14,7 +14,7 @@
 
 첫 실행에서 CI가 세 번 실패했다. 설치기 테스트가 runner 디스크 여유에 의존했고, E2E가 개발 서버의 첫 컴파일 시간 때문에 시간을 넘겼고, 웹 이미지가 추적 파일 없는 `public` 폴더를 요구했다. 각각 고친 뒤 `b0e1826`이 API `trend-production-api-00002-kob`, 웹 `trend-production-web-00002-miz`로 배포됐고 이미지 digest가 release 커밋 빌드와 일치했다.
 
-production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 승인 배치 게시·예약 유지보수 Job(4)은 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
+production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 예약 유지보수 Job은 10-05에 매일 04:00 KST 실행으로 연결했다([유지보수 Job](../운영/GCP-운영.md#유지보수-job)). 승인 배치 게시(4)는 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
 
 ## 2026-10-03 점검
 
@@ -107,7 +107,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 | --- | --- | --- |
 | Gemma 4 사용 | Kaggle 학습·편집 실험, GCS/DVC 버전 관리·GCE GPU 운영 특화 추론 | [Plan 17](17-hybrid-infrastructure.md)로 확정. GPU 추론·품질·gateway와 [Plan 14](14-gemma-visible-in-deployment.md)의 화면 연결은 구현·검증 필요 |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
-| 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | PC와 독립적으로 돌 `scripts/maintenance.py` 구현(2026-09-29). 예약 실행(Cloud Run Job·Scheduler)은 남음 |
+| 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | `scripts/maintenance.py`를 Cloud Run Job `trend-production-maintenance`가 매일 04:00 KST 실행(2026-10-05) |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |
 | 별칭 조회 | `term_aliases` 표와 기본키 인덱스 | 완료. 마이그레이션 001 |
 | DB 연결 | `psycopg_pool` 풀 + Cloud Run 동시성 제한 | 완료. `DB_POOL_SIZE`(기본 8)와 Cloud Run `--concurrency`를 같은 값으로 배포 |

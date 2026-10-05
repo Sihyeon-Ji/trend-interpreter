@@ -505,7 +505,7 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 | 내용 | `pg_dump --format=custom --no-owner --no-privileges --schema=public`. 검수 기록·계정 설정·Gemini 장부 같은 사용자 표도 포함한다. Cloud SQL 전용 `google_vacuum_mgmt` 스키마는 일반 PostgreSQL에서 복원되지 않아 뺀다 |
 | 보관 | 비공개 버킷 `stunning-crane-508614-c1-trend-production-backups`. 14일 뒤 삭제, 지운 객체는 soft delete로 7일 더 남는다 |
 | 권한 | `trend-production-backup` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 버킷 객체 읽기·쓰기, 이 Job 실행만 가진다. DB 접속은 앱과 같은 `trend_app` 계정이다(10-04 결정) |
-| 경보 | Job 실행이 실패하면 "Trend database backup failed", Scheduler가 Job을 실행하지 못하면 "Trend database backup was not started"가 Discord와 운영 이메일로 온다 |
+| 경보 | Job 실행이 실패하면 "Trend scheduled job failed", Scheduler가 Job을 실행하지 못하면 "Trend scheduled job was not started"가 Discord와 운영 이메일로 온다. 두 경보는 유지보수 Job도 함께 본다 |
 
 수동 실행과 상태 확인은 다음과 같다.
 
@@ -524,6 +524,26 @@ scripts/verify-production-backup.sh "" manifests/production-backup-verify-<날�
 2026-10-04 첫 실행 결과([보고서](../../manifests/production-backup-verify-20261004.json)): 덤프 52.9MB, Job 8초, 로컬 복원 2초, 표 48개·659,712행, `schema_migrations` 15개가 저장소 migration 수와 같다.
 
 다른 DB에 복원할 때는 덤프에 `CREATE SCHEMA public`이 들어 있으므로 빈 DB의 기본 `public` 스키마를 먼저 지우고 `pg_restore --no-owner --no-privileges --exit-on-error`로 복원한다. 사용자 표가 포함된 사본을 복원한 뒤에는 보존 기간 정리(`prune_user_text`)를 실행한다. 운영 DB에 덮어쓰는 복원은 하지 않는다.
+
+## 유지보수 Job
+
+PC와 무관하게 매일 04:00 KST에 `trend-production-maintenance`가 API 이미지의 `scripts/maintenance.py`를 한 번 실행한다. 리소스는 `infra/gcp/hybrid/maintenance.tf`에 있다.
+
+| 항목 | 내용 |
+| --- | --- |
+| 정리 | 해석 캐시 7일, 못 답한 질문 30일이 지난 행을 지운다(`prune_user_text`) |
+| 점검 | 마지막 정상 게시(board·dashboard 성공)가 `STALE_AFTER_HOURS`보다 오래됐는지 본다. 운영 DB는 갱신 도구로 며칠에 한 번 바뀌므로 Job에서는 192시간(8일)이다. API의 `/meta`는 기본 12시간 그대로다 |
+| 결과 | 지운 건수·게시 시각·경과 시간만 담은 `event=maintenance` 로그 한 줄. 종료 코드 0 정상, 1 실패, 2 오래됨. 0이 아니면 "Trend scheduled job failed" 경보가 온다. 재시도는 하지 않는다 |
+| 권한 | `trend-production-maintenance` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 Job 실행만 가진다 |
+| 이미지 | `production.tfvars.json`의 `services.api_image`. 유지보수 코드를 바꾸면 배포 뒤 이 값을 새 digest로 바꾸고 적용한다 |
+
+```bash
+gcloud scheduler jobs run trend-production-maintenance-daily --location=asia-northeast1 --project=stunning-crane-508614-c1
+gcloud logging read 'resource.labels.job_name="trend-production-maintenance" AND jsonPayload.event="maintenance"' \
+  --project=stunning-crane-508614-c1 --limit=1 --format='value(jsonPayload.message)'
+```
+
+2026-10-05 첫 실행: `status=ok`, 지운 행 0건, 마지막 게시 1.8시간 전(기준 192시간).
 
 ## Terraform 변수 파일 사본
 
