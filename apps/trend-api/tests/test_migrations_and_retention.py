@@ -74,3 +74,16 @@ def test_read_only_connection_skips_schema_setup_and_refuses_writes(monkeypatch)
         con.execute("CREATE TABLE read_only_probe (x TEXT)")
     assert con.execute("SELECT 2").fetchone()[0] == 2          # 거부된 뒤에도 읽는다
     con.close()
+
+
+def test_jamo_only_headwords_are_corrected_to_korean():
+    """017: 자모만 쓴 표제어가 일본어·영어로 저장된 것을 한국어로 고친다(ㅋㅋ, 10-05). 다른 말은 그대로."""
+    con = db.connect(":memory:")
+    for tid, name, lang in (("kk", "ㅋㅋ", "ja"), ("mc", "ㅁㅊㄷ ㅁㅊㅇ", "en"), ("ja", "ぴえん", "ja"), ("mixed", "ㅋㅋ草", "ja")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang=lang, status="verified"))
+    con.commit()
+    con.raw.execute((db.MIGRATIONS_DIR / "017_jamo_terms_korean.sql").read_text(encoding="utf-8"))
+    con.commit()
+    assert {t: ds.get_term(con, t).lang for t in ("kk", "mc", "ja", "mixed")} == {"kk": "ko", "mc": "ko", "ja": "ja", "mixed": "ja"}
+    assert con.execute("SELECT lang FROM terms WHERE term_id='kk'").fetchone()[0] == "ko"
+    con.close()
