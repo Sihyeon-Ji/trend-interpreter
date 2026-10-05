@@ -52,6 +52,8 @@ export interface TermRecord {
   recheck_days: number;
   media?: TermMedia[];     // 대표 그림·영상 (주소만 보관, 라이선스 함께)
   gate_reasons?: string[]; // needs_review 인 경우 게이트가 남긴 사유
+  popular_year?: number | null;    // 위키 분류가 말하는 유행 연도. 생애주기와 따로 – 오래된 밈의 '언제 유행했나'
+  popular_decade?: number | null;  // 연도가 없으면 연대만
   regions?: string[];      // 보여 줄 지역 — 백엔드가 대시보드와 같은 규칙(쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)으로 정한다. 예시 데이터에는 없다
 }
 

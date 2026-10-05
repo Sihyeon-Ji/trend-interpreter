@@ -168,7 +168,8 @@ export default async function TermPage({ params, searchParams }: Props) {
               regions={m?.regions.length ? (locale === "ko" ? m.regions.map((r) => regionLabel(locale, r)).join(", ") : joinRegions(locale, m.regions)) : null}
               gens={m?.generations.length ? (locale === "ko" ? m.generations.map((g) => labels.generation[g]).join(", ") : joinGens(locale, m.generations)) : null}
               mentions={hasTrend || signals ? last4 : null} scope={scope} lastUsed={lastUsed}
-              plain={tx?.plain || null} plainLang={txLang} sources={sources.length} />
+              plain={tx?.plain || null} plainLang={txLang} sources={sources.length}
+              popularYear={record.popular_year} popularDecade={record.popular_decade} />
             {canMake && makeButton("w-full sm:hidden")}
             {sections.length > 1 && (
               <nav aria-label={t(locale, "term_toc")} className="hidden px-1 text-[14px] xl:block">

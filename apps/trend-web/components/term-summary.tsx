@@ -28,6 +28,8 @@ export interface SummaryProps {
   scope: string;
   lastUsed: string | null;
   plain: string | null;
+  popularYear?: number | null;
+  popularDecade?: number | null;
   plainLang?: string;
   sources: number;
 }
@@ -43,19 +45,23 @@ export function TermSummary(p: SummaryProps) {
     </div>
   );
   const why = (text: string | null) => text && <span className="mt-1 block text-[13px] leading-[1.5] text-steel">{text}</span>;
+  const era = p.popularYear ? t(locale, "term_sum_era_year").replace("{y}", String(p.popularYear))
+    : p.popularDecade ? t(locale, "term_sum_era_decade").replace("{y}", String(p.popularDecade)) : null;
   const notYet = <span className="text-[13px] text-steel">{t(locale, "risk_not_checked")}</span>;
   return (
     <aside aria-labelledby="term-summary" className="rounded-lg border border-hairline px-4 py-3">
       <h2 id="term-summary" className="text-[14px] font-semibold text-ink">{t(locale, "term_sum_title")}</h2>
       <dl className="mt-1 grid md:grid-cols-2 md:gap-x-8 xl:grid-cols-1">
         {row(t(locale, "term_sum_stage"), p.verified
-          ? <><StageCell diffusion={term.diffusion} lifecycle={term.lifecycle ?? "unknown"} locale={locale} />{term.diffusion && why(t(locale, `diffusion_${term.diffusion}_why`))}</>
+          ? <><StageCell diffusion={term.diffusion} lifecycle={term.lifecycle ?? "unknown"} locale={locale} />
+            {term.diffusion ? why(t(locale, `diffusion_${term.diffusion}_why`)) : (term.lifecycle ?? "unknown") === "unknown" && why(t(locale, "lifecycle_unknown_why"))}</>
           : notYet)}
         {row(t(locale, "term_sum_risk"), p.verified ? <><RiskCell item={term} locale={locale} />{why(riskReason(term, locale))}</> : notYet)}
         {p.regions && row(t(locale, "term_sum_regions"), p.regions)}
         {p.gens && row(t(locale, "term_sum_gens"), p.gens)}
         {p.mentions !== null && row(t(locale, "term_sum_mentions"),
           <><span className="tabular-nums">{fmtInt(p.mentions)}</span><span className="mt-0.5 block text-[13px] text-steel">{p.scope}</span></>)}
+        {era && row(t(locale, "term_sum_era"), <span className="tabular-nums">{era}</span>)}
         {p.lastUsed && row(t(locale, "term_sum_last_used"), <span className="tabular-nums">{fmtDate(p.lastUsed)}</span>)}
         {p.plain && row(t(locale, "term_sum_plain"), <span lang={p.plainLang}>{p.plain}</span>)}
         {(term.aliases?.length ?? 0) > 0 && row(t(locale, "term_other_spellings"),

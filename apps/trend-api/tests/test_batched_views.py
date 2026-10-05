@@ -35,6 +35,7 @@ def seed(con, tid, name, status="verified"):
         con.execute("INSERT INTO mention_samples VALUES (?,?,?,?,?,?)",
                     (tid, "US", f"https://outlet-{home}.example/{tid}/{days}", f"outlet-{home}", home,
                      (NOW - timedelta(days=days)).isoformat()))
+    con.execute("INSERT INTO wiki_catalog VALUES (?,?,?,?,?)", (tid, "namu", name, '["2017년 인터넷 밈"]', NOW.isoformat()))
     if status == "needs_review":
         ds.queue_review(con, tid, draft(f"{name} 제안"), ["근거 부족"], 3)
     con.commit()

@@ -33,6 +33,7 @@ _BATCH_SQL = {
              "WHERE term_id = ANY(?) ORDER BY term_id, kind DESC, added_at",
     "gate": "SELECT term_id, reasons_json FROM review_queue WHERE term_id = ANY(?) AND decision IS NULL AND COALESCE(kind, 'new')='new'",
     "outlets": "SELECT term_id, home, source, published_at FROM mention_samples WHERE term_id = ANY(?) AND home IS NOT NULL",
+    "catalog": "SELECT term_id, categories_json FROM wiki_catalog WHERE term_id = ANY(?)",
 }
 
 
@@ -1128,6 +1129,13 @@ def add_media(con: Connection, term_id: str, kind: str, url: str, *, page_url: s
     con.execute("INSERT OR REPLACE INTO term_media VALUES (?,?,?,?,?,?,?,?)",
                 (term_id, kind, url, page_url, title[:200], license[:80], attribution[:200], now().isoformat()))
     con.commit()
+
+
+def catalog_categories(con: Connection, term_id: str) -> list[list[str]]:
+    """표제어가 걸린 위키 분류 이름들 — 문서(출처·제목)마다 한 묶음."""
+    if (rows := _cached("catalog", term_id)) is None:
+        rows = con.execute("SELECT categories_json FROM wiki_catalog WHERE term_id=?", (term_id,)).fetchall()
+    return [json.loads(cats or "[]") for (cats,) in rows]
 
 
 def get_media(con: Connection, term_id: str, limit: int = 4) -> list[dict]:

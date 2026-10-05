@@ -54,6 +54,9 @@ class TermRecord(BaseModel):
     recheck_days: int
     media: list[TermMedia] = []
     gate_reasons: list[str] | None = None
+    # 위키 분류가 말하는 유행 시기(연도·연대). 생애주기와 따로 둔다 – 생애주기는 최근 쓰임으로만 정하고, 오래된 밈은 이 값으로 '언제 유행했나' 를 보인다
+    popular_year: int | None = None
+    popular_decade: int | None = None
     regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
 
 
@@ -125,6 +128,17 @@ def shown_evidences(con: Connection, t: Term) -> list[Evidence]:
             if not is_community_post(e) and (e.kind == "datalab" or evidence_mentions(e, t.canonical, t.aliases))]
 
 
+def popular_era(con: Connection, term_id: str) -> tuple[int | None, int | None]:
+    """위키 문서마다 분류에서 읽은 연도·연대 가운데 가장 이른 것. 위키마다 처음 퍼진 해를 달리 적으면 먼저 퍼진 쪽이 유행 시작이다."""
+    from .catalog import meta
+
+    found = [meta(cats) for cats in ds.catalog_categories(con, term_id)]
+    years = [f["year"] for f in found if f["year"]]
+    decades = [f["decade"] for f in found if f["decade"]]
+    year = min(years, default=None)
+    return year, (year // 10 * 10 if year else min(decades, default=None))
+
+
 def term_record(con: Connection, t: Term) -> TermRecord:
     from .dashboard import regions_for   # dashboard 가 이 모듈의 뷰 모델을 쓴다 — 순환을 피해 여기서
 
@@ -135,11 +149,13 @@ def term_record(con: Connection, t: Term) -> TermRecord:
              for u in ds.get_usage(con, t.term_id)]
     weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
     reasons = ds.gate_reasons(con, t.term_id) if t.status == "needs_review" else None
+    year, decade = popular_era(con, t.term_id)
     return TermRecord(term=t, category=CATEGORY_MAP.get(t.category, "other"), plain=(ko.plain if ko and ko.plain else ""), ko=ko, en=en,
                       meanings=meanings, evidences=shown_evidences(con, t), usage=usage, weekly=weekly,
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
-                      gate_reasons=reasons or None, regions=regions_for(con, t))
+                      gate_reasons=reasons or None, regions=regions_for(con, t),
+                      popular_year=year, popular_decade=decade)
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:
