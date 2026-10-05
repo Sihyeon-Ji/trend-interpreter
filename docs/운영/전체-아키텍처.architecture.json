@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Trend Interpreter 전체 아키텍처",
+    "subtitle": "2026-10-05 기준 – 로컬 수집, GCP 서비스, 학습·추론, 백업·감시",
+    "output": "docs/운영/전체-아키텍처.html",
+    "visual_preset": "blueprint",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "이용자·검수자",
+      "sublabel": "브라우저",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Trend 웹",
+      "sublabel": "Cloud Run 공개",
+      "pos": [
+        240,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "tag": "Next.js"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Trend API",
+      "sublabel": "Cloud Run IAM 전용",
+      "pos": [
+        440,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "FastAPI"
+    },
+    {
+      "id": "sql",
+      "type": "database",
+      "label": "Cloud SQL",
+      "sublabel": "trend DB (체험판)",
+      "pos": [
+        650,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "PostgreSQL 18"
+    },
+    {
+      "id": "gcs",
+      "type": "cloud",
+      "label": "GCS 공유 버킷",
+      "sublabel": "db/latest 하루 2회",
+      "pos": [
+        860,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "snapshot"
+    },
+    {
+      "id": "collector",
+      "type": "external",
+      "label": "수집 파이프라인",
+      "sublabel": "원작자 PC · cron",
+      "pos": [
+        1070,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "SQLite + Gemma e4b"
+    },
+    {
+      "id": "gemini",
+      "type": "cloud",
+      "label": "Vertex AI Gemini",
+      "sublabel": "월 $15 앱 상한",
+      "pos": [
+        420,
+        110
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "gpu",
+      "type": "backend",
+      "label": "GCE GPU gateway",
+      "sublabel": "L4 · 검증 후 삭제",
+      "pos": [
+        600,
+        110
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "Gemma 12B"
+    },
+    {
+      "id": "monitor",
+      "type": "cloud",
+      "label": "Monitoring",
+      "sublabel": "uptime·5xx·백업 경보",
+      "pos": [
+        235,
+        110
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "→ Discord"
+    },
+    {
+      "id": "ci",
+      "type": "external",
+      "label": "GitHub Actions",
+      "sublabel": "release/gcp 배포",
+      "pos": [
+        240,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "backup",
+      "type": "backend",
+      "label": "백업 Job",
+      "sublabel": "매일 03:00 · 14일 보관",
+      "pos": [
+        650,
+        500
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "Scheduler"
+    },
+    {
+      "id": "kaggle",
+      "type": "external",
+      "label": "Kaggle 노트북",
+      "sublabel": "감사관 QLoRA 학습",
+      "pos": [
+        860,
+        700
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "tag": "T4"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "GCP stunning-crane · asia-northeast1",
+      "wraps": [
+        "web",
+        "api",
+        "sql",
+        "gcs",
+        "gemini",
+        "gpu",
+        "monitor",
+        "backup"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "users",
+      "to": "web",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "web",
+      "to": "api",
+      "label": "ID token",
+      "variant": "security"
+    },
+    {
+      "from": "api",
+      "to": "sql",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "from": "gcs",
+      "to": "sql",
+      "label": "검증 적재",
+      "variant": "dashed"
+    },
+    {
+      "from": "collector",
+      "to": "gcs",
+      "label": "업로드",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "gemini",
+      "label": "생성·해석",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDx": -30
+    },
+    {
+      "from": "api",
+      "to": "gpu",
+      "label": "TLS 추론",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "monitor",
+      "to": "web",
+      "label": "/map 점검",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "from": "ci",
+      "to": "web",
+      "label": "배포",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "sql",
+      "to": "backup",
+      "label": "pg_dump",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "from": "gcs",
+      "to": "kaggle",
+      "label": "학습 데이터",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "아직 로컬에 남은 것",
+      "items": [
+        "수집·해석·조사 파이프라인은 원작자 PC cron에서 돈다",
+        "PC가 꺼지면 새 자료만 멈추고 서비스는 마지막 적재본으로 동작한다",
+        "운영 DB 갱신은 Plan 19 수동 절차(10-10, 10-16)"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "운영 서비스",
+      "items": [
+        "웹만 공개, API는 웹 서비스 계정의 ID token으로만 호출",
+        "Gemini는 Vertex AI, 앱 장부로 월 $15 상한",
+        "요청 기반 CPU 과금(10-05)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "보호와 감시",
+      "items": [
+        "매일 pg_dump 백업, 복원 검증 스크립트",
+        "uptime·5xx·백업 실패를 Discord로 알림",
+        "release/gcp 배포는 후보 revision 검사 뒤 전환"
+      ]
+    }
+  ]
+}
