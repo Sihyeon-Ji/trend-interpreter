@@ -11,6 +11,8 @@ load_dotenv(ROOT / ".env")
 
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "mock")
 MODEL_REQUESTS_ENABLED = os.getenv("MODEL_REQUESTS_ENABLED", "false").lower() == "true"
+# 마지막 게시가 이보다 오래되면 오래된 자료다. 수집 PC 가 하루 네 번 게시하던 기준이 12시간이고, 며칠에 한 번 갱신하는 운영 DB(Plan 19)는 Job 에서 늘린다
+STALE_AFTER_HOURS = int(os.getenv("STALE_AFTER_HOURS", "12"))
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")

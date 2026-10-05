@@ -375,15 +375,15 @@ resource "google_monitoring_alert_policy" "api_errors" {
 }
 
 resource "google_monitoring_alert_policy" "backup_failed" {
-  display_name          = "Trend database backup failed"
+  display_name          = "Trend scheduled job failed"
   combiner              = "OR"
   severity              = "ERROR"
   notification_channels = local.alert_channels
 
   conditions {
-    display_name = "The daily backup job execution failed"
+    display_name = "A backup or maintenance job execution failed (maintenance also fails when the data is over eight days old)"
     condition_threshold {
-      filter          = "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=\"trend-production-backup\" AND metric.label.result=\"failed\""
+      filter          = "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=one_of(\"trend-production-backup\", \"trend-production-maintenance\") AND metric.label.result=\"failed\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "0s"
@@ -403,17 +403,17 @@ resource "google_monitoring_alert_policy" "backup_failed" {
   depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
 }
 
-# The failed-execution alert above cannot see a schedule that never started the job, so the scheduler's own attempts are watched too.
+# The failed-execution alert above cannot see a schedule that never started its job, so the scheduler's own attempts are watched too.
 resource "google_monitoring_alert_policy" "backup_not_started" {
-  display_name          = "Trend database backup was not started"
+  display_name          = "Trend scheduled job was not started"
   combiner              = "OR"
   severity              = "ERROR"
   notification_channels = local.alert_channels
 
   conditions {
-    display_name = "The daily schedule failed to start the backup job"
+    display_name = "A daily schedule failed to start its job"
     condition_matched_log {
-      filter = "logName=\"projects/${var.project_id}/logs/cloudscheduler.googleapis.com%2Fexecutions\" AND resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=\"trend-production-backup-daily\" AND jsonPayload.\"@type\"=\"type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished\" AND (severity>=ERROR OR jsonPayload.status:*)"
+      filter = "logName=\"projects/${var.project_id}/logs/cloudscheduler.googleapis.com%2Fexecutions\" AND resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=(\"trend-production-backup-daily\" OR \"trend-production-maintenance-daily\") AND jsonPayload.\"@type\"=\"type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished\" AND (severity>=ERROR OR jsonPayload.status:*)"
     }
   }
 

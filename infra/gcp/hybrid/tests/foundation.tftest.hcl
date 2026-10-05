@@ -25,7 +25,7 @@ run "staging_is_private_and_scoped" {
     error_message = "Keep runtime identities separate and token access limited."
   }
   assert {
-    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_service.web) == 0 && length(google_cloud_run_v2_job.backup) == 0 && length(google_storage_bucket.backups) == 0
+    condition     = length(google_cloud_run_v2_service.api) == 0 && length(google_cloud_run_v2_service.web) == 0 && length(google_cloud_run_v2_job.backup) == 0 && length(google_storage_bucket.backups) == 0 && length(google_cloud_run_v2_job.maintenance) == 0
     error_message = "Enabling the foundation alone must not publish web or API services or create backups."
   }
 }
@@ -104,8 +104,8 @@ run "private_api_and_public_web_are_separate" {
     error_message = "Only the web service is public, and its identity invokes the private API."
   }
   assert {
-    condition     = length(google_secret_manager_secret_iam_member.runtime) == 6 && google_secret_manager_secret_iam_member.runtime["backup-DATABASE_URL"].secret_id == "projects/stunning-crane-508614-c1/secrets/trend-staging-db" && length(google_compute_instance.gpu) == 0
-    error_message = "Web/API and the backup job need scoped secrets and must not start a GPU VM."
+    condition     = length(google_secret_manager_secret_iam_member.runtime) == 7 && google_secret_manager_secret_iam_member.runtime["backup-DATABASE_URL"].secret_id == "projects/stunning-crane-508614-c1/secrets/trend-staging-db" && google_secret_manager_secret_iam_member.runtime["maintenance-DATABASE_URL"].secret_id == "projects/stunning-crane-508614-c1/secrets/trend-staging-db" && length(google_compute_instance.gpu) == 0
+    error_message = "Web/API and the backup and maintenance jobs need scoped secrets and must not start a GPU VM."
   }
   assert {
     condition     = one(one(google_cloud_run_v2_service.api[0].template).containers).resources[0].cpu_idle && one(one(google_cloud_run_v2_service.web[0].template).containers).resources[0].cpu_idle
@@ -118,6 +118,10 @@ run "private_api_and_public_web_are_separate" {
   assert {
     condition     = strcontains(one(one(one(google_cloud_run_v2_job.backup[0].template).template).containers).command[2], "--schema=public") && contains([for e in one(one(one(google_cloud_run_v2_job.backup[0].template).template).containers).env : one(one(e.value_source).secret_key_ref).secret], "projects/stunning-crane-508614-c1/secrets/trend-staging-db")
     error_message = "The backup job dumps the public schema with the service database secret."
+  }
+  assert {
+    condition     = one(one(one(google_cloud_run_v2_job.maintenance[0].template).template).containers).command == tolist(["python", "scripts/maintenance.py"]) && one(one(google_cloud_run_v2_job.maintenance[0].template).template).max_retries == 0 && contains([for e in one(one(one(google_cloud_run_v2_job.maintenance[0].template).template).containers).env : "${e.name}=${e.value != null ? e.value : ""}"], "STALE_AFTER_HOURS=192")
+    error_message = "The maintenance job runs the retention script once with the refresh-based staleness threshold."
   }
   assert {
     condition     = google_cloud_scheduler_job.backup[0].time_zone == "Asia/Seoul" && google_cloud_scheduler_job.backup[0].http_target[0].uri == "https://run.googleapis.com/v2/projects/stunning-crane-508614-c1/locations/asia-northeast1/jobs/trend-staging-backup:run"

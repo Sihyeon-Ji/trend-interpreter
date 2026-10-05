@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 
-from ..config import CANTONESE_LANGS
+from ..config import CANTONESE_LANGS, STALE_AFTER_HOURS as _STALE_AFTER_HOURS
 from ..schemas import Candidate, Evidence, Meaning, MeaningDraft, MeaningText, MemeFit, Term, TrendQuery, WikiTop
 from . import db
 from .db import Connection
@@ -1043,7 +1043,8 @@ def update_feed(con: Connection, hours: int = 48, kinds: tuple[str, ...] = USER_
 # 여기에 더한다 — 아니면 운영 /meta 는 last_run=None·stale 을 계속 내고 유지보수 Job 은 매번 2 로 끝난다.
 PUBLISH_STAGES = ("board", "dashboard")
 # 게시가 이보다 오래되면 오래된 자료다. 23:15 실행 뒤 다음 날 09:15 실행까지 게시가 10시간 빈다(09-17~09-28 실측 10.0~10.5시간).
-STALE_AFTER_HOURS = 12
+# 기본 12시간, 환경변수 STALE_AFTER_HOURS 로 바꾼다.
+STALE_AFTER_HOURS = _STALE_AFTER_HOURS
 
 
 def last_published(con: Connection) -> str | None:

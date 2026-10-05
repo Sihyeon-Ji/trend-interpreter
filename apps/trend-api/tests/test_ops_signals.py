@@ -317,3 +317,15 @@ def test_disabled_requests_log_no_call_and_spend_no_budget(monkeypatch, caplog):
             gemini.generate(con, "prompt", request=request)
     assert (gemini.budget_left(con), gemini.budget_left(con, request=True)) == before
     assert _calls(caplog) == []
+
+
+def test_stale_threshold_follows_the_environment(monkeypatch):
+    """운영 DB 는 며칠에 한 번 갱신하므로(Plan 19) 유지보수 Job 이 기준을 늘린다. 기본값은 수집 PC 기준 12시간 그대로다."""
+    import importlib
+
+    from trend_agents import config
+
+    monkeypatch.setenv("STALE_AFTER_HOURS", "192")
+    assert importlib.reload(config).STALE_AFTER_HOURS == 192
+    monkeypatch.delenv("STALE_AFTER_HOURS")
+    assert importlib.reload(config).STALE_AFTER_HOURS == 12
