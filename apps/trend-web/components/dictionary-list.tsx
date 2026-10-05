@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChipMark } from "@/components/chip-mark";
 import { RiskCell, StageCell } from "@/components/term-status";
 import {
-  PAGE_SIZE, aliasHit, inRegions, matchesExceptRegion, sortRows, type DictionaryRow, type Filters, type RiskFilter, type SortKey,
+  PAGE_SIZE, aliasHit, inRegions, matchesExceptRegion, sortRows, unpackRows, type DictionaryRow, type Filters, type PackedRows, type RiskFilter,
+  type SortKey,
 } from "@/lib/dictionary/rows";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
@@ -63,7 +64,8 @@ function Gloss({ row, locale, q }: { row: DictionaryRow; locale: Locale; q: stri
 
 /* 사전 색인: 지역 칩 → 도구 줄(검색·분류·표제어 언어·쓸 때 조심·정렬) → 표(데스크톱)·한 줄 목록(휴대폰) → 쪽 나눔.
    행마다 '이 지역에서 지금 써도 되나'(단계·쓰이는 지역·쓸 때 조심)에 답한다. 자세한 것은 사전 항목에서 본다. */
-export function DictionaryList({ rows, locale, readerGen = null, initial }: { rows: DictionaryRow[]; locale: Locale; readerGen?: string | null; initial: DictionaryState }) {
+export function DictionaryList({ packed, locale, readerGen = null, initial }: { packed: PackedRows; locale: Locale; readerGen?: string | null; initial: DictionaryState }) {
+  const rows = useMemo(() => unpackRows(packed), [packed]);
   const [s, setS] = useState<DictionaryState>(initial);
   const [open, setOpen] = useState(false);           // 휴대폰에서 필터 펼침
   const labels = L(locale);

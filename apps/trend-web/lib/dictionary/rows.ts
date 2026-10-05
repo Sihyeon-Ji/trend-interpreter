@@ -47,11 +47,31 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     term_id: r.term.term_id, canonical: r.term.canonical, lang: r.term.lang ?? "ko", aliases: r.term.aliases ?? [],
     expansion, definition, meaning_lang: translated ? null : "ko",
     category: r.category, diffusion: r.term.diffusion ?? null, lifecycle: r.term.lifecycle ?? "unknown",
-    regions: termRegions(r), last_used: lastUsedOf(r), changed: m?.valid_from ?? null,
-    risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at ?? null,
+    // 정렬·'검사했나'에만 쓰는 시각은 날짜까지만 — 행마다 마이크로초까지 실려 나갔다
+    regions: termRegions(r), last_used: lastUsedOf(r), changed: m?.valid_from?.slice(0, 10) ?? null,
+    risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
     generations: m?.generations ?? [],
     alt: m?.definition && m.definition !== definition ? m.definition : null,
   };
+}
+
+/* 브라우저로 넘길 때는 행을 칸 이름 없는 배열로 줄인다. 1만 1천여 행마다 칸 이름 16개가 이스케이프된 채 되풀이돼
+   사전 첫 화면 HTML 이 5MB(gzip 1MB)였다(10-05). 칸 순서는 ROW_KEYS 하나로 정해 서버·브라우저가 같이 쓴다. */
+const ROW_KEYS = [
+  "term_id", "canonical", "lang", "aliases", "expansion", "definition", "meaning_lang", "category", "diffusion", "lifecycle",
+  "regions", "last_used", "changed", "risk_level", "risk_checked_at", "generations", "alt",
+] as const satisfies ReadonlyArray<keyof DictionaryRow>;
+// 칸을 하나 더하고 ROW_KEYS 에 빠뜨리면 여기서 형 검사가 실패한다(브라우저에서 그 칸이 조용히 비지 않게)
+const allKeys: Record<Exclude<keyof DictionaryRow, (typeof ROW_KEYS)[number]>, never> = {};
+void allKeys;
+export type PackedRows = unknown[][];
+
+export function packRows(rows: DictionaryRow[]): PackedRows {
+  return rows.map((r) => ROW_KEYS.map((k) => r[k]));
+}
+
+export function unpackRows(packed: PackedRows): DictionaryRow[] {
+  return packed.map((v) => Object.fromEntries(ROW_KEYS.map((k, i) => [k, v[i]])) as unknown as DictionaryRow);
 }
 
 export function riskKey(r: Pick<DictionaryRow, "risk_level" | "risk_checked_at">): RiskFilter {

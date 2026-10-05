@@ -4,7 +4,7 @@ import { DictionaryList, type DictionaryState } from "@/components/dictionary-li
 import { PageHeader } from "@/components/page-header";
 import { PageShell } from "@/components/page-shell";
 import { StatePanel } from "@/components/state-panel";
-import { toRow, type SortKey } from "@/lib/dictionary/rows";
+import { packRows, toRow, type SortKey } from "@/lib/dictionary/rows";
 import { getMeta, isSampleMode, loadTermRecords } from "@/lib/data";
 import { t } from "@/lib/i18n";
 import { fmtDateTime } from "@/lib/labels";
@@ -49,7 +49,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
             {t(locale, "pg_dict_empty")}
           </StatePanel>
         ) : (
-          <DictionaryList rows={records.map((r) => toRow(r, locale))} locale={locale} readerGen={reader.gen ?? null} initial={initial} />
+          <DictionaryList packed={packRows(records.map((r) => toRow(r, locale)))} locale={locale} readerGen={reader.gen ?? null} initial={initial} />
         )}
       </div>
     </PageShell>
