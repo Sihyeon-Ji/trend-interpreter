@@ -1562,3 +1562,25 @@ def test_meanings_that_only_say_it_is_a_meme_are_not_meanings():
     term, draft = "럭키비키", _lucky_draft()
     namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
     assert gate(term, draft.model_copy(update={"definition": empty[0]}), [namu], None)[0] == "unverified"
+
+
+def test_guessed_or_plain_word_meanings_are_not_meanings():
+    """모델이 짐작한 뜻·낱말의 일반 뜻이라고 밝힌 뜻·'설명이 필요함' 메모(10-05, 목록에 남은 카드 10개)는 막는다.
+    뜻 안에서 '알 수 없는'·'추정'을 쓴 말, 유래만 짐작한 말은 통과시킨다."""
+    from trend_agents.verification import guessed_meaning
+
+    guessed = ["퇴사(退社)를 의미하는 것으로 보이며, 노래 제목이나 관련 콘텐츠에서 사용됨.",
+               "특정 맥락에서 사용되는 구절 또는 소리처럼 언급됨. 구체적인 의미는 명확하지 않으며, 노래 가사처럼 쓰인다.",
+               "단기간에 큰 성공을 거두었다는 일반적 의미로 사용됨.",
+               "가족 같은 느낌을 비유적으로 나타내는 말로 보인다.",
+               "인터넷 밈으로 사용되는 표현으로, 특정 맥락에서 사용되는 방식에 대한 설명이 필요함."]
+    told = ["SNS나 만남 앱 등 온라인에서 실제 상대방의 외모를 알 수 없는 익명성을 악용해 여성으로 가장하는 행위.",
+            "여러 걸그룹 이름이 합쳐진 것으로 추정되는 가상의 걸그룹 이름.",
+            "기대감을 높이려고 쓰는 말투로, 군대식 화법의 영향을 받은 것으로 보인다.",
+            "'Hot Cocoa'에서 유래한 것으로 보이는 애칭.",
+            "좋아하는 아이돌·캐릭터를 응원하는 활동 전반."]
+    assert all(guessed_meaning(d) for d in guessed)
+    assert not any(guessed_meaning(d) for d in told)
+    term, draft = "럭키비키", _lucky_draft()
+    namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
+    assert gate(term, draft.model_copy(update={"definition": guessed[0]}), [namu], None)[0] == "unverified"

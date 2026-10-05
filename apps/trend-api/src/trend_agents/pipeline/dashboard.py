@@ -20,7 +20,7 @@ from ..config import REGIONS_FOCUS, home_region
 from ..schemas import Evidence, EvidenceBrief, Meaning, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from ..verification import evidence_note, vacuous_meaning
+from ..verification import evidence_note, guessed_meaning, vacuous_meaning
 from .audit import NO_USAGE
 from .match import mentions, unsafe
 from .runs import stage
@@ -260,11 +260,12 @@ def regions_for(con: Connection, t: Term) -> list[str]:
 def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tuple[str, str]]) -> tuple[bool, bool, bool]:
     """(목록에서 뺄까, 그 뜻으로 쓰인 것이 확인됐나, 언급에 딴 이야기가 더 많나). 규칙이다 — 이미 있는 감사·근거 분류만 읽는다.
     위키 '인터넷 밈' 분류는 밈이 된 대상(인물·작품·노래·일반명사)의 문서도 담아, 김여정·토마토·비트코인·FIESTA 가 '지금 쓰이는 밈'
-    상위를 채웠다(실데이터 10-03, 용어 11,292개 중 10,906개가 위키 분류에서). 다음 셋 가운데 하나면 뺀다:
+    상위를 채웠다(실데이터 10-03, 용어 11,292개 중 10,906개가 위키 분류에서). 다음 가운데 하나면 뺀다:
     - 감사관이 다시 써도 '밈으로 어떻게 쓰이는지가 없다' 고 본 뜻(audit_log 'flagged')
     - 위키 분류에서만 들어온 말인데, 리스크 점검까지 거치고도 그 뜻으로 쓰인 글이 하나도 없다
     - 뜻 칸이 뜻이 아니라 근거를 두고 한 모델의 메모다('근거에 쓰임 설명이 없음', verification.evidence_note — 확인된 뜻 162개)
     - 뜻이 '인터넷 밈으로 사용됨' 말고는 내용이 없다(verification.vacuous_meaning — 확인된 뜻 56개)
+    - 뜻이 '…인 것으로 보인다' 같은 짐작이거나 낱말의 일반 뜻이라고 밝혔다(verification.guessed_meaning — 목록에 남은 카드 10개, 10-05)
     리스크 점검 전이라 근거 분류가 아직 없는 말은 빼지 않고 뒤로 보낸다(use_confirmed=False). 사람이 확인한 뜻은 그대로 둔다."""
     on = sum(1 for p, _ in labels.values() if p != "offtopic")
     off = len(labels) - on
@@ -276,7 +277,7 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
     no_usage = bool(row) and row[0] == "flagged" and NO_USAGE in json.loads(row[1] or "[]")
     catalog = con.execute("SELECT 1 FROM wiki_catalog WHERE term_id=? LIMIT 1", (t.term_id,)).fetchone() is not None
     text = m.definition if m else ""
-    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(text) or vacuous_meaning(text)
+    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(text) or vacuous_meaning(text) or guessed_meaning(text)
     return hold, on > 0 or not catalog, mixed
 
 

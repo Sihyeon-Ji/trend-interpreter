@@ -64,6 +64,22 @@ def vacuous_meaning(text: str) -> bool:
     return len(re.sub(r"[\s\W_]+", "", _FILLER.sub(" ", rest))) < 5
 
 
+# 모델이 뜻을 모르고 짐작한 문장('퇴사를 의미하는 것으로 보이며', '구체적인 의미는 명확하지 않으며'), 밈이 아닌 낱말 본뜻이라고
+# 스스로 밝힌 문장('일반적 의미로 사용됨'), 뜻 대신 '…에 대한 설명이 필요함' 으로 끝난 메모. 확인된 뜻인데도 대시보드
+# '바로 써도 됨'에 TOESA·Trippi Troppi·대박이 올랐다(실데이터 10-05). '실제 외모를 알 수 없는 익명성'·'합쳐진 것으로 추정' 처럼
+# 뜻 안에서 쓴 말, '…에서 유래한 것으로 보인다' 처럼 유래만 짐작한 말은 걸리지 않게 한다.
+_GUESSED = __import__("re").compile(
+    r"(?:것|말)으?로 보(?:인다|이며|이고|임)|(?:의미|뜻)[는은가이]? (?:명확하지|분명하지|불분명)|일반적(?:인)? (?:의미|뜻)(?:로|를|으로)"
+    r"|설명이 필요(?:함|하다)\.?\s*$")
+_ORIGIN_GUESS = __import__("re").compile(r"유래한|비롯된|영향을 받은|줄임말")
+
+
+def guessed_meaning(text: str) -> bool:
+    """뜻이 짐작이거나 낱말의 일반 뜻이라고 스스로 밝혔나(_GUESSED)."""
+    text = text or ""
+    return any(not _ORIGIN_GUESS.search(text[max(0, m.start() - 8):m.start()]) for m in _GUESSED.finditer(text))
+
+
 def evidence_note(text: str) -> bool:
     """뜻 칸에 뜻이 아니라 근거를 두고 한 메모가 들어 있나(_EVIDENCE_NOTE)."""
     return bool(_EVIDENCE_NOTE.search(text or ""))
@@ -158,6 +174,8 @@ def gate(
         reasons.append("뜻 칸에 근거에 대한 메모('근거에 쓰임 설명이 없음')가 들어 있다")
     elif vacuous_meaning(definition):
         reasons.append("뜻이 '인터넷 밈으로 사용됨' 말고는 내용이 없다")
+    elif guessed_meaning(definition):
+        reasons.append("뜻이 '…인 것으로 보인다' 같은 짐작이거나 낱말의 일반 뜻이다")
     if not draft.is_expression and not catalogued:
         reasons.append("표현이 아니라 상품·기관·인물·일반 단어로 판단됨 — 사전 대상 아님")
     from .collectors.community import is_community_post

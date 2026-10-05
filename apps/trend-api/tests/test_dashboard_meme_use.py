@@ -38,6 +38,8 @@ def test_unconfirmed_wiki_entries_leave_the_lists_but_stay_in_the_dictionary():
     term("found", "느좋", catalog=False, checked=False)                # 위키 분류가 아닌 길(쓰임에서 발굴)로 들어온 말
     term("note", "허니", catalog=False, checked=False, on=3,             # 뜻 칸이 모델의 메모 — 근거가 있어도 뺀다
          definition="근거에 밈으로 쓰이는 구체적인 쓰임새에 대한 설명은 없음.")
+    term("guess", "TOESA", on=3,                                       # 모델이 뜻을 짐작했다 — 근거가 있어도 '바로 써도 됨'에 두지 않는다
+         definition="퇴사(退社)를 의미하는 것으로 보이며, 노래 제목이나 관련 콘텐츠에서 사용됨.")
     con.commit()
     dashboard.run(con)
 
