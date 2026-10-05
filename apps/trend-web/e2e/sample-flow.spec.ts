@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("dashboard, world map and dictionary open without a model", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/Trend Interpreter/);
+  await expect(page).toHaveTitle(/(트렌드 대시보드|Trend dashboard) — (트렌드 통역|Trend Interpreter)/);   // 화면마다 제목이 다르다(10-04)
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/트렌드 대시보드|Trend dashboard/);   // 첫 화면은 대시보드(디자인 개편 09-29)
   await expect(page.getByRole("navigation", { name: /메뉴|Menu/ }).first()).toBeVisible();
 
