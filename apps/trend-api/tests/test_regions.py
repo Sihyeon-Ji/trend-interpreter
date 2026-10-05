@@ -433,3 +433,20 @@ def test_wiki_seeds_add_hong_kong_categories_and_target_country_english_memes(tm
                    "Obsession糖衣陷阱": "HK", "屈機": "HK", "港女": "HK", "師奶": "HK"}
     asked.clear()
     assert {r["term"] for r in wiki_memes.known_memes(("zh",))} >= {"屈機", "傻眼貓咪"} and asked == []   # 다음에는 캐시에서
+
+
+def test_a_country_the_model_only_guessed_needs_its_script_or_local_outlets():
+    """조사 모델이 한국·태국에서 쓴다고 짐작했어도 표제어에 그 글자가 없고 로마자 말도 아니며 그 나라 매체 근거도 없으면 그 나라에 두지 않는다
+    – '懶人包' 가 한국 목록 상위에 섰다(10-05). 그 나라 글자로 쓴 말, 로마자 말, 실측(datalab)·위키 분류가 정한 나라는 그대로."""
+    from trend_agents.pipeline import dashboard
+
+    con = db.connect(":memory:")
+    _verified(con, "lazy", "懶人包", "zh", ["TW", "HK", "KR"])
+    _verified(con, "tea", "버블티", "ko", ["KR", "TH"])
+    _verified(con, "rizz", "rizz", "en", ["US", "KR"])
+    _verified(con, "kr", "갓생", "ko", ["KR"])
+    _verified(con, "cat", "科目三", "zh", ["TW"])
+    ds.set_usage(con, "cat", [("all", "KR", NOW.isoformat(), 1.0)], source="catalog")
+    con.commit()
+    regions = {tid: dashboard.regions_for(con, ds.get_term(con, tid)) for tid in ("lazy", "tea", "rizz", "kr", "cat")}
+    assert regions == {"lazy": ["TW", "HK"], "tea": ["KR"], "rizz": ["KR"], "kr": ["KR"], "cat": ["KR", "TW"]}

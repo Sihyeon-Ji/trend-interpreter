@@ -254,9 +254,28 @@ def local_outlets(con: Connection, term_id: str) -> dict[str, int]:
     return {r: len(s) for r, s in got.items() if r in REGIONS_FOCUS}
 
 
+# 글자가 따로 있는 나라. 조사 모델이 이 나라에서 쓴다고 짐작했어도 표제어·별칭에 그 글자가 없고 로마자 말도 아니며 그 나라 매체 근거도
+# 없으면 그 나라에 두지 않는다 — 중국어 '懶人包'·'鸡娃' 가 한국 목록 상위에, 한국어 '버블티' 가 태국에 섰다(10-05, 실데이터 7개)
+_OWN_SCRIPT = {"KR": r"[가-힣ㄱ-ㅎㅏ-ㅣ]", "TH": r"[฀-๿]"}
+
+
+def _guessed_region(t: Term, region: str, sources: set[str], outlets: dict[str, int]) -> bool:
+    script = _OWN_SCRIPT.get(region)
+    if not script or sources != {"model"} or outlets.get(region, 0) >= REGION_MIN_OUTLETS:
+        return False
+    names = [t.canonical, *t.aliases]
+    return not any(re.search(script, n) or _LATIN_ONLY.match(n) for n in names if n)
+
+
 def regions_for(con: Connection, t: Term) -> list[str]:
-    """용어의 지역(term_regions) — 조사가 정한 쓰는 나라와 그 나라 매체 수로. 대시보드 카드·사전 항목(API)·추천·만들기가 같이 쓴다."""
-    return term_regions(t, {u["region"] for u in ds.get_usage(con, t.term_id)}, local_outlets(con, t.term_id))
+    """용어의 지역(term_regions) — 조사가 정한 쓰는 나라와 그 나라 매체 수로. 대시보드 카드·사전 항목(API)·추천·만들기가 같이 쓴다.
+    조사 모델의 짐작뿐인 나라는 _guessed_region 이 거른다."""
+    outlets = local_outlets(con, t.term_id)
+    sources: dict[str, set[str]] = {}
+    for u in ds.get_usage(con, t.term_id):
+        sources.setdefault(u["region"], set()).add(u.get("source") or "")
+    usage = {r for r, src in sources.items() if not _guessed_region(t, r, src, outlets)}
+    return term_regions(t, usage, outlets)
 
 
 def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tuple[str, str]]) -> tuple[bool, bool, bool]:
