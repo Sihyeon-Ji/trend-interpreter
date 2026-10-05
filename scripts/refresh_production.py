@@ -87,7 +87,24 @@ def overlay(src: db.Connection, dst: db.Connection) -> dict:
         copied[table] = _copy(src, dst, table, "update")
     dst.commit()
     ds.rebuild_aliases(dst)
-    return {"human_terms": len(ids), "copied_rows": copied}
+    return {"human_terms": len(ids), "copied_rows": copied, "risk_rejudged": rejudge_risk(dst, ids)}
+
+
+def rejudge_risk(con: db.Connection, term_ids: list[str]) -> int:
+    """Rule risk for the terms whose rows the overlay just replaced. Replacing a whole `terms` row also brings back
+    production's old automatic risk fields: the overlay right before the 10-05 switch returned all 106 human-touched
+    terms to their 09-30 judgement after recompute had run. Rule-only and model-free; risk.apply keeps a stored human
+    decision (risk_human) as the actual level."""
+    from trend_agents.pipeline import risk
+
+    done = 0
+    for term_id in term_ids:
+        term = ds.get_term(con, term_id)
+        if term and term.status == "verified":
+            risk.apply(con, term)
+            done += 1
+    con.commit()
+    return done
 
 
 def _keys(con: db.Connection) -> dict[str, set[tuple]]:

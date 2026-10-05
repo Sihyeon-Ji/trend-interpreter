@@ -82,6 +82,20 @@ def test_overlay_keeps_human_decisions_and_new_automatic_data(dbs):
     assert target.execute("SELECT COUNT(*) FROM lookups").fetchone()[0] == 1
 
 
+def test_overlay_rejudges_the_risk_it_brings_back_from_production(dbs):
+    """행을 통째로 옮기면 운영의 옛 자동 리스크도 따라온다 – 10-05 전환 직전 덮어 얹기로 106개가 09-30 판정으로 돌아갔다."""
+    source, target = dbs
+    old = NOW - timedelta(days=5)
+    ds.set_risk(source, "approved", "avoid", ["옛 규칙"], old)          # 사람이 정하지 않은 자동 판정
+    source.commit()
+    report = refresh.overlay(source, target)
+
+    approved = ds.get_term(target, "approved")
+    assert approved.risk_checked_at > old and approved.risk_rule_level != "avoid"   # 근거 1·2건뿐 – 지금 규칙은 판단 보류
+    assert ds.get_term(target, "risky").risk_level == "avoid"         # 사람의 결정은 그대로
+    assert report["risk_rejudged"] == 3
+
+
 def test_overlay_is_idempotent_and_compare_passes(dbs):
     source, target = dbs
     refresh.overlay(source, target)

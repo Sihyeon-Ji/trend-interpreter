@@ -47,6 +47,7 @@
    - 대상 표제어 = `review_history`의 표제어 ∪ 현재 뜻이 `verified_human`·`rejected`인 표제어 ∪ `risk_decided_by`가 있는 표제어.
    - 대상 표제어의 `terms`·`meanings`(모든 판)·`review_queue`는 운영 값으로 **바꾼다.** 새 snapshot의 같은 표제어 자동 뜻은 버린다. 근거(`evidences`)는 합친다(운영에만 있는 행 추가).
    - `review_history`·`gemini_calls`·`reader_prefs`·`lookups`·`explain_cache`는 운영 행을 그대로 옮긴다. `gemini_calls`는 운영 값이 이긴다.
+   - `terms` 행을 통째로 바꾸면 그 행의 자동 리스크 판정도 운영의 옛 값이 된다. 그래서 덮어 얹기는 끝에서 대상 표제어의 리스크만 규칙으로 다시 판정한다(`rejudge_risk`, 모델 없음, 사람이 정한 `risk_human`은 그대로). 전환 직전 덮어 얹기에도 같이 적용된다.
    - 끝나면 `track`·`risk`·`board`·`dashboard` 단계를 새 DB에서 다시 계산한다. 수집 PC의 판정이 끝나지 않은 채 snapshot이 만들어지면 생애주기·리스크가 빠진 표제어가 생긴다(10-01 사본에서 746개, [Plan 02](02-lifecycle-stages.md) 10-05 진단).
 5. **검증.** 새 DB에서 사람 결정 건수(`review_history`, `verified_human` 뜻, 사람 리스크)가 운영과 같고, `gemini_calls`의 이번 달 `usd:` 값이 같은지 확인한다. 로컬 웹·API를 새 DB의 복원 사본에 붙여 사전·지도·검수 화면을 확인한다.
 6. **전환.** 검수자에게 알리고 검수 쓰기를 멈춘다(아래 결정 2). 4단계의 덮어 얹기를 한 번 더 실행해 그 사이 결정을 반영한다. 새 DB를 가리키는 secret version을 만들고 `production.tfvars.json`의 `database_secret_version`을 바꿔 API를 새 revision으로 배포한다. 백업 Job도 같은 secret을 쓰므로 함께 바뀐다.
@@ -95,3 +96,15 @@ snapshot `20261005T124512-e56b90d`(10-05 12:45 KST, 표제어 11,356개)로 전�
 - 새 snapshot이 반영된 뒤에도 운영의 `review_history`·`verified_human` 뜻·사람 리스크·`gemini_calls`가 전환 전과 같다.
 - 전환 전 백업과 그 복원 검증 보고서가 있고, 이전 DB로 되돌리는 명령을 한 번 실행해 본 기록이 있다.
 - 운영 웹의 사전·지도·해석이 새 snapshot 시각으로 열리고, 오류 경보가 없다.
+
+## 2026-10-05 전환 뒤 리스크 보정
+
+전환 직전 덮어 얹기가 재계산 뒤에 사람이 손댄 표제어 106개의 `terms` 행을 이전 DB 값으로 다시 바꿔, 이 106개의 리스크가 09-30 판정으로 남았다. 나머지 7,549개는 10-05 판정이었다. 그 결과 10-05 리스크 규칙(위험 근거가 쓰임의 절반 이하이면 주의)이 gaslighting·懶人包에 적용되지 않았다.
+
+| 순서 | 결과 |
+| --- | --- |
+| 보정 전 백업 | `trend-20261005T092309Z.dump` 61.8MB 성공 |
+| 다시 판정 | 배포 커밋 `56eb0d1`로 만든 이미지에서 106개에 `risk.apply`만 실행. 사람이 정한 리스크 0개. 사용 자제 → 주의 2개(gaslighting·懶人包), 나머지 104개는 같은 수준 |
+| 확인 | 사용 자제 53 → 51, 주의 821 → 823, 09-30 판정 0개. 대시보드는 요청마다 현재 리스크를 읽으므로 캐시는 다시 만들지 않았다 |
+
+다음 갱신부터는 덮어 얹기가 같은 판정을 스스로 한다(4단계).
