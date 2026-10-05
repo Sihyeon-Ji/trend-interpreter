@@ -125,6 +125,7 @@ export interface KeywordCard {
   gloss_ko: string;
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
+  ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
   regions: string[];              // 목표 지역 코드, 목표 지역 밖에서 널리 쓰이면 GLOBAL
   lifecycle: Lifecycle;
   diffusion?: Diffusion;
@@ -179,6 +180,7 @@ export interface RecommendItem {
   gloss_ko: string;
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
+  ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
   regions: string[];
   diffusion?: Diffusion;
   lifecycle: Lifecycle;
@@ -250,6 +252,7 @@ export interface CopyMeme {
   gloss_ko: string;
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
+  ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
   regions: string[];
   lifecycle: Lifecycle;
   diffusion?: Diffusion | null;

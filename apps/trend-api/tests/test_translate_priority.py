@@ -39,3 +39,22 @@ def test_translate_starts_with_english_for_memes_shown_first(monkeypatch):
     cards = {c.term_id: c for c in dashboard.cards(con, ["KR"])}
     assert not cards["z"].en_pending and cards["z"].gloss_en == "하하하 in en"
     assert cards["a"].en_pending is False                     # 이제 영어판이 있다
+
+
+def test_korean_screen_does_not_show_a_japanese_only_meaning():
+    """한국어판이 없고 원문 뜻에 한글이 없으면 ko_pending — 한국어 화면에 일본어 원문이 그대로 나가던 것(10-05, 대시보드 25개)."""
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    for tid, name, lang, definition in (("ja", "科目三", "ja", "中国発祥のインターネット現象。膝を左右に揺らすダンス。"),
+                                        ("jk", "推し活", "ja", "좋아하는 아이돌·캐릭터를 응원하는 활동 전반.")):
+        ds.upsert_term(con, Term(term_id=tid, canonical=name, lang=lang, status="verified", lifecycle="steady", first_seen=now, last_seen=now))
+        ds.add_meaning(con, tid, MeaningDraft(definition=definition, origin="x", nuance="y", generations=["20s"], regions=["JP"],
+                                              self_confidence=0.9), "verified_auto", [])
+        ds.set_usage(con, tid, [("20s", "JP", now.isoformat(), 1.0)])
+    dashboard.run(con)
+    cards = {c.term_id: c for c in dashboard.cards(con, ["JP"])}
+    assert cards["ja"].ko_pending and not cards["jk"].ko_pending    # 원문 뜻이 이미 한국어면 그대로 보인다
+
+    ds.set_translation(con, "ja", "ko", MeaningText(definition="중국에서 시작된 인터넷 춤 유행.", origin="o", nuance="n"), "test")
+    dashboard.run(con)
+    assert not {c.term_id: c for c in dashboard.cards(con, ["JP"])}["ja"].ko_pending

@@ -101,6 +101,8 @@ def _stale(c: KeywordCard, now: datetime) -> bool:
 # 뜻풀이의 '쓰임과 주의'(뉘앙스)가 유행이 지났다고 적은 말 — 언급 수로는 아직 '꾸준히 쓰임' 이라도 브랜드가 쓰면 촌스럽게 읽힌다.
 # 럭키비키('2026년 현재 유행은 지났고 … 브랜드가 진지하게 쓰면 촌스럽게 읽힌다')가 '바로 써도 됨' 맨 위에 섰다(실데이터 10-04, 확인된 뜻 10개).
 # 뜻 자체가 '촌스럽다' 인 말(밤티)은 뉘앙스가 아니라 뜻에 있으므로 걸리지 않는다. '유사어'·'옛말에' 같은 유래 설명도 걸리지 않게 좁혔다.
+# 한국어판이 없고 원문 뜻에 한글이 한 자도 없으면 한국어 화면에 일본어·영어 원문이 그대로 나갔다(대시보드 25개, 10-05)
+HANGUL = re.compile(r"[가-힣]")
 DATED = re.compile(r"유행(?:은|이)? ?(?:한참 |이미 |다 )?지[났나]|철 ?지[난나]|한물|식상|사장[된되]|더 이상 (?:잘 )?(?:쓰|사용)"
                    r"|요즘(?:은|에는)? (?:거의 |잘 )?(?:안 |쓰지 않|사용하지 않)|촌스럽게 (?:읽|보|느껴)|올드하|옛 짤|옛날 (?:밈|유행어|짤)"
                    r"|(?:빨리|이미|금방) 식었")
@@ -332,7 +334,8 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         lifecycle=t.lifecycle, diffusion=t.diffusion, risk_level=t.risk_level, risk_reasons=t.risk_reasons, risk_checked_at=t.risk_checked_at,
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
         tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed,
-        dated=bool(m and DATED.search(m.nuance or "")), en_pending=en is None)
+        dated=bool(m and DATED.search(m.nuance or "")), en_pending=en is None,
+        ko_pending=ko is None and bool(base) and not HANGUL.search(base))
     return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
                   held=held)
 
