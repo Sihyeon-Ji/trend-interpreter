@@ -30,7 +30,46 @@ def text_pattern(candidate: str) -> re.Pattern:
     core = "".join(candidate.split())
     if len(core) == 1 and HANGUL.search(core):
         return re.compile(rf"(?<![가-힣]){re.escape(core)}(?![가-힣])")
+    forms = predicate_forms(candidate.strip())
+    if forms:
+        return re.compile(forms)
     return term_pattern(candidate)
+
+
+# 받침 없는 끝 음절이 어미와 합쳐지는 꼴(찰지다 → 찰진·찰질, 짜치다 → 짜쳐·짜쳤): 같은 초·중성에 ㄴ·ㄹ·ㅁ·ㅂ 받침,
+# ㅏ·ㅐ·ㅓ·ㅔ 는 ㅆ 받침도. ㅣ·ㅡ·ㅜ·ㅗ 는 줄어든 모음(ㅕ·ㅓ·ㅝ·ㅘ)과 그 ㅆ 꼴, '하' 는 해·했
+_JONG = (0, 4, 8, 16, 17)
+_PAST_OK = (0, 1, 4, 5)
+_CONTRACT = {20: 6, 18: 4, 13: 14, 8: 9}
+
+
+def predicate_forms(word: str) -> str | None:
+    """'-다' 로 실린 한 낱말 서술어 표제어(열받다·짜치다·찰지다·고급지다·말아주다·마렵다·폭룡적이다)를 이용자 문장의
+    활용형(열받네·짜치는·찰진·고급진·말아줬다·마려운·폭룡적인)까지 어미째 찾는 정규식 본문. 카피 검사가 '찰진 맛' 의 찰지다를 못 찾았다(10-05).
+    '-니다' 꼴, 명사 + '이다'(사건이다 – '사건인데' 에 걸린다)는 그대로 둔다. 해당하지 않으면 None."""
+    if not re.fullmatch(r"[가-힣]{2,}다", word) or word.endswith("니다"):
+        return None
+    stem = word[:-1]
+    prefix, last = stem[:-1], stem[-1]
+    if last == "이" and not prefix.endswith("적"):
+        return None
+    code = ord(last) - 0xAC00
+    cho, jung, jong = code // 588, code % 588 // 28, code % 28
+
+    def syl(j: int, t: int) -> str:
+        return chr(0xAC00 + cho * 588 + j * 28 + t)
+
+    if jong == 0:
+        forms = {syl(jung, t) for t in _JONG} | ({syl(jung, 20)} if jung in _PAST_OK and last != "하" else set())
+        short = 1 if last == "하" else _CONTRACT.get(jung)
+        if short is not None:
+            forms |= {syl(short, 0), syl(short, 20)}
+        body = re.escape(prefix) + "(?:" + "|".join(sorted(forms)) + ")"
+    elif jong == 17:                                     # ㅂ 불규칙: 마렵다 → 마려운·마려워
+        body = re.escape(prefix) + f"(?:{last}|{syl(jung, 0)}(?=[우워운울]))"
+    else:                                                # 받침이 그대로인 줄기: 열받다 → 열받네·열받는
+        body = re.escape(stem)
+    return body + "[가-힣]*"                             # 찾은 말은 어미까지 – 화면 인용이 '열받' 에서 끊기지 않게
 
 
 def numeric_like(term: str) -> bool:

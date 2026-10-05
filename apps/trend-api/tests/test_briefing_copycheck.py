@@ -163,6 +163,25 @@ def test_single_hangul_terms_match_only_as_a_word():
     assert [t.term_id for t in match_terms("오늘 님 최고", terms)] == ["nim"]
 
 
+def test_predicate_headwords_match_their_inflected_forms():
+    """'-다' 로 실린 서술어는 카피의 활용형으로도 찾는다 — '찰진 맛' 의 찰지다를 못 찾았다(10-05). 비슷한 다른 말은 걸지 않는다."""
+    from trend_agents.pipeline.explain import match_terms
+    from trend_agents.pipeline.match import predicate_forms
+
+    def term(tid, name):
+        return Term(term_id=tid, canonical=name, lang="ko", status="verified")
+
+    terms = [term("chal", "찰지다"), term("jja", "짜치다"), term("yeol", "열받다"), term("ma", "마렵다"), term("pok", "폭룡적이다"),
+             term("go", "고능하다"), term("case", "사건이다")]
+    found = lambda text: [t.term_id for t in match_terms(text, terms)]   # noqa: E731
+    assert found("찰진 맛에 열받네, 여행 마려운 폭룡적인 굿즈") == ["chal", "yeol", "ma", "pok"]
+    assert found("짜쳤다 고능해") == ["jja", "go"]
+    assert found("찰흙 놀이 짜증 나는 사건인데") == []                   # 다른 말·명사 + '이다' 는 그대로
+    assert predicate_forms("디토합니다") is None and predicate_forms("가이다") is None
+    from trend_agents.pipeline.match import text_pattern
+    assert text_pattern("마렵다").search("여행 마려운 날").group(0) == "마려운"   # 화면 인용은 어미까지
+
+
 def test_slim_dictionary_index_is_reused_until_the_data_changes(con):
     """사전 색인(slim)은 만들어 둔 JSON 을 다시 쓰고, 번역이 늘면(자료가 바뀌면) 다시 만든다."""
     from trend_agents.schemas import MeaningText

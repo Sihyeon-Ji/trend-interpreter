@@ -33,9 +33,32 @@ export function termPattern(candidate: string): RegExp {
   // 한 글자 한글 표제어는 앞뒤에 다른 한글이 없을 때만 — '팀장님' 의 '님' 이 잡혔다(10-04, 백엔드 match.text_pattern 과 같다)
   const core = candidate.replace(/\s+/g, "");
   if (core.length === 1 && hasHangul(core)) return new RegExp(`(?<![가-힣])${escapeRe(core)}(?![가-힣])`, "u");
+  const forms = predicateForms(candidate.trim());
+  if (forms) return new RegExp(forms, "u");
   const body = candidate.trim().split(/\s+/).map(escapeRe).join(hasHangul(candidate) ? "\\s*" : "\\s+");
   if (hasHangul(candidate)) return new RegExp(body, "iu");
   return new RegExp(`(?<![\\p{L}\\p{N}-])${body}(?![\\p{L}\\p{N}-])`, "iu");
+}
+
+/** '-다' 로 실린 한 낱말 서술어 표제어의 활용형(찰지다 → 찰진·찰져, 마렵다 → 마려운, 폭룡적이다 → 폭룡적인)까지 찾는 정규식 본문.
+ *  백엔드 match.predicate_forms 와 같다(10-05). '-니다' 꼴과 명사 + '이다' 는 그대로 둔다. 해당하지 않으면 null. */
+export function predicateForms(word: string): string | null {
+  if (!/^[가-힣]{2,}다$/u.test(word) || word.endsWith("니다")) return null;
+  const stem = word.slice(0, -1);
+  const prefix = stem.slice(0, -1), last = stem.slice(-1);
+  if (last === "이" && !prefix.endsWith("적")) return null;
+  const code = last.charCodeAt(0) - 0xac00;
+  const cho = Math.floor(code / 588), jung = Math.floor((code % 588) / 28), jong = code % 28;
+  const syl = (j: number, t: number) => String.fromCharCode(0xac00 + cho * 588 + j * 28 + t);
+  if (jong === 0) {
+    const forms = new Set([0, 4, 8, 16, 17].map((t) => syl(jung, t)));
+    if ([0, 1, 4, 5].includes(jung) && last !== "하") forms.add(syl(jung, 20));
+    const short = last === "하" ? 1 : ({ 20: 6, 18: 4, 13: 14, 8: 9 } as Record<number, number>)[jung];
+    if (short !== undefined) { forms.add(syl(short, 0)); forms.add(syl(short, 20)); }
+    return `${escapeRe(prefix)}(?:${[...forms].sort().join("|")})[가-힣]*`;
+  }
+  if (jong === 17) return `${escapeRe(prefix)}(?:${last}|${syl(jung, 0)}(?=[우워운울]))[가-힣]*`;   // ㅂ 불규칙
+  return `${escapeRe(stem)}[가-힣]*`;   // 찾은 말은 어미까지 – 화면 인용이 '열받' 에서 끊기지 않게
 }
 
 export function currentMeaning(record: TermRecord): Meaning | null {
