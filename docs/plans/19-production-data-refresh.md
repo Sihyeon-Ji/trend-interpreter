@@ -1,0 +1,66 @@
+# Plan 19. 운영 DB 데이터 갱신 경로
+
+작성일 **2026-10-04** · 상태 **설계 – 사용자 결정 대기** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
+
+[계획 목록](README.md) · [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)
+
+## 1. 문제
+
+운영 `trend` DB는 10-01 22:45 KST snapshot `20261001T224511-e56b90d`를 빈 DB에 적재한 뒤 그대로다. 수집 서버는 계속 돌고 GCS `db/latest/`는 하루 두 번(12:45·22:45 KST) 갱신되지만, 운영으로 가져오는 경로가 없다.
+
+지금 있는 도구는 **빈 DB에만** 적재한다(`scripts/load-cloud-sql.sh`, `migrate_sqlite_to_postgres.py --fresh`). 운영 DB에 다시 적재하면 운영에서만 생긴 아래 자료가 사라진다.
+
+| 운영에서만 생기는 자료 | 표 | 10-04 백업 기준 |
+| --- | --- | --- |
+| 검수 결정과 그 기록 | `review_history`, `review_queue`의 결정 열 | `review_history` 107행 |
+| 사람이 승인·수정한 뜻 | `meanings`(`verified_human`·`rejected`, 수정안 새 판과 닫힌 이전 판) | `verified_human` 121개 |
+| 사람이 정한 표제어 상태·리스크 | `terms`(`retired`, `json`의 `risk_human`·`risk_decided_by`) | – |
+| Gemini 월 사용액 장부 | `gemini_calls`(`usd:YYYY-MM` 등) | 37행 |
+| 계정 설정·못 답한 질문·해석 캐시 | `reader_prefs`, `lookups`, `explain_cache` | 0행 / 보존 기간 적용 |
+
+`gemini_calls`를 잃으면 월 $15 상한이 그달 처음부터 다시 세어져 **비용 상한이 사실상 풀린다.** 검수 기록을 잃으면 감사·검수 흐름(심사 기준의 사람 승인 지점)이 비게 된다.
+
+## 2. 원칙
+
+- **사람의 결정은 운영 DB가 원본이다.** 수집 서버는 자동 자료(후보·근거·언급·생애주기·자동 뜻)의 원본이다. 겹치면 사람의 결정이 이긴다. 이는 앱의 기존 규칙(`verified_human`은 자동 조사가 덮지 않는다, 자동 저장은 리스크·제외 결정을 저장된 쪽에서 가져온다)과 같다.
+- **운영 DB에 직접 덮어쓰지 않는다.** 새 DB를 옆에 만들고 검증한 뒤 연결을 바꾼다. 실패하면 연결만 되돌린다.
+- 갱신 전에는 반드시 [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)을 수동으로 한 번 실행하고 성공을 확인한다.
+
+## 3. 선택지
+
+| 경로 | 방법 | 장점 | 단점 |
+| --- | --- | --- | --- |
+| **A. 새 DB 구성 후 전환 (권장)** | 같은 인스턴스에 `trend_<snapshot>` DB를 만들어 새 snapshot을 적재하고, 운영 DB의 사람 결정을 **표제어 단위로 덮어 얹은(overlay)** 뒤 `DATABASE_URL` secret 새 version으로 API를 재배포한다 | 기존 적재·검증 도구를 그대로 쓴다. 되돌리기는 이전 secret version으로 재배포하면 끝난다. Plan 13 B 경로(10-26 새 인스턴스 이전)에 같은 도구를 대상만 바꿔 쓴다 | 전환 직전 몇 분 동안 검수 쓰기를 멈춰야 한다. 인스턴스에 DB가 잠시 두 벌 있다(100GB 디스크 중 일부) |
+| B. 운영 DB에 증분 반영 | snapshot과 운영의 차이를 앱 저장 함수(`human=False`)로 운영 DB에 직접 반영한다 | 전환이 필요 없다 | 실패하면 중간 상태가 공개된다. 되돌리려면 백업 복원뿐이고 그 사이 검수가 사라진다. 이관 도구와 다른 두 번째 적재 경로가 생긴다 |
+| C. Plan 17 승인 변경 배치 게시 | `batch_id`·`publication_id` 단위로 검수된 변경만 게시하고 활성 게시본을 마지막에 바꾼다 | 장기적으로 가장 정확하다 | migration·게시 Job·화면이 모두 새로 필요해 10-18 제출 전에 끝내기 어렵다. 제출 뒤 과제로 둔다 |
+
+## 4. 권장안 A의 절차
+
+도구는 `scripts/refresh-production-db.sh <snapshot-id>` 하나로 만들고, 단계마다 건수만 담은 보고서를 남긴다. 행 내용·접속 정보는 남기지 않는다.
+
+1. **입력 고정.** Plan 17 도구로 GCS `db/latest/`의 새 snapshot을 manifest와 함께 고정하고 해시를 확인한다.
+2. **백업.** Scheduler로 백업을 한 번 실행하고 `scripts/verify-production-backup.sh`로 복원을 확인한다.
+3. **새 DB 적재.** `trend_<snapshot 날짜>` DB를 만들고 `trend_app`에 소유권을 준다. 기존 `restore_rehearsal.py load`로 사용자 표를 뺀 적재와 표별 건수 대조를 한다.
+4. **사람 결정 덮어 얹기.** 운영 DB에서 읽어 새 DB에 쓴다.
+   - 대상 표제어 = `review_history`의 표제어 ∪ 현재 뜻이 `verified_human`·`rejected`인 표제어 ∪ `risk_decided_by`가 있는 표제어.
+   - 대상 표제어의 `terms`·`meanings`(모든 판)·`review_queue`는 운영 값으로 **바꾼다.** 새 snapshot의 같은 표제어 자동 뜻은 버린다. 근거(`evidences`)는 합친다(운영에만 있는 행 추가).
+   - `review_history`·`gemini_calls`·`reader_prefs`·`lookups`·`explain_cache`는 운영 행을 그대로 옮긴다. `gemini_calls`는 운영 값이 이긴다.
+   - 끝나면 `board`·`dashboard` 단계를 새 DB에서 다시 계산해 캐시를 맞춘다.
+5. **검증.** 새 DB에서 사람 결정 건수(`review_history`, `verified_human` 뜻, 사람 리스크)가 운영과 같고, `gemini_calls`의 이번 달 `usd:` 값이 같은지 확인한다. 로컬 웹·API를 새 DB의 복원 사본에 붙여 사전·지도·검수 화면을 확인한다.
+6. **전환.** 검수자에게 알리고 검수 쓰기를 멈춘다(아래 결정 2). 4단계의 덮어 얹기를 한 번 더 실행해 그 사이 결정을 반영한다. 새 DB를 가리키는 secret version을 만들고 `production.tfvars.json`의 `database_secret_version`을 바꿔 API를 새 revision으로 배포한다. 백업 Job도 같은 secret을 쓰므로 함께 바뀐다.
+7. **확인과 정리.** 운영 URL의 사전·지도·해석, 검수 한 건, `/meta`의 갱신 시각을 확인한다. 이전 DB는 다음 갱신까지 남겨 두고(되돌리기 대상), 그다음 갱신 때 지운다.
+
+되돌리기는 이전 secret version으로 6단계를 반대로 실행한다. 전환 뒤 새 DB에서 생긴 검수가 있으면 같은 덮어 얹기로 이전 DB에 옮긴 뒤 되돌린다.
+
+## 5. 결정이 필요한 것
+
+1. **경로** – A(권장), B, C 중 무엇으로 할지.
+2. **전환 중 쓰기 중지 방법** – (a) 검수자에게 알리고 5분 동안 쓰지 않게 한다(권장, 검수자 수가 적다). (b) 검수 API에 읽기 전용 스위치를 추가한다(코드 변경과 배포가 필요하다).
+3. **갱신 주기** – 제출 전 두 번(10-10, 10-16)만 수동으로 할지(권장), 제출 뒤 정기 실행으로 바꿀지. 정기 실행은 C로 옮길 때 다시 정한다.
+4. **수집 서버로 사람 결정 돌려보내기** – 수집 서버는 운영의 검수 결과를 모르므로 이미 결정한 표제어에 같은 제안을 다시 올릴 수 있다. 운영 화면에는 4단계가 막아 주지만 수집 서버 DB는 갈라진다. 수집 서버 소유자와 `review_history` 내보내기 형식을 맞출지 정한다(제출 뒤 과제 후보).
+
+## 6. 완료 기준
+
+- 새 snapshot이 반영된 뒤에도 운영의 `review_history`·`verified_human` 뜻·사람 리스크·`gemini_calls`가 전환 전과 같다.
+- 전환 전 백업과 그 복원 검증 보고서가 있고, 이전 DB로 되돌리는 명령을 한 번 실행해 본 기록이 있다.
+- 운영 웹의 사전·지도·해석이 새 snapshot 시각으로 열리고, 오류 경보가 없다.

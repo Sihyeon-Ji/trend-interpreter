@@ -26,6 +26,7 @@ locals {
   secret_access = local.services_enabled ? merge(
     { for name, version in local.api_secret_versions : "api-${name}" => { account = "api", version = version } },
     { for name, version in local.web_secret_versions : "web-${name}" => { account = "web", version = version } },
+    { "backup-DATABASE_URL" = { account = "backup", version = var.services.database_secret_version } },
     local.gpu_service_enabled ? { "api-gpu-ca" = { account = "api", version = var.services.gpu.ca_secret_version } } : {}
   ) : {}
 }
@@ -108,6 +109,8 @@ resource "google_cloud_run_v2_service" "api" {
       }
       resources {
         limits = { cpu = "1", memory = "2Gi" }
+        # Bill CPU only while handling requests; the uptime check alone would otherwise keep instances billed all day.
+        cpu_idle = true
       }
       volume_mounts {
         name       = "cloudsql"
@@ -202,6 +205,8 @@ resource "google_cloud_run_v2_service" "web" {
       }
       resources {
         limits = { cpu = "1", memory = "1Gi" }
+        # Bill CPU only while handling requests; the uptime check alone would otherwise keep instances billed all day.
+        cpu_idle = true
       }
       env {
         name  = "DATA_MODE"

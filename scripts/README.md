@@ -16,6 +16,7 @@ Trend pipeline tools live in `apps/trend-api/scripts/` and are documented in
 | `rotate-gpu-tls.sh` | GPU release operator | Issue a new 90-day gateway server certificate from the environment's private CA, or create a new CA with `--new-ca`, storing keys only in Secret Manager |
 | `probe-gpu-from-cloud-run.sh` | GPU release operator | Run `probe_gpu_gateway.py` once as a temporary Cloud Run job with the API image, identity and VPC egress, then delete the job and its temporary grant |
 | `load-cloud-sql.sh` | Data intake operator | Load a verified snapshot into an empty Cloud SQL database through a pinned Cloud SQL Auth Proxy, reading the connection string from Secret Manager |
+| `verify-production-backup.sh` | Data intake operator | Download a production backup from its private bucket, restore it into a throwaway PostgreSQL and report per-table row counts |
 | `restore_rehearsal.py` | `restore-rehearsal.sh` | Snapshot hash check, user-data-free migration with per-table counts, and schema/content fingerprints of two databases |
 | `container-smoke.sh` | CI | Start a throwaway PostgreSQL, the production API and web images, verify API health and the web landing page |
 | `alert-relay-smoke.sh` | CI | Verify the production relay image starts and answers health checks |

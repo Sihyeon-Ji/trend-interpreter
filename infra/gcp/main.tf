@@ -374,6 +374,35 @@ resource "google_monitoring_alert_policy" "api_errors" {
   depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
 }
 
+resource "google_monitoring_alert_policy" "backup_failed" {
+  display_name          = "Trend database backup failed"
+  combiner              = "OR"
+  severity              = "ERROR"
+  notification_channels = local.alert_channels
+
+  conditions {
+    display_name = "The daily backup job execution failed"
+    condition_threshold {
+      filter          = "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=\"trend-production-backup\" AND metric.label.result=\"failed\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_SUM"
+        cross_series_reducer = "REDUCE_SUM"
+      }
+      trigger { count = 1 }
+    }
+  }
+
+  alert_strategy {
+    auto_close           = "86400s"
+    notification_prompts = ["OPENED", "CLOSED"]
+  }
+  depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
+}
+
 resource "google_monitoring_alert_policy" "relay_errors" {
   count                 = var.alert_email_address == "" ? 0 : 1
   display_name          = "Builder Cup Discord relay errors"

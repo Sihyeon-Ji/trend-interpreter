@@ -2,7 +2,7 @@
 
 > **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제. 승인 게시·예약 유지보수·운영 백업 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04). 승인 게시·예약 유지보수 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
@@ -14,7 +14,7 @@
 
 첫 실행에서 CI가 세 번 실패했다. 설치기 테스트가 runner 디스크 여유에 의존했고, E2E가 개발 서버의 첫 컴파일 시간 때문에 시간을 넘겼고, 웹 이미지가 추적 파일 없는 `public` 폴더를 요구했다. 각각 고친 뒤 `b0e1826`이 API `trend-production-api-00002-kob`, 웹 `trend-production-web-00002-miz`로 배포됐고 이미지 digest가 release 커밋 빌드와 일치했다.
 
-production DB는 체험 인스턴스의 분리된 `trend` DB(`trend_app` 소유, 다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 승인 배치 게시·예약 유지보수 Job·운영 백업(4·9)은 남았다.
+production DB는 체험 인스턴스의 분리된 `trend` DB(`trend_app` 소유, 다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 승인 배치 게시·예약 유지보수 Job(4)은 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
 
 ## 2026-10-03 점검
 
@@ -126,7 +126,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
 7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
 8. [AI 호출 제어](../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../운영/배포-복구.md)에 실제 명령을 채웁니다.
-9. 운영 전용 비공개 경로로 예약 `pg_dump` 백업을 남기고, 별도 PostgreSQL 복원·보존 기간 정리를 검증합니다. 연구용 사용자 제외 SQLite 백업과 구분합니다. 체험 종료 전 처리와 유료 전환/이전 뒤 관리형 백업·PITR 적용 여부는 Plan 13에 기록합니다.
+9. **예약 백업·복원 검증 완료(10-04), 복원 사본의 보존 기간 정리 검증은 남음.** 운영 전용 비공개 경로로 예약 `pg_dump` 백업을 남기고, 별도 PostgreSQL 복원·보존 기간 정리를 검증합니다. 연구용 사용자 제외 SQLite 백업과 구분합니다. 체험 종료 전 처리와 유료 전환/이전 뒤 관리형 백업·PITR 적용 여부는 Plan 13에 기록합니다.
 
 ## 완료 기준
 
