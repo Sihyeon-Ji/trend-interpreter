@@ -37,7 +37,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: docker compose run --build -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
+      # One build call builds the three images in parallel; `run --build` would build the browser image only after
+      # the API and web images were built and started.
+      - run: docker compose build e2e-api e2e-web e2e
+      - run: docker compose run -e PLAYWRIGHT_OUTPUT_DIR=/tmp/test-results --name builder-cup-e2e e2e
       - name: Collect browser failure artifacts
         if: failure()
         run: docker cp builder-cup-e2e:/tmp/test-results ./browser-test-results || true
