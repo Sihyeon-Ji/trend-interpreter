@@ -223,3 +223,33 @@ def test_hangul_fast_path_gives_the_same_answer_as_the_pattern():
     for text in texts:
         for cand in cands:
             assert _contains(text, cand) == bool(term_pattern(cand).search(text)), (text, cand)
+
+
+def test_entry_shows_how_its_meaning_was_made():
+    """사전 항목의 '이렇게 만들었어요'(views.provenance): 초안 모델·참고 문서·확인·감사·리스크 분류 수를 기록에서만 읽는다(10-05)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.schemas import Evidence, MeaningDraft
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="찰지다", lang="ko", status="verified", first_seen=now, last_seen=now))
+    m = ds.add_meaning(con, "t1", MeaningDraft(definition="맛깔나고 착 붙는다", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                                               self_confidence=0.9), "verified_auto", [])
+    ds.log_research(con, "t1", "offline:local", "", [], "verified_auto", [])
+    ds.add_evidences(con, "t1", [Evidence(evidence_id="w1", kind="wiki", url="https://namu.wiki/w/찰지다", title="찰지다 - 나무위키",
+                                          source_domain="namu.wiki", observed_at=now, excerpt="찰지다")])
+    ds.set_evidence_labels(con, "t1", [("w1", "positive", "none")], "local:gemma4:e4b")
+    con.execute("INSERT INTO audit_log VALUES (?,?,?,?,?,?,?)", ("t1", m.meaning_id, now.isoformat(), "ok", "[]", "local:gemma4:12b", "ok"))
+    con.commit()
+    t = ds.get_term(con, "t1")
+    r = views.term_record(con, t)
+    p = views.provenance(con, t, r.meanings, r.evidences)
+    assert (p.drafted_by, p.reference, p.checked, p.audit, p.audit_by, p.risk_sentences, p.risk_by) == \
+        ("gemma", "namu.wiki", "rules", "ok", "gemma", 1, "gemma")
+    ds.set_verification(con, m.meaning_id, "verified_human", "reviewer")
+    con.commit()
+    r = views.term_record(con, t)
+    assert views.provenance(con, t, r.meanings, r.evidences).checked == "person"
+    assert views.term_records(con, slim=True)[0].provenance is None        # 사전 색인에는 없다

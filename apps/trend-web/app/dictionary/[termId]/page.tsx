@@ -9,6 +9,7 @@ import { SourceTable } from "@/components/source-table";
 import { StatusBadge } from "@/components/status-badge";
 import { TermMediaBlock } from "@/components/term-media";
 import { StageCell } from "@/components/term-status";
+import { TermProvenance } from "@/components/term-provenance";
 import { TermSummary } from "@/components/term-summary";
 import { TrendChart, isPartialWeek } from "@/components/trend-chart";
 import { VariantTable } from "@/components/variant-table";
@@ -132,6 +133,7 @@ export default async function TermPage({ params, searchParams }: Props) {
     { id: "media", title: t(locale, "term_media"), show: !origin && media.length > 0 },
     { id: "variants", title: t(locale, "term_sec_variants"), show: !!topic && topic.variants.length > 1 },
     { id: "trend", title: t(locale, "term_sec_trend"), show: showTrend },
+    { id: "made", title: t(locale, "prov_title"), show: !!record.provenance },
     { id: "sources", title: t(locale, "term_sources_title").replace("{n}", fmtInt(sources.length)), show: sources.length > 0 },
     { id: "history", title: t(locale, "term_sec_history"), show: history.length > 0 },
     { id: "related", title: t(locale, "term_related"), show: related.length > 0 },
@@ -290,6 +292,13 @@ export default async function TermPage({ params, searchParams }: Props) {
                     </table>
                   </div>
                 )}
+              </section>
+            )}
+
+            {record.provenance && (
+              <section className="space-y-3">
+                <SectionHeading id="made">{title("made")}</SectionHeading>
+                <TermProvenance p={record.provenance} locale={locale} />
               </section>
             )}
 

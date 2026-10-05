@@ -55,6 +55,25 @@ export interface TermRecord {
   popular_year?: number | null;    // 위키 분류가 말하는 유행 연도. 생애주기와 따로 – 오래된 밈의 '언제 유행했나'
   popular_decade?: number | null;  // 연도가 없으면 연대만
   regions?: string[];      // 보여 줄 지역 — 백엔드가 대시보드와 같은 규칙(쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)으로 정한다. 예시 데이터에는 없다
+  provenance?: Provenance | null;   // 항목 하나를 볼 때만 — 이 뜻을 누가 쓰고 무엇으로 확인했나(views.Provenance)
+}
+
+export type Maker = "gemma" | "gemini" | "person" | "unknown";
+
+/** '이렇게 만들었어요' — 기록에 있는 것만. 백엔드 views.Provenance 와 1:1 */
+export interface Provenance {
+  evidences: number;
+  drafted_by?: Maker | null;
+  drafted_at?: string | null;
+  reference?: string | null;
+  checked: "person" | "rules" | "pending";
+  checked_at?: string | null;
+  audit?: "ok" | "fix" | null;
+  rewritten?: boolean;
+  audit_by?: Maker | null;
+  risk_sentences: number;
+  risk_by?: Maker | null;
+  translated_by?: Maker | null;
 }
 
 /** 대표 그림·영상. 그림은 위키미디어 공용의 자유 라이선스만, 영상은 유튜브 공식 플레이어로 끼운다. */

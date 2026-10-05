@@ -43,6 +43,26 @@ class TermMedia(BaseModel):
     attribution: str = ""
 
 
+Maker = Literal["gemma", "gemini", "person", "unknown"]
+
+
+class Provenance(BaseModel):
+    """사전 항목 화면의 '이렇게 만들었어요' — 이 뜻을 누가(어느 모델·사람이) 쓰고 무엇으로 확인했나. 기록에 있는 것만 보인다.
+    배포된 화면에서 수집 쪽 AI 가 하는 일이 보이지 않았다(공개 저장소 비교, 10-05). 검수자 이름은 넣지 않는다."""
+    evidences: int                         # 이 말의 근거 수(화면에 보이는 것)
+    drafted_by: Maker | None = None        # 현재 뜻의 초안
+    drafted_at: datetime | None = None
+    reference: str | None = None           # 참고 문서 도메인(verification.reference_doc) — 자동 확인의 근거
+    checked: Literal["person", "rules", "pending"] = "pending"
+    checked_at: datetime | None = None     # 사람이 확인한 때(검수 결정 시각)
+    audit: Literal["ok", "fix"] | None = None   # 감사관이 출처와 다시 대조한 결과
+    rewritten: bool = False                # 감사관이 출처에 맞게 고쳐 쓴 판(created_by 'audit')
+    audit_by: Maker | None = None
+    risk_sentences: int = 0                # 리스크를 정하려고 분류한 쓰인 문장 수
+    risk_by: Maker | None = None
+    translated_by: Maker | None = None     # 영어판
+
+
 class TermRecord(BaseModel):
     term: Term
     category: Literal["slang", "meme", "song", "other"]
@@ -59,6 +79,7 @@ class TermRecord(BaseModel):
     # 위키 분류가 말하는 유행 시기(연도·연대). 생애주기와 따로 둔다 – 생애주기는 최근 쓰임으로만 정하고, 오래된 밈은 이 값으로 '언제 유행했나' 를 보인다
     popular_year: int | None = None
     popular_decade: int | None = None
+    provenance: Provenance | None = None   # 항목 하나를 볼 때만(GET /terms/{id}) 채운다 — 사전 색인에는 없다
     regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
 
 
@@ -158,6 +179,68 @@ def term_record(con: Connection, t: Term) -> TermRecord:
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
                       gate_reasons=reasons or None, regions=regions_for(con, t),
                       popular_year=year, popular_decade=decade)
+
+
+def _maker(model: str | None) -> Maker | None:
+    """기록된 모델 ID → 화면 말. 'offline:local'·'local:gemma4:e4b' 는 로컬 Gemma, 'gemini-…' 는 Gemini, 사람 계정은 사람."""
+    m = (model or "").lower()
+    if not m:
+        return None
+    if "gemini" in m:
+        return "gemini"
+    if "gemma" in m or "local" in m:
+        return "gemma"
+    if m in ("team", "reviewer", "human") or not any(ch in m for ch in ":-_."):
+        return "person"
+    return "unknown"
+
+
+_AUTOMATIC = ("research_agent", "gate", "crosscheck_auto", "cleanup", "audit")
+
+
+def provenance(con: Connection, t: Term, meanings: list[Meaning], evidences: list[Evidence]) -> Provenance:
+    """현재 뜻이 어떻게 만들어졌나(기록만). 초안 모델은 그 판 직후 5분 안의 조사 기록에서, 확인은 판의 검증 상태와 검수 결정에서 읽는다."""
+    from datetime import timedelta
+
+    from ..verification import reference_doc
+
+    open_ = [m for m in meanings if not m.valid_to]
+    m = (open_ or meanings)[-1] if meanings else None
+    out = Provenance(evidences=len(evidences))
+    if not m:
+        return out
+    if m.created_by not in _AUTOMATIC:
+        out.drafted_by, out.drafted_at = "person", m.valid_from
+    elif m.created_by == "audit":
+        row = con.execute("SELECT model FROM audit_log WHERE term_id=? AND action='rewritten' ORDER BY checked_at DESC LIMIT 1",
+                          (t.term_id,)).fetchone()
+        out.drafted_by, out.drafted_at, out.rewritten = _maker(row[0] if row else None) or "unknown", m.valid_from, True
+    else:
+        start = m.valid_from
+        for at, model in con.execute("SELECT researched_at, model FROM research_log WHERE term_id=? ORDER BY researched_at", (t.term_id,)).fetchall():
+            when = datetime.fromisoformat(at) if isinstance(at, str) else at
+            if start <= when <= start + timedelta(minutes=5):
+                out.drafted_by, out.drafted_at = _maker(model) or "unknown", start
+                break
+    ref = next((e for e in evidences if reference_doc(e)), None)
+    out.reference = ref.source_domain if ref else None
+    if m.verification == "verified_human":
+        out.checked = "person"
+        decided = [r["decided_at"] for r in ds.review_history(con, t.term_id) if r.get("decision") == "approve"]
+        out.checked_at = datetime.fromisoformat(decided[-1]) if decided and isinstance(decided[-1], str) else (decided[-1] if decided else None)
+    elif m.verification == "verified_auto":
+        out.checked = "rules"
+    row = con.execute("SELECT verdict, model FROM audit_log WHERE term_id=? AND meaning_id=? ORDER BY checked_at DESC LIMIT 1",
+                      (t.term_id, m.meaning_id)).fetchone()
+    if row and row[0] in ("ok", "fix"):
+        out.audit, out.audit_by = row[0], _maker(row[1])
+    labels = con.execute("SELECT model, count(*) FROM evidence_labels WHERE term_id=? AND polarity <> 'offtopic' GROUP BY model ORDER BY 2 DESC",
+                         (t.term_id,)).fetchall()
+    out.risk_sentences = sum(n for _, n in labels)
+    out.risk_by = _maker(labels[0][0]) if labels else None
+    tr = con.execute("SELECT model FROM translations WHERE term_id=? AND lang='en'", (t.term_id,)).fetchone()
+    out.translated_by = _maker(tr[0]) if tr else None
+    return out
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:
