@@ -109,6 +109,8 @@ resource "google_cloud_run_v2_service" "api" {
       }
       resources {
         limits = { cpu = "1", memory = "2Gi" }
+        # Bill CPU only while handling requests; the uptime check alone would otherwise keep instances billed all day.
+        cpu_idle = true
       }
       volume_mounts {
         name       = "cloudsql"
@@ -203,6 +205,8 @@ resource "google_cloud_run_v2_service" "web" {
       }
       resources {
         limits = { cpu = "1", memory = "1Gi" }
+        # Bill CPU only while handling requests; the uptime check alone would otherwise keep instances billed all day.
+        cpu_idle = true
       }
       env {
         name  = "DATA_MODE"

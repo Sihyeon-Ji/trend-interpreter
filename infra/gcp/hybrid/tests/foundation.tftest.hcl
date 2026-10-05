@@ -108,6 +108,10 @@ run "private_api_and_public_web_are_separate" {
     error_message = "Web/API and the backup job need scoped secrets and must not start a GPU VM."
   }
   assert {
+    condition     = one(one(google_cloud_run_v2_service.api[0].template).containers).resources[0].cpu_idle && one(one(google_cloud_run_v2_service.web[0].template).containers).resources[0].cpu_idle
+    error_message = "Web and API use request-based CPU billing."
+  }
+  assert {
     condition     = google_storage_bucket.backups[0].public_access_prevention == "enforced" && google_storage_bucket.backups[0].uniform_bucket_level_access && one(one(google_storage_bucket.backups[0].lifecycle_rule).condition).age == 14
     error_message = "Backups stay in a private bucket and expire after 14 days."
   }
