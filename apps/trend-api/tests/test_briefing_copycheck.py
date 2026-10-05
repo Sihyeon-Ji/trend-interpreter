@@ -161,3 +161,17 @@ def test_single_hangul_terms_match_only_as_a_word():
              Term(term_id="gol", canonical="과몰입", lang="ko", status="verified")]
     assert [t.term_id for t in match_terms("팀장님 갑자기 과몰입함", terms)] == ["gol"]
     assert [t.term_id for t in match_terms("오늘 님 최고", terms)] == ["nim"]
+
+
+def test_slim_dictionary_index_is_reused_until_the_data_changes(con):
+    """사전 색인(slim)은 만들어 둔 JSON 을 다시 쓰고, 번역이 늘면(자료가 바뀌면) 다시 만든다."""
+    from trend_agents.schemas import MeaningText
+
+    c = TestClient(api.app)
+    first = c.get("/terms", params={"slim": "true"}).json()
+    row = next(r for r in first if r["term"]["term_id"] == "fresh")
+    assert row["en"] is None and len(row["meanings"]) == 1 and row["weekly"] == [] and row["usage"] == []
+    assert c.get("/terms", params={"slim": "true"}).content == c.get("/terms", params={"slim": "true"}).content
+    ds.set_translation(con, "fresh", "en", MeaningText(definition="lucky vicky", origin="o", nuance="n"), "test")
+    again = next(r for r in c.get("/terms", params={"slim": "true"}).json() if r["term"]["term_id"] == "fresh")
+    assert again["en"]["definition"] == "lucky vicky"

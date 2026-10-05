@@ -151,6 +151,24 @@ def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, 
 
 _USED_KINDS = ("community", "news", "short")
 
+# 사전 색인(slim)은 용어 7,600개를 조립하느라 한 번에 5~7초 걸렸다(10-05). 만든 JSON 을 두고, 용어·뜻·번역·근거 수가 바뀌거나
+# INDEX_TTL 이 지나면 다시 만든다. 검수자가 리스크만 바꾼 것은 색인에 INDEX_TTL 안에 반영된다(사전 항목·대시보드는 바로).
+INDEX_TTL = 600
+_INDEX: dict[str, tuple[tuple, float, bytes]] = {}
+
+
+def term_index_json(con: Connection) -> bytes:
+    import time
+
+    stamp = tuple(con.execute("SELECT (SELECT count(*) FROM terms WHERE status='verified'), (SELECT max(valid_from) FROM meanings), "
+                              "(SELECT count(*) FROM translations), (SELECT count(*) FROM evidences)").fetchone())
+    hit = _INDEX.get("slim")
+    if hit and hit[0] == stamp and time.monotonic() - hit[1] < INDEX_TTL:
+        return hit[2]
+    body = ("[" + ",".join(r.model_dump_json() for r in term_records(con, slim=True)) + "]").encode()
+    _INDEX["slim"] = (stamp, time.monotonic(), body)
+    return body
+
 
 def _slim(r: TermRecord) -> TermRecord:
     """사전 색인 한 줄에 필요한 것만 — 현재 뜻, 마지막 쓰임을 셀 근거 하나. 뜻 이력·근거 전부·주간 수·매체는 뺀다.

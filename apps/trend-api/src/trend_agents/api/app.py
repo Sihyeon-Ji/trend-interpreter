@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
+import logging
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from queue import Queue
 import threading
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.formparsers import MultiPartParser
 from pydantic import BaseModel, Field
 
@@ -28,9 +29,35 @@ from ..logging_setup import configure as configure_logging
 from ..storage import db
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
+from ..pipeline.match import term_pattern, text_pattern
 
 configure_logging()
-app = FastAPI(title="trend-agents api", version="0.1")
+
+
+def _warm() -> None:
+    """새로 뜬 인스턴스의 첫 요청이 떠안던 준비를 미리 한다 — 대시보드(8.9MB)·지도 보드 캐시 해석과 표기 1만여 개의 정규식 컴파일.
+    운영 첫 요청이 사전 10.7초·메시지 해석 13.7초였다(10-05 익명 점검). 실패해도 요청 때 하던 대로 하므로 기록만 남긴다(사용자 문장 없음)."""
+    try:
+        with db.session() as con:
+            dashboard._load(con)
+            board_stage.cached(con)
+            views.term_index_json(con)
+            for t in ds.list_terms(con, ("verified", "needs_review")):
+                for name in (t.canonical, *t.aliases):
+                    if name and name.strip():
+                        term_pattern(name)
+                        text_pattern(name)
+    except Exception as e:
+        logging.getLogger(__name__).warning("cache warm-up skipped: %s", type(e).__name__)
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    threading.Thread(target=_warm, name="warm-caches", daemon=True).start()   # 상태 점검을 막지 않게 뒤에서
+    yield
+
+
+app = FastAPI(title="trend-agents api", version="0.1", lifespan=_lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=WEB_ORIGINS or ["*"], allow_methods=["*"], allow_headers=["*"])
 # Cloud Run 은 스트리밍이 아닌 응답을 32MiB 까지만 보낸다. 실데이터의 사전 전체 /terms 가 29MB, status=all 은 그 이상이었다(staging 10-03).
 # gzip 으로 약 1/4 이 된다. text/event-stream(질문 스트리밍)은 Starlette 기본값으로 압축하지 않는다.
@@ -138,6 +165,8 @@ def health():
 def terms(status: str = "verified", slim: bool = False):
     """공개 사전은 확인된 것만. status=all 이면 확인 중인 것까지 (관리자·내보내기용). slim 이면 사전 색인 한 줄에 필요한 칸만(views._slim)."""
     statuses = ("verified", "needs_review") if status == "all" else ("verified",)
+    if slim and status != "all":                     # 만들어 둔 색인 JSON 을 그대로 — 모델 검증·직렬화를 다시 하지 않는다
+        return Response(content=views.term_index_json(_con), media_type="application/json")
     return views.term_records(_con, statuses, slim=slim)
 
 
