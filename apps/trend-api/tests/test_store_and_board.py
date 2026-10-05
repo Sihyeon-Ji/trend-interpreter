@@ -240,6 +240,13 @@ def test_risk_rules_quote_evidence_and_ignore_single_noise(monkeypatch):
                                           "커뮤니티 글에서 혐오·차별 맥락으로 쓰인 경우 3건"])
     assert not any("bsky" in r or "테스트밈 문장" in r for r in reasons)
 
+    # 위험 문장이 쓰임의 절반 이하 — 그 말이 위험한 기사 제목에 들어 있었을 뿐이다(懶人包, 10-05). 사용 자제가 아니라 주의
+    ds.add_evidences(con, "t1", [Evidence(evidence_id=f"m{i}", kind="news", url=f"m{i}", title="t", source_domain="news.example",
+                                          observed_at=now, excerpt=f"테스트밈 소식 {i}") for i in range(4)])
+    ds.set_evidence_labels(con, "t1", [(f"m{i}", "neutral", "none") for i in range(4)], "test")
+    level, reasons = risk.judge(con, t)                      # 11건 중 4건
+    assert level == "caution" and reasons[0] == "위험 유형이 붙은 근거 4건: “테스트밈 기사” (news.example)"
+
     # 부정 비율: 부정 문장이 커뮤니티 글뿐이면 그 몫만, 기사가 있으면 기사를 인용한다
     neg = Term(term_id="t3", canonical="부정밈", lang="ko", status="verified", first_seen=now, last_seen=now)
     ds.upsert_term(con, neg)

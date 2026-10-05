@@ -166,8 +166,10 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     origin = _bad_origin(con, term)
     if origin:
         return "avoid", [f"영상 해석이 지적한 기원: {origin[:120]}"]
-    # 한 곳(블루스카이 등)에 몰린 위험 문장은 그 커뮤니티의 말투일 수 있다 — 출처가 둘 이상일 때만 '피함'
-    if len(risky) >= AVOID_RISKY and len({e.source_domain for e, _ in risky}) >= 2:
+    # 한 곳(블루스카이 등)에 몰린 위험 문장은 그 커뮤니티의 말투일 수 있다 — 출처가 둘 이상일 때만 '피함'.
+    # 위험 문장이 쓰임의 절반을 넘을 때만 — 懶人包(요약 정리)·自嘲가 성폭행·정치 기사 제목에 들어 있다는 것만으로
+    # '쓰지 말 것'이 됐다(실데이터 10-05, 11건 중 3건·6건 중 3건). 그런 말은 아래에서 위험 근거를 인용한 '주의'가 된다.
+    if len(risky) >= AVOID_RISKY and len({e.source_domain for e, _ in risky}) >= 2 and len(risky) * 2 > len(labeled):
         return "avoid", [f"위험 유형이 붙은 근거 {len(risky)}건"] + risky_examples(2)
     m = ds.current_meaning(con, term.term_id)
     warned = nuance_warning(f"{m.nuance} {m.origin}" if m else "")
