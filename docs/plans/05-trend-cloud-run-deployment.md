@@ -14,7 +14,7 @@
 
 첫 실행에서 CI가 세 번 실패했다. 설치기 테스트가 runner 디스크 여유에 의존했고, E2E가 개발 서버의 첫 컴파일 시간 때문에 시간을 넘겼고, 웹 이미지가 추적 파일 없는 `public` 폴더를 요구했다. 각각 고친 뒤 `b0e1826`이 API `trend-production-api-00002-kob`, 웹 `trend-production-web-00002-miz`로 배포됐고 이미지 digest가 release 커밋 빌드와 일치했다.
 
-production DB는 체험 인스턴스의 분리된 `trend` DB(`trend_app` 소유, 다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 승인 배치 게시·예약 유지보수 Job(4)은 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
+production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 승인 배치 게시·예약 유지보수 Job(4)은 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
 
 ## 2026-10-03 점검
 

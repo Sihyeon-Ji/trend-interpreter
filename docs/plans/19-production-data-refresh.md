@@ -1,6 +1,6 @@
 # Plan 19. 운영 DB 데이터 갱신 경로
 
-작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **도구 구현·운영 리허설 진행(10-05) – 첫 전환 10-10** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
+작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **첫 전환 완료(10-05) – 다음 갱신 10-10·10-16** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
 
 [계획 목록](README.md) · [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)
 
@@ -67,6 +67,21 @@ snapshot `20261005T124512-e56b90d`(10-05 12:45 KST, 표제어 11,356개)로 전�
 | `overlay`(전환 직전) | 빠진 결정 0 – 검수 기록 107·사람 승인 뜻 121·제외 28·Gemini 장부 40행 모두 일치 | 25초 |
 
 생애주기 재계산 뒤 verified의 `unknown`은 7,020개에서 6,663개로 줄었다. 처음 build는 재계산에 73분이 걸렸고, 그 사이 proxy access token(1시간)이 만료돼 대조 단계가 실패했다. 뉴스를 표제어마다 다시 읽던 track을 한 번 읽어 재사용하도록 고친 뒤 결과 분포가 같고 build가 14분이 됐다. proxy는 운영 DB를 읽는 단계마다 새로 띄운다.
+
+## 2026-10-05 첫 전환
+
+사용자 결정으로 리허설 DB를 그대로 운영에 올렸다. 검수 작업이 없는 시간이라 중지 공지는 생략했다.
+
+| 순서 | 결과 |
+| --- | --- |
+| 전환 전 백업 | `trend-20261005T081948Z.dump` 성공 |
+| 직전 덮어 얹기 | 빠진 결정 0, 검수 기록 107·사람 승인 뜻 121 |
+| secret | `trend-production-database-url` version 2 → `trend_20261005`. `production.tfvars.json`(Git 제외)을 version 2로 바꿨다 |
+| API | 새 revision `trend-production-api-00010-t9s`(이미지·과금 설정은 이전과 같음)로 트래픽 100%. 이전 revision `trend-production-api-00016-bif`는 version 1(`trend` DB) |
+| 확인 | 웹 `/`·`/map`·`/dictionary`·`/explain`·`/briefing` 200, API 익명 403, 2017년 위키 밈 항목에 '유행 시기 2017년'과 '최근 쓰임 자료 없음' 표시, 오류 로그 0건 |
+| 전환 뒤 백업 | `trend-20261005T082334Z.dump` 61.8MB 성공 |
+
+되돌리기는 `gcloud run services update-traffic trend-production-api --region=asia-northeast1 --to-revisions=trend-production-api-00016-bif=100`이다. 이전 `trend` DB(283MB)는 다음 갱신까지 남긴다.
 
 ## 5. 결정 (2026-10-05 사용자)
 
