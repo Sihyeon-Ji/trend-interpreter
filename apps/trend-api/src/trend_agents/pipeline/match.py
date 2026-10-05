@@ -77,10 +77,19 @@ def numeric_like(term: str) -> bool:
     return bool(core) and core.isdigit()
 
 
+def _contains(text: str, candidate: str) -> bool:
+    """term_pattern(candidate).search(text) 와 같은 답. 띄어쓰기 없는 한글 표기는 정규식이 대소문자를 무시한 그 글자 그대로라
+    문자열 포함으로 본다 — 사전 색인을 만들 때 표제어마다 정규식을 처음 만드느라 12.2초 중 3초 넘게 들었다(10-05, 실데이터 3,699쌍 판정 같음)."""
+    core = candidate.strip()
+    if HANGUL.search(core) and not any(ch.isspace() for ch in core):
+        return core.lower() in text.lower()
+    return bool(term_pattern(candidate).search(text))
+
+
 def mentions(text: str, canonical: str, aliases: list[str] | tuple[str, ...] = ()) -> bool:
     """텍스트가 용어를 실제로 말하는가. 글자가 있는 표기가 맞으면 그대로 참, 숫자꼴 표기만 맞으면 밈 단서가 함께 있어야 한다."""
     cands = [c for c in (canonical, *aliases) if c and c.strip()]
-    hit = [c for c in cands if term_pattern(c).search(text)]
+    hit = [c for c in cands if _contains(text, c)]
     if not hit:
         return False
     if all(numeric_like(c) for c in hit):

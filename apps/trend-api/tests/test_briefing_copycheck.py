@@ -212,3 +212,14 @@ def test_slim_dictionary_index_is_kept_in_the_database_for_a_cold_api(con, monke
     ds.set_translation(con, "fresh", "en", MeaningText(definition="lucky vicky", origin="o", nuance="n"), "test")
     assert b"lucky vicky" in views.term_index_json(con)
     assert con.execute("SELECT count(*) FROM board_cache WHERE key LIKE 'term_index:%'").fetchone()[0] == 1   # 옛 색인은 지운다
+
+
+def test_hangul_fast_path_gives_the_same_answer_as_the_pattern():
+    """mentions() 의 한글 빠른 길(_contains)은 정규식과 같은 답을 낸다 — 띄어쓰기 없는 한글 표기만 문자열 포함으로 본다(10-05)."""
+    from trend_agents.pipeline.match import _contains, term_pattern
+
+    texts = ["오늘 점메추 해줘", "MZ세대 밈", "mz세대가 좋아함", "원영적 사고 그 자체", "원영적사고", "ㅋㅋ 웃기다", "럭키 비키", "lucky vicky!"]
+    cands = ["점메추", "MZ세대", "원영적 사고", "원영적사고", "ㅋㅋ", "럭키비키", "lucky vicky", "6-7"]
+    for text in texts:
+        for cand in cands:
+            assert _contains(text, cand) == bool(term_pattern(cand).search(text)), (text, cand)
