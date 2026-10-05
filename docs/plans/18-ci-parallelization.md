@@ -1,6 +1,6 @@
 # Plan 18. CI 병렬화와 배포 시간 단축
 
-작성일 **2026-10-04** · 상태 **진행 중 – 병렬 job·이미지 선빌드 적용, 배포 차단 확인, 8분 목표는 두 번째 측정에서 미달(10-05)** · staging은 두지 않음(10-04 결정) · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
+작성일 **2026-10-04** · 상태 **완료(10-05) – 16분에서 약 6분으로 단축, 완료 기준 세 가지 확인** · staging은 두지 않음(10-04 결정) · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
 
 [계획 목록](README.md) · [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md) · [GCP 운영](../운영/GCP-운영.md)
 
@@ -51,7 +51,7 @@
 
 ### 3.3 그 밖의 단축
 
-- E2E 예열(`e2e/global-setup.ts`)은 개발 서버 컴파일 때문에 필요하다. production 빌드(`next build` + `next start`)를 대상으로 E2E를 돌리면 예열이 필요 없고 실제 배포 형태와도 같아진다. 다만 Compose 구성이 바뀌므로 3.1·3.2의 효과를 본 뒤 결정한다.
+- **E2E는 production 이미지를 대상으로 돈다(10-05 적용).** `e2e`는 개발 서버(`api`·`web`) 대신 `apps/trend-api`·`apps/trend-web` Dockerfile로 만든 `e2e-api`·`e2e-web`을 연다. 개발 서버 첫 컴파일 때문에 필요했던 예열(`e2e/global-setup.ts`)은 지웠다. `browser-tests` 이미지는 개발 이미지 위가 아니라 `tooling` 위에 웹 패키지와 Chromium만 올린다. 그래서 `e2e` job은 큰 개발 이미지를 만들지 않고, api·web 이미지를 두 번 내보내지도 않는다. CI는 세 이미지를 `docker compose build` 한 번으로 병렬 빌드한 뒤 `run`한다. 로컬 명령 `docker compose run --rm --build e2e`는 그대로다.
 - 바뀐 경로에 따라 job을 건너뛰는 방식(예: 웹만 바뀌면 `models` 생략)은 검사 누락 위험이 있어 이번 범위에서 제외한다.
 
 ## 4. staging – 두지 않음 (10-04 결정)
@@ -110,6 +110,19 @@ run 37270366058(c125871): push부터 production 전환까지 **7분 5초**(이�
 2. **E2E를 2개 job으로 나누기**(Playwright `--shard`, 약 1.5~2분): job마다 이미지 빌드와 예열이 반복되므로 Actions 사용 시간은 한 번에 약 5분 늘어난다.
 3. **production 빌드 대상 E2E**(3.3, 약 1분): 예열이 필요 없고 개발 서버의 첫 컴파일도 사라지지만 Compose 구성이 바뀐다.
 4. **더 큰 runner**: 4코어 이상 runner는 유료 플랜이 필요하다.
+
+1·3을 합쳐 적용했다(3.3).
+
+### 5.3 production 이미지 E2E 적용 뒤 측정(10-05)
+
+| run | 커밋 | push → 전환 | `e2e` job | `app` job | `trend_app` |
+| --- | --- | --- | --- | --- | --- |
+| 37278062702 | 352a8a2 | **6분 5초** | 192초 | 246초 | 102초 |
+| 37278688570 | 56eb0d1 | **5분 48초** | 240초 | 213초 | 92초 |
+
+두 번 연속 8분 이내를 확인했다. 운영 web·API revision 00016이 트래픽 100%를 받고 `/`·`/map`·`/dictionary`·`/api/health`가 200으로 응답한다. E2E 테스트 43개는 로컬에서 예열 포함 약 80초 걸리던 것이 12초로 줄었다. CI에서는 약 1.5분으로, 그중 지구본을 그리는 지도 테스트 두 개가 약 46초다(2코어 runner, GPU 없음).
+
+이제 임계 경로는 `app` job(약 3.5~4분)과 `e2e` job이 번갈아 맡는다. 더 줄이려면 `app` job 안의 개발 이미지 빌드(약 95초)나 웹 build가 대상이다. 지금 목표에는 필요 없다.
 
 ## 6. 완료 기준
 
