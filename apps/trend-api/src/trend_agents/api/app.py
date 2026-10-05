@@ -176,7 +176,13 @@ def term(term_id: str):
     if not t or t.status == "retired":  # 사전에서 제외된 항목은 공개 화면에 없다
         raise HTTPException(404, "not found")
     r = views.term_record(_con, t)
-    return r.model_copy(update={"provenance": views.provenance(_con, t, r.meanings, r.evidences)})
+    return r.model_copy(update={"provenance": views.provenance(_con, t, r.meanings, r.evidences), "risk_labels": views.risk_breakdown(_con, t)})
+
+
+@app.get("/about/gemma", response_model=views.GemmaUsage)
+def about_gemma():
+    """배포본에서 Gemma 가 만든 결과의 수(Plan 14 0단계). 저장된 기록만 센다."""
+    return views.gemma_usage(_con)
 
 
 @app.get("/pipeline/stages", response_model=list[views.PipelineStage])

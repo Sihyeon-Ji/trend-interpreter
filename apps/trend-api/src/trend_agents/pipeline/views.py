@@ -63,6 +63,53 @@ class Provenance(BaseModel):
     translated_by: Maker | None = None     # 영어판
 
 
+class SentenceLabel(BaseModel):
+    """근거 문장 하나에 모델이 붙인 분류(Plan 14 0단계). 인용할 수 있는 근거(기사·쇼츠·문서)만 문장을 싣는다."""
+    evidence_id: str
+    text: str
+    url: str = ""
+    source_domain: str = ""
+    kind: str = ""
+    observed_at: datetime | None = None
+    on_topic: bool                         # False 면 글자만 같은 딴 이야기 — 판정에서 뺀다
+    polarity: Literal["positive", "neutral", "negative"] | None = None
+    risk: str = "none"                     # hate·mockery·gender·politics·sexual·none
+    by: Maker | None = None
+    labeled_at: datetime | None = None
+
+
+class RiskBreakdown(BaseModel):
+    """리스크 판정에 쓴 근거 문장 분류 — 문장별 결과와 규칙이 센 수. 커뮤니티·SNS 글은 문장 없이 건수만(ADR 0003)."""
+    sentences: list[SentenceLabel] = []
+    community: int = 0                     # 분류했지만 문장을 보이지 않는 커뮤니티·SNS 글 수
+    counted: int = 0                       # 그 뜻으로 쓰여 판정에 센 문장(커뮤니티 포함)
+    offtopic: int = 0
+    risky: int = 0
+    negative: int = 0
+    min_labeled: int = 5                   # 규칙의 문턱(pipeline/risk.py) — 화면이 '왜 이 수준인지' 를 설명할 때 쓴다
+    caution_risky: int = 2
+    caution_negative: float = 0.3
+    avoid_risky: int = 3
+
+
+class GemmaStage(BaseModel):
+    """'/about/gemma' 의 한 줄 — 파이프라인 단계 하나에서 모델이 남긴 결과 수."""
+    stage: Literal["risk", "translate", "fit", "audit", "crosscheck", "research"]
+    gemma: int = 0
+    gemini: int = 0
+    other: int = 0
+    terms: int = 0                         # Gemma 결과가 있는 용어 수
+    models: list[str] = []                 # Gemma 모델 이름(예: gemma4:12b)
+    last_at: datetime | None = None
+
+
+class GemmaUsage(BaseModel):
+    """배포본에서 Gemma 가 무엇을 만들었는지(Plan 14 0단계). 이미 저장된 기록만 센다 — 모델을 부르지 않는다."""
+    stages: list[GemmaStage]
+    samples: list[dict[str, str]] = []     # Gemma 가 문장을 분류한 대표 항목 {term_id, canonical, lang}
+    generated_at: datetime
+
+
 class TermRecord(BaseModel):
     term: Term
     category: Literal["slang", "meme", "song", "other"]
@@ -80,6 +127,7 @@ class TermRecord(BaseModel):
     popular_year: int | None = None
     popular_decade: int | None = None
     provenance: Provenance | None = None   # 항목 하나를 볼 때만(GET /terms/{id}) 채운다 — 사전 색인에는 없다
+    risk_labels: RiskBreakdown | None = None   # 항목 하나를 볼 때만 — 리스크 판정에 쓴 근거 문장별 분류
     regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
 
 
@@ -241,6 +289,96 @@ def provenance(con: Connection, t: Term, meanings: list[Meaning], evidences: lis
     tr = con.execute("SELECT model FROM translations WHERE term_id=? AND lang='en'", (t.term_id,)).fetchone()
     out.translated_by = _maker(tr[0]) if tr else None
     return out
+
+
+def _when(v) -> datetime | None:
+    if isinstance(v, datetime):
+        return v
+    try:
+        return datetime.fromisoformat(v) if v else None
+    except ValueError:
+        return None
+
+
+def risk_breakdown(con: Connection, t: Term) -> RiskBreakdown | None:
+    """리스크 판정이 본 쓰임 문장과 모델이 붙인 분류(pipeline/risk.judge 와 같은 문장·같은 규칙). 분류한 문장이 없으면 None."""
+    from . import risk
+
+    rows = ds.evidence_label_rows(con, t.term_id)
+    if not rows:
+        return None
+    out = RiskBreakdown(min_labeled=risk.MIN_LABELED, caution_risky=risk.CAUTION_RISKY, caution_negative=risk.CAUTION_NEGATIVE,
+                        avoid_risky=risk.AVOID_RISKY)
+    for e in risk._usage(con, t):
+        if e.evidence_id not in rows:
+            continue
+        polarity, kind, model, at = rows[e.evidence_id]
+        on_topic = polarity != "offtopic"
+        if on_topic:
+            out.counted += 1
+            out.risky += kind != "none"
+            out.negative += polarity == "negative"
+        else:
+            out.offtopic += 1
+        if not risk._quotable(e):
+            out.community += 1
+            continue
+        out.sentences.append(SentenceLabel(
+            evidence_id=e.evidence_id, text=(e.excerpt or e.title).strip()[:220], url=e.url, source_domain=e.source_domain, kind=e.kind,
+            observed_at=e.observed_at, on_topic=on_topic, polarity=polarity if on_topic and polarity in ("positive", "neutral", "negative") else None,
+            risk=kind if on_topic else "none", by=_maker(model), labeled_at=_when(at)))
+    return out if out.counted or out.offtopic else None
+
+
+# 단계 → (표, 모델 열, 시각 열). 표가 없거나 비면 0 으로 센다
+_GEMMA_TABLES = {"risk": ("evidence_labels", "model", "labeled_at"), "translate": ("translations", "model", "updated_at"),
+                 "fit": ("term_fit", "model", "labeled_at"), "audit": ("audit_log", "model", "checked_at"),
+                 "crosscheck": ("crosscheck_log", "model", "checked_at"), "research": ("research_log", "model", "researched_at")}
+
+
+def _model_name(model: str) -> str:
+    """'local:gemma4:12b'·'offline:local' → 화면에 보일 이름. 경로·호스트는 버린다."""
+    m = model.split("local:", 1)[-1] if "local:" in model else model
+    return m.rsplit("/", 1)[-1][:40]
+
+
+def gemma_usage(con: Connection) -> GemmaUsage:
+    """단계별로 Gemma·Gemini 가 남긴 결과 수(공개 사전의 확인된 항목만)와 대표 항목. 문장·출력 원문은 내지 않는다."""
+    verified = {tid for (tid,) in con.execute("SELECT term_id FROM terms WHERE status='verified'").fetchall()}
+    stages = []
+    for stage, (table, col, at_col) in _GEMMA_TABLES.items():
+        st = GemmaStage(stage=stage)
+        gemma_terms: set[str] = set()
+        models: set[str] = set()
+        last: datetime | None = None
+        for tid, model, n, at in con.execute(f"SELECT term_id, {col}, count(*), max({at_col}) FROM {table} GROUP BY term_id, {col}").fetchall():
+            if tid not in verified:
+                continue
+            who = _maker(model)
+            if who == "gemma":
+                st.gemma += n
+                gemma_terms.add(tid)
+                models.add(_model_name(model or ""))
+                w = _when(at)
+                last = max(last, w) if last and w else (w or last)
+            elif who == "gemini":
+                st.gemini += n
+            else:
+                st.other += n
+        st.terms, st.models, st.last_at = len(gemma_terms), sorted(m for m in models if m and m != "offline"), last
+        stages.append(st)
+    picks = con.execute("SELECT el.term_id, el.model, count(*) FROM evidence_labels el JOIN terms t ON t.term_id=el.term_id "
+                        "WHERE t.status='verified' AND el.polarity <> 'offtopic' GROUP BY el.term_id, el.model ORDER BY 3 DESC, 1 LIMIT 40").fetchall()
+    samples: list[dict[str, str]] = []
+    for tid, model, _ in picks:
+        if _maker(model) != "gemma" or any(x["term_id"] == tid for x in samples):
+            continue
+        t = ds.get_term(con, tid)
+        if t:
+            samples.append({"term_id": tid, "canonical": t.canonical, "lang": t.lang})
+        if len(samples) >= 4:
+            break
+    return GemmaUsage(stages=stages, samples=samples, generated_at=datetime.now().astimezone())
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:

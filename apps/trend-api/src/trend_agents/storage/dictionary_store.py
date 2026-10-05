@@ -1183,6 +1183,12 @@ def evidence_labels(con: Connection, term_id: str) -> dict[str, tuple[str, str]]
         "SELECT evidence_id, polarity, risk FROM evidence_labels WHERE term_id=?", (term_id,)).fetchall()}
 
 
+def evidence_label_rows(con: Connection, term_id: str) -> dict[str, tuple[str, str, str, str]]:
+    """근거 문장 분류를 화면에 보일 때 — (뉘앙스, 위험 유형, 붙인 모델, 붙인 때). 판정은 evidence_labels 를 쓴다."""
+    return {e: (p, r, m or "", at or "") for e, p, r, m, at in con.execute(
+        "SELECT evidence_id, polarity, risk, model, labeled_at FROM evidence_labels WHERE term_id=?", (term_id,)).fetchall()}
+
+
 # ---------- 광고 쓰임 낱말 (Plan 07) ----------
 
 def set_fit(con: Connection, term_id: str, meaning_id: str, fit: MemeFit, model: str) -> None:

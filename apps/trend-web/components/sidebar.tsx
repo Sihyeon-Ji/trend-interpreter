@@ -19,6 +19,7 @@ const MORE: Item[] = [
   { href: "/map", key: "nav_map" },
   { href: "/graph", key: "nav_graph" },
   { href: "/updates", key: "updates_title" },
+  { href: "/about/gemma", key: "nav_gemma" },
 ];
 
 // 나라 화면(/country/*)은 세계 지도의 아래 화면이다(그 화면의 경로 줄도 '세계 지도 › 나라')

@@ -2,9 +2,19 @@
 
 > **2026-10-01 인프라 결정:** Gemma 운영 서빙 위치는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU로 확정했다. 운영 기반은 아래 GCE runtime·내부 gateway·비동기 작업 설계를 따른다. 사용자 화면과 관리자 실행 UX는 계속 팀 검토 대상으로 두며 품질·로그·장애 시 조회 유지 조건은 적용한다.
 
-작성일 **2026-09-30** · 상태 **모델 기록·GPU gateway 기반 준비 – Gemma 표시 UI·live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
+작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 대부분 구현(10-06) – 사전 항목 '이렇게 만들었어요'·근거 문장 분류 보기, 공개 화면 `/about/gemma`. `/admin/status` 모델 표시·live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
 [계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](03-term-risk.md) · [Plan 12 문서 대조](12-dictionary-crosscheck.md)
+
+## 2026-10-06 0단계 구현
+
+| 화면 | 구현 | 비고 |
+| --- | --- | --- |
+| 사전 항목 '이렇게 만들었어요' | 초안 모델·참고 문서·감사·리스크 문장 수·영어판 엔진(10-05, `views.provenance`) | 이미 있던 것 |
+| 사전 항목 '근거 문장 분류 보기' | `GET /terms/{id}` 의 `risk_labels`(`views.risk_breakdown`): `risk.judge` 와 같은 쓰임 문장마다 뉘앙스·위험 유형·딴 이야기 여부·붙인 모델·시각, 규칙이 센 수와 문턱 | 기사·쇼츠·문서만 문장을 보이고 커뮤니티·SNS 글은 건수만(ADR 0003). 새로 저장하는 원문 없음 |
+| 공개 화면 `/about/gemma` | `GET /about/gemma`(`views.gemma_usage`): 단계(risk·translate·fit·audit·crosscheck·research)별 Gemma·Gemini 결과 수, Gemma 결과가 있는 항목 수, 모델 이름, 마지막 시각, 대표 항목 4개. 왼쪽 메뉴 '더 보기'에 'Gemma가 하는 일' | 확인된 항목만 센다. 모델을 부르지 않는다. 예시 모드는 건수를 지어내지 않고 설명·규칙만 |
+
+남은 것: `/admin/status` 의 단계별 호출 수·시간·모델 표시, `classify`·`spot` 의 모델 기록 확인. 검증은 `tests/test_gemma_visible.py`(3건)·`e2e/gemma-about.spec.ts`, check 통과. 배포본에서의 실제 수는 다음 배포 뒤 확인한다.
 
 ## 2026-10-03 점검
 

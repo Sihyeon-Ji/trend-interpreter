@@ -56,6 +56,7 @@ export interface TermRecord {
   popular_decade?: number | null;  // 연도가 없으면 연대만
   regions?: string[];      // 보여 줄 지역 — 백엔드가 대시보드와 같은 규칙(쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)으로 정한다. 예시 데이터에는 없다
   provenance?: Provenance | null;   // 항목 하나를 볼 때만 — 이 뜻을 누가 쓰고 무엇으로 확인했나(views.Provenance)
+  risk_labels?: RiskBreakdown | null;   // 항목 하나를 볼 때만 — 리스크 판정에 쓴 근거 문장별 분류(views.RiskBreakdown)
 }
 
 export type Maker = "gemma" | "gemini" | "person" | "unknown";
@@ -302,4 +303,52 @@ export interface GraphContent {
   content: { key: string; name: string; labels: Record<string, string> };
   regions: string[]; memes: GraphMeme[]; updated_at: string | null;
   preview?: boolean;   // 그래프 API 가 아직 없는 서버에서 시험판 예시를 보일 때
+}
+
+/** 근거 문장 하나에 모델이 붙인 분류 — 백엔드 views.SentenceLabel 과 1:1. 인용할 수 있는 근거(기사·쇼츠·문서)만 문장이 있다 */
+export interface SentenceLabel {
+  evidence_id: string;
+  text: string;
+  url: string;
+  source_domain: string;
+  kind: string;
+  observed_at?: string | null;
+  on_topic: boolean;
+  polarity?: "positive" | "neutral" | "negative" | null;
+  risk: string;
+  by?: Maker | null;
+  labeled_at?: string | null;
+}
+
+/** 리스크 판정에 쓴 문장 분류와 규칙이 센 수 — views.RiskBreakdown. 커뮤니티·SNS 글은 건수만 */
+export interface RiskBreakdown {
+  sentences: SentenceLabel[];
+  community: number;
+  counted: number;
+  offtopic: number;
+  risky: number;
+  negative: number;
+  min_labeled: number;
+  caution_risky: number;
+  caution_negative: number;
+  avoid_risky: number;
+}
+
+export type GemmaStageId = "risk" | "translate" | "fit" | "audit" | "crosscheck" | "research";
+
+/** '/about/gemma' — 단계별로 모델이 남긴 결과 수(views.GemmaUsage). 기록만 센다 */
+export interface GemmaStage {
+  stage: GemmaStageId;
+  gemma: number;
+  gemini: number;
+  other: number;
+  terms: number;
+  models: string[];
+  last_at?: string | null;
+}
+
+export interface GemmaUsage {
+  stages: GemmaStage[];
+  samples: { term_id: string; canonical: string; lang: string }[];
+  generated_at: string;
 }

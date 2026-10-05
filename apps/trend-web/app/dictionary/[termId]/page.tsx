@@ -9,6 +9,7 @@ import { SourceTable } from "@/components/source-table";
 import { StatusBadge } from "@/components/status-badge";
 import { TermMediaBlock } from "@/components/term-media";
 import { StageCell } from "@/components/term-status";
+import { RiskSentences } from "@/components/risk-sentences";
 import { TermProvenance } from "@/components/term-provenance";
 import { TermSummary } from "@/components/term-summary";
 import { TrendChart, isPartialWeek } from "@/components/trend-chart";
@@ -299,6 +300,8 @@ export default async function TermPage({ params, searchParams }: Props) {
               <section className="space-y-3">
                 <SectionHeading id="made">{title("made")}</SectionHeading>
                 <TermProvenance p={record.provenance} locale={locale} />
+                {record.risk_labels && <RiskSentences b={record.risk_labels} locale={locale} />}
+                <Link href="/about/gemma" className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "prov_more")} →</Link>
               </section>
             )}
 
