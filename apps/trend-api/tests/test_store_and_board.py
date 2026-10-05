@@ -1,5 +1,5 @@
 """저장소 버전 관리와 보드 생성 — 네트워크·모델 없이 인메모리 SQLite 로."""
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from trend_agents.pipeline import board, candidates, track
 from trend_agents.schemas import MeaningDraft, Term, TrendQuery
@@ -50,8 +50,8 @@ def test_candidates_and_board_from_trend_queries():
 def test_track_sets_weekly_and_lifecycle():
     con = db.connect(":memory:")
     ds.upsert_term(con, Term(term_id="t1", canonical="라부부", status="verified", first_seen=datetime(2026, 6, 1, tzinfo=timezone.utc)))
-    for d in ("2026-09-08", "2026-09-09", "2026-09-10", "2026-09-12"):
-        ds.upsert_trend_queries(con, [TrendQuery(term="라부부", region="KR", rank=1, source="bq_top", date=date.fromisoformat(d))])
+    for ago in (5, 4, 3, 1):                     # 오늘 기준 — 날짜를 박아 두면 몇 주 뒤 '잠든 말'이 되어 실패했다(10-05)
+        ds.upsert_trend_queries(con, [TrendQuery(term="라부부", region="KR", rank=1, source="bq_top", date=date.today() - timedelta(days=ago))])
     r = track.run(con)["track"]
     assert r.count == 1
     weekly = ds.get_weekly(con, "t1")
