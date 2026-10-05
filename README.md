@@ -12,6 +12,17 @@ Other candidate projects under `prototype/` are kept for reference only.
 Brand marketers and creators ask one question about a meme: can we use it now, here, without trouble?
 Trend Interpreter answers it per market (ten Asia-Pacific markets plus a global group) from collected public data.
 
+**Why it matters.** Brands already speak in memes: in a Morning Consult survey (September–October 2024, 1,002 Gen
+Z respondents) 71% of Gen Z social media users had seen brands use internet slang or trends in the past month,
+and their reaction was split, 42% liking it and 32% not
+([Morning Consult, 2024-12-09](https://intel.morningconsult.com/mc-content/analysis/brands-social-media-trends)).
+Getting the meaning or the origin wrong is public: in October 2023 the Korean e-commerce platform Wemakeprice sent a
+sale message in the speech style of a convicted fraudster that had become a meme, and was criticised for making
+light of the crime ([eToday, 2023-10-30](https://www.etoday.co.kr/news/view/2297322)). Across markets the same
+gesture or phrase can read differently; Swatch withdrew a campaign image in China in 2025 after a gesture in it was
+seen as derogatory ([PBS NewsHour](https://www.pbs.org/newshour/amp/world/swatch-apologizes-for-ad-showing-gesture-seen-as-derogatory-and-racist)).
+A marketer needs the meaning, where it lives, whether it is fading and where it came from, before posting.
+
 | Feature | What the user gets |
 | --- | --- |
 | Trend dashboard | Memes in use now, fading and needing care, with lifecycle stage, risk, 12-week mentions and an at-a-glance summary of what is safe to use |
@@ -37,6 +48,8 @@ recommendation ranking are deterministic code; a model never sets a status.
 - Every model output is checked by rules before it is shown: a meaning needs a matching reference document,
   generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
   held back.
+
+What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
 ## Google Cloud services
 
@@ -112,7 +125,7 @@ temporary schemas. E2E starts its dependent development services if necessary. I
 build also installs Chromium inside the test image.
 
 Passing checks confirm the code contract and the build, **not** AI quality. Real Gemini access,
-collector keys and GPU inference are never exercised by the default stack or by CI.
+collector keys and GPU inference are never exercised by the default stack or by CI. Measured AI quality is in [EVALUATION.md](EVALUATION.md).
 
 ## Dependency changes
 
