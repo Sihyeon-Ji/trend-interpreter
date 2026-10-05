@@ -6,6 +6,7 @@ import base64
 import gzip
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -176,6 +177,18 @@ def fetch(manifest: dict, directory: Path, client) -> None:
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
+def storage_client():
+    """Application Default Credentials, or a short-lived token from GOOGLE_OAUTH_ACCESS_TOKEN so no credential file is written."""
+    from google.cloud import storage
+
+    token = os.environ.get("GOOGLE_OAUTH_ACCESS_TOKEN")
+    if not token:
+        return storage.Client()
+    from google.oauth2.credentials import Credentials
+
+    return storage.Client(project=os.environ["GOOGLE_CLOUD_PROJECT"], credentials=Credentials(token))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -188,18 +201,16 @@ def main() -> None:
         command.add_argument("--directory", type=Path, required=True)
     args = parser.parse_args()
     try:
-        if args.command != "verify":
-            from google.cloud import storage
         if args.command == "capture":
-            manifest = capture(args.snapshot_id, args.directory, storage.Client())
+            manifest = capture(args.snapshot_id, args.directory, storage_client())
         else:
             manifest = json.loads(args.manifest.read_text())
             if args.command == "verify":
                 verify(manifest, args.directory)
             elif args.command == "publish":
-                manifest = publish(manifest, args.directory, storage.Client())
+                manifest = publish(manifest, args.directory, storage_client())
             else:
-                fetch(manifest, args.directory, storage.Client())
+                fetch(manifest, args.directory, storage_client())
         print(json.dumps({"snapshot_id": manifest["snapshot_id"], "operation": args.command,
                           "state": manifest["state"], "terms": manifest["table_counts"]["terms"]}))
     except Exception as error:
