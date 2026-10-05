@@ -57,8 +57,8 @@ resource "google_cloud_run_v2_service" "api" {
   custom_audiences = ["${local.prefix}-api"]
   lifecycle {
     prevent_destroy = true
-    # scripts/deploy-trend.sh rolls images and traffic after checking candidates; Terraform owns the rest.
-    ignore_changes = [template[0].containers[0].image, traffic, client, client_version]
+    # scripts/deploy-trend.sh rolls images, revision names and traffic after checking candidates; Terraform owns the rest.
+    ignore_changes = [template[0].containers[0].image, template[0].revision, traffic, client, client_version]
     precondition {
       condition = var.services.gpu == null ? true : (
         var.gpu == null ? false : var.services.gpu.release_sha256 == var.gpu.release_sha256
@@ -188,7 +188,7 @@ resource "google_cloud_run_v2_service" "web" {
   deletion_protection  = true
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [template[0].containers[0].image, traffic, client, client_version]
+    ignore_changes  = [template[0].containers[0].image, template[0].revision, traffic, client, client_version]
   }
   template {
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"

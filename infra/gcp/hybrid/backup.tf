@@ -66,17 +66,18 @@ resource "google_cloud_run_v2_job" "backup" {
       execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
       timeout               = "900s"
       max_retries           = 1
-      volumes {
-        name = "cloudsql"
-        cloud_sql_instance {
-          instances = [var.services.sql_connection_name]
-        }
-      }
+      # Cloud Run returns volumes in this order; keeping it avoids a perpetual plan diff.
       volumes {
         name = "backups"
         gcs {
           bucket    = google_storage_bucket.backups[0].name
           read_only = false
+        }
+      }
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [var.services.sql_connection_name]
         }
       }
       containers {
@@ -86,12 +87,12 @@ resource "google_cloud_run_v2_job" "backup" {
           limits = { cpu = "1", memory = "1Gi" }
         }
         volume_mounts {
-          name       = "cloudsql"
-          mount_path = "/cloudsql"
-        }
-        volume_mounts {
           name       = "backups"
           mount_path = "/backups"
+        }
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
         }
         env {
           name = "DATABASE_URL"

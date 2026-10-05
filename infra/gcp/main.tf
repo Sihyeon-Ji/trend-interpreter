@@ -403,6 +403,29 @@ resource "google_monitoring_alert_policy" "backup_failed" {
   depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
 }
 
+# The failed-execution alert above cannot see a schedule that never started the job, so the scheduler's own attempts are watched too.
+resource "google_monitoring_alert_policy" "backup_not_started" {
+  display_name          = "Trend database backup was not started"
+  combiner              = "OR"
+  severity              = "ERROR"
+  notification_channels = local.alert_channels
+
+  conditions {
+    display_name = "The daily schedule failed to start the backup job"
+    condition_matched_log {
+      filter = "logName=\"projects/${var.project_id}/logs/cloudscheduler.googleapis.com%2Fexecutions\" AND resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=\"trend-production-backup-daily\" AND jsonPayload.\"@type\"=\"type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished\" AND (severity>=ERROR OR jsonPayload.status:*)"
+    }
+  }
+
+  alert_strategy {
+    auto_close = "86400s"
+    notification_rate_limit {
+      period = "3600s"
+    }
+  }
+  depends_on = [google_pubsub_topic_iam_member.monitoring_publisher]
+}
+
 resource "google_monitoring_alert_policy" "relay_errors" {
   count                 = var.alert_email_address == "" ? 0 : 1
   display_name          = "Builder Cup Discord relay errors"

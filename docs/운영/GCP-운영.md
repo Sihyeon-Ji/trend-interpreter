@@ -505,7 +505,7 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 | 내용 | `pg_dump --format=custom --no-owner --no-privileges --schema=public`. 검수 기록·계정 설정·Gemini 장부 같은 사용자 표도 포함한다. Cloud SQL 전용 `google_vacuum_mgmt` 스키마는 일반 PostgreSQL에서 복원되지 않아 뺀다 |
 | 보관 | 비공개 버킷 `stunning-crane-508614-c1-trend-production-backups`. 14일 뒤 삭제, 지운 객체는 soft delete로 7일 더 남는다 |
 | 권한 | `trend-production-backup` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 버킷 객체 읽기·쓰기, 이 Job 실행만 가진다. DB 접속은 앱과 같은 `trend_app` 계정이다(10-04 결정) |
-| 경보 | Job 실행이 실패하면 "Trend database backup failed"가 Discord와 운영 이메일로 온다. Scheduler가 Job을 실행하지 못한 경우는 이 경보에 잡히지 않으므로 아래 확인 명령으로 본다 |
+| 경보 | Job 실행이 실패하면 "Trend database backup failed", Scheduler가 Job을 실행하지 못하면 "Trend database backup was not started"가 Discord와 운영 이메일로 온다 |
 
 수동 실행과 상태 확인은 다음과 같다.
 
@@ -524,6 +524,15 @@ scripts/verify-production-backup.sh "" manifests/production-backup-verify-<날�
 2026-10-04 첫 실행 결과([보고서](../../manifests/production-backup-verify-20261004.json)): 덤프 52.9MB, Job 8초, 로컬 복원 2초, 표 48개·659,712행, `schema_migrations` 15개가 저장소 migration 수와 같다.
 
 다른 DB에 복원할 때는 덤프에 `CREATE SCHEMA public`이 들어 있으므로 빈 DB의 기본 `public` 스키마를 먼저 지우고 `pg_restore --no-owner --no-privileges --exit-on-error`로 복원한다. 사용자 표가 포함된 사본을 복원한 뒤에는 보존 기간 정리(`prune_user_text`)를 실행한다. 운영 DB에 덮어쓰는 복원은 하지 않는다.
+
+## Terraform 변수 파일 사본
+
+`infra/gcp`와 `infra/gcp/hybrid`의 `*.tfvars.json` 5개(경보 이메일, GitHub ID, staging·production·GPU 검증 입력)는 Git에서 제외된다. 이 파일이 없으면 다른 checkout에서 운영 Terraform을 적용할 수 없으므로 Secret Manager `trend-terraform-vars`(도쿄 단일 지역)에 묶어 둔다. 자격증명은 들어 있지 않고 이미지 digest·숫자 secret version·이메일 주소만 있다.
+
+```bash
+scripts/terraform-vars.sh save      # 파일을 고친 뒤 새 version 저장
+scripts/terraform-vars.sh restore   # 없는 파일만 되살린다. 내용이 다른 로컬 파일은 덮지 않는다
+```
 
 ## 운영 DB 갱신
 
@@ -556,7 +565,7 @@ scripts/refresh-production-db.sh overlay trend_<날짜> artifacts/refresh/<snaps
 scripts/refresh-production-db.sh secret trend_<날짜>
 ```
 
-6. `infra/gcp/hybrid/production.tfvars.json`의 `services.database_secret_version`을 새 version으로 바꾸고, API와 백업 Job만 적용한다. API는 새 revision이 생기지만 트래픽은 지금 revision에 남는다.
+6. `infra/gcp/hybrid/production.tfvars.json`의 `services.database_secret_version`을 새 version으로 바꾸고 `scripts/terraform-vars.sh save`로 사본을 남긴 뒤, API와 백업 Job만 적용한다. API는 새 revision이 생기지만 트래픽은 지금 revision에 남는다.
 
 ```bash
 terraform plan -var-file=production.tfvars.json \
