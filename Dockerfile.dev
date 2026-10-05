@@ -38,9 +38,13 @@ RUN uv sync --locked --extra cpu
 COPY models/kaggle/audit/train.py models/kaggle/audit/prepare.py models/kaggle/audit/quality.py ./
 COPY models/kaggle/audit/tests/ tests/
 
-FROM development AS browser-tests
+# Only the web packages and Chromium; the tests reach the stack over HTTP, so the Python environments are not needed.
+FROM tooling AS browser-tests
 WORKDIR /workspace/apps/trend-web
+COPY apps/trend-web/package.json apps/trend-web/pnpm-lock.yaml apps/trend-web/pnpm-workspace.yaml ./
+RUN corepack pnpm install --frozen-lockfile
 RUN corepack pnpm exec playwright install --with-deps chromium
+COPY apps/trend-web/ ./
 WORKDIR /workspace
 
 FROM tooling AS serving-tests

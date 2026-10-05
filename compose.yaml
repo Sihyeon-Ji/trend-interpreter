@@ -104,6 +104,40 @@ services:
         corepack pnpm lint
         corepack pnpm build
 
+  # E2E runs against the production images Cloud Run serves (apps/trend-api, apps/trend-web Dockerfiles), so no
+  # development-server compile happens during the tests. These services share the development database.
+  e2e-api:
+    profiles: [tools]
+    build: apps/trend-api
+    environment:
+      DATABASE_URL: *database_url
+      MODEL_PROVIDER: mock
+      MODEL_REQUESTS_ENABLED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  e2e-web:
+    profiles: [tools]
+    build: apps/trend-web
+    environment:
+      DATA_MODE: sample
+      TREND_API_URL: http://e2e-api:8080
+      SESSION_SECRET: *dev_session_secret
+    depends_on:
+      e2e-api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
   e2e:
     <<: *development
     profiles: [tools]
@@ -115,10 +149,10 @@ services:
     command: corepack pnpm test:e2e
     shm_size: 1gb
     environment:
-      PLAYWRIGHT_BASE_URL: http://web:3000
+      PLAYWRIGHT_BASE_URL: http://e2e-web:8080
       PLAYWRIGHT_SESSION_SECRET: *dev_session_secret
     depends_on:
-      web:
+      e2e-web:
         condition: service_healthy
 
   # Only the selected application lockfiles are audited; other prototypes stay separate.

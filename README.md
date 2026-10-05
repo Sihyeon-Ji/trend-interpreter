@@ -101,7 +101,7 @@ extra task runner to install. See the [Korean command reference](docs/개발환�
 | `docker compose up -d --build` | Rebuild after dependency or configuration changes |
 | `docker compose run --rm --build check` | API tests, release and relay tests, web lint and production build |
 | `docker compose run --rm security-check` | Scan the three service lockfiles with OSV-Scanner |
-| `docker compose run --rm --build e2e` | Run Chromium browser tests against the development stack |
+| `docker compose run --rm --build e2e` | Run Chromium browser tests against the production API and web images |
 | `docker compose run --rm infra-check` | Format-check, initialize and validate Terraform locally |
 | `docker compose run --rm --build uv add httpx` | Edit `apps/trend-api` dependencies and lockfile |
 | `docker compose run --rm --build pnpm add zod` | Edit `apps/trend-web` dependencies and lockfile |
