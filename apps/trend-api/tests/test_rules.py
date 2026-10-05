@@ -1524,6 +1524,7 @@ def test_wikipedia_th_id_catalog_tags_and_person_categories():
     assert m["regions"] == ["TH"] and m["year"] == 2020 and m["decade"] == 2020
     assert catalog.meta(["Meme internet yang diperkenalkan tahun 2023", "region:ID"])["year"] == 2023
     assert catalog.script_lang("ไม่") == "th"
+    assert catalog.script_lang("ㅋㅋ") == catalog.script_lang("ㅁㅊㄷ ㅁㅊㅇ") == "ko"     # 자모만 쓴 말도 한국어(10-05)
     con = db.connect(":memory:")
     assert catalog.add(con, "เจเน่", ["เน็ตไอดอล", "region:TH"], source="wiki-th") is None
     assert catalog.add(con, "Nikocado Avocado", ["YouTuber Amerika", "region:ID"], source="wiki-id") is None

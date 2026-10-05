@@ -90,7 +90,9 @@ def title_to_term(title: str) -> str | None:
 
 
 def script_lang(text: str) -> str:
-    if re.search(r"[가-힣]", text):
+    # 한글 자모만 쓴 표제어(ㅋㅋ, ㅁㅊㄷ)도 한국어 — 완성형만 보던 탓에 'ㅋㅋ' 가 위키 분류의 지역을 따라 일본어가 되어
+    # 한국 카피 검사에서 '이 시장에서 안 쓰는 말' 로 나왔다(10-05)
+    if re.search(r"[가-힣ㄱ-ㅎㅏ-ㅣᄀ-ᇿ]", text):
         return "ko"
     if re.search(r"[぀-ヿ]", text):
         return "ja"
