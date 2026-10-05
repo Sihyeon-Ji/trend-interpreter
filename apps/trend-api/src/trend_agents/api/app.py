@@ -179,9 +179,9 @@ def term(term_id: str):
     return r.model_copy(update={"provenance": views.provenance(_con, t, r.meanings, r.evidences), "risk_labels": views.risk_breakdown(_con, t)})
 
 
-@app.get("/about/gemma", response_model=views.GemmaUsage)
-def about_gemma():
-    """배포본에서 Gemma 가 만든 결과의 수(Plan 14 0단계). 저장된 기록만 센다."""
+@app.get("/model-usage", response_model=views.GemmaUsage)
+def model_usage():
+    """단계별로 모델이 남긴 결과의 수(Plan 14 0단계) — 관리 화면 '모델 기록'. 저장된 기록만 센다."""
     return views.gemma_usage(_con)
 
 

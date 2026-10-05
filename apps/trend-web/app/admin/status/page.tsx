@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
-import { getPipelineStages } from "@/lib/data";
+import { ModelUsageTable } from "@/components/model-usage-table";
+import { getModelUsage, getPipelineStages } from "@/lib/data";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { fmtDateTime, fmtInt } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
@@ -61,7 +62,7 @@ function Note({ s, run, locale }: { s: PipelineStage; run: Run | null; locale: L
 }
 
 export default async function AdminStatusPage() {
-  const [locale, stages] = await Promise.all([getLocale(), getPipelineStages()]);
+  const [locale, stages, usage] = await Promise.all([getLocale(), getPipelineStages(), getModelUsage()]);
   const finished = stages.map((s) => s.last_finished_at).filter((x): x is string => !!x).sort().at(-1) ?? null;
   // 한 번의 실행에는 번호가 없다 — 가장 늦게 끝난 시각 3시간 안에 시작한 단계들 가운데 가장 이른 시작을 그 실행의 시작으로 본다
   const started = finished
@@ -160,6 +161,13 @@ export default async function AdminStatusPage() {
           </div>
           <p className="text-[13px] text-steel">{t(locale, "adm_st_legend")}</p>
         </>
+      )}
+      {usage && (
+        <section aria-labelledby="st-models" className="space-y-2 pt-4">
+          <h2 id="st-models" className="text-[16px] font-semibold text-ink">{t(locale, "adm_model_title")}</h2>
+          <p className="text-[13px] text-steel">{t(locale, "adm_model_note")}</p>
+          <ModelUsageTable usage={usage} locale={locale} />
+        </section>
       )}
     </section>
   );

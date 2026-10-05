@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShellChrome } from "@/components/shell-chrome";
 import { Sidebar } from "@/components/sidebar";
 import { t, type Locale } from "@/lib/i18n";
@@ -12,7 +13,7 @@ export function AppShell({ locale, sample, signedIn, nick, reviewer, children }:
       skip={<a href="#main" className="sr-only z-50 rounded-md bg-background px-3 py-2 text-[14px] text-ink focus:not-sr-only focus:fixed focus:left-3 focus:top-3">{t(locale, "skip_to_main")}</a>}
       sidebar={<div className="contents print:hidden"><Sidebar locale={locale} signedIn={signedIn} nick={nick} reviewer={reviewer} /></div>}
       banner={sample ? <p className="border-b border-hairline bg-surface px-4 print:hidden py-2 text-[13px] text-charcoal sm:px-6 lg:px-8">{t(locale, "sample_banner")}</p> : null}
-      footer={<footer className="mt-auto border-t border-hairline px-4 py-5 text-[13px] text-steel sm:px-6 lg:px-8 print:hidden">© 2026 {t(locale, "site")}</footer>}>
+      footer={<footer className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hairline px-4 py-5 text-[13px] text-steel sm:px-6 lg:px-8 print:hidden"><span>© 2026 {t(locale, "site")}</span><Link href="/about" className="hover:text-ink hover:underline">{t(locale, "about_title")}</Link></footer>}>
       {children}
     </ShellChrome>
   );

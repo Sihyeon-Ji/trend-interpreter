@@ -301,7 +301,7 @@ export default async function TermPage({ params, searchParams }: Props) {
                 <SectionHeading id="made">{title("made")}</SectionHeading>
                 <TermProvenance p={record.provenance} locale={locale} />
                 {record.risk_labels && <RiskSentences b={record.risk_labels} locale={locale} />}
-                <Link href="/about/gemma" className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "prov_more")} →</Link>
+                <Link href="/about" className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "prov_more")} →</Link>
               </section>
             )}
 

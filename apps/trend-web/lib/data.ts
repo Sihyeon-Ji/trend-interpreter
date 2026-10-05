@@ -79,9 +79,9 @@ export async function getTermRecord(termId: string): Promise<TermRecord | null> 
   }
 }
 
-/** '/about/gemma' — 배포본에서 Gemma 가 만든 결과의 수(Plan 14 0단계). 예시 모드는 없는 수를 지어내지 않고 null. */
-export async function getGemmaUsage(): Promise<GemmaUsage | null> {
-  return isSampleMode ? null : apiOr<GemmaUsage | null>("/about/gemma", null, 300);
+/** 관리 화면 '모델 기록' — 단계별로 모델이 남긴 결과의 수(Plan 14 0단계). 예시 모드는 없는 수를 지어내지 않고 null. */
+export async function getModelUsage(): Promise<GemmaUsage | null> {
+  return isSampleMode ? null : apiOrNull<GemmaUsage>("/model-usage", false);
 }
 
 /** 사전 항목이 속한 주제(나라별 차이·관련 표현). 보드를 못 받으면 그 절을 내지 않는다 — 예시 주제로 바꾸지 않는다. */

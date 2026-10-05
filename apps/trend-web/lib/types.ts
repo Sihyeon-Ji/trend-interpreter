@@ -336,7 +336,7 @@ export interface RiskBreakdown {
 
 export type GemmaStageId = "risk" | "translate" | "fit" | "audit" | "crosscheck" | "research";
 
-/** '/about/gemma' — 단계별로 모델이 남긴 결과 수(views.GemmaUsage). 기록만 센다 */
+/** 관리 화면 '모델 기록' — 단계별로 모델이 남긴 결과 수(views.GemmaUsage, GET /model-usage). 기록만 센다 */
 export interface GemmaStage {
   stage: GemmaStageId;
   gemma: number;

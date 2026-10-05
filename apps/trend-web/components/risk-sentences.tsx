@@ -1,12 +1,11 @@
 import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { fmtDate, sourceName } from "@/lib/labels";
-import type { Maker, RiskBreakdown } from "@/lib/types";
+import type { RiskBreakdown } from "@/lib/types";
 
-const MODEL: Record<Maker, string> = { gemma: "Gemma", gemini: "Gemini", person: "", unknown: "AI" };
 const RISK_KEYS = ["none", "hate", "mockery", "gender", "politics", "sexual"] as const;
 
-/* 사전 항목의 '근거 문장 분류 보기'(Plan 14 0단계) — 리스크 판정이 본 쓰인 문장마다 모델이 붙인 뉘앙스·위험 유형과 그 모델.
-   기사·쇼츠·문서만 문장을 보이고 커뮤니티·SNS 글은 건수로만 적는다(ADR 0003). 판정 규칙의 문턱을 같이 적어 '왜 이 수준인지'가 보이게 한다. */
+/* 사전 항목의 '이 판정의 근거 문장'(Plan 14 0단계) — 리스크 판정이 본 쓰인 문장마다 붙은 뉘앙스·위험 유형. 이용자 화면이라 모델 이름·문턱 숫자는
+   쓰지 않는다(그건 관리 화면 '모델 기록'). 기사·쇼츠·문서만 문장을 보이고 커뮤니티·SNS 글은 건수로만 적는다(ADR 0003). */
 export function RiskSentences({ b, locale }: { b: RiskBreakdown; locale: Locale }) {
   const say = (key: StringKey, vars: Record<string, string | number> = {}) =>
     Object.entries(vars).reduce((s, [k, v]) => s.replace(`{${k}}`, String(v)), t(locale, key));
@@ -25,13 +24,12 @@ export function RiskSentences({ b, locale }: { b: RiskBreakdown; locale: Locale 
         </p>
         {b.sentences.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-[13px]">
+            <table className="w-full min-w-[480px] text-left text-[13px]">
               <thead className="text-steel">
                 <tr className="border-b border-hairline">
                   <th className="py-2 pr-3 font-medium">{t(locale, "rs_th_sentence")}</th>
                   <th className="py-2 pr-3 font-medium whitespace-nowrap">{t(locale, "rs_th_tone")}</th>
-                  <th className="py-2 pr-3 font-medium whitespace-nowrap">{t(locale, "rs_th_risk")}</th>
-                  <th className="py-2 font-medium whitespace-nowrap">{t(locale, "rs_th_by")}</th>
+                  <th className="py-2 font-medium whitespace-nowrap">{t(locale, "rs_th_risk")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
@@ -45,8 +43,7 @@ export function RiskSentences({ b, locale }: { b: RiskBreakdown; locale: Locale 
                       </span>
                     </td>
                     <td className="py-2 pr-3 align-top whitespace-nowrap">{s.on_topic ? toneLabel(s.polarity) : t(locale, "rs_offtopic")}</td>
-                    <td className={`py-2 pr-3 align-top whitespace-nowrap ${s.on_topic && s.risk !== "none" ? "font-medium text-ink" : ""}`}>{s.on_topic ? riskLabel(s.risk) : "—"}</td>
-                    <td className="py-2 align-top whitespace-nowrap text-steel">{MODEL[s.by ?? "unknown"] || "AI"}</td>
+                    <td className={`py-2 align-top whitespace-nowrap ${s.on_topic && s.risk !== "none" ? "font-medium text-ink" : ""}`}>{s.on_topic ? riskLabel(s.risk) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -54,7 +51,7 @@ export function RiskSentences({ b, locale }: { b: RiskBreakdown; locale: Locale 
           </div>
         )}
         <p className="text-[13px] leading-[1.6] text-steel">
-          {say("rs_rule", { min: b.min_labeled, caution: b.caution_risky, neg: Math.round(b.caution_negative * 100), avoid: b.avoid_risky })}
+          {t(locale, "rs_rule")}
         </p>
       </div>
     </details>
