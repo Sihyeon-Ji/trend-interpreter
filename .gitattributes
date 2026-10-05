@@ -1,0 +1,3 @@
+# Shell scripts run in Linux containers and CI. A CRLF checkout (core.autocrlf=true on Windows) breaks
+# 'set -o pipefail' and stops the local check at the deploy safety tests, before the web steps.
+*.sh text eol=lf
