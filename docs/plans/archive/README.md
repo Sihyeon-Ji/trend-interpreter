@@ -20,6 +20,7 @@
 | [운영 05](05-model-request-controls.md) | AI 요청량 제어와 결과 형식 검증 |
 | [운영 06](06-release-recovery.md) | 배포 기록과 안전 복구 경로 |
 | [18](18-ci-parallelization.md) | CI 병렬화와 배포 시간 단축(16분→약 6분, 10-05) |
+| [20](20-trend-operations-schedule.md) | 운영 일정 8개·후속 작업 4개 GitHub Project 등록 및 검증(10-05) |
 
 ## 종료된 점검 보고서
 
