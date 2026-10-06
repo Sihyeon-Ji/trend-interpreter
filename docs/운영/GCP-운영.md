@@ -208,7 +208,7 @@ storage는 남습니다.
 **Cloud Run** 한도는 이 프로젝트의 메인 서비스와 알림 중계기를 포함한 Cloud Run 사용에 적용됩니다.
 세 상한은 합산 ₩100,000이 아니라 **각 서비스별 ₩100,000**입니다.
 
-지출 한도는 [Billing → 예산 및 알림](https://console.cloud.google.com/billing/011938-DF350E-463C2B/budgets?project=stunning-crane-508614-c1)에서
+지출 한도는 [Billing → 예산 및 알림](https://console.cloud.google.com/billing?project=stunning-crane-508614-c1)에서
 `Builder Cup Vertex AI Gemini 월 지출 한도`, `Builder Cup Gemini API 월 지출 한도`,
 `Builder Cup Cloud Run 월 지출 한도`의 상태 `구성됨`으로 확인합니다. 세 한도 각각에 50%·80%·100%
 이메일 알림이 설정돼 있으며 결제 관리자·사용자와 프로젝트 소유자가 수신 대상으로 활성화돼 있습니다.
