@@ -347,8 +347,19 @@ export interface GemmaStage {
   last_at?: string | null;
 }
 
+/** 실행 기록의 한 단계·한 모델 — 최근 24시간에 성공한 호출 수와 걸린 시간(초) */
+export interface ModelCalls {
+  stage: string;
+  label: string;
+  model: string;
+  maker: "gemma" | "gemini" | "unknown";
+  calls: number;
+  seconds: number;
+}
+
 export interface GemmaUsage {
   stages: GemmaStage[];
+  calls_24h?: ModelCalls[];
   samples: { term_id: string; canonical: string; lang: string }[];
   generated_at: string;
 }

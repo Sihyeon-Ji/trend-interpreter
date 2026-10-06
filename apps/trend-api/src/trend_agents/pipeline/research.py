@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import time
 import re
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
@@ -520,9 +521,10 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
         try:
             ds.gemini_spend(con, 2)  # research_term 은 호출 2회
             note_call(con, model, 2)
+            t0 = time.time()
             draft, urls, notes = research_term(term.canonical, model=model, charge=lambda m, resp: charge(con, m, resp))
             method = model
-            record_model(model)   # 검색 grounding 조사는 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서
+            record_model(model, time.time() - t0, n=2)   # 검색 grounding 조사는 gemini.py 를 거치지 않는다 — 실행 기록의 모델 ID 는 여기서
             break
         except errors.APIError as e:
             if e.code not in (429, 503):

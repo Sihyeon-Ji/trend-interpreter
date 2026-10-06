@@ -18,17 +18,24 @@ class Result:
     note: str = ""
     detail: dict = field(default_factory=dict)
     models: set[str] = field(default_factory=set)   # 이 실행이 부른 모델 ID — record_model() 이 채우고 실행 기록에 남는다
+    calls: dict[str, list[float]] = field(default_factory=dict)   # 모델 ID → [성공한 호출 수, 걸린 초] (Plan 14 0단계: 관리 화면 '모델 기록')
 
 
 _current: ContextVar[Result | None] = ContextVar("pipeline_stage", default=None)
 
 
-def record_model(model: str) -> None:
+def record_model(model: str, seconds: float | None = None, n: int = 1) -> None:
     """지금 도는 단계 실행이 이 모델을 불렀다고 적는다(Plan 06 완료 기준 1: 로컬 편집 결과를 모델에 묶는다).
-    모델 호출이 성공한 곳(pipeline/gemini.py 등)이 부른다. 단계 밖(이용자 요청)에서는 아무것도 하지 않는다."""
+    모델 호출이 성공한 곳(pipeline/gemini.py 등)이 부른다. 단계 밖(이용자 요청)에서는 아무것도 하지 않는다.
+    seconds 를 주면 호출 n 번과 걸린 시간을 센다 — 호출을 실제로 잰 곳(local_llm·gemini.generate 등)만 주고,
+    같은 호출을 다시 적는 바깥 층은 주지 않는다(두 번 세지 않게)."""
     r = _current.get()
     if r is not None and model:
         r.models.add(model)
+        if seconds is not None:
+            c = r.calls.setdefault(model, [0, 0.0])
+            c[0] += n
+            c[1] += seconds
 
 
 @contextmanager
@@ -47,4 +54,4 @@ def stage(con: Connection, name: str):
         res.detail["trace"] = traceback.format_exc()[-1500:]
     finally:
         _current.reset(token)
-        ds.run_finish(con, rid, res.count, res.status, res.note, sorted(res.models))
+        ds.run_finish(con, rid, res.count, res.status, res.note, sorted(res.models), res.calls)

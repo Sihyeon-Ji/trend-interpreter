@@ -1,4 +1,4 @@
-"""배포본에서 Gemma 가 한 일을 보이기(Plan 14 0단계): 사전 항목의 근거 문장별 분류, '/about/gemma' 의 단계별 결과 수."""
+"""배포본에서 Gemma 가 한 일을 보이기(Plan 14 0단계): 사전 항목의 근거 문장별 분류, 관리 화면 모델 기록(단계별 결과 수·호출 수·시간)."""
 from datetime import datetime, timedelta, timezone
 
 from trend_agents.pipeline import views
@@ -63,3 +63,42 @@ def test_about_gemma_counts_records_by_model_for_verified_terms_only():
     assert (by["translate"].gemma, by["translate"].models) == (1, ["gemma4:e4b"])
     assert (by["research"].gemma, by["research"].gemini) == (0, 1)
     assert [x["term_id"] for x in u.samples] == ["t1"]
+
+
+def test_stage_run_records_model_calls_and_time_for_admin():
+    from trend_agents.pipeline import runs
+
+    con = db.connect(":memory:")
+    with runs.stage(con, "crosscheck") as r:
+        runs.record_model("local:gemma4:12b", 2.0)        # local_llm 이 잰 호출
+        runs.record_model("local:gemma4:12b", 3.0)
+        runs.record_model("local:gemma4:12b")             # 바깥 층이 다시 적은 같은 호출 — 세지 않는다
+        r.count = 1
+    with runs.stage(con, "research") as r:
+        runs.record_model("gemini-3.5-flash", 4.0, n=2)
+        r.count = 1
+    runs.record_model("local:gemma4:12b", 9.0)            # 단계 밖(이용자 요청)은 실행 기록에 없다
+    models, raw = con.execute("SELECT models, model_calls FROM pipeline_runs WHERE stage='crosscheck'").fetchone()
+    assert models == "local:gemma4:12b" and "[2, 5.0]" in raw
+    calls = {(c.stage, c.model): c for c in views.gemma_usage(con).calls_24h}
+    assert (calls[("crosscheck", "gemma4:12b")].calls, calls[("crosscheck", "gemma4:12b")].seconds) == (2, 5.0)
+    assert calls[("crosscheck", "gemma4:12b")].maker == "gemma" and calls[("crosscheck", "gemma4:12b")].label == "문서 대조"
+    assert (calls[("research", "gemini-3.5-flash")].calls, calls[("research", "gemini-3.5-flash")].maker) == (2, "gemini")
+    assert len(calls) == 2
+
+
+def test_local_llm_call_is_recorded_even_when_a_stage_calls_it_directly(monkeypatch):
+    from trend_agents.pipeline import local_llm, runs
+    from trend_agents.interpreters import local_chat
+    from pydantic import BaseModel
+
+    class Out(BaseModel):
+        ok: bool
+
+    monkeypatch.setattr(local_chat, "structured", lambda prompt, adapter, temperature, image=None: Out(ok=True))
+    con = db.connect(":memory:")
+    with runs.stage(con, "audit") as r:                  # 감사·문서 대조는 gemini.py 를 거치지 않는다
+        local_llm.structured("p", Out)
+        r.count = 1
+    models, raw = con.execute("SELECT models, model_calls FROM pipeline_runs WHERE stage='audit'").fetchone()
+    assert models.startswith("local:") and '": [1, ' in raw

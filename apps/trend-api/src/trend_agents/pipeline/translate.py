@@ -2,6 +2,7 @@
 기본은 Gemini(예산 안에서), USE_LOCAL_GEMMA=1 이고 Ollama 가 떠 있으면 로컬 Gemma."""
 from __future__ import annotations
 
+import time
 
 from ..config import GEMMA_LOCAL_MODEL, USE_LOCAL_GEMMA
 from ..schemas import Meaning, MeaningText
@@ -33,8 +34,9 @@ def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[Mean
         if gemma_local.is_available():
             base = MeaningText(**_entry(m))
             # 실제 모델 ID 를 gemini.generate 와 같은 꼴(local:<모델>)로 — 예전 'gemma-local' 은 어느 모델이 썼는지 남지 않았다(Plan 06 완료 기준 1)
+            t0 = time.time()
             text, model = gemma_translate.translate_meaning(base, term, target, model=GEMMA_LOCAL_MODEL), f"local:{GEMMA_LOCAL_MODEL}"
-            record_model(model)
+            record_model(model, time.time() - t0)
             return text, model
     parsed, model = structured(con, PROMPT.format(term=term, target=LANG_NAME.get(target, target), **_entry(m)), MeaningText, temperature=0.2)
     return (parsed if isinstance(parsed, MeaningText) else MeaningText.model_validate(parsed)), model

@@ -2,7 +2,7 @@
 
 > **2026-10-01 인프라 결정:** Gemma 운영 서빙 위치는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU로 확정했다. 운영 기반은 아래 GCE runtime·내부 gateway·비동기 작업 설계를 따른다. 사용자 화면과 관리자 실행 UX는 계속 팀 검토 대상으로 두며 품질·로그·장애 시 조회 유지 조건은 적용한다.
 
-작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 대부분 구현(10-06) – 사전 항목 '이 판정의 근거 문장', 공개 설명 `/about`, 관리 화면 '모델 기록'. 단계별 호출 수·시간·live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
+작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 구현(10-06) – 사전 항목 '이 판정의 근거 문장', 공개 설명 `/about`, 관리 화면 '모델 기록'과 단계별 호출 수·시간. live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
 [계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](03-term-risk.md) · [Plan 12 문서 대조](12-dictionary-crosscheck.md)
 
@@ -14,10 +14,13 @@
 | 사전 항목 '이 판정의 근거 문장' | `GET /terms/{id}` 의 `risk_labels`(`views.risk_breakdown`): `risk.judge` 와 같은 쓰임 문장마다 뉘앙스·위험 유형·딴 이야기 여부, 규칙이 센 수 | 이용자 화면이라 모델 이름·문턱 숫자는 쓰지 않고 쉬운 말 한 줄로. 기사·쇼츠·문서만 문장을 보이고 커뮤니티·SNS 글은 건수만(ADR 0003). 새로 저장하는 원문 없음 |
 | 공개 화면 `/about` '이 서비스는 어떻게 만들어지나요' | 모으기→뜻 정리→확인→써도 되는지 판단→추천·만들기를 이용자 말로, Gemini·Gemma·규칙·사람의 몫과 지키는 것 4가지. 바닥글 링크 | 건수·모델 버전은 없다. `/about/gemma`(10-06 하루 공개)는 여기로 넘긴다 |
 | 관리 화면 `/admin/status` '모델 기록' | `GET /model-usage`(`views.gemma_usage`): 단계(risk·translate·fit·audit·crosscheck·research)별 Gemma·Gemini 결과 수, 항목 수, 모델 이름, 마지막 시각 | 확인된 항목만 센다. 모델을 부르지 않는다 |
+| 관리 화면 '최근 24시간 모델 호출' | 같은 응답의 `calls_24h`: 파이프라인 단계·모델별 성공한 호출 수, 걸린 시간, 호출당 시간. Gemma 줄에 표시 | 실행 기록 `pipeline_runs.model_calls`(마이그레이션 018). 호출을 잰 곳(`local_llm`·`gemini.generate`·조사·번역)이 `runs.record_model(model, seconds)`로 적는다. 문장·출력 원문은 남기지 않는다 |
 
 **10-06 방향 조정:** 처음에는 단계별 건수·모델 이름을 공개 화면(`/about/gemma`, 주 메뉴)과 문장 표의 '분류 모델' 열로 냈다. 이용자(마케터)에게 필요한 것은 '왜 이 판정인지'의 근거이지 모델 이름이 아니고, 이용자 화면에 내부 용어를 내지 않는 원칙(`apps/trend-api/AGENTS.md`)과도 어긋나 같은 날 위처럼 나눴다. Gemma·Gemini 활용은 데모 영상·제안 덱·README로 설명한다.
 
-남은 것: `/admin/status` 의 단계별 호출 수·시간(`local_llm.stats()`), `classify`·`spot` 의 모델 기록 확인. 검증은 `tests/test_gemma_visible.py`·`e2e/about.spec.ts`. 배포본의 실제 수는 배포 뒤 확인한다.
+**모델 기록 확인(10-06):** `classify`는 분류 결과마다 모델을 저장하고(`save_classifications`), `spot`은 `gemini.structured`를 거쳐 실행 기록에 모델이 남는다. 문서 대조·감사는 `local_llm`을 바로 불러 실행 기록의 모델 칸이 비어 있었다. 이제 `local_llm`이 성공한 호출마다 실행 기록에 모델과 시간을 적어 이 빈칸도 채운다.
+
+검증은 `tests/test_gemma_visible.py`·`e2e/about.spec.ts`. 호출 수는 이 코드로 파이프라인이 한 번 돈 뒤부터 쌓인다. 그 전까지 배포본의 표는 '기록된 호출 없음'으로 나오고, 실제 수는 그 뒤 확인한다.
 
 ## 2026-10-03 점검
 
@@ -49,8 +52,8 @@ Trend Interpreter는 사전을 만드는 여러 단계에서 Gemma 4를 사용�
 
 | 단계 (`run_pipeline.py` 이름) | Gemma가 하는 일 | 결과가 저장되는 곳 | 모델 기록 | 지금 화면에 보이나 |
 | --- | --- | --- | --- | --- |
-| `classify` | 수집 제목을 트렌드 유형으로 분류 | 분류 결과 | 확인 필요 | 결과만 |
-| `spot` | 쇼츠 제목·커뮤니티 글·해석 실패 메시지에서 '뜻을 찾아볼 표현' 제안 | 후보 | 없음 | 후보 목록만 |
+| `classify` | 수집 제목을 트렌드 유형으로 분류 | 분류 결과 | 분류 결과의 모델·실행 기록 | 결과만 |
+| `spot` | 쇼츠 제목·커뮤니티 글·해석 실패 메시지에서 '뜻을 찾아볼 표현' 제안 | 후보 | 실행 기록(`pipeline_runs.models`) | 후보 목록만 |
 | `crosscheck` | 사전 뜻과 참고 위키 설명 비교 서술 | `crosscheck_log`, 검수 큐 | `crosscheck_log.model` | 관리자 검수 화면 |
 | `risk` | 근거 문장마다 뉘앙스·위험 유형·그 뜻으로 쓰였는지 | `evidence_labels` | `evidence_labels.model` | 수준·이유만. 문장별 분류는 안 보임 |
 | `translate` | 검증된 뜻의 언어판 | 뜻 텍스트 | `translations.model`에 실제 ID `local:<모델>` 저장 | 언어판만 |

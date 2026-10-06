@@ -103,9 +103,20 @@ class GemmaStage(BaseModel):
     last_at: datetime | None = None
 
 
+class ModelCalls(BaseModel):
+    """실행 기록의 한 단계·한 모델 — 최근 24시간에 성공한 호출 수와 걸린 시간."""
+    stage: str
+    label: str
+    model: str                             # 화면에 보일 이름(예: gemma4:12b, gemini-3.5-flash)
+    maker: Literal["gemma", "gemini", "unknown"]
+    calls: int
+    seconds: float
+
+
 class GemmaUsage(BaseModel):
     """배포본에서 Gemma 가 무엇을 만들었는지(Plan 14 0단계). 이미 저장된 기록만 센다 — 모델을 부르지 않는다."""
     stages: list[GemmaStage]
+    calls_24h: list[ModelCalls] = []       # 파이프라인 단계별 모델 호출 수·시간(실행 기록 pipeline_runs.model_calls)
     samples: list[dict[str, str]] = []     # Gemma 가 문장을 분류한 대표 항목 {term_id, canonical, lang}
     generated_at: datetime
 
@@ -378,7 +389,15 @@ def gemma_usage(con: Connection) -> GemmaUsage:
             samples.append({"term_id": tid, "canonical": t.canonical, "lang": t.lang})
         if len(samples) >= 4:
             break
-    return GemmaUsage(stages=stages, samples=samples, generated_at=datetime.now().astimezone())
+    calls: list[ModelCalls] = []
+    for stage_key, models in ds.model_calls_24h(con).items():
+        for model, (n, secs) in sorted(models.items(), key=lambda kv: -kv[1][0]):
+            who = _maker(model)
+            calls.append(ModelCalls(stage=stage_key, label=STAGE_LABELS.get(stage_key, stage_key), model=_model_name(model),
+                                    maker=who if who in ("gemma", "gemini") else "unknown", calls=int(n), seconds=round(secs, 1)))
+    order = list(STAGE_LABELS)
+    calls.sort(key=lambda c: (order.index(c.stage) if c.stage in order else len(order), -c.calls))
+    return GemmaUsage(stages=stages, samples=samples, calls_24h=calls, generated_at=datetime.now().astimezone())
 
 
 def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:

@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS audit_log (term_id TEXT, meaning_id TEXT, checked_at 
 -- 일괄 등재의 실패(오류·문서에 닿지 못함). scripts/catalog_import.py --retry-failed 가 다시 돈다.
 CREATE TABLE IF NOT EXISTS catalog_failed (source TEXT, title TEXT, reason TEXT, at TEXT, PRIMARY KEY(source, title));
 -- models: 그 실행이 부른 모델 ID(쉼표, 마이그레이션 011). 부르지 않았으면 NULL.
-CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT, models TEXT);
+CREATE TABLE IF NOT EXISTS pipeline_runs (run_id TEXT, stage TEXT, started_at TEXT, finished_at TEXT, count BIGINT, status TEXT, note TEXT, models TEXT, model_calls TEXT);
 CREATE TABLE IF NOT EXISTS gemini_calls (day TEXT PRIMARY KEY, count BIGINT);
 CREATE TABLE IF NOT EXISTS board_cache (key TEXT PRIMARY KEY, json TEXT, generated_at TEXT);
 CREATE TABLE IF NOT EXISTS trend_explanations (
@@ -733,10 +733,13 @@ def run_start(con: Connection, stage: str) -> str:
     return rid
 
 
-def run_finish(con: Connection, run_id: str, count: int, status: str, note: str = "", models: list[str] | tuple[str, ...] = ()) -> None:
-    """models: 그 실행이 부른 모델 ID(Plan 06 완료 기준 1). 쉼표로 이어 두고, 부르지 않았으면 NULL."""
-    con.execute("UPDATE pipeline_runs SET finished_at=?, count=?, status=?, note=?, models=? WHERE run_id=?",
-                (now_s(), count, status, note[:500], ",".join(sorted(models)) or None, run_id))
+def run_finish(con: Connection, run_id: str, count: int, status: str, note: str = "", models: list[str] | tuple[str, ...] = (),
+               calls: dict[str, list[float]] | None = None) -> None:
+    """models: 그 실행이 부른 모델 ID(Plan 06 완료 기준 1). 쉼표로 이어 두고, 부르지 않았으면 NULL.
+    calls: 모델 ID → [호출 수, 걸린 초]. JSON 으로 두고, 잰 호출이 없으면 NULL."""
+    mc = json.dumps({m: [int(n), round(s, 1)] for m, (n, s) in sorted(calls.items())}) if calls else None
+    con.execute("UPDATE pipeline_runs SET finished_at=?, count=?, status=?, note=?, models=?, model_calls=? WHERE run_id=?",
+                (now_s(), count, status, note[:500], ",".join(sorted(models)) or None, mc, run_id))
     con.commit()
 
 
@@ -761,6 +764,22 @@ def stage_counts_24h(con: Connection) -> dict[str, tuple[int, str, str]]:
             if bad:
                 note = (note + " " if note else "") + f"이전 {bad}회 실패, 마지막 실행은 정상"
         out[stage] = (cnt or 0, status, note)
+    return out
+
+
+def model_calls_24h(con: Connection) -> dict[str, dict[str, list[float]]]:
+    """단계 → 모델 ID → [호출 수, 걸린 초], 최근 24시간 실행 기록의 합(관리 화면 '모델 기록'). 문장·출력 원문은 없다."""
+    since = (now() - timedelta(hours=24)).isoformat()
+    out: dict[str, dict[str, list[float]]] = {}
+    for stage, raw in con.execute("SELECT stage, model_calls FROM pipeline_runs WHERE started_at>=? AND model_calls IS NOT NULL", (since,)).fetchall():
+        try:
+            calls = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        for model, (n, secs) in calls.items():
+            c = out.setdefault(stage, {}).setdefault(model, [0, 0.0])
+            c[0] += int(n)
+            c[1] += float(secs)
     return out
 
 

@@ -221,6 +221,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                 _pace(m)
             ds.gemini_spend(con, 1, ledger)
             note_call(con, m)
+            t0 = time.time()
             try:
                 resp = c.models.generate_content(model=m, contents=contents, config=config)
             except errors.APIError as e:  # 503 용량 / 429 쿼터 → 잠시 후 재시도, 그날 끝난 모델이면 바로 다음 모델
@@ -253,7 +254,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
                 raise
             _called(m, ledger, "ok")
             charge(con, m, resp)
-            record_model(m)
+            record_model(m, time.time() - t0)
             return resp, m
     assert last is not None
     raise last

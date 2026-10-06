@@ -909,6 +909,14 @@ const ko = {
   about_see_entry: "각 밈이 어떻게 실렸는지는 사전 항목의 '이렇게 만들었어요'에서 볼 수 있어요.",
   adm_model_title: "모델 기록",
   adm_model_note: "공개된 사전 항목에 단계별로 모델이 남긴 결과 수예요. 기록만 세고 모델을 부르지 않아요.",
+  adm_calls_title: "최근 24시간 모델 호출",
+  adm_calls_note: "파이프라인 단계마다 성공한 모델 호출 수와 걸린 시간이에요. 실패한 호출은 세지 않아요.",
+  adm_calls_empty: "최근 24시간에 기록된 모델 호출이 없어요.",
+  adm_calls_th_stage: "단계",
+  adm_calls_th_model: "모델",
+  adm_calls_th_calls: "호출",
+  adm_calls_th_time: "걸린 시간",
+  adm_calls_th_avg: "호출당",
 } as const;
 
 export type StringKey = keyof typeof ko;
@@ -1814,6 +1822,14 @@ const en = {
   about_see_entry: "Each entry's 'How we made it' shows how that meme was added.",
   adm_model_title: "Model records",
   adm_model_note: "Results each step's models left on published entries. Counted from records; no model is called.",
+  adm_calls_title: "Model calls in the last 24 hours",
+  adm_calls_note: "Successful model calls and time spent per pipeline step. Failed calls are not counted.",
+  adm_calls_empty: "No model calls were recorded in the last 24 hours.",
+  adm_calls_th_stage: "Step",
+  adm_calls_th_model: "Model",
+  adm_calls_th_calls: "Calls",
+  adm_calls_th_time: "Time",
+  adm_calls_th_avg: "Per call",
 } as const satisfies Record<StringKey, string>;
 
 const STRINGS: Record<Locale, Record<StringKey, string>> = { ko, en };

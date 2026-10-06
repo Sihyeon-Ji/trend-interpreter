@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
-import { ModelUsageTable } from "@/components/model-usage-table";
+import { ModelCallsTable, ModelUsageTable } from "@/components/model-usage-table";
 import { getModelUsage, getPipelineStages } from "@/lib/data";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { fmtDateTime, fmtInt } from "@/lib/labels";
@@ -167,6 +167,9 @@ export default async function AdminStatusPage() {
           <h2 id="st-models" className="text-[16px] font-semibold text-ink">{t(locale, "adm_model_title")}</h2>
           <p className="text-[13px] text-steel">{t(locale, "adm_model_note")}</p>
           <ModelUsageTable usage={usage} locale={locale} />
+          <h3 className="pt-4 text-[15px] font-semibold text-ink">{t(locale, "adm_calls_title")}</h3>
+          <p className="text-[13px] text-steel">{t(locale, "adm_calls_note")}</p>
+          <ModelCallsTable calls={usage.calls_24h ?? []} locale={locale} />
         </section>
       )}
     </section>
