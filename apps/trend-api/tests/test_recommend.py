@@ -59,6 +59,15 @@ def test_rules_exclude_avoid_crude_off_tone_and_weak_fits():
     assert all(i.term_id in ("good", "ok") for i in premium.items)   # 무난한 말투만
 
 
+def test_excluded_lists_related_candidates_with_the_rule_that_blocked_them():
+    """'뺀 말'(Plan 20): 제품과 이어지는데 규칙이 막은 것만, 막은 이유와 함께. 제품과 상관없는 말은 늘어놓지 않는다."""
+    con = _con()
+    res = recommend.recommend(con, LATTE, "sample", ["KR"], "friendly")
+    why = {e.term_id: e.code for e in res.excluded}
+    assert why == {"bad": "avoid", "crude": "crude", "edgy": "tone", "dead": "fading"}     # nofit(느낌도 분야도 안 겹침)은 없다
+    assert res.pool["KR"] == 7 and res.considered_by_region["KR"] == res.considered
+
+
 def test_top_five_and_explained_matches():
     con = db.connect(":memory:")
     for k in range(8):

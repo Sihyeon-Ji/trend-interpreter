@@ -22,7 +22,8 @@ from .views import Dropped, GenerationResult
 
 MAX_MEMES = 3
 # 목표 지역의 말. 결과물은 입력 언어가 아니라 이 말로 만든다(Plan 08). 필리핀·싱가포르는 영어가 광고 표준어다.
-REGION_LANG = {"KR": "ko", "JP": "ja", "TW": "zh-Hant", "HK": "zh-Hant", "TH": "th", "VN": "vi", "ID": "id", "PH": "en", "MY": "ms", "SG": "en"}
+REGION_LANG = {"KR": "ko", "JP": "ja", "TW": "zh-Hant", "HK": "zh-Hant", "TH": "th", "VN": "vi", "ID": "id", "PH": "en", "MY": "ms", "SG": "en",
+               "GLOBAL": "en"}   # 영어권(Plan 20)
 LANG_NAME = {"ko": "한국어", "ja": "일본어", "zh-Hant": "번체 중국어(대만·홍콩식)", "th": "태국어", "vi": "베트남어", "id": "인도네시아어",
              "en": "영어", "ms": "말레이어"}
 TONE_KO = {"friendly": "친근함", "witty": "재치", "premium": "고급스러움"}

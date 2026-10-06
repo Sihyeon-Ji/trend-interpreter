@@ -731,6 +731,15 @@ class RecommendItem(BaseModel):
     pinned: bool = False               # 사전 항목의 '이 밈으로 만들기' 로 사람이 먼저 고른 밈 — 순위 밖이어도 목록 끝에 넣는다
 
 
+class ExcludedItem(BaseModel):
+    """제품과 이어지는데 규칙이 뺀 후보(Plan 20 만들기의 '뺀 말'). code 는 recommend.blocked 의 이유."""
+    term_id: str
+    canonical: str
+    lang: str
+    regions: list[str]
+    code: Literal["avoid", "crude", "tone", "fading", "sensitive"]
+
+
 class RecommendResult(BaseModel):
     brief: ProductBrief | None = None                    # 고른 지역에 비교할 후보가 없으면 사진·문구를 읽지 않는다(None)
     brief_source: Literal["gemini", "local", "sample", "none"]   # sample 이면 화면이 '예시 설명', none 이면 '아직 준비 안 됨' 이라고 알린다
@@ -739,6 +748,9 @@ class RecommendResult(BaseModel):
     items: list[RecommendItem]
     considered: int                    # 지역·말투·리스크를 통과해 점수를 받은 후보 수
     untagged: int                      # 아직 쓰임 낱말이 없어 비교하지 못한 표제어 수
+    excluded: list[ExcludedItem] = []  # 제품과 이어지는데 규칙이 뺀 후보 — 시장마다 몇 개(언급 많은 순)
+    pool: dict[str, int] = {}          # 시장마다 사전에서 확인된 후보 수 (대시보드 카드)
+    considered_by_region: dict[str, int] = {}   # 시장마다 규칙을 통과해 점수를 받은 후보 수
 
 
 # ---------- 콘텐츠 생성 (Plan 08) — 값은 pipeline/generate.py 가 채운다. 저장하지 않는다 ----------

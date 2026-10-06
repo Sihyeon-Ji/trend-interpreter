@@ -26,7 +26,8 @@ from .views import PosterPlan
 IMAGE_LEDGER = "img:"     # 이미지 생성 장부 — 이용자 요청 장부(req:)와 같은 표에 따로 센다
 # 추천·생성과 같은 목표 지역(config.REGIONS_FOCUS) + 미국. 화면의 시장 칩이 고르는 값 그대로다(10-06)
 MARKETS = {"KR": "South Korea", "JP": "Japan", "TW": "Taiwan", "HK": "Hong Kong", "TH": "Thailand", "VN": "Vietnam",
-           "ID": "Indonesia", "PH": "the Philippines", "MY": "Malaysia", "SG": "Singapore", "US": "the United States"}
+           "ID": "Indonesia", "PH": "the Philippines", "MY": "Malaysia", "SG": "Singapore", "US": "the United States",
+           "GLOBAL": "English-speaking markets"}
 ASPECT = "4:5"            # 인스타그램 세로 피드
 
 # 닫힌 낱말 → 그림의 분위기. 밈 이름 대신 이것만 지시문에 들어간다

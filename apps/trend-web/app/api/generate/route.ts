@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
 import { L } from "@/lib/labels";
-import { TARGET_REGIONS } from "@/lib/reader";
+import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleGenerate } from "@/lib/sample/generate";
 import type { CampaignTone, Feeling, FitCategory, ProductBrief } from "@/lib/types";
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const lang = body?.lang === "en" ? "en" : "ko";
   const brief = cleanBrief(body?.brief);
   if (!termIds.length) return NextResponse.json({ error: "need_pick" }, { status: 400 });
-  if (!TARGET_REGIONS.includes(region) || !brief) return NextResponse.json({ error: "failed" }, { status: 400 });
+  if (!WRITE_REGIONS.includes(region) || !brief) return NextResponse.json({ error: "failed" }, { status: 400 });
 
   if (isSampleMode) return NextResponse.json(sampleGenerate(termIds, region, tone));
 

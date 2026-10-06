@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
-import { TARGET_REGIONS } from "@/lib/reader";
+import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleRecommend } from "@/lib/sample/recommend";
 import { L } from "@/lib/labels";
 import type { CampaignTone, FitCategory } from "@/lib/types";
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   }
   const text = String(form.get("text") ?? "").trim().slice(0, 500);
   const tone = (TONES.includes(form.get("tone") as CampaignTone) ? form.get("tone") : "friendly") as CampaignTone;
-  const regions = String(form.get("regions") ?? "").split(",").map((r) => r.trim().toUpperCase()).filter((r) => TARGET_REGIONS.includes(r));
+  const regions = String(form.get("regions") ?? "").split(",").map((r) => r.trim().toUpperCase()).filter((r) => WRITE_REGIONS.includes(r));
   const lang = form.get("lang") === "en" ? "en" : "ko";
   // 사전 항목의 '이 밈으로 만들기' 에서 먼저 고른 밈 id — 모양만 보고 넘긴다(있는지는 백엔드가 본다)
   const term = String(form.get("term") ?? "").trim();

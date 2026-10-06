@@ -156,6 +156,7 @@ def test_api_off_returns_the_plan_only(monkeypatch):
     assert "장원영" not in body["plan"]["prompt"] and "confident and bold" in body["plan"]["mood"]
     assert c.post("/campaign/poster", data={"market": "TW", "text": "라떼"}).status_code == 200      # 목표 지역이면 어디든(Plan 20 만들기의 시장 칩)
     assert c.post("/campaign/poster", data={"market": "FR", "text": "라떼"}).status_code == 400
+    assert c.post("/campaign/poster", data={"market": "GLOBAL", "text": "라떼"}).json()["plan"]["market"] == "GLOBAL"   # 영어권(Plan 20)
     assert c.post("/campaign/poster", data={"market": "KR"}).status_code == 400
     assert c.post("/campaign/poster", data={"market": "KR", "brief": "{"}).status_code == 400
     assert c.post("/campaign/poster", data={"market": "KR", "text": "라떼"}, files={"image": ("x.png", b"<svg>", "image/png")}).status_code == 415

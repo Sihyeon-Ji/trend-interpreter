@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { apiFetch } from "@/lib/api-fetch";
 import { isSampleMode } from "@/lib/data";
 import { L } from "@/lib/labels";
-import { TARGET_REGIONS } from "@/lib/reader";
+import { WRITE_REGIONS } from "@/lib/reader";
 import { samplePoster } from "@/lib/sample/poster";
 import type { Feeling, FitCategory, ProductBrief } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const market = String(body?.market ?? "").toUpperCase();
   const brief = cleanBrief(body?.brief);
   const termIds = Array.isArray(body?.term_ids) ? body.term_ids.filter((x): x is string => typeof x === "string" && /^[\w.:-]{1,64}$/.test(x)).slice(0, 3) : [];
-  if (!TARGET_REGIONS.includes(market) || !brief) return NextResponse.json({ error: "failed" }, { status: 400 });
+  if (!WRITE_REGIONS.includes(market) || !brief) return NextResponse.json({ error: "failed" }, { status: 400 });
 
   if (isSampleMode) return NextResponse.json(samplePoster(market, brief));
 

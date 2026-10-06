@@ -88,7 +88,7 @@ export function TopBar({ locale, signedIn, nick, reviewer }: { locale: Locale; s
         <Link href={i.href} onClick={mobile ? () => setOpen(false) : undefined} aria-current={on ? "page" : undefined}
           className={mobile
             ? cn("block py-2.5 text-[16px]", on ? "font-semibold text-ink" : "text-charcoal")
-            : cn("relative flex h-14 items-center px-2.5 text-[14px] hover:text-ink", on ? "font-semibold text-ink after:absolute after:inset-x-2.5 after:bottom-0 after:h-[2px] after:bg-ink" : "text-steel")}>
+            : cn("relative flex h-14 items-center px-2.5 text-[14px] hover:text-ink", on ? "font-semibold text-ink after:absolute after:inset-x-2.5 after:bottom-0 after:h-[2px] after:bg-ink" : "text-charcoal")}>
           {t(locale, i.key)}
         </Link>
       </li>
@@ -96,13 +96,16 @@ export function TopBar({ locale, signedIn, nick, reviewer }: { locale: Locale; s
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-ink bg-background print:hidden">
+    <header className="sticky top-0 z-30 border-b border-hairline bg-background print:hidden">
       <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-2 px-4 sm:px-6 xl:px-8">
         <button ref={button} type="button" onClick={() => setOpen(true)} aria-expanded={open} aria-controls="mobile-nav" aria-label={t(locale, "nav_open")}
           className="-ml-2 flex h-10 w-10 items-center justify-center text-ink hover:bg-surface lg:hidden">
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
         </button>
-        <Link href="/" className="text-[16px] font-bold tracking-[-0.01em] whitespace-nowrap text-ink">{t(locale, "site")}</Link>
+        <Link href="/" className="flex items-baseline gap-2 whitespace-nowrap">
+          <b className="text-[15px] font-bold tracking-[-0.01em] text-ink">Trend Interpreter</b>
+          {locale !== "en" && <span className="hidden text-[13px] text-steel sm:inline">{t(locale, "site")}</span>}
+        </Link>
         <nav aria-label={t(locale, "nav_label")} className="ml-4 hidden items-center lg:flex">
           <ul className="flex items-center">{MAIN.map((i) => link(i))}</ul>
           <More locale={locale} items={more} />
@@ -117,7 +120,7 @@ export function TopBar({ locale, signedIn, nick, reviewer }: { locale: Locale; s
         <div id="mobile-nav" role="dialog" aria-modal="true" aria-label={t(locale, "nav_label")} className="fixed inset-0 z-40 flex lg:hidden">
           <button type="button" tabIndex={-1} aria-label={t(locale, "nav_close")} className="absolute inset-0 bg-black/30" onClick={close} />
           <div ref={panel} className="relative flex h-full w-[300px] max-w-[85vw] flex-col bg-background">
-            <div className="flex h-14 items-center justify-between border-b border-ink pr-2 pl-5">
+            <div className="flex h-14 items-center justify-between border-b border-hairline pr-2 pl-5">
               <span className="text-[16px] font-bold text-ink">{t(locale, "site")}</span>
               <button type="button" onClick={close} aria-label={t(locale, "nav_close")} className="flex h-10 w-10 items-center justify-center text-ink hover:bg-surface">
                 <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>

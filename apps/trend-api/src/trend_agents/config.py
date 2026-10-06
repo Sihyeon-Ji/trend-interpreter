@@ -115,6 +115,8 @@ REGIONS_ALL = [
 # 목표 지역(ADR 0001): 동·동남아 10개국. 중국 본토는 제외. 미국·브라질 등은 REGIONS_ALL 로 계속 모은다.
 REGIONS_FOCUS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"]
 REGIONS = REGIONS_FOCUS  # 기존 참조 호환
+# 카피·검사·포스터를 만들 수 있는 시장: 목표 지역 + 영어권(GLOBAL — 나라를 가를 수 없는 영어 표제어, 대시보드의 '전 세계'와 같은 값). Plan 20 만들기
+WRITE_REGIONS = [*REGIONS_FOCUS, "GLOBAL"]
 # 표제어 언어 → 그 말을 쓰는 나라. 조사할 곳과, 조사가 나라를 비워 둔 용어를 대시보드에 둘 곳. 중국어는 대만(본토 제외, ADR 0001).
 # 표제어 하나의 나라는 home_region 으로 본다(광동어는 홍콩).
 LANG_REGION = {"ko": "KR", "ja": "JP", "id": "ID", "th": "TH", "vi": "VN", "zh": "TW", "tl": "PH", "fil": "PH", "ms": "MY"}

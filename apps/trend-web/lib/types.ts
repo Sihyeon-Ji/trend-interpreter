@@ -219,6 +219,10 @@ export interface RecommendItem {
   pinned: boolean;                // 사전 항목의 '이 밈으로 만들기' 로 먼저 고른 밈 — 순위 밖이어도 목록 끝에 들어온다
 }
 
+/** 제품과 이어지는데 규칙이 뺀 후보 (Plan 20 '뺀 말') — 백엔드 views.ExcludedItem */
+export type ExcludedCode = "avoid" | "crude" | "tone" | "fading" | "sensitive";
+export interface ExcludedItem { term_id: string; canonical: string; lang: string; regions: string[]; code: ExcludedCode }
+
 export interface RecommendResult {
   brief?: ProductBrief | null;    // 고른 지역에 비교할 후보가 없으면 읽지 않는다
   brief_source: "gemini" | "local" | "sample" | "none";
@@ -227,6 +231,9 @@ export interface RecommendResult {
   items: RecommendItem[];
   considered: number;
   untagged: number;
+  excluded?: ExcludedItem[];       // 시장마다 몇 개, 언급 많은 순
+  pool?: Record<string, number>;   // 시장마다 사전에서 확인된 후보 수
+  considered_by_region?: Record<string, number>;   // 시장마다 규칙을 통과해 점수를 받은 후보 수
 }
 
 /* 콘텐츠 생성 (Plan 08) — 백엔드 pipeline/views.py 의 GenerationResult·Dropped 와 1:1. 결과는 저장하지 않는다. */

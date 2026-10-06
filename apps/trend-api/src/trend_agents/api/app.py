@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.formparsers import MultiPartParser
 from pydantic import BaseModel, Field
 
-from ..config import REGIONS_FOCUS, WEB_ORIGINS
+from ..config import REGIONS_FOCUS, WEB_ORIGINS, WRITE_REGIONS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
@@ -586,7 +586,7 @@ _generate_limit = recommend_stage.RateLimit(per_minute=10)
 def generate(body: GenerateIn):
     """SNS 카피·숏폼 대본·썸네일 구성안 (Plan 08). 모델은 생성 한 번, 다시 만들어도 두 번(검사는 규칙). 결과는 저장하지 않는다."""
     region = body.region.strip().upper()
-    if region not in REGIONS_FOCUS:
+    if region not in WRITE_REGIONS:
         raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
     if not _generate_limit.allow(time.monotonic()):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
@@ -685,7 +685,7 @@ def copy_check(body: CopyCheckIn):
     """카피 검사 — 문구에 든 밈을 사전으로 찾고, 고른 시장에서 써도 되는지는 규칙으로, 뜻에 맞게 썼는지는 모델 의견으로.
     문구는 저장하지 않고 기록에도 남기지 않는다. 모델 자리가 없거나 실패해도 규칙 결과는 돌려준다(fit_source 로 알린다)."""
     region = body.region.strip().upper()
-    if region not in REGIONS_FOCUS:
+    if region not in WRITE_REGIONS:
         raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
     text = body.text.strip()
     if not text:

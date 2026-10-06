@@ -33,9 +33,9 @@ test("black is only the next action, and the pick bar explains the limit", async
   await expect(page.getByRole("button", { name: "다시 추천받기" })).toHaveAttribute("data-variant", "outline");
   await expect(page.locator(primary)).toHaveText("카피·대본 만들기");
 
-  for (const name of ["럭키비키 고르기", "원영적 사고 고르기"]) await page.getByRole("checkbox", { name }).check();
-  await expect(page.getByText("고른 밈 3/3")).toBeVisible();
-  await expect(page.getByText(/3개까지 고를 수 있습니다/)).toBeVisible();
+  // 예시 추천은 식어 가는 말을 빼므로(백엔드 recommend.blocked 와 같다) 사전에서 고른 推し活 + 원영적 사고 둘이다
+  await page.getByRole("checkbox", { name: "원영적 사고 고르기" }).check();
+  await expect(page.getByText("고른 밈 2/3")).toBeVisible();
 
   await page.getByRole("button", { name: "카피·대본 만들기" }).click();
   await expect(page.getByRole("heading", { name: /만든 결과물/ })).toBeVisible();
@@ -46,7 +46,7 @@ test("black is only the next action, and the pick bar explains the limit", async
 
   // 밈 다시 고르기 — 고른 밈은 그대로
   await page.getByRole("button", { name: "밈 다시 고르기" }).click();
-  await expect(page.getByRole("checkbox", { name: "럭키비키 고르기" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "원영적 사고 고르기" })).toBeChecked();
 });
 
 test("tells when the input changed after suggestions", async ({ page }) => {
@@ -77,17 +77,17 @@ test("a photo alone is enough: it is previewed and sent with the request", async
   expect(res.status()).toBe(200);
   expect(res.request().headers()["content-type"]).toContain("multipart/form-data");
   await expect(page.getByRole("heading", { name: /추천 밈 \d+개/ })).toBeFocused();
-  await expect(page.getByRole("checkbox", { name: "럭키비키 고르기" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "원영적 사고 고르기" })).toBeVisible();
 });
 
 test("a draft left out by the checks shows only its reason, never its text", async ({ page }) => {
-  const kept = "여름 한정이라 더 럭키비키. 이번 주까지!";
-  const leftOut = "최저가 보장 럭키비키 라떼";   // 백엔드의 reason 은 운영 기록용 설명이라 걸린 글을 담을 수 있다 — 화면은 code 로만 쓴다
+  const kept = "여름 한정이라 더 원영적 사고. 이번 주까지!";
+  const leftOut = "최저가 보장 원영적 사고 라떼";   // 백엔드의 reason 은 운영 기록용 설명이라 걸린 글을 담을 수 있다 — 화면은 code 로만 쓴다
   await page.route("**/api/generate", async (route) => {
     const req = route.request().postDataJSON() as { region: string; tone: string };
     await route.fulfill({
       json: {
-        region: req.region, language: "ko", tone: req.tone, memes: ["럭키비키"], model_calls: 2, source: "gemini", script: null, thumbnail: null,
+        region: req.region, language: "ko", tone: req.tone, memes: ["원영적 사고"], model_calls: 2, source: "gemini", script: null, thumbnail: null,
         copies: [{ platform: "x", text: kept, hashtags: [], note_ko: "마감 강조" }],
         dropped: [{ id: "copy2", code: "avoid_word", reason: `제품 설명이 피하라고 한 표현이 들어 있음: ${leftOut}` }],
       },
@@ -96,7 +96,7 @@ test("a draft left out by the checks shows only its reason, never its text", asy
   await page.goto("/recommend");
   await page.getByLabel(/홍보 문구/).fill("여름 한정 아이스 라떼");
   await page.getByRole("button", { name: "밈 추천받기" }).click();
-  await page.getByRole("checkbox", { name: "럭키비키 고르기" }).check();
+  await page.getByRole("checkbox", { name: "원영적 사고 고르기" }).check();
   await page.getByRole("button", { name: "카피·대본 만들기" }).click();
   await expect(page.getByRole("heading", { name: /만든 결과물/ })).toBeFocused();
   await expect(page.getByText(kept)).toBeVisible();
@@ -111,14 +111,14 @@ test("drafting shows elapsed time and can be stopped", async ({ page }) => {
   await page.goto("/recommend");
   await page.getByLabel(/홍보 문구/).fill("여름 한정 아이스 라떼");
   await page.getByRole("button", { name: "밈 추천받기" }).click();
-  await page.getByRole("checkbox", { name: "럭키비키 고르기" }).check();
+  await page.getByRole("checkbox", { name: "원영적 사고 고르기" }).check();
   await page.getByRole("button", { name: "카피·대본 만들기" }).click();
   await expect(page.getByText(/결과물을 만드는 중입니다/).first()).toBeVisible();
   await expect(page.getByText(/초 지남/)).toBeVisible();
   await expect(page.getByRole("button", { name: "그만두기" })).toBeFocused();
   await page.getByRole("button", { name: "그만두기" }).click();
   await expect(page.getByText(/만들기를 멈췄습니다/)).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "럭키비키 고르기" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "원영적 사고 고르기" })).toBeChecked();
 });
 
 test.describe("phone", () => {
@@ -134,7 +134,7 @@ test.describe("phone", () => {
     const wide = async () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(await wide()).toBeLessThanOrEqual(0);
 
-    await page.getByRole("listitem").filter({ hasText: "럭키비키" }).getByRole("checkbox", { name: "럭키비키 고르기" }).check();
+    await page.getByRole("listitem").filter({ hasText: "원영적 사고" }).getByRole("checkbox", { name: "원영적 사고 고르기" }).check();
     await page.getByRole("button", { name: "카피·대본 만들기" }).click();
     await expect(page.getByRole("heading", { name: /만든 결과물/ })).toBeFocused();
     await page.getByRole("tab", { name: /숏폼 대본/ }).click();
