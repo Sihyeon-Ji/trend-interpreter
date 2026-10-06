@@ -1,8 +1,24 @@
 # Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **공개·보호 설정 대기 – WIF environment 조건·전체 이력 재검사·실제 계정 검증 남음** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
+작성일 **2026-09-23** · 상태 **공개·보호 설정 대기 – 전체 이력 재검사 완료(10-06, 오탐 3건). WIF environment 조건·개인정보 처리 결정·실제 계정 검증 남음** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
 [현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
+
+## 2026-10-06 전체 이력 재검사
+
+공개 전 전체 이력 비밀 검사를 다시 했다(로컬의 모든 ref, `gitleaks 8.30.1 --log-opts=--all --redact=100`). 값은 터미널·문서에 남기지 않고 건수와 판별만 적는다.
+
+**검사가 절반만 돌던 것을 먼저 고쳤다.** 이 저장소의 로컬 `.git/config`는 노트북 diff를 개발 PC의 `models/lora/.venv/bin/python -m nbstripout`으로 돌린다(`diff.ipynb.textconv`). 컨테이너 안에는 그 경로가 없어 `git log -p`가 노트북이 든 오래된 커밋에서 실패하고, gitleaks는 오류 없이 앞 185개 커밋만 검사하고 끝났다. 검사할 때만 `GIT_CONFIG_COUNT`로 `diff.ipynb.textconv`·`filter.nbstripout.clean`을 `cat`으로 바꿔 368개 커밋(줄이 더해진 커밋 전부)을 검사했다. 저장소 설정은 바꾸지 않았다. 명령은 [공개 전 보안 점검](../운영/공개-전-보안-점검.md)에 적었다.
+
+| 발견 | 판별 |
+| --- | --- |
+| `manifests/gpu-cloud-run-probe-gemma4-12b-20261003-r2.json` `runtime` | 오탐. 컨테이너 이미지 digest(64자 hex)가 일반 키 규칙에 걸렸다 |
+| `prototype/trend/.env.example`(09-23, 지금은 없음) | 오탐. `BLUESKY_APP_PASSWORD=`는 빈 값이고 규칙이 다음 줄까지 읽었다 |
+| `docs/operations.md`(09-21, 지금은 없음) | 오탐. `gcloud ... --project=<프로젝트 ID>`. 프로젝트 ID는 워크플로에도 있는 공개 값이다 |
+
+- 이력의 모든 `.env.example` 판(8개 경로)에서 PASS·SECRET·TOKEN·KEY 칸에 값이 있는 것은 둘이다. `VLLM_API_KEY`는 'local-…-only' 꼴의 자리표시값, `JIRA_PROJECT_KEY`는 4자 프로젝트 코드다. 비밀이 아니다.
+- 이력의 파일 이름 1,298개 가운데 `.env`·개인 키·인증서·서비스 계정 JSON·Terraform state·`kaggle.json` 후보는 없다.
+- **사람이 정할 것은 그대로다.** 지금 파일에 개인 이메일 주소가 있는 문서 3개와 결제 계정 ID가 있는 문서 1개(`docs/운영/GCP-운영.md`)가 09-29 기록 그대로 남아 있다. 커밋 작성자 이메일 4개는 이력과 함께 공개된다(Git의 보통 동작).
 
 ## 2026-10-03 점검
 
