@@ -1,4 +1,5 @@
 import { requireReviewer, reviewerFetch } from "./reviewer-server";
+import type { BatchComparison, BatchSummary } from "./publication-review";
 import { isPublicRecord, publicRecord } from "./public-entry";
 import { apiFetch } from "@/lib/api-fetch";
 /* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
@@ -17,6 +18,23 @@ import { SAMPLE_WHY, sampleUpdateFeed } from "./sample/updates";
 import { TARGET_REGIONS } from "./reader";
 
 export const isSampleMode = process.env.DATA_MODE !== "api";
+
+export async function getPublicationBatches(offset = 0): Promise<{ items: BatchSummary[]; total: number }> {
+  await requireReviewer();
+  if (isSampleMode) return { items: [], total: 0 };
+  const response = await reviewerFetch(`/review/batches?limit=50&offset=${offset}`);
+  if (!response.ok) throw new Error("publication_batches_unavailable");
+  return response.json();
+}
+
+export async function getPublicationBatch(batchId: string): Promise<BatchComparison | null> {
+  await requireReviewer();
+  if (isSampleMode) return null;
+  const response = await reviewerFetch(`/review/batches/${encodeURIComponent(batchId)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("publication_batch_unavailable");
+  return response.json();
+}
 
 /* 예시 모드도 백엔드 views.shown_evidences 와 같이 — 커뮤니티 글은 쓰임 지표(예시 대시보드의 '마지막 쓰임')로만 두고
    사전 항목·검수·해석 화면의 근거로 보이지 않는다(ADR 0003). */

@@ -31,6 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminNav label={t(locale, "adm_tabs_label")} items={[
             { id: "/admin", href: "/admin", label: t(locale, "adm_tab_review"), count: stats ? stats.needs_review + (stats.proposals ?? 0) : undefined },
             { id: "/admin/risk", href: "/admin/risk", label: t(locale, "adm_tab_risk") },
+            { id: "/admin/batches", href: "/admin/batches", label: t(locale, "adm_tab_batches") },
             { id: "/admin/status", href: "/admin/status", label: t(locale, "adm_tab_status") },
           ]} />
         </PageHeader>

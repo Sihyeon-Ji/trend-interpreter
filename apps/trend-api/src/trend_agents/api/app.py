@@ -30,6 +30,7 @@ from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
 from ..storage import db
 from ..storage import dictionary_store as ds
+from ..storage import publications
 from ..storage.db import Connection
 from ..verification import is_public_entry
 from ..pipeline.match import term_pattern, text_pattern
@@ -227,6 +228,37 @@ def queue():
 @app.get("/review/stats", response_model=views.ReviewStats, dependencies=[Depends(_review_access)])
 def review_stats():
     return views.review_stats(_con)
+
+
+@app.get("/review/batches", dependencies=[Depends(_review_access)])
+def review_batches(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
+    return publications.summaries(_con, limit, offset)
+
+
+@app.get("/review/batches/{batch_id}", dependencies=[Depends(_review_access)])
+def review_batch(batch_id: str):
+    try:
+        return publications.comparison(_con, batch_id)
+    except publications.PublicationError as exc:
+        raise HTTPException(404, exc.code) from None
+
+
+class BatchReviewIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    payload_sha256: str = Field(pattern=publications.SHA)
+    decision: Literal["approve", "reject"]
+    by: str = Field(min_length=1, max_length=120)
+    allow_gate_exceptions: bool = False
+
+
+@app.post("/review/batches/{batch_id}/decision", dependencies=[Depends(_review_access)])
+def review_batch_decision(batch_id: str, body: BatchReviewIn):
+    # Only the authenticated web server supplies the reviewer identity.
+    try:
+        return publications.review(_con, batch_id, body.payload_sha256, body.by,
+                                   approve=body.decision == "approve", allow_gate_exceptions=body.allow_gate_exceptions)
+    except publications.PublicationError as exc:
+        raise HTTPException(404 if exc.code == "missing_batch" else 409, exc.code) from None
 
 
 class LoginIn(BaseModel):

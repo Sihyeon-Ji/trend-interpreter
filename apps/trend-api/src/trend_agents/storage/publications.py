@@ -237,6 +237,34 @@ def inspect(con: Connection, batch_id: str) -> dict:
                 tid: json.loads(reasons) for tid, reasons in con.execute("SELECT term_id, validation_json FROM change_items WHERE batch_id=?", (batch_id,))}}
 
 
+def summaries(con: Connection, limit: int = 50, offset: int = 0) -> dict:
+    rows = con.execute("SELECT b.batch_id, b.payload_sha256, b.status, b.created_at, b.reviewed_by, b.reviewed_at, "
+                       "b.failure_code, COUNT(i.term_id) FROM change_batches b JOIN change_items i ON i.batch_id=b.batch_id "
+                       "GROUP BY b.batch_id ORDER BY b.created_at DESC, b.batch_id LIMIT ? OFFSET ?", (limit, offset)).fetchall()
+    keys = ("batch_id", "payload_sha256", "status", "created_at", "reviewed_by", "reviewed_at", "failure_code", "item_count")
+    return {"items": [dict(zip(keys, row)) for row in rows],
+            "total": con.execute("SELECT COUNT(*) FROM change_batches").fetchone()[0]}
+
+
+def comparison(con: Connection, batch_id: str) -> dict:
+    result = inspect(con, batch_id)
+    result["current"] = {}
+    for item in result["batch"]["items"]:
+        tid = item["term_id"]
+        term, meaning = ds.get_term(con, tid), ds.current_meaning(con, tid)
+        baseline = con.execute("SELECT baseline_sha256 FROM change_items WHERE batch_id=? AND term_id=?", (batch_id, tid)).fetchone()[0]
+        result["current"][tid] = {
+            "term": term.model_dump(mode="json") if term else None,
+            "meaning": meaning.model_dump(mode="json") if meaning else None,
+            "translations": {lang: json.loads(payload) for lang, payload in con.execute("SELECT lang, json FROM translations WHERE term_id=?", (tid,))},
+            "country_notes": ds.get_topic_notes(con, tid),
+            "evidences": [e.model_dump(mode="json") for e in ds.list_evidences(con, tid)],
+            "fit": json.loads(row[0]) if (row := con.execute("SELECT json FROM term_fit WHERE term_id=?", (tid,)).fetchone()) else None,
+            "baseline_changed": baseline != _baseline(con, tid),
+        }
+    return result
+
+
 def refresh_caches(con: Connection) -> None:
     from ..pipeline import board, dashboard, views
 

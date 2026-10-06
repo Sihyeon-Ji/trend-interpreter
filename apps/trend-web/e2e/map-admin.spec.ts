@@ -85,20 +85,35 @@ test.describe("admin", () => {
     await page.goto("/admin/risk?all=1");                                                   // 예전 주소는 '전체' 로
     await expect(page.getByRole("link", { name: /^(전체|All) \d+$/ })).toHaveAttribute("aria-current", "page");
   });
+
+  test("batch review is explicit about sample data and cannot approve across sites", async ({ page, baseURL }) => {
+    await page.goto("/admin/batches");
+    await expect(page.getByRole("heading", { name: /변경 묶음|Change batches/ })).toBeVisible();
+    await expect(page.getByText(/예시 모드에서는 실제 변경 묶음을|Sample mode does not read/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /게시 대기로 승인|Approve for publication/ })).toHaveCount(0);
+    const response = await page.request.post(`${baseURL}/api/publications/fake-batch`, {
+      headers: { origin: "https://another-site.test" },
+      data: { payload_sha256: "a".repeat(64), decision: "approve", by: "spoofed" },
+    });
+    expect(response.status()).toBe(403);
+    expect(await response.json()).toEqual({ error: "same_origin_required" });
+  });
 });
 
 test("anonymous and ordinary accounts cannot read admin pages", async ({ page, context, baseURL }) => {
-  for (const path of ["/admin", "/admin/risk", "/admin/status"]) {
+  for (const path of ["/admin", "/admin/risk", "/admin/status", "/admin/batches", "/admin/batches/private-batch"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/login/);
   }
+  expect((await page.request.post("/api/publications/private-batch", { data: {} })).status()).toBe(401);
   test.skip(!secret, "PLAYWRIGHT_SESSION_SECRET is required for a signed ordinary account");
   const payload = b64(JSON.stringify({ u: "reader", r: false, exp: Math.floor(Date.now() / 1000) + 3600 }));
   const cookie = `${payload}.${b64(createHmac("sha256", secret!).update(payload).digest())}`;
   await context.addCookies([{ name: "admin_session", value: cookie, url: baseURL ?? "http://localhost:3000" }]);
-  for (const path of ["/admin", "/admin/risk", "/admin/status"]) {
+  for (const path of ["/admin", "/admin/risk", "/admin/status", "/admin/batches", "/admin/batches/private-batch"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/me(?:\?|$)/);
     await expect(page.getByRole("alert").filter({ hasText: /관리 권한이 있는 계정만|only for accounts with admin access/ })).toBeVisible();
   }
+  expect((await page.request.post("/api/publications/private-batch", { data: {} })).status()).toBe(403);
 });
