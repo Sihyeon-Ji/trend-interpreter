@@ -28,7 +28,7 @@ Cloud SQL 30일 체험 종료 전 비용 판단과 수동 전환 절차는 [Plan
 | ID | 구분 | 작업 | 상태 | 선행 | 목표일 |
 | --- | --- | --- | --- | --- | --- |
 | [01](01-import-latest-trend-data.md) | 데이터 | GCS 고정 SQLite 스냅숏의 staging 이관 | 부분 완료 – 고정 사본 인수·로컬 PostgreSQL 41표 대조 완료, GCS 게시·Cloud SQL·수집 전환 남음 | – | 10-01 |
-| [02](02-lifecycle-stages.md) | 기반 | 생애주기 데이터 보강과 출처 순서 판정 | 확대 데이터 기준 미완료 – 규칙·화면 구현, verified 7,654개 중 unknown 7,020개(91.7%) | 01 | 10-02 |
+| [02](02-lifecycle-stages.md) | 기반 | 생애주기 데이터 보강과 출처 순서 판정 | 완료 기준 충족(10-06) – 쓰임 근거 있는 verified 702개 중 unknown 0개(track 재실행 뒤). 수집 서버 track이 10-01부터 끝나지 않아 뒤 단계가 밀림 | 01 | 10-02 |
 | [03](03-term-risk.md) | 기반 | 용어별 리스크 필드와 근거 기반 판정 | 규칙·평가 도구 구현 – 사람 판정 0/20, 검사 전 verified 4,048개 | 02 | 10-04 |
 | [04](04-target-regions-and-keyword-dashboard.md) | 흐름 1 살펴보기 | 목표 지역 조정과 키워드 대시보드 | 지역 규칙·화면 구현 – API 모드·지역 공급 재집계·YouTube 사용량·디자인 결정 남음 | 02, 03 | 10-07 |
 | [05](05-trend-cloud-run-deployment.md) | 배포 | Trend 웹·API와 Cloud SQL 배포, 게시·백업·유지보수 | 부분 – 유지보수·웹 ID token·네트워크/IAM 기반, 실배포·Cloud SQL·게시/예약/복구 남음 | 01·17 단계 3~6 | 10-09 |
