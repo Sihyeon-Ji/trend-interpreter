@@ -7,10 +7,12 @@
 - 두 시기의 비중 차(규칙)로 '늘어난 것·준 것' 을 뽑는다. 한 시기의 표본이 MIN_N 미만이면 '표본 적음'.
 - Trend A Word 는 호 날짜(evidences e_taw_*)의 해·분기별로 느낌·쓰임 비중을 본다.
 
-  uv run scripts/meme_tendency.py     # data/work/catalog/tendency.json · tendency.md
+  uv run scripts/meme_tendency.py     # DATABASE_URL, read-only PostgreSQL
+  uv run scripts/meme_tendency.py --sqlite data/trend.db  # read-only legacy snapshot
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sqlite3
 import sys
@@ -21,7 +23,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trend_agents.pipeline import catalog  # noqa: E402
-from trend_agents.storage import dictionary_store as ds  # noqa: E402
+from trend_agents.storage import db, dictionary_store as ds  # noqa: E402
+from trend_agents.storage.db import Connection  # noqa: E402
 
 OUT = Path("data/work/catalog")
 MIN_N = 20                      # 한 칸(시기 × 항목)의 표본이 이보다 적으면 '표본 적음'
@@ -59,12 +62,12 @@ def compare(rows: list[dict], key, a: str, b: str) -> dict:
             sb = c[b][k] / n[b] if n[b] else 0
             cells.append({"name": k, a: c[a][k], b: c[b][k], f"share_{a}": round(sa, 3), f"share_{b}": round(sb, 3),
                           "diff": round(sb - sa, 3), "small": min(n[a], n[b]) < MIN_N})
-        cells.sort(key=lambda x: -x["diff"])
+        cells.sort(key=lambda x: (-x["diff"], x["name"]))
         out[dim] = {"n": n, "cells": cells}
     return out
 
 
-def load(con: Connection) -> tuple[list[dict], dict]:
+def load(con: Connection | sqlite3.Connection) -> tuple[list[dict], dict]:
     fits = {tid: f for tid, (_, f) in ds.all_fits(con).items()}
     taw = dict(con.execute("SELECT term_id, MIN(observed_at) FROM evidences WHERE evidence_id LIKE 'e_taw_%' GROUP BY term_id"))
     rows = []
@@ -75,8 +78,8 @@ def load(con: Connection) -> tuple[list[dict], dict]:
     return rows, {"fit_terms": len(fits), "taw_dated": len(taw)}
 
 
-def main() -> None:
-    con = sqlite3.connect("file:data/trend.db?mode=ro", uri=True, timeout=60)     # 읽기 전용
+def analyze(con: Connection | sqlite3.Connection) -> dict:
+    """Build aggregate statistics without mutating the source or calling a model."""
     rows, info = load(con)
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     src_count = Counter(r["source"] for r in rows)
@@ -117,9 +120,14 @@ def main() -> None:
                for k, e in sorted(per.items())}
     # 4. 뜬 해 — 위키백과 월별 조회수의 최고 달(출처의 해가 없는 표제어도 시기가 생긴다)
     peaks = []
-    if con.execute("SELECT 1 FROM sqlite_master WHERE name='term_pageviews'").fetchone():
+    has_pageviews = (
+        con.execute("SELECT 1 FROM sqlite_master WHERE name='term_pageviews'").fetchone()
+        if isinstance(con, sqlite3.Connection)
+        else con.execute("SELECT to_regclass('term_pageviews')").fetchone()[0]
+    )
+    if has_pageviews:
         peaks = [(tid, pm) for tid, pm in con.execute(
-            "SELECT term_id, month FROM (SELECT term_id, month, ROW_NUMBER() OVER (PARTITION BY term_id ORDER BY views DESC, month DESC) rn FROM term_pageviews) WHERE rn=1")]
+            "SELECT term_id, month FROM (SELECT term_id, month, ROW_NUMBER() OVER (PARTITION BY term_id ORDER BY views DESC, month DESC) rn FROM term_pageviews) AS ranked WHERE rn=1")]
     src_year = {r["term_id"] for r in rows if r["year"]}
     peak_years: dict = defaultdict(lambda: {"n": 0, "no_source_year": 0})
     for tid, pm in peaks:
@@ -130,9 +138,36 @@ def main() -> None:
            "years": {y: dict(by_year[y]) for y in sorted(by_year)},
            "decade_only": {f"{s}:{d}": n for (s, d), n in sorted(by_decade_only.items())},
            "peak_years": {y: peak_years[y] for y in sorted(peak_years)}, "compare": cmp_out, "trendaword": taw_out, "min_n": MIN_N}
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "tendency.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    (OUT / "tendency.md").write_text(render(out), encoding="utf-8")
+    return out
+
+
+def connect_source(path: str | None) -> Connection | sqlite3.Connection:
+    if path:
+        snapshot = Path(path).resolve()
+        if not snapshot.is_file():
+            raise SystemExit(f"DB 사본이 없습니다: {snapshot}")
+        return sqlite3.connect(f"{snapshot.as_uri()}?mode=ro", uri=True, timeout=60)
+    return db.connect_read_only()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--sqlite", help="읽기 전용 SQLite 사본. 생략하면 DATABASE_URL의 PostgreSQL")
+    parser.add_argument("--out", type=Path, default=OUT, help="집계 JSON·Markdown 저장 폴더")
+    args = parser.parse_args()
+    con = connect_source(args.sqlite)
+    try:
+        # Keep every aggregate in the same snapshot even while collection runs.
+        if isinstance(con, sqlite3.Connection):
+            con.execute("BEGIN")
+        else:
+            con.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        out = analyze(con)
+    finally:
+        con.close()
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / "tendency.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    (args.out / "tendency.md").write_text(render(out), encoding="utf-8")
     print(render(out))
 
 
@@ -159,7 +194,7 @@ def render(o: dict) -> str:
             continue
         for pk, (title, _) in PERIODS.items():
             a, b = title.split(" vs ")
-            L += [f"### {g} — {title}", "", "표본 수(값 있는 표제어): " + " · ".join(
+            L += [f"### {g} – {title}", "", "표본 수(값 있는 표제어): " + " · ".join(
                 f"{lab} {a} {gd[pk][dim]['n'][a]}/{b} {gd[pk][dim]['n'][b]}" for dim, lab in DIMS), ""]
             for dim, lab in DIMS:
                 dd = gd[pk][dim]
@@ -188,7 +223,7 @@ def render(o: dict) -> str:
                  " | ".join(f(e["uses"], x) for x in us) + f" | {'표본 적음' if e['small'] else ''} |")
     L += ["", "(느낌 열 " + str(len(fe)) + "개 다음이 쓰임 열: " + ", ".join(fe) + " / " + ", ".join(us) + ")", ""]
     if o.get("peak_years"):
-        L += ["## 4. 뜬 해 (위키백과 월별 조회수가 가장 높았던 달의 해)", "", "| 뜬 해 | 표제어 수 | 그중 출처에 해가 없는 것 |", "|---|---|---|"]
+        L += ["## 4. 조회 관심 최고 연도 (위키백과 월별 조회수가 가장 높았던 달의 해, 실제 유행 시기와 구분)", "", "| 조회 관심 최고 연도 | 표제어 수 | 그중 출처에 해가 없는 것 |", "|---|---|---|"]
         L += [f"| {y} | {d['n']} | {d['no_source_year']} |" for y, d in o["peak_years"].items()]
         L.append("")
     return "\n".join(L + interpret(o)) + "\n"
@@ -210,7 +245,7 @@ def interpret(o: dict) -> list[str]:
     fn = o["compare"]["전체(출처 섞음, 같은 말 1회)"]["recent"]["feelings"]["n"]
     fa, fb = fn["2020~2022"], fn["2023~2026"]
     L = ["## 해석 (숫자로 말할 수 있는 것만)", ""]
-    L.append(f"1. 해가 있는 {tot}행 중 {r20}행({pct(r20 / tot)})이 2020년 이후다. 2010년대 이전은 pttpedia·wikidata 위주라 '옛 밈이 적다' 가 아니라 '옛 밈을 담은 출처가 적다' 에 가깝다(표본 편향).")
+    L.append(f"1. 해가 있는 {tot}행 중 {r20}행({pct(r20 / tot if tot else 0)})이 2020년 이후다. 2010년대 이전은 pttpedia·wikidata 위주라 '옛 밈이 적다' 가 아니라 '옛 밈을 담은 출처가 적다' 에 가깝다(표본 편향).")
     if ai and mu:
         L.append(f"2. 나무위키만 보면 2020~2022 → 2023~2026 에서 '생성형 인공지능 기반' 종류가 {ai['2020~2022']}개({pct(ai['share_2020~2022'])}) → {ai['2023~2026']}개({pct(ai['share_2023~2026'])})로 {ai['diff'] * 100:+.0f}%p 늘었다(표본 {ns['genres']['n']['2020~2022']}/{ns['genres']['n']['2023~2026']}). 음악은 {pct(mu['share_2020~2022'])} → {pct(mu['share_2023~2026'])}로 두 시기 모두 최대 종류다.")
     if us and kr:
