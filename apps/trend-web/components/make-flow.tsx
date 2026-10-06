@@ -278,12 +278,12 @@ function MarketDraft({ col, rec, locale, onSign, onUnsign, onSwap, onRedo }: {
   );
 }
 
-export function MakeFlow({ locale, counts, reviewer, sample }: {
-  locale: Locale; counts: Record<string, number>; reviewer: string | null; sample: boolean;
+export function MakeFlow({ locale, counts, initialMarkets, reviewer, sample }: {
+  locale: Locale; counts: Record<string, number>; initialMarkets: string[]; reviewer: string | null; sample: boolean;
 }) {
   const labels = L(locale);
   const categories = Object.keys(labels.fitCategory) as FitCategory[];
-  const [markets, setMarkets] = useState<string[]>(["KR", "JP", "GLOBAL"]);
+  const [markets, setMarkets] = useState<string[]>(initialMarkets);
   const [category, setCategory] = useState<FitCategory | "">("");
   const [tone, setTone] = useState<CampaignTone>("friendly");
   const [text, setText] = useState("");
@@ -404,7 +404,7 @@ export function MakeFlow({ locale, counts, reviewer, sample }: {
             <span aria-hidden="true">/</span><span>{t(locale, "dr_crumb")}</span>
           </p>
           <h1 className="n-h1" ref={top} tabIndex={-1}>{rec.brief?.product ?? text}</h1>
-          {text.trim() && <p className="n-lead">{text.trim()}</p>}
+          {text.trim() && text.trim() !== rec.brief?.product && <p className="n-lead">{text.trim()}</p>}
           <dl className="n-brief">
             <div><dt>{t(locale, "dr_markets")}</dt><dd>{cols.map((c) => marketName(locale, c.market)).join(", ")}</dd></div>
             {rec.brief && <div><dt>{t(locale, "dr_category")}</dt><dd>{labels.fitCategory[rec.brief.category]} {!category && <span className="n-meta">{t(locale, "dr_category_auto")}</span>}</dd></div>}

@@ -1,134 +1,147 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { KeywordPager, KeywordTable } from "@/components/keyword-table";
-import { ListTabs } from "@/components/list-tabs";
-import { PosterGrid } from "@/components/poster-grid";
-import { WordCloud } from "@/components/word-cloud";
-import { PageHeader } from "@/components/page-header";
-import { PageShell } from "@/components/page-shell";
-import { RegionChips } from "@/components/region-chips";
-import { StatePanel } from "@/components/state-panel";
-import { StatusBadge } from "@/components/status-badge";
+import { KeywordPager } from "@/components/keyword-table";
+import { WordTable } from "@/components/ledger-bits";
 import { getKeywordBoard, isSampleMode } from "@/lib/data";
-import { t } from "@/lib/i18n";
+import { t, type StringKey } from "@/lib/i18n";
 import { fmtDateTime, regionLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
-import { TARGET_REGIONS } from "@/lib/reader";
+import { MAKE_MARKETS, TARGET_REGIONS } from "@/lib/reader";
 import { getReader } from "@/lib/reader-server";
-import type { KeywordBoard, KeywordList } from "@/lib/types";
+import type { KeywordBoard, KeywordCard } from "@/lib/types";
 
-/* 둘러보기 (Plan 20 에서 첫 화면 자리를 '만들기' 에 넘겼다) — 사용 흐름 '살펴보기' (ADR 0001, Plan 04, docs/트렌드/디자인-개편.md). 지역을 고르면 그 지역의 밈을
-   지금 쓰이는·식어 가는·주의 셋으로 나눠 표로 보인다(주의 밈은 쓰이는·식는 목록에도, 사용 자제는 주의에만 — Plan 04). 지역·탭·쪽은 주소에만 둔다(익명은 설정을 갖지 않는다). */
+/* 둘러보기 (Plan 20, 시안 n-redesign) — 시장 하나씩. 기본 탭은 한국·일본·영어권(만들기와 같은 셋), 지도·나라 화면에서 다른 나라로 들어오면
+   그 나라도 탭에 더한다. 낱말 크기는 그 시장 안에서의 4주 언급 순위 다섯 단계 — 시장끼리 견주지 않는다(수집량이 달라 큰 시장 말만 커진다).
+   목록 셋은 대시보드 규칙(Plan 04) 그대로: 쓰이는 중·식는 중·조심할 말(주의는 앞 둘에도, 사용 자제는 조심할 말에만). 시장·쪽은 주소에만 둔다. */
 const KNOWN = [...TARGET_REGIONS, "GLOBAL"];
-const LISTS = ["rising", "fading", "caution"] as const satisfies readonly KeywordList[];
+const fill = (s: string, v: Record<string, string | number>) => Object.entries(v).reduce((acc, [k, x]) => acc.replaceAll(`{${k}}`, String(x)), s);
+const marketLabel = (locale: "ko" | "en", r: string) => (r === "KR" || r === "JP" || r === "GLOBAL") ? t(locale, `mk_market_${r}` as StringKey) : regionLabel(locale, r);
 
-const one = (v: string | string[] | undefined) => [v].flat().filter(Boolean).join(",");
-
-// 탭·화면 낭독기가 화면을 가를 수 있게 화면마다 제목을 둔다 — 여러 화면이 사이트 이름 하나뿐이었다(10-04)
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   return { title: `${t(locale, "nav_browse")} — ${t(locale, "site")}` };
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+/** 그 시장 안의 순위로 1–5 단계 크기. 4주 언급이 없는 말은 가장 작게 */
+function sizes(cards: KeywordCard[]): Map<string, number> {
+  const ranked = [...cards].filter((c) => c.mentions_4w > 0).sort((a, b) => b.mentions_4w - a.mentions_4w);
+  const n = ranked.length;
+  const out = new Map(ranked.map((c, i) => [c.term_id, n <= 1 ? 4 : 5 - Math.min(3, Math.floor((i / n) * 4))]));
+  for (const c of cards) if (!out.has(c.term_id)) out.set(c.term_id, 1);
+  return out;
+}
+
+export default async function Explore({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [locale, sp] = await Promise.all([getLocale(), searchParams]);
-  // 지역은 여러 곳(?regions=KR,JP, 순서는 칩 순서로 고정, 모르는 값은 버린다). 'all' 이나 모르는 값뿐이면 전체
-  const raw = one(sp.regions);
-  const asked = raw && raw !== "all" ? raw.split(",").map((s) => s.trim().toUpperCase()) : [];
-  const reader = raw ? {} : await getReader();    // 주소에 지역이 없으면 로그인한 사람의 나라, 익명은 전체
-  const picked = raw ? KNOWN.filter((r) => asked.includes(r)) : reader.region && TARGET_REGIONS.includes(reader.region) ? [reader.region] : [];
-  const list: KeywordList = LISTS.find((l) => l === one(sp.list)) ?? "rising";
-  const page = Math.max(1, Number.parseInt(one(sp.page), 10) || 1);
+  const raw = [sp.regions].flat().filter(Boolean).join(",").split(",").map((s) => s.trim().toUpperCase());
+  const reader = raw[0] ? {} : await getReader();      // 주소에 시장이 없으면 로그인한 사람의 나라, 익명은 한국
+  const market = KNOWN.find((r) => r === raw[0]) ?? (reader.region && KNOWN.includes(reader.region) ? reader.region : "KR");
+  const page = Math.max(1, Number.parseInt([sp.page].flat()[0] ?? "", 10) || 1);
+  const href = (p: number) => `/trends?regions=${market}${p > 1 ? `&page=${p}` : ""}`;
 
-  const href = (to: { list?: KeywordList; page?: number } = {}) => {
-    const q = new URLSearchParams();
-    if (raw) q.set("regions", picked.length ? picked.join(",") : "all");
-    const l = to.list ?? list, p = to.page ?? (to.list ? 1 : page);
-    if (l !== "rising") q.set("list", l);
-    if (p > 1) q.set("page", String(p));
-    return q.size ? `/trends?${q}` : "/trends";
-  };
-
-  // 실데이터 모드에서 서버가 실패하면 예시로 바꿔 넣지 않는다 — 표 자리에 알리고 같은 주소로 다시 시도하게 한다
   let board: KeywordBoard | null = null;
   try {
-    board = await getKeywordBoard(picked, page);
+    board = await getKeywordBoard([market], page);
   } catch {
     board = null;
   }
-  const total = board?.totals[list] ?? 0;
-  const last = Math.max(1, Math.ceil(total / (board?.page_size ?? 30)));
-  if (board && page > last) redirect(href({ page: last }));        // 범위를 넘는 쪽은 마지막 쪽으로
+  const longest = board ? Math.max(board.totals.rising, board.totals.fading, board.totals.caution) : 0;
+  const last = Math.max(1, Math.ceil(longest / (board?.page_size ?? 30)));
+  if (board && page > last) redirect(href(last));
 
-  const targets = picked.filter((r) => r !== "GLOBAL");             // 추천에 넘길 나라(목표 지역만, 전체·글로벌이면 없이)
-  const mapQ = new URLSearchParams();
-  if (picked.length) mapQ.set("regions", picked.join(","));
-  if (list !== "rising") mapQ.set("list", list);                      // 지도가 대시보드로 돌려보낼 때 보던 목록을 그대로
-  const names = picked.map((r) => (r === "GLOBAL" ? t(locale, "dash_global") : regionLabel(locale, r))).join(", ");
-  const nothing = board && LISTS.every((l) => board.totals[l] === 0);
-  const tabs = board ? LISTS.map((id) => ({ id, label: t(locale, `dash_${id}`), count: board.totals[id], href: href({ list: id }) })) : [];
-  const cards = board?.[list] ?? [];
-  const btn = "inline-flex h-9 items-center rounded-md border px-3.5 text-[14px] font-medium whitespace-nowrap";
+  const name = marketLabel(locale, market);
+  const tabs = [...MAKE_MARKETS, ...(MAKE_MARKETS.includes(market as (typeof MAKE_MARKETS)[number]) ? [] : [market])];
+  const verified = board?.counts[market] ?? 0;
+  const field = board ? [...new Map([...board.rising, ...board.fading, ...board.caution].map((c) => [c.term_id, c])).values()] : [];
+  const size = sizes(field);
+  const shown = [...field].sort((a, b) => a.canonical.localeCompare(b.canonical, locale === "ko" ? "ko" : "en"));
+  const lists = board ? [
+    { id: "rising", title: t(locale, "ex_using"), note: t(locale, "ex_using_note"), rows: board.rising, total: board.totals.rising },
+    { id: "fading", title: t(locale, "ex_fading"), note: t(locale, "ex_fading_note"), rows: board.fading, total: board.totals.fading },
+    { id: "caution", title: t(locale, "ex_careful"), note: t(locale, "ex_careful_note"), rows: board.caution, total: board.totals.caution },
+  ] : [];
+
   return (
-    <PageShell>
-      <div className="space-y-14">
-        <PageHeader title={picked.length ? t(locale, "browse_title").replace("{region}", names) : t(locale, "browse_title_all")} description={t(locale, "browse_intro")}
-          meta={!board ? null : isSampleMode
-            ? <StatusBadge tone="muted">{t(locale, "dash_sample_badge")}</StatusBadge>   // 예시의 고정 시각을 갱신 시각처럼 내지 않는다
-            : <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(board.collected_at ?? board.generated_at, locale)}</span></span>}
-          actions={
-            <span className="flex flex-wrap gap-2">
-              <Link href={mapQ.size ? `/map?${mapQ}` : "/map"} className={`${btn} border-hairline-strong text-ink hover:border-ink`}>{t(locale, "dash_pick_on_map")}</Link>
-              <Link href={targets.length ? `/?regions=${targets.slice(0, 3).join(",")}` : "/"} className={`${btn} border-ink bg-ink text-white hover:bg-ink/85`}>{t(locale, "browse_make")}</Link>
-            </span>
-          }>
-          <RegionChips picked={picked} counts={board?.counts} locale={locale} list={list === "rising" ? undefined : list} base="/trends" />
-        </PageHeader>
-        {/* 첫 쪽에서만: 많이 쓰이는 말(워드 클라우드) → 지금 쓰이는 밈 앞 여덟(포스터 격자). 그 아래 표가 전체 목록이다 */}
-        {board && page === 1 && list === "rising" && (
+    <main id="main" className="n-main">
+      <div className="n-wrap">
+        <div className="n-head" style={{ paddingBottom: 20 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: "12px 32px" }}>
+            <div>
+              <h1 className="n-h1">{t(locale, "ex_title")}</h1>
+              <p className="n-lead">{t(locale, "ex_lead")}</p>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              {board && <span className="n-meta">{isSampleMode ? t(locale, "dash_sample_badge") : <>{t(locale, "dash_updated")} <span className="n-num">{fmtDateTime(board.collected_at ?? board.generated_at, locale)}</span></>}</span>}
+              <Link className="n-btn" data-kind="line" data-size="s" href={`/map?regions=${market}`}>{t(locale, "dash_pick_on_map")}</Link>
+              <Link className="n-btn" data-size="s" href={`/?regions=${market}`}>{t(locale, "ex_make")}</Link>
+            </div>
+          </div>
+        </div>
+
+        <nav className="n-mtabs" aria-label={t(locale, "ex_markets")}>
+          {tabs.map((r) => (
+            <Link key={r} href={`/trends?regions=${r}`} aria-current={r === market ? "page" : undefined}>
+              <b>{marketLabel(locale, r)}</b><span>{fill(t(locale, "ex_count"), { n: (board?.counts[r] ?? 0).toLocaleString() })}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {!board ? (
+          <p className="n-error" role="alert" style={{ paddingBlock: 32 }}>{t(locale, "dash_error")} <Link className="n-link" href={href(page)}>{t(locale, "dash_retry")}</Link></p>
+        ) : (
           <>
-            <WordCloud cards={[...board.rising, ...board.caution.filter((c) => c.risk_level === "avoid")]} locale={locale} regions={picked}
-              title={t(locale, "cloud_title")} />
-            {board.rising.length > 0 && (
-              <section aria-labelledby="poster-title" className="rubric">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1">
-                  <h2 id="poster-title" className="text-[24px] font-extrabold tracking-[-0.02em] text-ink">{t(locale, "dash_rising")}</h2>
-                  <p className="max-w-[560px] text-[14px] text-charcoal">{t(locale, "dash_rising_note")}</p>
+            {page === 1 && (
+              <section aria-labelledby="ex-field">
+                <h2 className="n-sr" id="ex-field">{fill(t(locale, "ex_field"), { market: name })}</h2>
+                {shown.length > 0 && (
+                  <p className="n-field-words">
+                    {shown.map((c) => {
+                      const others = c.regions.filter((r) => r !== market && r !== "GLOBAL").length;
+                      const risk = c.risk_level === "avoid" ? "avoid" : c.risk_level === "caution" ? "caution" : "none";
+                      return (
+                        <span key={c.term_id} className="n-fw" data-s={size.get(c.term_id)} data-r={risk} lang={c.lang}>
+                          <Link href={`/dictionary/${encodeURIComponent(c.term_id)}?regions=${market}`}>{c.canonical}</Link>
+                          {risk === "avoid" && <span className="n-sr">({t(locale, "risk_avoid")})</span>}
+                          {risk === "caution" && <span className="n-sr">({t(locale, "risk_caution")})</span>}
+                          {others > 0 && <sup aria-label={fill(t(locale, "ex_key_share_note"), { n: others })}>+{others}</sup>}
+                        </span>
+                      );
+                    })}
+                  </p>
+                )}
+                {verified < 50 && <p className="n-thin" style={{ margin: "0 0 28px" }}>{fill(t(locale, "ex_thin"), { market: name, n: verified })}</p>}
+                <div className="n-strip">
+                  <dl className="n-stats" aria-label={fill(t(locale, "ex_stats"), { market: name })}>
+                    <div><dt>{t(locale, "ex_verified")}</dt><dd>{verified.toLocaleString()}</dd></div>
+                    {lists.map((l) => <div key={l.id}><dt>{l.title}</dt><dd>{l.total.toLocaleString()}</dd></div>)}
+                  </dl>
+                  <ul className="n-keys" aria-label={t(locale, "ex_keys")}>
+                    <li><span className="k-size">{t(locale, "ex_key_size")}</span><span>{fill(t(locale, "ex_key_size_note"), { market: name })}</span></li>
+                    <li><span className="k-share">+2</span><span>{fill(t(locale, "ex_key_share_note"), { n: 2 })}</span></li>
+                    <li><span className="k-caution">{t(locale, "ex_key_caution")}</span><span>{t(locale, "ex_key_caution_note")}</span></li>
+                    <li><span className="k-avoid">{t(locale, "ex_key_avoid")}</span><span>{t(locale, "ex_key_avoid_note")}</span></li>
+                  </ul>
                 </div>
-                <div className="mt-6"><PosterGrid cards={board.rising.slice(0, 8)} locale={locale} regions={picked} /></div>
               </section>
+            )}
+
+            {lists.map((l) => (
+              <section key={l.id} className="n-list" aria-labelledby={`l-${l.id}`}>
+                <div className="n-list-head">
+                  <h2 className="n-h2" id={`l-${l.id}`}>{l.title} <span className="n-num" style={{ fontWeight: 400, color: "var(--n-ink-3)" }}>{l.total}</span></h2>
+                  <span className="n-meta">{l.note}</span>
+                </div>
+                {l.rows.length ? <WordTable cards={l.rows} caption={`${name}, ${l.title}`} locale={locale} regions={[market]} />
+                  : <p className="n-empty">{fill(t(locale, "ex_empty"), { market: name })}</p>}
+              </section>
+            ))}
+            {longest > board.page_size && (
+              <div style={{ marginTop: 24 }}><KeywordPager total={longest} page={page} size={board.page_size} href={href} locale={locale} /></div>
             )}
           </>
         )}
-        <section aria-labelledby="dash-list" className="rubric space-y-3">
-          <h2 id="dash-list" className="text-[24px] font-extrabold tracking-[-0.02em] text-ink">{t(locale, "browse_list")}</h2>
-          {!board ? (
-            <StatePanel role="alert" action={<Link href={href()} className="text-[14px] text-link-blue hover:underline">{t(locale, "dash_retry")}</Link>}>
-              {t(locale, "dash_error")}
-            </StatePanel>
-          ) : nothing ? (
-            // 세 목록이 다 비면 탭·표 대신 패널 하나 — 같은 빈 문장을 세 번 되풀이하지 않는다
-            <StatePanel role="status" action={picked.length ? <Link href="/trends?regions=all" className="text-[14px] text-link-blue hover:underline">{t(locale, "dash_view_all")}</Link> : undefined}>
-              {picked.length ? t(locale, "dash_region_empty").replace("{region}", names) : t(locale, "dash_empty")}
-            </StatePanel>
-          ) : (
-            <>
-              <ListTabs items={tabs} current={list} label={t(locale, "dash_lists")} />
-              <p className="text-[13px] text-steel">
-                {picked.includes("GLOBAL") && <>{t(locale, "dash_global_note")} </>}
-                {t(locale, `dash_${list}_note`)}
-              </p>
-              {cards.length ? (
-                <>
-                  <KeywordTable cards={cards} locale={locale} showRegions={picked.length !== 1 || picked[0] === "GLOBAL"} linkRegions={picked} />
-                  <KeywordPager total={total} page={page} size={board.page_size} href={(p) => href({ page: p })} locale={locale} />
-                </>
-              ) : <StatePanel role="status">{t(locale, `dash_${list}_empty`)}</StatePanel>}
-            </>
-          )}
-        </section>
       </div>
-    </PageShell>
+    </main>
   );
 }

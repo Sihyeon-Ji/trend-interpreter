@@ -243,20 +243,6 @@
 a.text-link-blue { text-decoration: underline; text-decoration-color: var(--hairline-strong); text-underline-offset: 3px; }
 a.text-link-blue:hover { text-decoration-color: var(--ink); }
 
-/* 포스터 낱말 (o-editorial): 밈 이름이 곧 그림이다. 원문 그대로, 굵게, 좁은 자간·줄 간격. 크기는 쓰는 곳이 정한다. */
-.poster-word {
-  font-weight: 850;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
-  color: var(--ink);
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
-}
-.poster-word:lang(ja), .poster-word:lang(zh), .poster-word:lang(zh-Hant), .poster-word:lang(th) { letter-spacing: -0.02em; }
-
-/* 꼭지 머리 (o-editorial): 굵은 먹 선 위에 큰 제목, 오른쪽에 설명 한 줄 */
-.rubric { border-top: 3px solid var(--ink); padding-top: 14px; }
 
 
 /* 지구 말풍선 (globe.gl HTML 레이어). 기준점(.globe-anchor)은 라이브러리가 놓고, 말풍선은 그 안에서 비켜 놓는다 */

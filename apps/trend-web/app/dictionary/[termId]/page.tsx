@@ -2,25 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EntryHistory, historyRows } from "@/components/entry-history";
+import { RiskText, Spark, StageMark, riskKey } from "@/components/ledger-bits";
+import { Who } from "@/components/who";
 import { GenerationCurves } from "@/components/generation-curves";
-import { PageHeader } from "@/components/page-header";
-import { PageShell } from "@/components/page-shell";
 import { SourceTable } from "@/components/source-table";
 import { StatusBadge } from "@/components/status-badge";
 import { TermMediaBlock } from "@/components/term-media";
-import { StageCell } from "@/components/term-status";
 import { RiskSentences } from "@/components/risk-sentences";
 import { TermProvenance } from "@/components/term-provenance";
-import { TermSummary } from "@/components/term-summary";
 import { TrendChart, isPartialWeek } from "@/components/trend-chart";
 import { VariantTable } from "@/components/variant-table";
-import { Button } from "@/components/ui/button";
 import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic, getUpdatedAt } from "@/lib/data";
 import { currentMeaning, headlineFor, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
 import { langTag, scriptLang } from "@/lib/lang";
-import { L, fmtDate, fmtDateTime, fmtInt, joinGens, joinRegions, listJoin, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
+import { L, fmtDate, fmtDateTime, fmtInt, joinRegions, listJoin, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { cleanSource, kindCounts } from "@/lib/sources";
@@ -49,9 +46,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return { title: record ? `${record.term.canonical} · ${tail}` : tail };
 }
 
-function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
-  // 휴대폰 위 막대(56px, sticky)에 가리지 않게 여백을 둔다
-  return <h2 id={id} className="scroll-mt-[72px] text-[18px] leading-[1.3] font-semibold text-ink lg:scroll-mt-8">{children}</h2>;
+/** 원장의 한 줄 — 왼쪽 이름표, 오른쪽 내용 */
+function Row({ id, label, children }: { id: string; label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="n-row" aria-labelledby={id}>
+      <h2 id={id} className="n-row-label scroll-mt-[72px]">{label}</h2>
+      <div className="min-w-0 space-y-3">{children}</div>
+    </section>
+  );
 }
 
 const sum = (xs: { count: number }[]) => xs.reduce((a, p) => a + p.count, 0);
@@ -142,72 +144,79 @@ export default async function TermPage({ params, searchParams }: Props) {
   const title = (id: string) => sections.find((s) => s.id === id)?.title ?? "";
 
   const makeHref = `/recommend?term=${encodeURIComponent(term.term_id)}`;
-  const makeButton = (className: string) => (
-    <Button asChild className={`h-10 rounded-md px-4 text-[14px] ${className}`}><Link href={makeHref}>{t(locale, "term_make")}</Link></Button>
-  );
 
+  const verification = m?.verification;
+  const who4 = !verified ? t(locale, "tm_who4_wait") : verification === "verified_human" && m
+    ? t(locale, "tm_who4_human").replace("{date}", fmtDate(m.valid_from)) : t(locale, "tm_who4_auto");
+
+  /* 원장(Plan 20, 시안 n-redesign): 원문을 크게 → 지금 상태 다섯 칸 → 왼쪽 이름표 줄(뜻·쓰는 법·유래·나라마다·쓰임 추이·만든 과정·출처·뜻 이력)
+     → 오른쪽 '누가 정했나'. 각 줄의 내용 부품(출처 표·이력·나라별 비교·추이 그래프)은 그대로 쓴다. */
   return (
-    <PageShell>
-      <article>
-        <PageHeader
-          crumbs={<><Link href="/dictionary" className="hover:text-ink hover:underline">{t(locale, "dict_title")}</Link> › <span lang={langTag(term.lang)}>{term.canonical}</span></>}
-          title={<span lang={langTag(term.lang)}>{term.canonical}</span>}
-          description={tx ? <span lang={txLang}>{headlineFor(tx, locale)}</span> : `${t(locale, "term_no_meaning")} ${t(locale, "term_no_meaning_next")}`}
-          meta={<>
-            {!verified && <StatusBadge tone="muted">{t(locale, "term_badge_review")}</StatusBadge>}
-            {verified && m && <span>{t(locale, "term_meta_reviewed")} <span className="tabular-nums text-charcoal">{fmtDate(m.valid_from)}</span></span>}
-            {updatedAt && <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(updatedAt, locale)}</span></span>}
-          </>}
-          actions={canMake ? makeButton("hidden sm:inline-flex") : undefined}>
-          {!verified && <p className="text-[14px] leading-[1.55] text-charcoal">{t(locale, "term_draft_notice")}</p>}
-          {/* 영어판이 없으면 뜻·유래·뉘앙스가 한국어 원문으로 나온다 — 영어 독자에게 알린다(본문은 숨기지 않는다) */}
-          {tx && txLang && <p className="text-[14px] leading-[1.55] text-charcoal">{t(locale, "term_untranslated_notice")}</p>}
-        </PageHeader>
-
-        <div className="mt-8 grid gap-10 xl:grid-cols-[minmax(0,720px)_280px] xl:gap-12">
-          {/* 요약과 목차 — DOM 은 먼저, 1280px 이상에서 오른쪽 칸(따라 내려온다) */}
-          <div className="min-w-0 space-y-4 xl:sticky xl:top-8 xl:col-start-2 xl:row-start-1 xl:self-start">
-            <TermSummary locale={locale} term={term} verified={verified}
-              regions={m?.regions.length ? (locale === "ko" ? m.regions.map((r) => regionLabel(locale, r)).join(", ") : joinRegions(locale, m.regions)) : null}
-              gens={m?.generations.length ? (locale === "ko" ? m.generations.map((g) => labels.generation[g]).join(", ") : joinGens(locale, m.generations)) : null}
-              mentions={hasTrend || signals ? last4 : null} scope={scope} lastUsed={lastUsed}
-              plain={tx?.plain || null} plainLang={txLang} sources={sources.length}
-              popularYear={record.popular_year} popularDecade={record.popular_decade} />
-            {canMake && makeButton("w-full sm:hidden")}
-            {sections.length > 1 && (
-              <nav aria-label={t(locale, "term_toc")} className="hidden px-1 text-[14px] xl:block">
-                <p className="text-[13px] font-semibold text-ink">{t(locale, "term_toc")}</p>
-                <ul className="mt-2 space-y-1.5">
-                  {sections.map((s) => <li key={s.id}><a href={`#${s.id}`} className="text-charcoal hover:text-ink hover:underline">{s.title}</a></li>)}
-                </ul>
-              </nav>
-            )}
+    <main id="main" className="n-main">
+      <article className="n-wrap">
+        <div className="n-term-head">
+          <p className="n-crumb">
+            <Link href={regions.length ? `/trends?regions=${regions[0]}` : "/trends"}>{t(locale, "nav_browse")}</Link><span aria-hidden="true">/</span>
+            <Link href="/dictionary">{t(locale, "dict_title")}</Link><span aria-hidden="true">/</span>
+            <span lang={langTag(term.lang)}>{term.canonical}</span>
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: "16px 32px" }}>
+            <div className="min-w-0">
+              <h1 className="n-term-word" lang={langTag(term.lang)}>{term.canonical}</h1>
+              {tx ? <p className="n-term-gloss" lang={txLang}>{headlineFor(tx, locale)}</p>
+                : <p className="n-term-gloss">{t(locale, "term_no_meaning")} {t(locale, "term_no_meaning_next")}</p>}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              {!verified && <StatusBadge tone="muted">{t(locale, "term_badge_review")}</StatusBadge>}
+              {updatedAt && <span className="n-meta">{t(locale, "dash_updated")} <span className="n-num">{fmtDateTime(updatedAt, locale)}</span></span>}
+              {/* 식어 가는 말이면 검정 주 버튼으로 권하지 않는다(검토 10-06) */}
+              {canMake && <Link className="n-btn" data-size="s" data-kind={term.lifecycle === "declining" || term.lifecycle === "dormant" ? "line" : undefined} href={makeHref}>{t(locale, "term_make")}</Link>}
+            </div>
           </div>
+          {!verified && <p className="n-thin" style={{ marginTop: 16 }}>{t(locale, "term_draft_notice")}</p>}
+          {tx && txLang && <p className="n-thin" style={{ marginTop: 16 }}>{t(locale, "term_untranslated_notice")}</p>}
 
-          <div className="min-w-0 max-w-[720px] space-y-10 xl:col-start-1 xl:row-start-1">
+          <dl className="n-vitals" aria-label={t(locale, "tm_vitals")}>
+            <div><dt>{t(locale, "dr_why_stage")}</dt><dd><StageMark stage={term.lifecycle ?? "unknown"} locale={locale} /></dd></div>
+            <div><dt>{t(locale, "dr_why_spread")}</dt><dd>{term.diffusion ? t(locale, `diffusion_${term.diffusion}`) : "–"}</dd></div>
+            <div><dt>{t(locale, "dr_why_risk")}</dt><dd><RiskText risk={riskKey(term)} locale={locale} /></dd></div>
+            <div><dt>{t(locale, "tb_mentions")}</dt><dd>{hasTrend || signals ? <><span className="n-big">{fmtInt(last4)}</span>
+              <Spark values={weekly.map((p) => p.count)} w={120} h={26} label={t(locale, "tb_spark").replace("{a}", String(weekly[0]?.count ?? 0)).replace("{b}", String(weekly.at(-1)?.count ?? 0))} /></> : "–"}</dd></div>
+            <div><dt>{t(locale, "tb_last")}</dt><dd className="n-num">{lastUsed ? fmtDate(lastUsed) : "–"}</dd></div>
+          </dl>
+        </div>
+
+        <div className="n-ledger">
+          <div className="min-w-0">
+            {tx && (
+              <Row id="meaning" label={t(locale, "tm_meaning")}>
+                <p className="n-prose" lang={txLang}>{tx.definition}</p>
+                {tx.plain && <p className="n-meta" lang={txLang}>{tx.plain}</p>}
+                <ul className="n-facts">
+                  {!!term.aliases?.length && <li><span>{t(locale, "tm_aliases")}</span><span lang={langTag(term.lang)}>{term.aliases.join(", ")}</span></li>}
+                  {!!m?.regions.length && <li><span>{t(locale, "tm_regions")}</span><span>{joinRegions(locale, m.regions)}</span></li>}
+                  {!!m?.generations.length && <li><span>{t(locale, "tm_gens")}</span><span>{m.generations.map((g) => labels.generation[g]).join(", ")}</span></li>}
+                </ul>
+              </Row>
+            )}
             {tx?.nuance && (
-              <section className="space-y-3">
-                <SectionHeading id="usage">{title("usage")}</SectionHeading>
-                <p lang={txLang} className="text-[16px] leading-[1.55] text-ink">{tx.nuance}</p>
+              <Row id="usage" label={title("usage")}>
+                <p className="n-prose" lang={txLang}>{tx.nuance}</p>
                 {!nuanceChecked(m) && (
                   <p className="flex flex-wrap items-center gap-2 text-[13px] text-steel">
-                    <StatusBadge tone="muted">{t(locale, "nuance_unchecked")}</StatusBadge>
-                    {t(locale, "nuance_unchecked_note")}
+                    <StatusBadge tone="muted">{t(locale, "nuance_unchecked")}</StatusBadge>{t(locale, "nuance_unchecked_note")}
                   </p>
                 )}
-              </section>
+              </Row>
             )}
-
             {origin && (
-              <section className="space-y-3">
-                <SectionHeading id="origin">{title("origin")}</SectionHeading>
-                <p lang={txLang} className="text-[16px] leading-[1.55] text-ink">{origin}</p>
-                {/* 각주 번호 대신 근거 한 줄 — 누르면 그 출처가 새 창으로 열린다 */}
+              <Row id="origin" label={title("origin")}>
+                <p className="n-prose" lang={txLang}>{origin}</p>
                 {originRefs.length > 0 && (
                   <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
                     <span className="text-steel">{t(locale, "term_evidence_line")}</span>
                     {originRefs.map((e) => (
-                      <a key={e.evidence_id} href={e.url} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-6 items-center text-link-blue hover:underline">
+                      <a key={e.evidence_id} href={e.url} target="_blank" rel="noreferrer noopener" className="n-link inline-flex min-h-6 items-center">
                         {sourceName(locale, e.source_domain)} <span className="ml-1 tabular-nums">{fmtDate(e.observed_at)}</span>
                         <span className="sr-only"> ({t(locale, "term_new_tab")})</span>
                       </a>
@@ -215,34 +224,25 @@ export default async function TermPage({ params, searchParams }: Props) {
                   </p>
                 )}
                 {media.length > 0 && <TermMediaBlock media={media} name={term.canonical} locale={locale} />}
-              </section>
+              </Row>
             )}
-
             {!origin && media.length > 0 && (
-              <section className="space-y-3">
-                <SectionHeading id="media">{title("media")}</SectionHeading>
-                <TermMediaBlock media={media} name={term.canonical} locale={locale} />
-              </section>
+              <Row id="media" label={title("media")}><TermMediaBlock media={media} name={term.canonical} locale={locale} /></Row>
             )}
-
             {topic && topic.variants.length > 1 && (
-              <section className="space-y-3">
-                <SectionHeading id="variants">{title("variants")}</SectionHeading>
-                {showSummary && <p className="text-[16px] leading-[1.55] text-charcoal">{summaryText}</p>}
+              <Row id="variants" label={title("variants")}>
+                {showSummary && <p className="n-prose">{summaryText}</p>}
                 <VariantTable variants={topic.variants} locale={locale} />
-                <Link href={`/map?topic=${encodeURIComponent(topic.id)}`} className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "term_see_on_map")}</Link>
-              </section>
+                <Link href={`/map?topic=${encodeURIComponent(topic.id)}`} className="n-link text-[14px]">{t(locale, "term_see_on_map")}</Link>
+              </Row>
             )}
-
             {showTrend && (
-              <section className="space-y-5">
-                <SectionHeading id="trend">{title("trend")}</SectionHeading>
+              <Row id="trend" label={<>{title("trend")}<small>{scope}</small></>}>
                 {hasTrend && (
                   <div className="space-y-3">
                     <dl className="flex flex-wrap items-end gap-x-10 gap-y-2">
                       <div><dt className="text-[13px] text-steel">{t(locale, "term_last4")}</dt><dd className="text-[24px] leading-[1.3] font-semibold tabular-nums text-ink">{fmtInt(last4)}</dd></div>
                       <div><dt className="text-[13px] text-steel">{t(locale, "term_prev4")}</dt><dd className="text-[24px] leading-[1.3] font-semibold tabular-nums text-ink">{fmtInt(prev4)}</dd></div>
-                      <div className="pb-1 text-[13px] text-steel">{scope}</div>
                     </dl>
                     <TrendChart points={weekly} locale={locale} partial={partial} />
                   </div>
@@ -281,7 +281,6 @@ export default async function TermPage({ params, searchParams }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {/* 비중 칸은 뺐다. 네이버 '검색' 비중이라 '쓰는 사람' 과 다르고, 대부분 한 줄 100% 라 읽을 것이 없었다 */}
                         {usage.map((u) => (
                           <tr key={u.segment.segment_id} className="border-b border-hairline">
                             <td className="py-2 pr-4 text-ink">{regionLabel(locale, u.segment.region)}</td>
@@ -293,49 +292,57 @@ export default async function TermPage({ params, searchParams }: Props) {
                     </table>
                   </div>
                 )}
-              </section>
+              </Row>
             )}
-
             {record.provenance && (
-              <section className="space-y-3">
-                <SectionHeading id="made">{title("made")}</SectionHeading>
+              <Row id="made" label={title("made")}>
                 <TermProvenance p={record.provenance} locale={locale} />
                 {record.risk_labels && <RiskSentences b={record.risk_labels} locale={locale} />}
-                <Link href="/about" className="inline-flex min-h-6 items-center text-[14px] text-link-blue hover:underline">{t(locale, "prov_more")} →</Link>
-              </section>
+                <Link href="/about" className="n-link text-[14px]">{t(locale, "prov_more")}</Link>
+              </Row>
             )}
-
             {sources.length > 0 && (
-              <section className="space-y-3">
-                <SectionHeading id="sources">{title("sources")}</SectionHeading>
-                <p className="text-[13px] text-steel">{kindCounts(record.evidences, locale)}</p>
+              <Row id="sources" label={<>{title("sources")}<small>{kindCounts(record.evidences, locale)}</small></>}>
                 <SourceTable rows={sources} locale={locale} />
-              </section>
+              </Row>
             )}
-
             {history.length > 0 && (
-              <section className="space-y-3">
-                <SectionHeading id="history">{title("history")}</SectionHeading>
-                <EntryHistory rows={history} locale={locale} />
-              </section>
+              <Row id="history" label={title("history")}><EntryHistory rows={history} locale={locale} /></Row>
             )}
-
             {related.length > 0 && (
-              <section className="space-y-2">
-                <SectionHeading id="related">{title("related")}</SectionHeading>
+              <Row id="related" label={title("related")}>
                 <ul className="divide-y divide-hairline border-y border-hairline">
                   {related.map((r) => (
                     <li key={r.term.term_id} className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
-                      <Link href={`/dictionary/${encodeURIComponent(r.term.term_id)}`} lang={langTag(r.term.lang)} className="text-[15px] font-medium text-link-blue hover:underline">{r.term.canonical}</Link>
-                      <StageCell diffusion={r.term.diffusion} lifecycle={r.term.lifecycle ?? "unknown"} locale={locale} />
+                      <Link href={`/dictionary/${encodeURIComponent(r.term.term_id)}`} lang={langTag(r.term.lang)} className="text-[15px] font-medium text-ink hover:underline">{r.term.canonical}</Link>
+                      <StageMark stage={r.term.lifecycle ?? "unknown"} locale={locale} />
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Row>
             )}
           </div>
+
+          <aside className="n-rail" aria-labelledby="tm-who">
+            <h2 id="tm-who">{t(locale, "tm_who_title")}</h2>
+            <ol className="n-steps">
+              <li><div><Who kind="rule" locale={locale} /><span>{t(locale, "tm_who1")}</span></div></li>
+              <li><div><Who kind="rule" locale={locale} /><span>{t(locale, "tm_who2")}</span></div></li>
+              <li><div><Who kind="model" locale={locale} /><span>{t(locale, "tm_who3")}</span></div></li>
+              <li><div><Who kind={verification === "verified_human" ? "human" : "wait"} locale={locale} /><span>{who4}</span></div></li>
+            </ol>
+            <p className="n-meta" style={{ marginTop: 16 }}>{t(locale, "tm_community")}</p>
+            {sections.length > 1 && (
+              <nav aria-label={t(locale, "term_toc")} style={{ marginTop: 24 }}>
+                <h2>{t(locale, "term_toc")}</h2>
+                <ul className="space-y-1.5 text-[14px]">
+                  {sections.map((s) => <li key={s.id}><a href={`#${s.id}`} className="text-charcoal hover:text-ink hover:underline">{s.title}</a></li>)}
+                </ul>
+              </nav>
+            )}
+          </aside>
         </div>
       </article>
-    </PageShell>
+    </main>
   );
 }

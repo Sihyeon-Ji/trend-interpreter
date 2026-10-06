@@ -448,3 +448,5 @@
 /* 열의 진행 중 표시 — 움직임 없이 글자로만 */
 .ledger .n-busy { font-size: 13px; color: var(--n-ink-3); }
 .ledger .n-error { font-size: 14px; color: var(--n-avoid); margin: 0; }
+/* 표의 뜻풀이는 두 줄까지 — 자세한 것은 말 하나 화면에서 */
+.ledger .n-table .n-tg { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

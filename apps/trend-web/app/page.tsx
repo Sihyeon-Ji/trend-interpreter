@@ -14,8 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /* 첫 화면 — 만들기 (Plan 20, 시안 n-redesign). 시장은 한국·일본·영어권. 시장 버튼의 '확인된 말' 은 대시보드 카드 수(지역마다).
    승인 표지의 이름은 로그인한 사람의 것(없으면 '검수자'). 트렌드는 여기서 펼치지 않는다(둘러보기 /trends). */
-export default async function MakePage() {
-  const locale = await getLocale();
+export default async function MakePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [locale, sp] = await Promise.all([getLocale(), searchParams]);
+  // 둘러보기의 '이 시장으로 초안 만들기' 는 ?regions= 로 시장을 넘긴다. 없으면 셋 모두
+  const asked = [sp.regions].flat().filter(Boolean).join(",").split(",").map((s) => s.trim().toUpperCase());
+  const initial = MAKE_MARKETS.filter((m) => asked.includes(m));
   const [viewer, reader] = await Promise.all([getViewer(), getReader()]);
   let counts: Record<string, number> = {};
   try {
@@ -25,7 +28,7 @@ export default async function MakePage() {
   }
   return (
     <main id="main" className="n-main">
-      <MakeFlow key={locale} locale={locale} counts={counts} reviewer={viewer ? reader.nick ?? viewer.user : null} sample={isSampleMode} />
+      <MakeFlow key={locale} locale={locale} counts={counts} initialMarkets={initial.length ? initial : [...MAKE_MARKETS]} reviewer={viewer ? reader.nick ?? viewer.user : null} sample={isSampleMode} />
     </main>
   );
 }

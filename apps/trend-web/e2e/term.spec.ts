@@ -7,18 +7,19 @@ test("entry answers 'can I use it' first and leads to making content", async ({ 
   await expect(page).toHaveTitle(/^럭키비키 · (사전|Dictionary)/);
   const h1 = page.getByRole("heading", { level: 1 });
   await expect(h1).toHaveText("럭키비키");
-  await expect(h1.locator("[lang=ko]")).toHaveCount(1);
+  await expect(h1).toHaveAttribute("lang", "ko");                       // 원문에 lang — 제목 자체가 원문이다
 
-  // 요약이 본문 절보다 먼저 나온다(휴대폰·화면 읽기 순서), 쓸 때 조심 줄은 늘 있다
-  const summary = page.getByRole("complementary", { name: /요약|Summary/ });
-  await expect(summary).toBeVisible();
-  await expect(summary.getByText(/쓸 때 조심|Watch out/)).toBeVisible();
+  // 지금 상태(단계·퍼진 정도·브랜드 리스크·4주 언급·마지막 쓰임)가 본문 줄보다 먼저 나온다(휴대폰·화면 읽기 순서). 리스크 칸은 늘 있다
+  const vitals = page.getByRole("definition").first().locator("xpath=ancestor::dl");
+  await expect(vitals.getByText(/브랜드 리스크|Brand risk/)).toBeVisible();
   const order = await page.evaluate(() => {
-    const s = document.getElementById("term-summary");
+    const v = document.querySelector("dl.n-vitals");
     const usage = document.getElementById("usage");
-    return !!s && !!usage && !!(s.compareDocumentPosition(usage) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return !!v && !!usage && !!(v.compareDocumentPosition(usage) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
   expect(order).toBe(true);
+  // 누가 정했나 — 규칙·모델·사람 표지
+  await expect(page.getByRole("complementary", { name: /누가 정했나|Who decided/ })).toBeVisible();
 
   // 절 제목에 번호가 없다
   for (const h of await page.getByRole("heading", { level: 2 }).allTextContents()) expect(h).not.toMatch(/^\d+\./);

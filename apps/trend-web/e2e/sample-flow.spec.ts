@@ -17,11 +17,11 @@ test("keyword dashboard filters by region and opens an entry", async ({ page }) 
   await page.goto("/trends");                                                     // 둘러보기(예전 대시보드)
 
   // 일본을 고르면 일본에서 쓰이는 것만 남는다: 推し活 은 있고, 한국에서만 쓰는 자만추 는 빠진다
-  await page.getByRole("navigation", { name: /지역|Regions/ }).getByRole("link", { name: /^(일본|Japan) \d+$/ }).click();
+  await page.getByRole("navigation", { name: /^(시장|Markets)$/ }).getByRole("link", { name: /^(일본|Japan)/ }).click();
   await expect(page).toHaveURL(/regions=JP/);
-  const table = page.getByRole("table");
+  const table = page.getByRole("table").first();
   await expect(table.getByRole("link", { name: "推し活" })).toHaveCount(1);
-  await expect(table.getByRole("link", { name: "자만추" })).toHaveCount(0);
+  await expect(page.getByRole("table").getByRole("link", { name: "자만추" })).toHaveCount(0);
 
   await table.getByRole("link", { name: "推し活" }).click();
   await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu\?regions=JP$/);   // 고른 지역을 사전 항목에 넘긴다
