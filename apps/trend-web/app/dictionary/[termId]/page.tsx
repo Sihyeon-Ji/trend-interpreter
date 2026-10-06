@@ -12,9 +12,9 @@ import { RiskSentences } from "@/components/risk-sentences";
 import { TermProvenance } from "@/components/term-provenance";
 import { TrendChart, isPartialWeek } from "@/components/trend-chart";
 import { VariantTable } from "@/components/variant-table";
-import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic, getUpdatedAt } from "@/lib/data";
+import { getGenerationCurves, getTermRecord, getTermRelated, getTermSignals, getTermTopic, getUpdatedAt } from "@/lib/data";
 import { currentMeaning, headlineFor, textFor } from "@/lib/explain";
-import { t, type Locale } from "@/lib/i18n";
+import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
 import { langTag, scriptLang } from "@/lib/lang";
 import { L, fmtDate, fmtDateTime, fmtInt, joinRegions, listJoin, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
@@ -82,8 +82,8 @@ function SearchRow({ h, locale }: { h: SearchHit; locale: Locale }) {
 export default async function TermPage({ params, searchParams }: Props) {
   const [{ termId }, sp, locale] = await Promise.all([params, searchParams, getLocale()]);
   const regions = askedRegions(sp);
-  const [record, curves, signals, updatedAt] = await Promise.all([
-    getTermRecord(termId), getGenerationCurves(termId), getTermSignals(termId, regions), getUpdatedAt(),
+  const [record, curves, signals, updatedAt, graph] = await Promise.all([
+    getTermRecord(termId), getGenerationCurves(termId), getTermSignals(termId, regions), getUpdatedAt(), getTermRelated(termId),
   ]);
   if (!record) notFound();
   const topic = await getTermTopic(termId, record.term.canonical);
@@ -135,6 +135,7 @@ export default async function TermPage({ params, searchParams }: Props) {
     { id: "origin", title: t(locale, "term_origin"), show: !!origin },
     { id: "media", title: t(locale, "term_media"), show: !origin && media.length > 0 },
     { id: "variants", title: t(locale, "term_sec_variants"), show: !!topic && topic.variants.length > 1 },
+    { id: "linked", title: t(locale, "tm_linked"), show: !!graph && (!!graph.card || graph.related.length > 0 || graph.same_source.length > 0) },
     { id: "trend", title: t(locale, "term_sec_trend"), show: showTrend },
     { id: "made", title: t(locale, "prov_title"), show: !!record.provenance },
     { id: "sources", title: t(locale, "term_sources_title").replace("{n}", fmtInt(sources.length)), show: sources.length > 0 },
@@ -234,6 +235,34 @@ export default async function TermPage({ params, searchParams }: Props) {
                 {showSummary && <p className="n-prose">{summaryText}</p>}
                 <VariantTable variants={topic.variants} locale={locale} />
                 <Link href={`/map?topic=${encodeURIComponent(topic.id)}`} className="n-link text-[14px]">{t(locale, "term_see_on_map")}</Link>
+              </Row>
+            )}
+            {graph && (graph.card || graph.related.length > 0 || graph.same_source.length > 0) && (
+              <Row id="linked" label={<>{title("linked")}<small>{t(locale, "tm_linked_note")}</small></>}>
+                {graph.card && (
+                  <ul className="n-facts">
+                    <li><span>{t(locale, "tm_kind")}</span><span>{graph.card.kind_ko}</span></li>
+                    {graph.card.domains_ko.length > 0 && <li><span>{t(locale, "tm_domains")}</span><span>{graph.card.domains_ko.join(", ")}</span></li>}
+                    {graph.card.source_name && <li><span>{t(locale, "tm_source")}</span><span>{graph.card.source_name}</span></li>}
+                  </ul>
+                )}
+                {graph.related.length > 0 && (
+                  <p className="n-prose">
+                    {graph.related.map((r, i) => (
+                      <span key={r.term_id}>{i > 0 && ", "}<Link className="n-link" href={`/dictionary/${encodeURIComponent(r.term_id)}`} lang={langTag(r.lang)}>{r.canonical}</Link>
+                        <span className="n-meta"> ({t(locale, `tm_rel_${r.rel.toLowerCase()}` as StringKey)})</span></span>
+                    ))}
+                  </p>
+                )}
+                {graph.same_source.length > 0 && graph.source && (
+                  <p className="text-[14px] text-charcoal">
+                    {t(locale, "tm_same_source").replace("{source}", graph.source.name)}{" "}
+                    {graph.same_source.map((r, i) => (
+                      <span key={r.term_id}>{i > 0 && ", "}<Link className="n-link" href={`/dictionary/${encodeURIComponent(r.term_id)}`} lang={langTag(r.lang)}>{r.canonical}</Link></span>
+                    ))}
+                  </p>
+                )}
+                <p className="flex items-center gap-2 text-[12px] text-steel"><Who kind="model" locale={locale} />{t(locale, "tm_linked_who")}</p>
               </Row>
             )}
             {showTrend && (

@@ -387,3 +387,14 @@ export interface GemmaUsage {
   samples: { term_id: string; canonical: string; lang: string }[];
   generated_at: string;
 }
+
+/* 지식 그래프의 이웃 (백엔드 GET /terms/{id}/related, 트윈 pipeline/graph.related) — 밈 카드와 이어진 밈. 계약 미반영 뷰 모델 */
+export interface MemeCard { summary: string; kind: string; kind_ko: string; domains: string[]; domains_ko: string[]; source_type: string; source_name: string }
+export interface RelatedMeme { term_id: string; canonical: string; lang: string; rel: string }
+export interface TermRelated {
+  card: MemeCard | null;
+  related: RelatedMeme[];
+  candidates: { name: string; rel: string }[];
+  same_source: { term_id: string; canonical: string; lang: string }[];
+  source: { type: string; name: string } | null;
+}
