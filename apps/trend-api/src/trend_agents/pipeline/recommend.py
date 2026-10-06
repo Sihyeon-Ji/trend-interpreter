@@ -168,7 +168,17 @@ def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: 
     cards = dashboard.cards(con, chosen)             # 표시 목록(30개씩)이 아니라 고른 지역의 모든 카드
     fits = {tid: f for tid, (_, f) in ds.all_fits(con).items()}
     scored, comparable = rank(brief, cards, fits, tone)
-    picked = [p for p in scored if _links(con, p[1])][:TOP]      # 근거 링크가 없는 것은 추천하지 않는다
+    # 시장마다 그 시장 말로 쓸 수 있는 것 가운데 상위 TOP 개씩(근거 링크가 없는 것은 추천하지 않는다). 셋을 통틀어 TOP 개만 뽑으면
+    # 언급이 많은 한국 말이 다 차지해 일본·영어권이 늘 비었다(10-06 실데이터, 만들기 화면)
+    def writes(c, r: str) -> bool:
+        t = ds.get_term(con, c.term_id)
+        return bool(t) and r in REGION_LANG and writable(t, r, dashboard.regions_for(con, t))     # 아래 write_regions 와 같은 값
+
+    linked = [p for p in scored if _links(con, p[1])]
+    picked = []
+    for r in chosen:
+        picked += [p for p in linked if r in p[1].regions and writes(p[1], r) and p not in picked][:TOP]
+    picked.sort(key=lambda p: (-p[0], -p[1].mentions_4w, p[1].canonical))
     if pin and all(c.term_id != pin for _, c, _, _ in picked):
         card = next((c for c in cards if c.term_id == pin), None)
         fit = fits.get(pin)

@@ -68,6 +68,23 @@ def test_excluded_lists_related_candidates_with_the_rule_that_blocked_them():
     assert res.pool["KR"] == 7 and res.considered_by_region["KR"] == res.considered
 
 
+def test_each_market_gets_its_own_top_picks():
+    """시장마다 따로 상위를 뽑는다 — 셋을 통틀어 TOP 개만 뽑으면 한국 말이 다 차지해 일본 열이 늘 비었다(10-06)."""
+    con = db.connect(":memory:")
+    for k in range(8):
+        _term(con, f"k{k}", f"한국말{k}", ["joy", "comfort"], fits=["food_drink"])
+    _term(con, "jp", "推し活", ["joy"])
+    now = datetime.now(timezone.utc)
+    t = ds.get_term(con, "jp")
+    t.lang = "ja"
+    ds.upsert_term(con, t)
+    ds.set_usage(con, "jp", [("20s", "JP", now.isoformat(), 1.0)])
+    dashboard.run(con)
+    res = recommend.recommend(con, LATTE, "sample", ["KR", "JP"], "friendly")
+    assert any("JP" in i.write_regions for i in res.items)                  # 점수가 낮아도 일본 몫이 있다
+    assert sum("KR" in i.write_regions for i in res.items) == recommend.TOP
+
+
 def test_top_five_and_explained_matches():
     con = db.connect(":memory:")
     for k in range(8):
