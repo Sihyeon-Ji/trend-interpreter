@@ -92,9 +92,9 @@ class Extracted(BaseModel):
 
 
 class Pair(BaseModel):
-    a: str
-    b: str
-    reason: str = ""
+    a: str | None = ""        # 작은 모델이 한 칸을 비우면(null) 묶음째 버려졌다(22번 12B, 10-06) — 빈 짝은 아래에서 거른다
+    b: str | None = ""
+    reason: str | None = ""
 
 
 class Pairs(BaseModel):
@@ -477,6 +477,8 @@ def pair(con: Connection, run_id: str, key: str, name: str, found: list[dict], c
     by = {_norm(f["name"]): f for f in found}
     tag = re.compile(r"^\s*\[[A-Z]+\]\s*")              # 모델이 목록의 '[KR] ' 머리를 함께 베낀다
     for p in out.items:
+        if not p.a or not p.b:
+            continue
         fa, fb = by.get(_norm(tag.sub("", p.a))), by.get(_norm(tag.sub("", p.b)))
         if not fa or not fb or fa["region"] == fb["region"]:
             continue
@@ -489,7 +491,7 @@ def pair(con: Connection, run_id: str, key: str, name: str, found: list[dict], c
             _near(ta, _norm(fa["name"]), _norm(fb["name"])) or _near(tb, _norm(fb["name"]), _norm(fa["name"]))
             or any(_norm(q) in ta and _norm(q) in tb for q in quotes))
         con.execute("INSERT OR REPLACE INTO content_pairs VALUES (?,?,?,?,?,?,?,?,?)",
-                    (run_id, key, fa["name"], fa["region"], fb["name"], fb["region"], p.reason[:200], int(hit),
+                    (run_id, key, fa["name"], fa["region"], fb["name"], fb["region"], (p.reason or "")[:200], int(hit),
                      "" if hit else "다른 나라 쪽 문서가 이 이름·대사를 말하지 않음(모델 제안)"))
     con.commit()
 

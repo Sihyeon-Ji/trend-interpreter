@@ -24,6 +24,7 @@ GEN = {"10s": "10대", "20s": "20대", "30s": "30대", "40s": "40대", "50s+": "
 REGION = {"KR": "한국", "JP": "일본", "US": "미국", "GB": "영국", "ID": "인도네시아", "TH": "태국", "VN": "베트남",
           "TW": "대만", "IN": "인도", "BR": "브라질", "DE": "독일", "FR": "프랑스", "MX": "멕시코", "PH": "필리핀"}
 MAX_CHARS = 1200   # 도구 결과가 길면 모델이 앞부분만 보고 답한다 — 짧게 끊는다
+MAX_CHARS_BY = {"search_index": 4200}   # 색인 문단은 여덟 개를 함께 봐야 답이 든 한 줄을 고른다
 
 
 @dataclass
@@ -96,7 +97,8 @@ class Ctx:
 TOOL_LABEL = {"lookup_term": "사전에서 {0} 찾는 중", "search_terms": "사전에서 {0} 로 찾는 중",
               "why_trending": "{0} 가 왜 떴는지 보는 중", "country_trends": "{0} 트렌드 보는 중",
               "term_usage": "{0} 를 누가 쓰는지 보는 중", "list_terms": "조건에 맞는 표제어 모으는 중",
-              "content_memes": "{0} 에서 나온 밈 보는 중", "read_web": "위키에서 {0} 문서 읽는 중"}
+              "content_memes": "{0} 에서 나온 밈 보는 중", "read_web": "위키에서 {0} 문서 읽는 중",
+              "search_index": "위키 문서 색인에서 {0} 찾는 중"}
 
 
 def run_tool(ctx: Ctx, name: str, args: dict) -> str:
@@ -106,7 +108,7 @@ def run_tool(ctx: Ctx, name: str, args: dict) -> str:
     what = _clean(str(next((v for v in args.values() if v), "")))[:30]
     ctx.say("tool", TOOL_LABEL.get(name, "사전 보는 중").format(f"'{what}'" if what else ""))
     try:
-        return fn(ctx, args)[:MAX_CHARS]
+        return fn(ctx, args)[:MAX_CHARS_BY.get(name, MAX_CHARS)]
     except Exception as e:      # 도구 하나가 죽어도 루프는 계속 — 모델에 사실대로 알린다
         return f"도구 실행 중 오류({type(e).__name__}). 다른 방법으로 답해 주세요."
 
@@ -550,6 +552,32 @@ def read_web(ctx: Ctx, args: dict) -> str:
     return f"[{page['title']}] {url}\n절: {heads}\n{(text or page['text'])[:900]}"
 
 
+_INDEX = None
+
+
+def search_index(ctx: Ctx, args: dict) -> str:
+    """위키 본문 색인(나무위키·위키백과 여러 언어·PTT·홍콩·Trend A Word, 하루 두 번 갱신)에서 질문과 가까운 문단을 찾는다.
+    사전에 없는 밈, 작품 문서 안에 묻힌 장면·대사, 다른 나라에서 부르는 이름을 찾을 때. 조각마다 문서 제목과 주소가 붙는다."""
+    global _INDEX
+    from . import doc_index
+
+    q = _arg(args, "query")
+    if not q:
+        return "query 가 필요하다"
+    if _INDEX is None:
+        if not doc_index.INDEX_PATH.exists():
+            return "색인이 아직 없습니다."
+        _INDEX = doc_index.connect()
+    found = doc_index.search(_INDEX, q, k=8)
+    if not found:
+        return f"색인에서 '{q}' 와 가까운 문단을 찾지 못했습니다."
+    ctx.content = ctx.content or "index"
+    for f in found[:2]:
+        ctx.card({"type": "web", "title": f["title"], "url": f["url"]})
+    lines = [f"[{i}] {f['title']}{' > ' + f['heading'] if f['heading'] else ''} ({f['url']})\n{f['text']}" for i, f in enumerate(found, 1)]
+    return "위키 문서 색인에서 찾은 문단(이 안의 이름은 그대로 쓰고 문서 제목을 출처로):\n\n" + "\n\n".join(lines)
+
+
 _TOOLS = {"lookup_term": lookup_term, "search_terms": search_terms, "why_trending": why_trending,
           "country_trends": country_trends, "term_usage": term_usage, "list_terms": list_terms,
-          "content_memes": content_memes, "read_web": read_web}
+          "content_memes": content_memes, "read_web": read_web, "search_index": search_index}

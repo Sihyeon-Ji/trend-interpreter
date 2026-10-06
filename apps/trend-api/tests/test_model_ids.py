@@ -74,7 +74,7 @@ def test_each_run_records_the_models_it_called(monkeypatch):
 
 
 def test_video_interpretation_records_the_model_that_answered(monkeypatch):
-    """영상 해석은 gemini.py 를 거치지 않는다 — 기본 모델이 503 이면 실행 기록에는 실제로 답한 폴백 모델만 남는다."""
+    """영상 해석은 gemini.py 를 거치지 않는다 — 기본 모델이 503 이면 모델 사슬의 다음 모델로, 실행 기록에는 실제로 답한 모델만 남는다."""
     from google.genai import errors
 
     from trend_agents.pipeline import interpret
@@ -95,8 +95,8 @@ def test_video_interpretation_records_the_model_that_answered(monkeypatch):
     monkeypatch.setattr(interpret, "interpret_shorts", fake_interpret)
     r = interpret.run(con, max_batches=1)["interpret"]
     assert r.status != "error", r.note
-    assert tried == [config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL]
-    assert _models(con, "interpret") == config.GEMINI_FALLBACK_MODEL
+    assert len(tried) == 2 and tried[0] == config.GEMINI_MODEL and tried[1] != config.GEMINI_MODEL   # 모델 사슬의 다음 모델(트윈 10-06)
+    assert _models(con, "interpret") == tried[1]
 
 
 def test_grounded_research_records_the_model_that_answered(monkeypatch):
