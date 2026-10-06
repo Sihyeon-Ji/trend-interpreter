@@ -60,15 +60,32 @@ def start_ollama() -> tuple[str, str]:
 
 def main() -> None:
     src = find_input()
+    input_hash = hashlib.sha256((src / "terms.jsonl").read_bytes()).hexdigest()
+    code_hash = hashlib.sha256((src / "trend_agents" / "interpreters" / "gemma_translate.py").read_bytes()).hexdigest()
+    rows = [json.loads(line) for line in (src / "terms.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not rows or len({r["term_id"] for r in rows}) != len(rows):
+        raise SystemExit("invalid_translation_inputs")
+    done = OUT / "translations.jsonl"
+    prior = [json.loads(line) for line in done.read_text(encoding="utf-8").splitlines() if line.strip()] if done.exists() else []
+    indexed = {r["term_id"]: r for r in rows}
+    seen = set()
+    for result in prior:
+        source = indexed.get(result.get("term_id"))
+        if (not source or result["term_id"] in seen or result.get("source") != source["entry"]
+                or result.get("expected_meaning_id") != source.get("expected_meaning_id")
+                or result.get("derived_from_sha256") != source.get("derived_from_sha256")
+                or result.get("model") != MODEL or result.get("gemma_translate_sha256") != code_hash
+                or result.get("input_sha256") != input_hash):
+            raise SystemExit("translation_resume_source_conflict")
+        seen.add(result["term_id"])
     version, digest = start_ollama()
+    if any(result.get("model_digest") != digest for result in prior):
+        raise SystemExit("translation_resume_model_conflict")
     sys.path.insert(0, str(src))
     os.environ["GEMMA_LOCAL_MODEL"] = MODEL
     from trend_agents.interpreters import gemma_translate
     from trend_agents.schemas import MeaningText
 
-    rows = [json.loads(line) for line in (src / "terms.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
-    done = OUT / "translations.jsonl"
-    seen = {json.loads(line)["term_id"] for line in done.read_text(encoding="utf-8").splitlines()} if done.exists() else set()
     times, failures, still_korean = [], 0, 0
     with done.open("a", encoding="utf-8") as f:
         for i, r in enumerate(rows, 1):
@@ -81,21 +98,22 @@ def main() -> None:
                 if HANGUL.search(out.definition or ""):
                     still_korean += 1
             except Exception as e:           # 형식 실패도 결과로 남긴다
-                result, error = None, f"{type(e).__name__}: {str(e)[:200]}"
+                result, error = None, type(e).__name__
                 failures += 1
             dt = time.time() - t0
             times.append(dt)
             f.write(json.dumps({"term_id": r["term_id"], "term": r["term"], "source": r["entry"], "en": result,
+                                "expected_meaning_id": r.get("expected_meaning_id"), "derived_from_sha256": r.get("derived_from_sha256"),
+                                "model": MODEL, "model_digest": digest, "gemma_translate_sha256": code_hash,
+                                "input_sha256": input_hash,
                                 "error": error, "seconds": round(dt, 1)}, ensure_ascii=False) + "\n")
             f.flush()
-            print(f"[{i}/{len(rows)}] {r['term']} {dt:.1f}s{' FAIL' if error else ''}", flush=True)
-    code = (src / "trend_agents" / "interpreters" / "gemma_translate.py").read_bytes()
+            print(f"[{i}/{len(rows)}] {dt:.1f}s{' FAIL' if error else ''}", flush=True)
     gpu = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
     meta = {"model": MODEL, "model_digest": digest, "ollama": version, "gpu": gpu, "python": platform.python_version(),
             "terms": len(rows), "translated_now": len(times), "failures": failures, "definition_still_korean": still_korean,
             "seconds_total": round(sum(times), 1), "seconds_median": round(sorted(times)[len(times) // 2], 1) if times else None,
-            "input_sha256": hashlib.sha256((src / "terms.jsonl").read_bytes()).hexdigest(),
-            "gemma_translate_sha256": hashlib.sha256(code).hexdigest()}
+            "input_sha256": input_hash, "gemma_translate_sha256": code_hash}
     (OUT / "run.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(meta, ensure_ascii=False, indent=2), flush=True)
 

@@ -34,6 +34,7 @@ COPY apps/trend-web/ apps/trend-web/
 COPY tests/ tests/
 COPY scripts/ scripts/
 COPY models/kaggle/audit/quality.py models/kaggle/audit/quality.py
+COPY models/kaggle/translate/translate_meanings.py models/kaggle/translate/translate_meanings.py
 
 FROM tooling AS audit-tests
 ENV UV_PROJECT_ENVIRONMENT=/opt/audit-test-venv
