@@ -11,7 +11,7 @@ from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
 from .collect import home_edition
 from ..verification import reference_doc
-from .match import CUES, evidence_mentions, mentions, numeric_like, same_term, term_pattern
+from .match import CUES, evidence_mentions, mentions, mostly_offtopic, numeric_like, same_term, term_pattern
 from .runs import stage
 from ..storage.db import Connection
 
@@ -29,6 +29,8 @@ def _week(d: date) -> str:
 # 쓰임을 실제로 관측한 근거만 센다. 위키·웹은 설명 문서이고, 데이터랩은 지수라 '언급' 이 아니다.
 # 네이버 검색 결과는 약관상 표시 전용이라 신호로도 쓰지 않는다.
 USAGE_KINDS = ("community", "news", "short")
+MIXED_ON_MIN = 3        # 딴 이야기가 더 많은 말은 그 뜻으로 쓰인 근거가 이만큼 있고
+MIXED_ON_SHARE_DEN = 3  # 전체 분류의 1/3 이상일 때만 그 마지막 때로 생애주기를 정한다. 아니면 판단 보류
 
 
 def _evidences(con: Connection, term_id: str) -> list[Evidence]:
@@ -70,10 +72,12 @@ def usage_kinds(con: Connection, term_id: str) -> dict[str, int]:
     return dict(c)
 
 
-def newest_usage(con: Connection, term_id: str) -> datetime | None:
-    """조사가 찾은 쓰임 근거 중 가장 최근 관측 시각."""
+def newest_usage(con: Connection, term_id: str, on_topic: dict[str, tuple[str, str]] | None = None) -> datetime | None:
+    """조사가 찾은 쓰임 근거 중 가장 최근 관측 시각. on_topic(근거 문장 분류)을 주면 그 뜻으로 쓰였다고 분류된 근거만 본다."""
     newest = None
     for e in _evidences(con, term_id):
+        if on_topic is not None and on_topic.get(e.evidence_id, ("offtopic",))[0] == "offtopic":
+            continue
         if e.kind in USAGE_KINDS and not e.source_domain.startswith("naver"):
             at = e.observed_at if e.observed_at.tzinfo else e.observed_at.replace(tzinfo=timezone.utc)
             newest = at if newest is None or at > newest else newest
@@ -244,6 +248,15 @@ def run(con: Connection) -> dict:
                 last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
                 last_look = ds.last_researched(con, t.term_id, ok_only=True)
                 t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None), now=as_of_last_look(last_look, now))
+            # 근거 문장 분류에서 딴 이야기가 더 많으면 원본 언급(뉴스 제목 등)은 같은 글자의 일반어로 부푼 것이다 – 모양을 믿지 않고
+            # 그 뜻으로 쓰였다고 분류된 근거의 마지막 때로만 본다. 'Robert'·'Again' 이 '오르는 중', '궁예'·'조지' 가 '꾸준함' 이었다(10-06, Plan 02)
+            labels = ds.evidence_labels(con, t.term_id)
+            offtopic = mostly_offtopic(labels)
+            if offtopic and t.lifecycle != "unknown":
+                # 그 뜻으로 쓰인 근거가 적으면 판단을 보류한다 – 스물넷 중 하나만 그 뜻이어도 그 하나가 최근이면 '꾸준함' 이 됐다('lean' 1/24, 'son' 4/20)
+                on = sum(1 for p, _ in labels.values() if p != "offtopic")
+                newest = newest_usage(con, t.term_id, on_topic=labels) if on >= MIXED_ON_MIN and on * MIXED_ON_SHARE_DEN >= len(labels) else None
+                t.lifecycle = recency_stage(newest, now=as_of_last_look(ds.last_researched(con, t.term_id, ok_only=True), now))
             # 원본도 조사 근거도 없으면(위키 밈 분류로 들어온 말 대부분) 검색 관심도·위키 조회수를 따로 적는다. 생애주기로 쓰지 않는다 –
             # 원본 언급과 κ −0.04, 최근 쓰임과 κ 0.13 이고 2015년 이전 밈의 71% 가 '꾸준함' 이 됐다(10-06 검증, Plan 02)
             interest = interest_lifecycle(con, t.term_id, today) if t.lifecycle == "unknown" else "unknown"
@@ -255,7 +268,7 @@ def run(con: Connection) -> dict:
             fresh.first_seen = first.replace(tzinfo=timezone.utc)
             # 마지막 본 때 = 원본의 마지막 주와 가장 최근 쓰임 근거 가운데 늦은 것 — 생애주기(recency_stage)와 같은 재료.
             # 둘 다 없으면 비운다(예전 규칙으로 남은 날짜가 그대로 남아 있던 것, 검토 2차)
-            seen = [d.replace(tzinfo=timezone.utc) for d in observed_raw] + ([newest if newest.tzinfo else newest.replace(tzinfo=timezone.utc)] if newest else [])
+            seen = ([] if offtopic else [d.replace(tzinfo=timezone.utc) for d in observed_raw]) + ([newest if newest.tzinfo else newest.replace(tzinfo=timezone.utc)] if newest else [])
             fresh.last_seen = max(seen) if seen else None
             ds.upsert_term(con, fresh)
             n += 1

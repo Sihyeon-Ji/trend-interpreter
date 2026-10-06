@@ -186,3 +186,13 @@ UNSAFE = re.compile(
 
 def unsafe(text: str) -> bool:
     return bool(UNSAFE.search(text or ""))
+
+
+MIXED_MIN = 2          # 글자만 같은 딴 이야기가 이만큼 넘고 그 뜻으로 쓰인 글보다 많으면 언급 수를 믿지 않는다
+
+
+def mostly_offtopic(labels: dict[str, tuple[str, str]]) -> bool:
+    """근거 문장 분류(evidence_labels)에서 '글자만 같은 딴 이야기' 가 그 뜻으로 쓰인 글보다 많은가. 대시보드 순서(meme_use)와
+    생애주기(track)가 같이 쓴다 — 'Robert'·'Again'·'조지' 처럼 흔한 낱말은 뉴스 제목 언급이 일반어로 부풀었다(10-06, Plan 02)."""
+    off = sum(1 for p, _ in labels.values() if p == "offtopic")
+    return off >= MIXED_MIN and off > len(labels) - off

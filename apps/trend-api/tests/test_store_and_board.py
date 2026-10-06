@@ -473,3 +473,37 @@ def test_gate_closures_are_not_public_review_decisions():
         ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified"))
     reviewed = [u for u in ds.recent_updates(con, hours=1) if u["kind"] == "reviewed"]
     assert [u["term_id"] for u in reviewed] == ["t2"]
+
+
+def test_track_does_not_trust_mentions_of_a_word_mostly_used_in_another_sense():
+    """'Again'·'Robert' 처럼 흔한 낱말은 뉴스 제목·검색어 언급이 일반어로 부푼다. 근거 문장 분류에서 딴 이야기가 더 많으면
+    언급의 모양 대신 그 뜻으로 쓰인 근거의 마지막 때로 본다(10-06, Plan 02). 딴 이야기가 적으면 지금처럼 언급으로 본다."""
+    from trend_agents.schemas import Evidence
+
+    today = date.today()
+    con = db.connect(":memory:")
+    for tid, word, on_topic in (("t1", "Again", False), ("t2", "Agane", True)):
+        ds.upsert_term(con, Term(term_id=tid, canonical=word, lang="en", status="verified", first_seen=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+        for ago in (20, 13, 6, 1):
+            ds.upsert_trend_queries(con, [TrendQuery(term=word, region="US", rank=1, source="bq_top", date=today - timedelta(days=ago))])
+        old = datetime.now(timezone.utc) - timedelta(days=120)
+        evs = [Evidence(evidence_id=f"{tid}e{i}", kind="news", url=f"https://news.example.com/{tid}/{i}", title=f"{word} story {i}",
+                        source_domain="news.example.com", observed_at=old if i == 0 else datetime.now(timezone.utc) - timedelta(days=i),
+                        excerpt=f"{word} story {i}") for i in range(4)]
+        ds.add_evidences(con, tid, evs)
+        ds.set_evidence_labels(con, tid, [(f"{tid}e0", "positive", "none")] +
+                               [(f"{tid}e{i}", "neutral" if on_topic else "offtopic", "none") for i in (1, 2, 3)], "local:gemma4:12b")
+    # 딴 이야기가 더 많고 그 뜻의 근거가 셋 이상이며 1/3 이상: 그 뜻 근거 셋(120일 전) — 마지막 때로 '잠잠함'
+    ds.upsert_term(con, Term(term_id="t3", canonical="Agian", lang="en", status="verified", first_seen=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+    for ago in (20, 13, 6, 1):
+        ds.upsert_trend_queries(con, [TrendQuery(term="Agian", region="US", rank=1, source="bq_top", date=today - timedelta(days=ago))])
+    ds.add_evidences(con, "t3", [Evidence(evidence_id=f"t3e{i}", kind="news", url=f"https://news.example.com/t3/{i}", title=f"Agian story {i}",
+                                          source_domain="news.example.com", observed_at=datetime.now(timezone.utc) - timedelta(days=120 if i < 3 else i),
+                                          excerpt=f"Agian story {i}") for i in range(7)])
+    ds.set_evidence_labels(con, "t3", [(f"t3e{i}", "neutral" if i < 3 else "offtopic", "none") for i in range(7)], "local:gemma4:12b")
+    track.run(con)
+    mixed, clean, older = ds.get_term(con, "t1"), ds.get_term(con, "t2"), ds.get_term(con, "t3")
+    assert mixed.lifecycle == "unknown"                       # 그 뜻으로 쓰인 근거가 하나뿐 — 보류
+    assert mixed.last_seen is None or (datetime.now(timezone.utc) - mixed.last_seen).days >= 119   # 일반어 제목은 '마지막으로 쓰인 때' 가 아니다
+    assert clean.lifecycle in ("emerging", "rising", "peak", "steady")
+    assert older.lifecycle == "dormant" and (datetime.now(timezone.utc) - older.last_seen).days >= 119

@@ -22,7 +22,7 @@ from ..storage import dictionary_store as ds
 from ..storage.db import Connection
 from ..verification import evidence_note, guessed_meaning, vacuous_meaning
 from .audit import NO_USAGE
-from .match import mentions, unsafe
+from .match import mentions, mostly_offtopic, unsafe
 from .runs import stage
 from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, Tone, WeeklyPoint
 
@@ -35,7 +35,6 @@ WEEKS = 12
 DIFFUSION_ORDER = {"spreading": 0, "underground": 1, "mainstream": 2}
 LIFECYCLE_ORDER = {"emerging": 0, "rising": 0, "peak": 1, "steady": 2}
 USAGE_KINDS = ("community", "news", "short")
-MIXED_MIN = 2          # 글자만 같은 딴 이야기가 이만큼 넘고 그 뜻으로 쓰인 글보다 많으면 언급 수를 순서에 쓰지 않는다(meme_use)
 # 조사가 쓰는 나라로 정하지 않은 목표 지역도 그 나라 매체 이만큼이 12주 안에 이 말을 쓰면 그 지역 용어로 본다(Plan 04). 뉴스판(版)의 기사 수로
 # 세면 전 세계 매체가 섞여, 확인된 영어·중국어 44개에서 조사가 정하지 않은 나라 60쌍이 3건을 넘었다('vibe' 싱가포르판 16건에 싱가포르 매체 0곳).
 # 매체 수로는 1쌍(喪女, 대만 매체 5곳)뿐이고 조사가 정한 나라도 29쌍 중 2쌍만 3곳 이상이다(2026-09-30 실측) — 드물게, 근거가 뚜렷할 때만 더한다.
@@ -289,8 +288,7 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
     - 뜻이 '…인 것으로 보인다' 같은 짐작이거나 낱말의 일반 뜻이라고 밝혔다(verification.guessed_meaning — 목록에 남은 카드 10개, 10-05)
     리스크 점검 전이라 근거 분류가 아직 없는 말은 빼지 않고 뒤로 보낸다(use_confirmed=False). 사람이 확인한 뜻은 그대로 둔다."""
     on = sum(1 for p, _ in labels.values() if p != "offtopic")
-    off = len(labels) - on
-    mixed = off >= MIXED_MIN and off > on
+    mixed = mostly_offtopic(labels)
     if m and m.verification == "verified_human":
         return False, True, mixed
     row = con.execute("SELECT action, reasons_json FROM audit_log WHERE term_id=? AND meaning_id=?",
