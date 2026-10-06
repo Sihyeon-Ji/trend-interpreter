@@ -116,6 +116,8 @@ class Connection:
         self._raw = raw
         self._schema = schema
         self._dirty = False
+        self._atomic = False
+        self._atomic_failed = False
 
     @property
     def raw(self) -> psycopg.Connection:
@@ -126,49 +128,86 @@ class Connection:
         return self._raw.closed or self._raw.broken
 
     def execute(self, sql: str, params=None):
+        self._check_atomic()
         values = tuple(_param(p) for p in params) if params else None
         try:
             cur = self._raw.execute(translate(sql, values is not None), values)
         except psycopg.Error:
-            self._raw.rollback()
-            self._dirty = False
+            if self._atomic:
+                self._atomic_failed = True
+            else:
+                self._raw.rollback()
+                self._dirty = False
             raise
         if _is_read(sql):
-            if not self._dirty:
+            if not self._dirty and not self._atomic:
                 self._raw.commit()
         else:
             self._dirty = True
         return cur
 
     def executemany(self, sql: str, seq_of_params) -> None:
+        self._check_atomic()
         rows = [tuple(_param(p) for p in params) for params in seq_of_params]
         if not rows:
             return
         try:
             self._raw.cursor().executemany(translate(sql, True), rows)
         except psycopg.Error:
-            self._raw.rollback()
-            self._dirty = False
+            if self._atomic:
+                self._atomic_failed = True
+            else:
+                self._raw.rollback()
+                self._dirty = False
             raise
         self._dirty = True
 
     def executescript(self, sql: str) -> None:
+        self._check_atomic()
         try:
             self._raw.execute(sql)
         except psycopg.Error:
-            self._raw.rollback()
-            self._dirty = False
+            if self._atomic:
+                self._atomic_failed = True
+            else:
+                self._raw.rollback()
+                self._dirty = False
             raise
-        self._raw.commit()
-        self._dirty = False
+        self.commit()
 
     def commit(self) -> None:
+        self._check_atomic()
+        if self._atomic:
+            return
         self._raw.commit()
         self._dirty = False
 
     def rollback(self) -> None:
+        if self._atomic:
+            self._atomic_failed = True
+            raise RuntimeError("Atomic operation requested rollback")
         self._raw.rollback()
         self._dirty = False
+
+    def _check_atomic(self) -> None:
+        if self._atomic_failed:
+            raise RuntimeError("Atomic transaction already failed")
+
+    @contextmanager
+    def transaction(self) -> Iterator[Connection]:
+        """Group legacy helpers' internal commits into one indivisible operation."""
+        if self._atomic or self._dirty:
+            raise RuntimeError("Transaction requires a clean, non-nested connection")
+        self._atomic = True
+        self._atomic_failed = False
+        try:
+            with self._raw.transaction():
+                yield self
+                self._check_atomic()
+        finally:
+            self._atomic = False
+            self._atomic_failed = False
+            self._dirty = False
 
     def close(self) -> None:
         if self._schema and not self.broken:

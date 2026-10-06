@@ -478,7 +478,8 @@ def meta():
     stale 은 게시가 멈춘 것이지 수집원이 멈춘 것이 아니다 — 수집원이 모두 실패해도 저장된 행으로 게시는 성공한다(ds.PUBLISH_STAGES)."""
     stamp = ds.cache_stamp(_con, "board")              # 보드 본문(1.3MB)·용어 11,000개를 읽지 않는다 — 150바이트 응답이 2.6초였다(10-04)
     published = ds.last_published(_con)
-    return {"last_run": published, "stale": ds.is_stale(published), "board_generated_at": stamp[0] if stamp else None,
+    active = _con.execute("SELECT publication_id FROM publication_state WHERE singleton=1").fetchone()
+    return {"publication_id": active[0] if active else None, "last_run": published, "stale": ds.is_stale(published), "board_generated_at": stamp[0] if stamp else None,
             "collected_at": ds.last_collected(_con),
             "terms": ds.count_terms(_con, ("verified", "needs_review")), "explanations": len(ds.explanations_by_region(_con))}
 

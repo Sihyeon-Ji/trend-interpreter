@@ -1082,6 +1082,9 @@ def last_published(con: Connection) -> str | None:
     """마지막 정상 게시 시각: 게시 단계마다 마지막으로 성공('ok')한 때 중 이른 것. 한 번도 성공하지 않은 단계가 있으면 None.
     전에는 어느 단계든 끝난 때(0건·건너뜀 포함)라 수집만 돌아도 새 자료로 보였다 — 09-28 지도 단계가 19:33·23:33(한국 시각)에
     실패해 지도가 14:27 것이었는데도 23:33 을 냈다."""
+    active = con.execute("SELECT p.published_at FROM publication_state s JOIN publications p ON p.publication_id=s.publication_id WHERE s.singleton=1").fetchone()
+    if active:
+        return active[0]
     marks = ",".join("?" * len(PUBLISH_STAGES))
     last = dict(con.execute(f"SELECT stage, MAX(finished_at) FROM pipeline_runs WHERE status='ok' AND stage IN ({marks}) GROUP BY stage",
                             PUBLISH_STAGES).fetchall())

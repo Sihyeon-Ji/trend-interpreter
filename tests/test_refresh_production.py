@@ -126,3 +126,34 @@ def test_recompute_fills_lifecycle_and_rule_risk_without_models(dbs):
     assert approved.risk_checked_at is not None
     assert ds.get_term(target, "risky").risk_level == "avoid"   # 사람의 결정은 재계산이 덮지 않는다
     assert result["recomputed"]["risk"] == 5
+
+
+def test_refresh_preserves_approved_publications_and_their_derived_outputs(dbs):
+    from trend_agents.schemas import MeaningText
+    from trend_agents.storage import publications as pub
+
+    source, target = dbs
+    m = ds.current_meaning(source, "untouched")
+    source_meaning = m.model_dump(include=set(MeaningDraft.model_fields), mode="json")
+    item = pub.ChangeItem(term_id="untouched", expected_meaning_id=m.meaning_id,
+                          derived_from_sha256=pub.digest(source_meaning),
+                          translations={"en": MeaningText(definition="approved production translation", origin="origin", nuance="nuance")})
+    batch = pub.ChangeBatch(batch_id="translation-batch", snapshot_id="snapshot", snapshot_sha256="a" * 64,
+                            model_id="local:test", prompt_version="v1", rule_version="v1", items=[item])
+    pub.stage(source, batch)
+    pub.review(source, batch.batch_id, pub.digest(batch), "reviewer", approve=True)
+    result = pub.publish(source, batch.batch_id)
+    refresh.overlay(source, target)
+    assert ds.get_translation(target, "untouched", "en").definition == "approved production translation"
+    assert ds.current_meaning(target, "untouched").meaning_id == m.meaning_id
+    assert ds.last_published(target) == result["published_at"]
+    assert refresh.compare(source, target)["differences"] == []
+
+
+def test_refresh_accepts_a_source_database_from_before_publication_migration(dbs):
+    source, target = dbs
+    source.execute("DROP TABLE publication_state, publications, change_items, change_batches")
+    source.commit()
+    result = refresh.overlay(source, target)
+    assert all(result["copied_rows"][t] == 0 for t in refresh.PUBLICATION_TABLES)
+    assert refresh.compare(source, target)["differences"] == []

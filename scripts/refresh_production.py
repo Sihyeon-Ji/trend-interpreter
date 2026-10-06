@@ -15,11 +15,12 @@ from trend_agents.storage import db
 from trend_agents.storage import dictionary_store as ds
 
 # A human-decided term keeps production's rows in these tables; the snapshot's automatic rows for it are dropped.
-REPLACED = ("terms", "meanings", "review_queue")
+REPLACED = ("terms", "meanings", "review_queue", "translations", "topic_notes", "term_fit")
 # Evidence a reviewer cited may exist only in production; the snapshot's newer evidence stays.
 MERGED = ("evidences",)
 # Written only by the service, so production is the only source. gemini_calls holds the monthly spending ledger.
-CARRIED = ("review_history", "gemini_calls", "reader_prefs", "lookups", "explain_cache")
+PUBLICATION_TABLES = ("change_batches", "change_items", "publications", "publication_state")
+CARRIED = ("review_history", "gemini_calls", "reader_prefs", "lookups", "explain_cache", *PUBLICATION_TABLES)
 
 HUMAN_TERMS_SQL = (
     "SELECT DISTINCT term_id FROM review_history",
@@ -36,6 +37,10 @@ KEYS_SQL = {
     "retired": "SELECT term_id FROM terms WHERE status = 'retired' AND term_id IN (SELECT term_id FROM review_history)",
     "gemini_calls": "SELECT day, count FROM gemini_calls",
     "reader_prefs": "SELECT reader, updated_at FROM reader_prefs",
+    "change_batches": "SELECT batch_id, payload_sha256, status, reviewed_by, reviewed_at FROM change_batches",
+    "change_items": "SELECT batch_id, term_id, item_sha256, baseline_sha256 FROM change_items",
+    "publications": "SELECT publication_id, batch_id, payload_sha256, published_at FROM publications",
+    "publication_state": "SELECT singleton, publication_id FROM publication_state",
 }
 COLUMNS_SQL = ("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? "
                "ORDER BY ordinal_position")
@@ -49,8 +54,16 @@ ORDER BY array_position(i.indkey, a.attnum)
 """
 
 
+def _has_table(con: db.Connection, name: str) -> bool:
+    return bool(con.execute("SELECT to_regclass(?)", (name,)).fetchone()[0])
+
+
 def human_terms(con: db.Connection) -> set[str]:
-    return {row[0] for sql in HUMAN_TERMS_SQL for row in con.execute(sql).fetchall()}
+    ids = {row[0] for sql in HUMAN_TERMS_SQL for row in con.execute(sql).fetchall()}
+    if _has_table(con, "change_items"):
+        ids.update(r[0] for r in con.execute("SELECT DISTINCT i.term_id FROM change_items i JOIN change_batches b "
+                                            "ON b.batch_id=i.batch_id WHERE b.status='published'"))
+    return ids
 
 
 def _columns(src: db.Connection, dst: db.Connection, table: str) -> list[str]:
@@ -61,6 +74,8 @@ def _columns(src: db.Connection, dst: db.Connection, table: str) -> list[str]:
 
 def _copy(src: db.Connection, dst: db.Connection, table: str, conflict: str, term_ids: list[str] | None = None) -> int:
     cols = _columns(src, dst, table)
+    if not cols:
+        return 0
     names = ", ".join(cols)
     where = " WHERE term_id = ANY(?)" if term_ids is not None else ""
     rows = src.execute(f"SELECT {names} FROM {table}{where}", (term_ids,) if term_ids is not None else ()).fetchall()
@@ -108,7 +123,8 @@ def rejudge_risk(con: db.Connection, term_ids: list[str]) -> int:
 
 
 def _keys(con: db.Connection) -> dict[str, set[tuple]]:
-    return {name: {tuple(row) for row in con.execute(sql).fetchall()} for name, sql in KEYS_SQL.items()}
+    return {name: {tuple(row) for row in con.execute(sql).fetchall()}
+            if name not in PUBLICATION_TABLES or _has_table(con, name) else set() for name, sql in KEYS_SQL.items()}
 
 
 def counts(con: db.Connection) -> dict[str, int]:
