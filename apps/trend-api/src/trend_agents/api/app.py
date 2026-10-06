@@ -10,8 +10,9 @@ from queue import Queue
 import threading
 import time
 from datetime import datetime, timezone
+from typing import Literal
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -30,6 +31,7 @@ from ..logging_setup import configure as configure_logging
 from ..storage import db
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
+from ..verification import is_public_entry
 from ..pipeline.match import term_pattern, text_pattern
 
 configure_logging()
@@ -162,41 +164,67 @@ def health():
     return {"ok": True, "time": datetime.now(timezone.utc).isoformat(), "terms": ds.count_terms(_con)}
 
 
+
+def _review_access(response: Response, x_frontend_token: str = Header(default="")) -> None:
+    # The web server checks the signed reviewer session before attaching this token.
+    if not frontend_token_ok(x_frontend_token):
+        raise HTTPException(401, "검수 권한이 필요합니다")
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+def _public_term(term_id: str):
+    t = ds.get_term(_con, term_id)
+    if not is_public_entry(t, ds.current_meaning(_con, term_id) if t else None):
+        raise HTTPException(404, "not found")
+    return t
+
+
 @app.get("/terms", response_model=list[views.TermRecord])
-def terms(status: str = "verified", slim: bool = False):
-    """공개 사전은 확인된 것만. status=all 이면 확인 중인 것까지 (관리자·내보내기용). slim 이면 사전 색인 한 줄에 필요한 칸만(views._slim)."""
-    statuses = ("verified", "needs_review") if status == "all" else ("verified",)
-    if slim and status != "all":                     # 만들어 둔 색인 JSON 을 그대로 — 모델 검증·직렬화를 다시 하지 않는다
+def terms(status: Literal["verified"] = "verified", slim: bool = False):
+    """Public entries only. Review drafts are available under /review/terms."""
+    if slim:
         return Response(content=views.term_index_json(_con), media_type="application/json")
-    return views.term_records(_con, statuses, slim=slim)
+    return views.term_records(_con, public=True)
 
 
 @app.get("/terms/{term_id}", response_model=views.TermRecord | None)
 def term(term_id: str):
-    t = ds.get_term(_con, term_id)
-    if not t or t.status == "retired":  # 사전에서 제외된 항목은 공개 화면에 없다
-        raise HTTPException(404, "not found")
-    r = views.term_record(_con, t)
+    t = _public_term(term_id)
+    r = views.term_record(_con, t, public=True)
     return r.model_copy(update={"provenance": views.provenance(_con, t, r.meanings, r.evidences), "risk_labels": views.risk_breakdown(_con, t)})
 
 
-@app.get("/model-usage", response_model=views.GemmaUsage)
+@app.get("/review/terms", response_model=list[views.TermRecord], dependencies=[Depends(_review_access)])
+def review_terms(status: Literal["verified", "all"] = "all", slim: bool = False):
+    statuses = ("verified", "needs_review") if status == "all" else ("verified",)
+    return views.term_records(_con, statuses, slim=slim)
+
+
+@app.get("/review/terms/{term_id}", response_model=views.TermRecord, dependencies=[Depends(_review_access)])
+def review_term(term_id: str):
+    t = ds.get_term(_con, term_id)
+    if not t or t.status not in ("verified", "needs_review"):
+        raise HTTPException(404, "not found")
+    return views.term_record(_con, t)
+
+
+@app.get("/model-usage", response_model=views.GemmaUsage, dependencies=[Depends(_review_access)])
 def model_usage():
     """단계별로 모델이 남긴 결과의 수(Plan 14 0단계) — 관리 화면 '모델 기록'. 저장된 기록만 센다."""
     return views.gemma_usage(_con)
 
 
-@app.get("/pipeline/stages", response_model=list[views.PipelineStage])
+@app.get("/pipeline/stages", response_model=list[views.PipelineStage], dependencies=[Depends(_review_access)])
 def stages():
     return views.pipeline_stages(_con)
 
 
-@app.get("/review/queue", response_model=list[views.ReviewItem])
+@app.get("/review/queue", response_model=list[views.ReviewItem], dependencies=[Depends(_review_access)])
 def queue():
     return views.review_items(_con)
 
 
-@app.get("/review/stats", response_model=views.ReviewStats)
+@app.get("/review/stats", response_model=views.ReviewStats, dependencies=[Depends(_review_access)])
 def review_stats():
     return views.review_stats(_con)
 
@@ -426,12 +454,12 @@ def trends_board():
 @app.get("/terms/{term_id}/topic", response_model=Topic | None)
 def term_topic(term_id: str):
     """용어가 든 주제 하나 — 사전 항목이 관련 표현을 찾으려고 보드 전체(1.5MB)를 받지 않게. 없으면 null."""
-    t = ds.get_term(_con, term_id)
+    t = _public_term(term_id)
     b = board_stage.cached(_con)
     return board_stage.topic_of(b, term_id, t.canonical) if t and b else None
 
 
-@app.get("/candidates")
+@app.get("/candidates", dependencies=[Depends(_review_access)])
 def candidates():
     return [c.model_dump() for c in ds.candidates(_con, "new", 100)]
 
@@ -488,6 +516,7 @@ def graph_query(key: str):
 @app.get("/terms/{term_id}/graph", response_model=list[views.TermGraphQuery])
 def term_graph(term_id: str):
     """이 용어로 판정된 급증 검색어들 (IS_TERM)."""
+    _public_term(term_id)
     return views.term_graph(_con, term_id)
 
 
@@ -721,6 +750,7 @@ def keyword_cards(ids: str = Query("", max_length=8_000)):
 def term_signals(term_id: str, regions: str = ""):
     """용어 하나의 쓰임 신호 — 검색 순위·출몰 커뮤니티·뉘앙스·최근 근거 (사전 화면).
     regions 는 대시보드와 같은 쉼표 목록(KR,JP). 없으면 모든 지역 합계."""
+    _public_term(term_id)
     c = dashboard.card(_con, term_id, [r.strip().upper() for r in regions.split(",") if r.strip()] or None)
     if not c:
         raise HTTPException(404, "not found")
@@ -730,6 +760,7 @@ def term_signals(term_id: str, regions: str = ""):
 @app.get("/terms/{term_id}/generations")
 def generations(term_id: str):
     """네이버 데이터랩 세대별 검색 곡선 (한국어 용어만 있음)."""
+    _public_term(term_id)
     curves = ds.get_gen_curves(_con, term_id)
     out = []
     for g, pts in curves.items():

@@ -147,7 +147,8 @@ def test_term_topic_returns_one_topic_and_follows_board_changes(con):
     assert c.get("/terms/fresh/topic").json() is None                  # 보드가 아직 없다
     save("긍정 밈")
     assert c.get("/terms/fresh/topic").json()["name"]["ko"] == "긍정 밈"
-    assert c.get("/terms/warn/topic").json() is None and c.get("/terms/nope/topic").json() is None
+    assert c.get("/terms/warn/topic").json() is None
+    assert c.get("/terms/nope/topic").status_code == 404
     save("원영적 사고")                                                   # 같은 시각으로 다시 저장해도 내용이 바뀌면 새 보드
     assert c.get("/terms/fresh/topic").json()["name"]["ko"] == "원영적 사고"
     assert board_stage.cached(con).topics[0].name.ko == "원영적 사고"

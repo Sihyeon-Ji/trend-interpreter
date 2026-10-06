@@ -86,3 +86,19 @@ test.describe("admin", () => {
     await expect(page.getByRole("link", { name: /^(전체|All) \d+$/ })).toHaveAttribute("aria-current", "page");
   });
 });
+
+test("anonymous and ordinary accounts cannot read admin pages", async ({ page, context, baseURL }) => {
+  for (const path of ["/admin", "/admin/risk", "/admin/status"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/login/);
+  }
+  test.skip(!secret, "PLAYWRIGHT_SESSION_SECRET is required for a signed ordinary account");
+  const payload = b64(JSON.stringify({ u: "reader", r: false, exp: Math.floor(Date.now() / 1000) + 3600 }));
+  const cookie = `${payload}.${b64(createHmac("sha256", secret!).update(payload).digest())}`;
+  await context.addCookies([{ name: "admin_session", value: cookie, url: baseURL ?? "http://localhost:3000" }]);
+  for (const path of ["/admin", "/admin/risk", "/admin/status"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/me(?:\?|$)/);
+    await expect(page.getByRole("alert").filter({ hasText: /관리 권한이 있는 계정만|only for accounts with admin access/ })).toBeVisible();
+  }
+});

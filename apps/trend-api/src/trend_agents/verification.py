@@ -17,7 +17,15 @@ from __future__ import annotations
 
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
-from .schemas import Evidence, Meaning, MeaningDraft, Verification
+from .schemas import Evidence, Meaning, MeaningDraft, Term, Verification
+
+
+PUBLIC_VERIFICATIONS = frozenset({"verified_auto", "verified_human"})
+
+
+def is_public_entry(term: Term | None, meaning: Meaning | None) -> bool:
+    """Only a verified entry with an approved current meaning may be read publicly."""
+    return bool(term and term.status == "verified" and meaning and meaning.verification in PUBLIC_VERIFICATIONS)
 
 MIN_INDEPENDENT_DOMAINS = 2
 MIN_SELF_CONFIDENCE = 0.5

@@ -193,8 +193,12 @@ _UNUSABLE = re.compile(r"근거 부족|명확한 (사전적 )?(정의|의미)(�
 def usable(con, t) -> bool:
     """사람에게 보여 줄 만한 뜻이 있는가. '근거 부족: 확인되지 않음' 을 카드로 내보내면
     아무 말도 안 한 것만 못하다(사용자 지적 09-16, '6-7')."""
+    from ..verification import is_public_entry
+
     m = ds.current_meaning(con, t.term_id)
-    d = (m.definition if m else "").strip()
+    if not is_public_entry(t, m):
+        return False
+    d = m.definition.strip()
     return len(d) >= 8 and not _UNUSABLE.search(d)
 
 
@@ -202,7 +206,7 @@ def usable(con, t) -> bool:
 def _dictionary(con, tables: tuple[str, ...] = ("meanings",)):
     """사람에게 보여 줄 만한 표제어 전부. 블록 안에서는 tables 를 한 번에 읽어 둔 값을 쓴다 — 사전 전체를 훑으며 표제어마다
     뜻·번역을 조회하면 Cloud SQL 에서 질문 하나가 90초를 넘겼다(staging 10-03)."""
-    terms = ds.list_terms(con, ("verified", "needs_review"))
+    terms = ds.list_terms(con, ("verified",))
     with ds.batched(con, [t.term_id for t in terms], tables=tables):
         yield [t for t in terms if usable(con, t)]
 
@@ -220,7 +224,7 @@ def _find(con, q: str):
         t = ds.find_term(con, cand)
         # 뜻이 "근거 부족: 확인되지 않음" 인 표제어는 있어도 없는 것과 같다 — 그렇게 두어야
         # 실시간 찾아보기가 대신 답한다(사용자 지적 09-16, '6-7').
-        if t and t.status in ("verified", "needs_review") and usable(con, t):
+        if t and t.status in ("verified",) and usable(con, t):
             return t
     keys = {loose_key(c) for c in cands if len(loose_key(c)) >= 2}
     if not keys:

@@ -35,6 +35,7 @@ def test_term_signals_endpoint_reads_regions(monkeypatch):
     from trend_agents.api import app as api
 
     seen = []
+    monkeypatch.setattr(api, "_public_term", lambda tid: None)
     monkeypatch.setattr(api.dashboard, "card", lambda con, tid, regions=None: seen.append((tid, regions)) or None)
     c = TestClient(api.app)
     assert c.get("/terms/oshi/signals?regions=kr, jp").status_code == 404   # 가짜 card 가 None → 404

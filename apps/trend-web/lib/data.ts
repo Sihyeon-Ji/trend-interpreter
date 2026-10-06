@@ -1,3 +1,5 @@
+import { requireReviewer, reviewerFetch } from "./reviewer-server";
+import { isPublicRecord, publicRecord } from "./public-entry";
 import { apiFetch } from "@/lib/api-fetch";
 /* 데이터 접근 계층. 지금은 예시 데이터, DATA_MODE=api 면 Python(ADK) 서비스에서 가져온다.
    화면은 이 함수들만 부른다 — 소스가 바뀌어도 화면은 안 바뀌게. */
@@ -20,14 +22,16 @@ export const isSampleMode = process.env.DATA_MODE !== "api";
    사전 항목·검수·해석 화면의 근거로 보이지 않는다(ADR 0003). */
 const SHOWN_RECORDS: TermRecord[] = SAMPLE_RECORDS.map((r) => ({ ...r, evidences: r.evidences.filter((e) => e.kind !== "community") }));
 
+const PUBLIC_RECORDS = SHOWN_RECORDS.filter(isPublicRecord).map(publicRecord);
+
 class ApiError extends Error {
   constructor(path: string, readonly status: number) {
     super(`${path} → ${status}`);
   }
 }
 
-async function api<T>(path: string, revalidate = 60): Promise<T> {
-  const res = await apiFetch(path, { next: { revalidate } });
+async function api<T>(path: string, revalidate: number | false = 60): Promise<T> {
+  const res = await apiFetch(path, revalidate === false ? { cache: "no-store" } : { next: { revalidate } });
   if (!res.ok) throw new ApiError(path, res.status);
   return res.json() as Promise<T>;
 }
@@ -41,26 +45,13 @@ async function apiOr<T>(path: string, fallback: T, revalidate = 60): Promise<T> 
   }
 }
 
-/** 2MB 가 넘어 Next 데이터 캐시에 넣지 못하는 응답(사전 전체 /terms 2.7MB)은 서버 메모리에 잠깐 둔다 — 사전 화면을 열 때마다
- *  API 에서 통째로 다시 받았다(2026-09-29 운영 로그 'items over 2MB can not be cached'). */
-const bigCache = new Map<string, { at: number; value: unknown }>();
-async function apiBig<T>(path: string, ttlMs = 60_000): Promise<T> {
-  const hit = bigCache.get(path);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const res = await apiFetch(path, { cache: "no-store" });
-  if (!res.ok) throw new ApiError(path, res.status);
-  const value = (await res.json()) as T;
-  bigCache.set(path, { at: Date.now(), value });
-  return value;
-}
-
 /** 사전 색인용. 서버가 실패하면 예시 데이터로 바꿔 넣지 않고 실패를 알린다 — 운영 사용자가 예시 52개를 실제 사전으로
  *  보게 되던 것(2026-09-29 검토). 예시 모드도 공개 사전처럼 확인된 표현만 싣는다. */
 export async function loadTermRecords(slim = false): Promise<{ records: TermRecord[]; ok: boolean }> {
-  if (isSampleMode) return { records: SHOWN_RECORDS.filter((r) => r.term.status === "verified"), ok: true };
+  if (isSampleMode) return { records: PUBLIC_RECORDS, ok: true };
   try {
     // slim: 사전 색인 한 줄에 필요한 칸만(현재 뜻·마지막 쓰임 근거 하나) — 전체 기록은 29.6MB 였다(10-04)
-    return { records: await apiBig<TermRecord[]>(slim ? "/terms?slim=true" : "/terms"), ok: true };
+    return { records: (await api<TermRecord[]>(slim ? "/terms?slim=true" : "/terms", false)).filter(isPublicRecord).map(publicRecord), ok: true };
   } catch {
     return { records: [], ok: false };
   }
@@ -70,9 +61,10 @@ export async function loadTermRecords(slim = false): Promise<{ records: TermReco
  *  api 모드에서 서버가 답하지 않으면 예시 데이터로 바꾸지 않고 던진다 → app/dictionary/[termId]/error.tsx 가 '다시 불러오기' 를 낸다
  *  (예시 수치가 실제처럼 보이던 것, 개편 검토 2차). */
 export async function getTermRecord(termId: string): Promise<TermRecord | null> {
-  if (isSampleMode) return SHOWN_RECORDS.find((r) => r.term.term_id === termId) ?? null;
+  if (isSampleMode) return PUBLIC_RECORDS.find((r) => r.term.term_id === termId) ?? null;
   try {
-    return await api<TermRecord | null>(`/terms/${encodeURIComponent(termId)}`);
+    const record = await api<TermRecord | null>(`/terms/${encodeURIComponent(termId)}`, false);
+    return record && isPublicRecord(record) ? publicRecord(record) : null;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return null;
     throw e;
@@ -81,7 +73,9 @@ export async function getTermRecord(termId: string): Promise<TermRecord | null> 
 
 /** 관리 화면 '모델 기록' — 단계별로 모델이 남긴 결과의 수(Plan 14 0단계). 예시 모드는 없는 수를 지어내지 않고 null. */
 export async function getModelUsage(): Promise<GemmaUsage | null> {
-  return isSampleMode ? null : apiOrNull<GemmaUsage>("/model-usage", false);
+  await requireReviewer();
+  if (isSampleMode) return null;
+  try { return await apiNoStore<GemmaUsage>("/model-usage"); } catch { return null; }
 }
 
 /** 사전 항목이 속한 주제(나라별 차이·관련 표현). 보드를 못 받으면 그 절을 내지 않는다 — 예시 주제로 바꾸지 않는다. */
@@ -102,12 +96,13 @@ export async function getUpdatedAt(): Promise<string | null> {
 /** 관리 화면 조회 — 예시 데이터로 바꾸지 않고(예시 문구를 보고 실제 뜻을 승인하게 된다), 캐시하지 않는다(결정 뒤 건수가 그대로였다).
  *  실패하면 던진다 → app/admin/error.tsx 가 '다시 불러오기' 를 보인다. */
 async function apiNoStore<T>(path: string): Promise<T> {
-  const res = await apiFetch(path, { cache: "no-store" });
+  const res = await reviewerFetch(path);
   if (!res.ok) throw new ApiError(path, res.status);
   return res.json() as Promise<T>;
 }
 
 export async function getPipelineStages(): Promise<PipelineStage[]> {
+  await requireReviewer();
   return isSampleMode ? SAMPLE_STAGES : apiNoStore<PipelineStage[]>("/pipeline/stages");
 }
 
@@ -126,12 +121,14 @@ function sampleQueue(): ReviewItem[] {
 }
 
 export async function getReviewQueue(): Promise<ReviewItem[]> {
+  await requireReviewer();
   return isSampleMode ? sampleQueue() : apiNoStore<ReviewItem[]>("/review/queue");
 }
 
 /** 관리 '리스크' 탭 — 사전에 오른 말 전부. 예시로 내려가지 않고 캐시하지 않는다(결정 뒤 바로 보여야 한다). */
 export async function getRiskRecords(): Promise<TermRecord[]> {
-  return isSampleMode ? SHOWN_RECORDS : apiNoStore<TermRecord[]>("/terms");
+  await requireReviewer();
+  return isSampleMode ? SHOWN_RECORDS : apiNoStore<TermRecord[]>("/review/terms?status=verified");
 }
 
 export function getSampleCopy(locale: Locale): string {
@@ -146,14 +143,13 @@ export async function explain(text: string, locale: Locale, reader: Reader = {})
     const res = await apiFetch(`/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: locale, reader: { gen: reader.gen, region: reader.region } }) });
     if (!res.ok) throw new Error(`/explain → ${res.status}`);
     const { term_ids, plain } = (await res.json()) as { term_ids: string[]; plain: string | null };
-    // 서버 매칭은 확인 중(needs_review)인 용어도 돌려준다 — 공개 목록(/terms 는 verified 만)이 아니라 id 마다 받는다(/terms/{id} 는 확인 중도 준다).
-    // 해석 한 번마다 사전 전체(/terms?status=all 8MB + /terms 2.7MB)를 받던 것을 찾은 표현만 받게 했다. 못 받은 표현은 뺀다.
-    const got = await Promise.all(term_ids.slice(0, 20).map((id) => api<TermRecord | null>(`/terms/${encodeURIComponent(id)}`, 300).catch(() => null)));
-    const picked = got.filter((r): r is TermRecord => !!r);
+    // Only published entries may be assembled into a public explanation.
+    const got = await Promise.all(term_ids.slice(0, 20).map((id) => api<TermRecord | null>(`/terms/${encodeURIComponent(id)}`, false).catch(() => null)));
+    const picked = got.filter((r): r is TermRecord => !!r && isPublicRecord(r)).map(publicRecord);
     return explainMessage(text, picked, locale, plain, reader);
   }
   const plain = SAMPLE_REWRITES[locale][text.trim()] ?? null;
-  return explainMessage(text, SHOWN_RECORDS, locale, plain, reader);
+  return explainMessage(text, PUBLIC_RECORDS, locale, plain, reader);
 }
 
 export async function getMeta(): Promise<Meta | null> {
@@ -239,6 +235,7 @@ export interface ReviewStats { verified_auto: number; verified_human: number; ne
 
 /** 자동 확인 vs 사람 검수 비율 — 관리자 화면의 '자동화 정도' 표시. */
 export async function getReviewStats(): Promise<ReviewStats> {
+  await requireReviewer();
   if (isSampleMode) {
     const cur = SAMPLE_RECORDS.map((r) => r.meanings.find((m) => !m.valid_to) ?? r.meanings.at(-1)).filter(Boolean);
     const count = (v: string) => cur.filter((m) => m!.verification === v).length;

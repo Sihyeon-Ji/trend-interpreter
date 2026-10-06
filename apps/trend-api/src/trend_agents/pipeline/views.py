@@ -221,10 +221,14 @@ def popular_era(con: Connection, term_id: str) -> tuple[int | None, int | None]:
     return year, (year // 10 * 10 if year else min(decades, default=None))
 
 
-def term_record(con: Connection, t: Term) -> TermRecord:
+def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord:
     from .dashboard import regions_for   # dashboard 가 이 모듈의 뷰 모델을 쓴다 — 순환을 피해 여기서
 
     meanings = ds.list_meanings(con, t.term_id)
+    if public:
+        from ..verification import PUBLIC_VERIFICATIONS
+
+        meanings = [m for m in meanings if m.verification in PUBLIC_VERIFICATIONS]
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
     usage = [TermUsage(segment=Segment(segment_id=u["segment_id"], generation=u["generation"], region=u["region"]), first_seen=u["first_seen"], share=u["share"])
@@ -400,10 +404,13 @@ def gemma_usage(con: Connection) -> GemmaUsage:
     return GemmaUsage(stages=stages, samples=samples, calls_24h=calls, generated_at=datetime.now().astimezone())
 
 
-def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False) -> list[TermRecord]:
+def term_records(con: Connection, statuses: tuple[str, ...] = ("verified",), *, slim: bool = False, public: bool = False) -> list[TermRecord]:
     terms = ds.list_terms(con, statuses)
     with ds.batched(con, [t.term_id for t in terms]):
-        records = [term_record(con, t) for t in terms]
+        from ..verification import is_public_entry
+
+        records = [term_record(con, t, public=public) for t in terms
+                   if not public or is_public_entry(t, ds.current_meaning(con, t.term_id))]
     return [_slim(r) for r in records] if slim else records
 
 
@@ -419,17 +426,17 @@ def _index_stamp(con: Connection) -> str:
     """사전 색인을 다시 만들어야 하나 — 확인된 용어 JSON(상태·별칭·리스크), 뜻 판, 번역, 근거 가운데 무엇이든 바뀌면 달라진다(40ms 남짓)."""
     row = con.execute(
         "SELECT (SELECT md5(string_agg(md5(json), '' ORDER BY term_id)) FROM terms WHERE status='verified'), "
-        "(SELECT count(*) || ':' || coalesce(max(valid_from)::text, '') FROM meanings), "
+        "(SELECT md5(string_agg(md5(json), '' ORDER BY meaning_id)) FROM meanings WHERE valid_to IS NULL), "
         "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM translations), "
         "(SELECT count(*) FROM evidences)").fetchone()
-    return hashlib.md5("|".join(str(v) for v in row).encode()).hexdigest()
+    return hashlib.md5(("public-v1|" + "|".join(str(v) for v in row)).encode()).hexdigest()
 
 
 def save_term_index(con: Connection) -> bytes:
     """사전 색인(slim)을 만들어 board_cache 에 둔다 — dashboard 단계가 부른다. 요청 기반 CPU 과금에서는 API 의 시작 예열이 CPU 를 못 받아
     운영 사전 첫 요청이 21초였다(10-05, 로컬에서도 만드는 데 10.7초). 열쇠에 상태값을 넣어, 자료가 바뀐 뒤의 옛 색인은 읽지 않는다."""
     stamp = _index_stamp(con)
-    body = ("[" + ",".join(r.model_dump_json() for r in term_records(con, slim=True)) + "]").encode()
+    body = ("[" + ",".join(r.model_dump_json() for r in term_records(con, slim=True, public=True)) + "]").encode()
     con.execute("DELETE FROM board_cache WHERE key LIKE ?", (f"{INDEX_KEY}:%",))
     ds.cache_set(con, f"{INDEX_KEY}:{stamp}", body.decode())
     _INDEX["slim"] = (stamp, body)
@@ -549,8 +556,10 @@ def country_page(con: Connection, region: str) -> CountryPage:
 
     # 둘러보는 목록이다 — 표제어 자체가 욕설·성적 표현인 것은 내지 않는다(검수자가 '문제 없음' 으로 푼 것은 낸다, 대시보드와 같은 규칙)
     # 확인된 것만 — 공개 사전(/terms)과 같은 규칙. 확인 전 표현이 '확인된 표현' 으로 섞여 나왔다(화면 개편 2차 검토)
-    recs = [term_record(con, t) for t in ds2.list_terms(con, ("verified",))
-            if any(u["region"] == region for u in ds2.get_usage(con, t.term_id)) and (not unsafe(t.canonical) or t.risk_level == "none")]
+    from ..verification import is_public_entry
+
+    recs = [term_record(con, t, public=True) for t in ds2.list_terms(con, ("verified",))
+            if is_public_entry(t, ds2.current_meaning(con, t.term_id)) and any(u["region"] == region for u in ds2.get_usage(con, t.term_id)) and (not unsafe(t.canonical) or t.risk_level == "none")]
     share: dict[str, float] = {}
     for r in recs:
         for u in r.usage:

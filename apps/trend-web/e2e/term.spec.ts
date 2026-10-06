@@ -27,9 +27,9 @@ test("entry answers 'can I use it' first and leads to making content", async ({ 
   await expect(make).toHaveAttribute("href", "/recommend?term=t_luckyvicky");
 });
 
-test("an entry under review says so and offers no make button", async ({ page }) => {
+test("an entry under review is absent from the public dictionary", async ({ page }) => {
   await page.goto("/dictionary/t_galau");
-  await expect(page.getByText(/아직 확인 중인 설명입니다|still being reviewed/)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/사전에 없는 말입니다|Not in the dictionary/);
   await expect(page.getByRole("link", { name: /이 밈으로 만들기|Create with this meme/ })).toHaveCount(0);
 });
 

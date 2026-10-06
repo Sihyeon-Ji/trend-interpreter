@@ -7,6 +7,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 
 from ..config import USE_LOCAL_GEMMA
 from ..schemas import Term
+from ..verification import is_public_entry
 from ..storage import db
 from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, generate
@@ -73,11 +74,13 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
 
 
 def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -> tuple[list[str], str | None]:
-    key_lang = lang + (f"|{reader.get('gen','')}|{reader.get('region','')}" if reader else "")  # 읽는 사람이 다르면 재작성도 다르다
+    key_lang = "public-v1|" + lang + (f"|{reader.get('gen','')}|{reader.get('region','')}" if reader else "")  # 읽는 사람이 다르면 재작성도 다르다
     cached = ds.explain_cache_get(con, key_lang, text)
-    if cached:
+    terms = match_terms(text, ds.list_terms(con, ("verified",)))
+    terms = [t for t in terms if is_public_entry(t, ds.current_meaning(con, t.term_id))]
+    ids = [t.term_id for t in terms]
+    if cached and cached[0] == ids:
         return cached
-    terms = match_terms(text, ds.list_terms(con, ("verified", "needs_review")))
     glossary = []
     for t in terms:
         tr = ds.get_translation(con, t.term_id, lang)
@@ -86,7 +89,6 @@ def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -
         if meaning and t.status == "verified":
             glossary.append((t.canonical, meaning))
     plain = rewrite(text, lang, glossary, reader)
-    ids = [t.term_id for t in terms]
     if not terms:
         ds.log_lookup_miss(con, text, lang)  # 사전에 없는 표현일 수 있다 → 발굴(spot) 단계 재료
     if plain is not None or not glossary:  # 시간 초과로 재작성이 빠진 답은 캐시하지 않는다 — 다음엔 다시 시도

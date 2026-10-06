@@ -75,5 +75,10 @@ def test_country_page_lists_confirmed_terms_only():
     now = datetime.now(timezone.utc)
     for tid, status in (("v", "verified"), ("n", "needs_review")):
         ds.upsert_term(con, Term(term_id=tid, canonical=tid * 3, lang="ko", status=status, first_seen=now, last_seen=now))
+        from trend_agents.schemas import MeaningDraft
+
+        ds.add_meaning(con, tid, MeaningDraft(definition="confirmed or proposed definition", origin="origin", nuance="nuance",
+                                             generations=["20s"], regions=["KR"], self_confidence=0.9),
+                       "verified_auto" if status == "verified" else "unverified", [])
         ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
     assert [r.term.term_id for r in views.country_page(con, "KR").terms] == ["v"]
