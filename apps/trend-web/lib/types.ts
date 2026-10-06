@@ -246,6 +246,23 @@ export interface GenerationResult {
   source: "gemini" | "local" | "sample";
 }
 
+/* 시장별 포스터 시안 (Plan 20) — 백엔드 pipeline/views.py 의 PosterPlan·PosterResult 와 1:1. 그림에는 글자가 없고 검사한 문구는 화면이 얹는다. */
+export interface PosterPlan {
+  market: "KR" | "JP" | "US";
+  product: string;                // 밈·사람 이름을 지운 제품 설명
+  scene: string;
+  mood: string[];                 // 고른 밈의 느낌·말투에서 옮긴 분위기 낱말
+  colors: string[];
+  aspect_ratio: string;
+  prompt: string;                 // 이미지 모델 지시문 — 밈 이름·사람 이름이 들어가지 않는다
+}
+
+export interface PosterResult {
+  enabled: boolean;               // 이미지 생성이 꺼져 있으면 false — 구성안만 오고 화면은 자리 표시
+  plan: PosterPlan;
+  images: string[];               // base64 PNG. 저장하지 않는다
+}
+
 /* 트렌드 브리핑 — 백엔드 pipeline/views.py 의 Briefing 과 1:1. 목록·건수는 대시보드 규칙, 요약 문장만 모델(없으면 화면이 규칙 문장). */
 export interface BriefingCounts { rising: number; use_now: number; careful: number; undecided: number; avoid: number; fading: number }
 export interface Briefing {

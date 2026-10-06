@@ -189,8 +189,9 @@ def local_ok() -> bool:
 
 def generate(con: Connection, contents: Any, config: types.GenerateContentConfig | None = None,
              model: str | None = None, tries: int = 3, allow_fallback: bool = True,
-             allow_local: bool = True, request: bool = False) -> tuple[Any, str]:
+             allow_local: bool = True, request: bool = False, make_client: Any = None) -> tuple[Any, str]:
     """(응답, 실제로 쓴 모델). 예산이 없으면 BudgetExhausted. 텍스트 전용 호출은 로컬 Gemma 가 켜져 있으면 그쪽으로.
+    make_client: 다른 접속이 필요한 호출(포스터 시안의 model_client.image_client)만 준다. 기본은 client().
     request=True 면 이용자 요청의 장부(REQUEST_GEMINI_DAILY)로 센다. 사람이 기다리는 요청이라 모델마다 한 번만 시도하고 기다리지 않으며,
     429·503 으로 거절된 시도는 장부에서 돌려놓는다 — 거절도 한 번으로 세어 503 이 몰린 순간 요청 하나가 하루 몫의 절반을 썼다(검토 3차)."""
     if allow_local and local_ok() and isinstance(contents, str):
@@ -213,7 +214,7 @@ def generate(con: Connection, contents: Any, config: types.GenerateContentConfig
         raise BudgetExhausted("오늘 쓸 수 있는 Gemini 모델(또는 검색 grounding) 몫이 끝났다")
     config = _bounded(config)
     ledger = REQUEST_LEDGER if request else ""
-    c = client()  # 호출이 꺼져 있으면 여기서 끝난다 — 보내지 않은 요청으로 장부를 깎거나 이벤트를 남기지 않는다
+    c = (make_client or client)()  # 호출이 꺼져 있으면 여기서 끝난다 — 보내지 않은 요청으로 장부를 깎거나 이벤트를 남기지 않는다
     last: Exception | None = None
     for m in chain:
         for attempt in range(1 if request else tries):

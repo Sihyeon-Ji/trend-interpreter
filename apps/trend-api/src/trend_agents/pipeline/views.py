@@ -762,6 +762,24 @@ class GenerationResult(BaseModel):
     source: Literal["gemini", "local", "sample"]
 
 
+# ---------- 시장별 포스터 시안 — 구성안은 pipeline/poster.py 의 규칙이 만든다. 이미지에는 글자를 넣지 않고, 검사한 문구는 화면이 얹는다 ----------
+
+class PosterPlan(BaseModel):
+    market: Literal["KR", "JP", "US"]
+    product: str                       # 제품 설명 (밈·사람 이름을 지운 것)
+    scene: str
+    mood: list[str]                    # 고른 밈의 느낌·말투에서 옮긴 분위기 낱말 (닫힌 낱말만)
+    colors: list[str]
+    aspect_ratio: str
+    prompt: str                        # 이미지 모델에 보내는 지시문 — 밈 이름·사람 이름이 들어가지 않는다
+
+
+class PosterResult(BaseModel):
+    enabled: bool                      # 이미지 생성이 켜져 있나. 꺼져 있으면 구성안만 오고 화면이 자리 표시를 보인다
+    plan: PosterPlan
+    images: list[str] = []             # base64 PNG. 저장하지 않는다
+
+
 
 # ---------- 트렌드 브리핑 — 값은 pipeline/briefing.py 가 대시보드 규칙(dashboard.split)으로 채운다. 요약 문장만 모델 ----------
 

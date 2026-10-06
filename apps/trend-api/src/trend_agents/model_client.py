@@ -26,3 +26,21 @@ def client() -> genai.Client:
         project=config.GCP_PROJECT_ID,
         location=config.GOOGLE_CLOUD_LOCATION,
     )
+
+
+def image_requests_enabled() -> bool:
+    """포스터 시안(IMAGE_BACKEND)을 부를 수 있나. off(기본)면 늘 False."""
+    if config.IMAGE_BACKEND == "vertex":
+        return requests_enabled() and bool(config.GCP_PROJECT_ID)
+    if config.IMAGE_BACKEND == "api":
+        return config.MODEL_REQUESTS_ENABLED and bool(config.GEMINI_API_KEY)
+    return False
+
+
+def image_client() -> genai.Client:
+    """vertex 는 위 client() 를 그대로 쓰고, api 는 .env 의 GEMINI_API_KEY 로 만든다."""
+    if not image_requests_enabled():
+        raise ModelRequestsDisabled("Image requests are disabled")
+    if config.IMAGE_BACKEND == "vertex":
+        return client()
+    return genai.Client(vertexai=False, api_key=config.GEMINI_API_KEY)

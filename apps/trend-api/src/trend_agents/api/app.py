@@ -1,6 +1,7 @@
 """FastAPI — 프론트(apps/trend-web/lib/data.ts api 모드)가 부르는 엔드포인트. 읽기는 PostgreSQL, 쓰기는 검수 결정만."""
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from contextlib import asynccontextmanager, contextmanager
@@ -22,7 +23,7 @@ from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
-from ..pipeline import briefing as briefing_stage, copycheck
+from ..pipeline import briefing as briefing_stage, copycheck, poster as poster_stage
 from ..schemas import CampaignTone, ProductBrief, RiskLevel, Topic, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
@@ -497,7 +498,8 @@ MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
 
 
 # 몸통 크기 한도 — 폼·JSON 을 읽기 전에 Content-Length 로 막는다. 만들기는 제품 설명(수백 자)과 밈 id 몇 개뿐이다(검토 3차: 수백 KB 설명이 프롬프트로 갔다)
-_BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/generate": 16 * 1024, "/copy-check": 16 * 1024}
+_BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/campaign/poster": recommend_stage.MAX_IMAGE + 64 * 1024,
+             "/generate": 16 * 1024, "/copy-check": 16 * 1024}
 
 
 @app.middleware("http")
@@ -508,7 +510,7 @@ async def _upload_cap(request, call_next):
         if length is None:          # 길이를 밝히지 않는 조각 전송(chunked)은 크기를 미리 막을 수 없다 — 받지 않는다(검토 2차)
             return JSONResponse({"detail": "요청 길이가 필요합니다"}, status_code=411)
         if not length.isdigit() or int(length) > cap:
-            return JSONResponse({"detail": "사진은 5MB까지입니다" if request.url.path == "/recommend" else "요청이 너무 큽니다"}, status_code=413)
+            return JSONResponse({"detail": "사진은 5MB까지입니다" if request.url.path in ("/recommend", "/campaign/poster") else "요청이 너무 큽니다"}, status_code=413)
     return await call_next(request)
 
 
@@ -591,6 +593,55 @@ def generate(body: GenerateIn):
         raise HTTPException(400, str(e)) from None
     except generate_stage.Unavailable as e:
         raise HTTPException(503, str(e)) from None
+
+
+_poster_limit = recommend_stage.RateLimit(per_minute=5)
+
+
+@app.post("/campaign/poster", response_model=views.PosterResult)
+def campaign_poster(market: str = Form(...), brief: str = Form(""), text: str = Form(""), term_ids: str = Form(""),
+                    image: UploadFile | None = File(None)):
+    """시장별 포스터 시안. 구성안(지시문)은 규칙이 만들고, 이미지 생성이 켜져 있으면(IMAGE_BACKEND) 모델 한 번으로 그린다.
+    꺼져 있으면 enabled=false 와 구성안만 200 으로 — 화면이 자리 표시를 보인다. 그림에는 글자가 없고 검사한 문구는 화면이 얹는다.
+    brief 는 추천이 읽어 낸 제품 설명(JSON, 다시 읽지 않는다), 없으면 text 를 제품 설명으로 쓴다. 사진·결과는 저장하지 않는다."""
+    market = market.strip().upper()
+    if market not in poster_stage.MARKETS:
+        raise HTTPException(400, "시장은 KR·JP·US 가운데 하나입니다")
+    if len(brief) > 8 * 1024 or len(text) > 500:
+        raise HTTPException(400, "제품 설명이 너무 깁니다")
+    try:
+        product = ProductBrief.model_validate_json(brief) if brief.strip() else \
+            ProductBrief(product=text.strip(), category="lifestyle", feelings=[]) if text.strip() else None
+    except ValueError:
+        raise HTTPException(400, "제품 설명 형식이 맞지 않습니다") from None
+    if product is None:
+        raise HTTPException(400, "제품 설명이나 문구 가운데 하나는 넣어 주세요")
+    ids = [t.strip()[:64] for t in term_ids.split(",") if t.strip()]
+    if len(ids) > 3:
+        raise HTTPException(400, "밈은 셋까지 고를 수 있습니다")
+    photo: bytes | None = None
+    if image is not None:
+        data = image.file.read(recommend_stage.MAX_IMAGE + 1)
+        if len(data) > recommend_stage.MAX_IMAGE:
+            raise HTTPException(413, "사진은 5MB까지입니다")
+        if data and not recommend_stage.sniff_image(data):
+            raise HTTPException(415, "JPEG·PNG·WebP 사진만 받습니다")
+        photo = data or None
+    fits = ds.all_fits(_con) if ids else {}
+    memes = [([t.canonical, *t.aliases], fits[i][1] if i in fits else None) for i in ids if (t := ds.get_term(_con, i))]
+    plan = poster_stage.plan(product, market, memes)
+    if not poster_stage.enabled():
+        return views.PosterResult(enabled=False, plan=plan)
+    if not _poster_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    try:
+        with _model_slot():
+            images = poster_stage.generate(_con, plan, photo)
+    except poster_stage.NotConfigured:
+        return views.PosterResult(enabled=False, plan=plan)
+    except poster_stage.Unavailable as e:
+        raise HTTPException(503, str(e)) from None
+    return views.PosterResult(enabled=True, plan=plan, images=[base64.b64encode(b).decode("ascii") for b in images])
 
 
 _briefing_limit = recommend_stage.RateLimit(per_minute=30)
