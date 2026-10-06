@@ -2,11 +2,31 @@
 
 > **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-05** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-06** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
 [계획 목록](README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
+
+## 2026-10-06 밀린 영어판 Kaggle 번역 시험
+
+수집 서버의 track이 10-01부터 1시간 제한에 걸려 `translate`가 09-30 뒤로 돌지 않았다([Plan 02](02-lifecycle-stages.md)). 그래서 '지금 쓰이는' 한국 밈 85개 중 영어판이 16개뿐이다. 빠진 69개를 Kaggle T4에서 로컬 Gemma로 번역해 봤다. 이 PC의 GPU는 다른 작업의 vLLM이 쓰고 있어 쓰지 않았다.
+
+- **입력:** 10-06 12:45 KST snapshot(`97146f8`)을 연구 DB에 올리고 Plan 02의 새 규칙으로 track을 다시 돌렸다. 그 뒤 '쓰이는 중'·한국 지역·영어판 없음인 verified 69개의 현행 뜻(뜻·확장·유래·뉘앙스)을 뽑았다. 비공개 Dataset `onzlchoi/trend-translate-kr-inuse`(`terms.jsonl` SHA-256 `7cc7e568…`)에 저장소 `trend_agents` 일부를 함께 넣었다.
+- **실행:** 비공개 Kaggle script `onzlchoi/trend-translate-run`. 코드는 [`models/kaggle/translate/translate_meanings.py`](../../models/kaggle/translate/translate_meanings.py)다. 저장소의 `gemma_translate.translate_meaning`을 그대로 불러 프롬프트·재질문·Ollama 호출 옵션이 수집 서버와 같다. 모델은 `gemma4:12b`(digest `6114515d63c1`), Ollama 0.35.1, T4.
+- **결과:** 69개 모두 형식 실패 없음. 합계 760초, 중앙값 7.4초.
+
+| 영어 뜻의 한글 | 개수 | 뜻 |
+| --- | --- | --- |
+| 없음 | 34 | 모두 영어 |
+| 표제어·관련 말 이름만 한글 | 34 | 프롬프트 규칙("본문의 다른 유행어도 원문 그대로")대로다. 예: '국밥' 뜻의 돼지국밥·순대국밥 |
+| 일부 미번역 | 1 | 'KD 운송그룹'의 쉬운 표현(`plain`)이 한국어 |
+
+**자동 확인은 품질 평가가 아니다.** 사람이 읽을 표본 16개(시드 고정 15개와 미번역 1개)를 `artifacts/kaggle/trend-translate-run/review.csv`(Git 제외)에 뽑았다. `label`에 ok/fix를 적는다.
+
+**넣는 길은 정하지 않았다.** 결과는 Kaggle 출력과 Git 제외 경로에만 있고 운영·수집 DB에 쓰지 않았다. 쓰려면 수집 서버의 `translations`에 넣고 다음 snapshot·운영 갱신(Plan 19)으로 옮기거나, 수집 서버의 track 제한을 풀어 `translate`가 스스로 따라잡게 한다.
+
+**덤으로 본 것.** '국밥'·'갈비찜'의 확인된 뜻은 밈 쓰임이 아니라 음식 설명이다. 번역 전에 뜻 자체를 고쳐야 할 말이 섞여 있다.
 
 ## 2026-10-03 점검
 
