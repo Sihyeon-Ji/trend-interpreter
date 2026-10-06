@@ -40,5 +40,7 @@ gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$REPO" \
   --body "$(terraform -chdir=infra/gcp output -raw workload_identity_provider)"
 gh variable set GCP_DEPLOY_SERVICE_ACCOUNT --repo "$REPO" \
   --body "$(terraform -chdir=infra/gcp output -raw deploy_service_account)"
+gh variable set GCP_IMAGE_SERVICE_ACCOUNT --repo "$REPO" \
+  --body "$(terraform -chdir=infra/gcp output -raw image_push_service_account)"
 gh api --method PUT "repos/$REPO/environments/gcp" >/dev/null
 printf '%s\n' 'Infrastructure and GitHub variables configured.'

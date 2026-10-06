@@ -84,6 +84,14 @@ resource "google_service_account" "deploy" {
   depends_on   = [google_project_service.apis]
 }
 
+# Pushes release images only. Jobs without the approved gcp environment (trend_images builds while the checks run)
+# use this account, so they cannot reach the deployer's Cloud Run, logging or service-account rights.
+resource "google_service_account" "image_push" {
+  account_id   = "builder-cup-image-push"
+  display_name = "Builder Cup GitHub image push"
+  depends_on   = [google_project_service.apis]
+}
+
 resource "google_service_account" "alert_relay" {
   account_id   = "builder-cup-alert-relay"
   display_name = "Builder Cup Discord alert relay"
@@ -115,6 +123,13 @@ resource "google_artifact_registry_repository_iam_member" "writer" {
   repository = google_artifact_registry_repository.app.name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.deploy.email}"
+}
+
+resource "google_artifact_registry_repository_iam_member" "image_push_writer" {
+  location   = var.region
+  repository = google_artifact_registry_repository.app.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.image_push.email}"
 }
 
 resource "google_service_account_iam_member" "act_as_alert_relay" {
@@ -167,10 +182,19 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
 
+# GitHub sets the OIDC subject to repo:<owner>/<repo>:environment:<name> for a job with an environment and to
+# repo:<owner>/<repo>:ref:<ref> otherwise. Only jobs in the gcp environment (approval once the repository is public)
+# can act as the deployer; the release branch's other jobs can only push images (Plan 11).
 resource "google_service_account_iam_member" "github" {
   service_account_id = google_service_account.deploy.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
+  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:environment:gcp"
+}
+
+resource "google_service_account_iam_member" "github_image_push" {
+  service_account_id = google_service_account.image_push.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:ref:refs/heads/release/gcp"
 }
 
 resource "terraform_data" "dashboard_definition" {

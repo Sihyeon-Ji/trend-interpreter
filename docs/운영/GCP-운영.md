@@ -60,6 +60,7 @@ Bootstrap이 설정하는 repository variable은 다음과 같습니다.
 | --- | --- |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Terraform `workload_identity_provider` output |
 | `GCP_DEPLOY_SERVICE_ACCOUNT` | Terraform `deploy_service_account` output |
+| `GCP_IMAGE_SERVICE_ACCOUNT` | Terraform `image_push_service_account` output. 이미지만 올리는 계정(`trend_images`). 배포 계정은 `gcp` environment job만 쓴다 |
 | `GEMINI_MODEL` | 선택 사항이며 기본값은 `gemini-3.5-flash` |
 
 ## AI 호출 일시 중지와 요청 한도
