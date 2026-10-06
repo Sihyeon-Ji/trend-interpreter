@@ -81,3 +81,32 @@ def diffusion(kinds: dict[str, int], lc: Lifecycle):
     if community and not short and not news and not documented:
         return "underground"
     return None
+
+
+# ── 관심도로 정하기 (2026-10-06) ──────────────────────────────────────
+# 위키 밈 분류로 들어온 말은 뉴스·쇼츠·검색어 원본에 거의 나오지 않아 대부분 '판단 보류' 였다(verified 의 91.7%).
+# 원본에 언급이 없고 조사 근거로도 정하지 못했을 때만, 그 말의 검색 관심도(한국어: 네이버 데이터랩 주별)나 위키 문서 조회수(월별)로 정한다.
+# 모양은 그 말 자신의 최고점에 대한 비율로만 본다(데이터랩 값은 같이 부른 말끼리 상대값이라 크기는 쓰지 않는다).
+INTEREST_MIN_POINTS = 8        # 이보다 짧은 시계열은 보류
+INTEREST_RECENT = {"week": 4, "month": 3}      # 최근 창(주 4개 · 달 3개)
+INTEREST_FLOOR = {"week": 0.0, "month": 30.0}  # 월 조회수가 이보다 적으면(최고점조차) 신호가 아니다
+
+
+def interest_stage(series: list[float], unit: str = "week") -> Lifecycle:
+    """오래된 → 최근 순의 관심도(주별 비율 또는 월별 조회수). 마지막 칸(아직 덜 찬 주·달)은 부르는 쪽이 뺀다.
+
+    꾸준함: 최근 평균이 최고점의 35% 이상 · 지는 중: 10% 이상 · 잠잠함: 그 아래. 신호가 없으면 보류.
+    모양(정점·오르는 중)은 말하지 않는다 — 검색 관심도는 그 낱말 자체의 관심이라 밈과 상관없는 검색에도 뛴다
+    ('소갈비찜 레시피'·'산미증식계획' 이 '오르는 중', '시바스 리갈' 이 '정점' 이 됐다, 10-06). recency_stage 와 같은 세 단계만."""
+    pts = [max(0.0, float(x)) for x in series]
+    if len(pts) < INTEREST_MIN_POINTS or max(pts, default=0) <= INTEREST_FLOOR[unit]:
+        return "unknown"
+    w = INTEREST_RECENT[unit]
+    top = max(pts)
+    recent = sum(pts[-w:]) / w
+    ratio = recent / top
+    if ratio >= 0.35:
+        return "steady"
+    if ratio >= 0.10:
+        return "declining"
+    return "dormant"

@@ -1585,3 +1585,33 @@ def test_guessed_or_plain_word_meanings_are_not_meanings():
     term, draft = "럭키비키", _lucky_draft()
     namu = ev("wiki", "namu.wiki", f"나무위키: {term}", f"{term} 는 긍정 밈이다", url="https://namu.wiki/w/x")
     assert gate(term, draft.model_copy(update={"definition": guessed[0]}), [namu], None)[0] == "unverified"
+
+
+def test_interest_stage_from_search_and_pageviews():
+    """원본 언급이 없는 말은 그 말 자신의 최고점에 대한 최근 관심도로 정한다(10-06)."""
+    from trend_agents.lifecycle import interest_stage
+
+    assert interest_stage([1, 1, 1, 1, 2, 3, 5, 9, 10, 10, 9], "week") == "steady"     # 모양(정점)은 말하지 않는다
+    assert interest_stage([10, 10, 9, 10, 10, 9, 10, 10, 9, 10], "week") == "steady"
+    assert interest_stage([100, 80, 60, 40, 30, 20, 16, 15, 14, 13, 12], "week") == "declining"      # 최근 4주 평균 13.5 / 최고 100
+    assert interest_stage([100, 50, 10, 5, 3, 2, 1, 1, 1, 1, 1], "week") == "dormant"
+    assert interest_stage([0] * 20, "week") == "unknown" and interest_stage([5, 6], "week") == "unknown"
+    assert interest_stage([20, 25, 22, 18, 21, 20, 19, 24, 20, 22], "month") == "unknown"       # 월 조회수가 너무 적으면 신호가 아니다
+    assert interest_stage([5000, 4000, 3000, 2000, 1500, 1200, 900, 800, 700, 600, 500, 450], "month") == "declining"
+
+
+def test_track_falls_back_to_search_interest_only_when_unknown():
+    from datetime import date, timedelta
+
+    from trend_agents.pipeline import track
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t1", canonical="찰진다", lang="ko", status="verified", first_seen=now - timedelta(days=400)))
+    today = date.today()
+    weeks = [track._week(today - timedelta(weeks=i)) for i in range(20, 0, -1)]
+    ds.set_interest(con, "t1", "naver", [(w, v) for w, v in zip(weeks, [100] * 4 + [60] * 4 + [30] * 4 + [12] * 8)], now.isoformat())
+    track.run(con)
+    assert ds.get_term(con, "t1").lifecycle == "declining"           # 최근 평균 12 / 최고 100

@@ -6,7 +6,7 @@ from bisect import bisect_right
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
-from ..lifecycle import RECENT_DAYS, diffusion, recency_stage, stage as life_stage
+from ..lifecycle import RECENT_DAYS, diffusion, interest_stage, recency_stage, stage as life_stage
 from ..schemas import Evidence, NewsItem, ShortsInterpretation, ShortsVideo
 from ..storage import dictionary_store as ds
 from .collect import home_edition
@@ -158,6 +158,20 @@ def weekly_counts(con: Connection, term: str, aliases: list[str], term_id: str |
     return c
 
 
+def interest_lifecycle(con: Connection, term_id: str, today: date) -> str:
+    """검색 관심도(네이버 데이터랩 주별)가 있으면 그것으로, 없으면 위키 문서 월별 조회수(언어판을 합침)로. 덜 찬 이번 주·이번 달은 뺀다."""
+    weekly = [(p, v) for p, v in ds.get_interest(con, term_id, "naver") if p < _week(today)]
+    if weekly:
+        st = interest_stage([v for _, v in weekly], "week")
+        if st != "unknown":
+            return st
+    by_month: Counter = Counter()
+    for m, v in ds.get_pageviews(con, term_id):
+        if m < today.strftime("%Y%m"):
+            by_month[m] += v
+    return interest_stage([by_month[m] for m in sorted(by_month)][-24:], "month") if by_month else "unknown"
+
+
 def measured_series(series: list[int], weeks: list[str], last_sampled: datetime) -> list[int]:
     """용어별 뉴스 검색으로 잰 주까지만 — 그 뒤의 0 은 '안 쓰임' 이 아니라 '안 봤음' 이다. 잰 주는 잰 날까지만 셌으므로 한 주로 늘려
     앞 주들과 견준다. 9일 전에 잰 推し活 [..,9,96,0,0] 이 '지는 중' 이 됐고(검토 3차), 매일 고르게 쓰이는 말도 이번 주 화요일에는
@@ -230,6 +244,8 @@ def run(con: Connection) -> dict:
                 last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
                 last_look = ds.last_researched(con, t.term_id, ok_only=True)
                 t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None), now=as_of_last_look(last_look, now))
+            if t.lifecycle == "unknown":          # 원본도 조사 근거도 없으면 검색 관심도·위키 조회수로(위키 밈 분류로 들어온 말 대부분)
+                t.lifecycle = interest_lifecycle(con, t.term_id, today)
             lifecycle, dif = t.lifecycle, diffusion(usage_kinds(con, t.term_id), t.lifecycle)
             # 다른 필드는 저장된 쪽에서 — 훑는 몇 분 사이 검수자가 승인·제외한 것을 시작 때 읽은 사본이 덮지 않게
             fresh = ds.get_term(con, t.term_id) or t
