@@ -49,6 +49,15 @@ recommendation ranking are deterministic code; a model never sets a status.
   generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
   held back.
 
+Where this shows in the deployed app:
+
+- Each dictionary entry lists the evidence sentences behind its risk level, with the tone and risk type each was
+  classified as, and a short "how this entry was made" summary. Community posts are counted, never quoted.
+- [`/about`](apps/trend-web/app/about/page.tsx) explains in plain words what Gemini, Gemma, the rules and people
+  each do. Model names stay off the other user-facing screens.
+- The reviewer status page shows, per pipeline step, how many published results each model produced and the
+  model calls and time spent in the last 24 hours.
+
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
 ## Google Cloud services
