@@ -133,15 +133,14 @@
 
 | 변수 | 값 | 비고 |
 | --- | --- | --- |
-| `IMAGE_BACKEND` | `off`(기본) · `vertex` · `api` | `off`면 어떤 모델도 부르지 않는다 |
-| `MODEL_REQUESTS_ENABLED` | `true` | 두 방식 모두 필요 |
-| `MODEL_PROVIDER`, `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | `vertex`, 프로젝트, 위치 | `vertex`일 때 – `model_client.client()`와 같은 접속 |
-| `GEMINI_API_KEY` | AI Studio 키 | `api`일 때만. `.env`에만 둔다 |
+| `IMAGE_BACKEND` | `off`(기본) · `vertex` | `off`면 어떤 모델도 부르지 않는다 |
+| `MODEL_REQUESTS_ENABLED` | `true` | |
+| `MODEL_PROVIDER`, `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | `vertex`, 프로젝트, 위치 | `model_client.client()`와 같은 접속 |
 | `IMAGE_MODEL` | 기본 `gemini-3.1-flash-image` | |
 | `IMAGE_DAILY` | 기본 `30` | 하루 이미지 호출 상한 |
 | `IMAGE_PRICE_USD` | `입력,출력`(USD / 100만 토큰) | `GEMINI_MONTHLY_USD`가 켜져 있으면(운영) 단가 없는 모델은 부르지 않으므로 넣어야 한다 |
 
-- `api` 방식은 AGENTS.md의 'Vertex 한 곳' 규칙의 예외다. 클라이언트는 그래도 `model_client.image_client()` 한 곳에서만 만든다. 운영은 `vertex`를 쓴다.
+- AI Studio 키 방식은 두지 않는다 — AGENTS.md의 'Vertex 한 곳' 규칙. 무료 키는 이미지 몫이 0이다(10-06 실측).
 
 ## 9. 열린 문제
 

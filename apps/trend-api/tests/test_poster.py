@@ -24,15 +24,15 @@ def _off(monkeypatch):
     monkeypatch.setattr(config, "IMAGE_BACKEND", "off")
     monkeypatch.setattr(config, "MODEL_PROVIDER", "mock")
     monkeypatch.setattr(config, "MODEL_REQUESTS_ENABLED", False)
-    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
     monkeypatch.setattr(gemini, "local_ok", lambda: False)
 
 
 def _on(monkeypatch, images=(PNG,), seen=None):
-    """api 접속으로 켜고 클라이언트는 가짜로 바꾼다. 응답은 inline 이미지."""
-    monkeypatch.setattr(config, "IMAGE_BACKEND", "api")
+    """Vertex 접속으로 켜고 클라이언트는 가짜로 바꾼다. 응답은 inline 이미지."""
+    monkeypatch.setattr(config, "IMAGE_BACKEND", "vertex")
+    monkeypatch.setattr(config, "MODEL_PROVIDER", "vertex")
     monkeypatch.setattr(config, "MODEL_REQUESTS_ENABLED", True)
-    monkeypatch.setattr(config, "GEMINI_API_KEY", "fake")
+    monkeypatch.setattr(config, "GCP_PROJECT_ID", "builder-cup-test")
 
     class Models:
         def generate_content(self, model, contents, config):
@@ -77,21 +77,17 @@ def test_off_never_creates_a_client():
     assert ds.gemini_budget_left(con, config.IMAGE_DAILY, poster.IMAGE_LEDGER) == config.IMAGE_DAILY
 
 
-def test_backends_reuse_the_existing_clients(monkeypatch):
-    factory = Mock()
-    monkeypatch.setattr(model_client.genai, "Client", factory)
-    monkeypatch.setattr(config, "IMAGE_BACKEND", "api")
-    assert not model_client.image_requests_enabled()                  # 키가 있어도 MODEL_REQUESTS_ENABLED 가 꺼져 있으면 부르지 않는다
-    monkeypatch.setattr(config, "MODEL_REQUESTS_ENABLED", True)
-    monkeypatch.setattr(config, "GEMINI_API_KEY", "fake")
-    model_client.image_client()
-    factory.assert_called_once_with(vertexai=False, api_key="fake")
+def test_image_uses_the_existing_vertex_client(monkeypatch):
     monkeypatch.setattr(config, "IMAGE_BACKEND", "vertex")
     monkeypatch.setattr(config, "MODEL_PROVIDER", "vertex")
     monkeypatch.setattr(config, "GCP_PROJECT_ID", "builder-cup-test")
+    assert not model_client.image_requests_enabled()                  # MODEL_REQUESTS_ENABLED 가 꺼져 있으면 부르지 않는다
+    monkeypatch.setattr(config, "MODEL_REQUESTS_ENABLED", True)
     sentinel = object()
     monkeypatch.setattr(model_client, "client", lambda: sentinel)
     assert model_client.image_client() is sentinel
+    monkeypatch.setattr(config, "IMAGE_BACKEND", "api")               # Vertex 말고는 없다(AGENTS.md)
+    assert not model_client.image_requests_enabled()
 
 
 def test_fake_image_comes_back_as_png_and_is_counted(monkeypatch):

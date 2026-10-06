@@ -79,12 +79,11 @@ GEMINI_PRICES = {
     "gemini-3.5-flash": (1.50, 9.00), "gemini-3.5-flash-lite": (0.30, 2.50), "gemini-3.1-flash-lite": (0.25, 1.50),
 }
 # 시장별 포스터 시안(pipeline/poster.py). 기본 꺼짐 — off 면 어떤 모델도 부르지 않고 화면은 구성안만 받는다.
-# vertex: model_client.client() 와 같은 Vertex 접속(MODEL_PROVIDER=vertex·MODEL_REQUESTS_ENABLED=true·GCP_PROJECT_ID) /
-# api: AI Studio 키(GEMINI_API_KEY, .env 에만)로 — 이것도 MODEL_REQUESTS_ENABLED=true 여야 부른다. 무료 키는 이미지 몫이 0 이다(10-06).
+# vertex: model_client.client() 와 같은 Vertex 접속(MODEL_PROVIDER=vertex·MODEL_REQUESTS_ENABLED=true·GCP_PROJECT_ID). AI Studio 키는 쓰지 않는다
+# (AGENTS.md 'Vertex 한 곳' — 무료 키는 이미지 몫이 0 이기도 하다, 10-06 실측).
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "off").strip().lower()
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gemini-3.1-flash-image")
 IMAGE_DAILY = int(os.getenv("IMAGE_DAILY", "30"))   # 하루 이미지 생성 호출 상한 — 이용자 요청 장부와 따로 센다
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")     # IMAGE_BACKEND=api 일 때만 읽는다
 # 이미지 모델 단가 '입력,출력'(USD / 100만 토큰). GEMINI_MONTHLY_USD 가 켜져 있으면 단가가 없는 모델은 부르지 않으므로 운영에서는 이것도 넣는다
 if _image_price := os.getenv("IMAGE_PRICE_USD", ""):
     GEMINI_PRICES[IMAGE_MODEL] = tuple(float(x) for x in _image_price.split(",")[:2])  # type: ignore[assignment]
