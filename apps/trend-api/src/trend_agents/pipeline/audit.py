@@ -11,7 +11,9 @@
 """
 from __future__ import annotations
 
-import sqlite3
+from datetime import datetime, timedelta, timezone
+
+from ..storage.db import Connection
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -216,32 +218,87 @@ def ds_current(con: Connection, term: Term) -> str:
     return m.meaning_id if m else ""
 
 
-def targets(con: Connection, limit: int = AUDIT_PER_RUN) -> list[Term]:
-    """아직 감사하지 않은 자동 확인 뜻 — 위키 분류에서 일괄로 들어온 것과 새것부터."""
+RETRY_DELAYS = {"error": timedelta(hours=1), "no_doc": timedelta(days=7)}
+
+
+def retry_due(action: str, checked_at: str, now: datetime) -> bool:
+    delay = RETRY_DELAYS.get(action)
+    if delay is None:
+        return False
+    try:
+        when = datetime.fromisoformat(checked_at)
+    except (TypeError, ValueError):
+        return True  # A failed attempt with a malformed timestamp gets one fresh attempt.
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return now - when >= delay
+
+
+def targets(con: Connection, limit: int = AUDIT_PER_RUN, *, retry_failed: bool = False,
+            now: datetime | None = None) -> list[Term]:
+    """Select unaudited entries or due failures. Manual retries select failures only."""
     from ..storage import dictionary_store as ds
 
     _ensure(con)
-    done = set(con.execute("SELECT term_id, meaning_id FROM audit_log").fetchall())
+    now = now or datetime.now(timezone.utc)
+    done = {(tid, mid): (action, checked) for tid, mid, action, checked in
+            con.execute("SELECT term_id, meaning_id, action, checked_at FROM audit_log").fetchall()}
     cat = {r[0] for r in con.execute("SELECT DISTINCT term_id FROM wiki_catalog").fetchall()}
+    pending = {r[0] for r in con.execute(
+        "SELECT term_id FROM review_queue WHERE decision IS NULL AND COALESCE(kind, 'new') != 'new'")}
     rows = []
-    for t in ds.list_terms(con, ("verified",)):
-        m = ds.current_meaning(con, t.term_id)
-        if m and m.verification == "verified_auto" and (t.term_id, m.meaning_id) not in done:
-            rows.append((t.term_id not in cat, -m.valid_from.timestamp(), t))
-    return [t for *_, t in sorted(rows, key=lambda x: (x[0], x[1]))][:limit]
+    terms = ds.list_terms(con, ("verified",))
+    with ds.batched(con, [t.term_id for t in terms], tables=("meanings",)):
+        for t in terms:
+            m = ds.current_meaning(con, t.term_id)
+            if not m or m.verification != "verified_auto" or t.term_id in pending:
+                continue
+            prior = done.get((t.term_id, m.meaning_id))
+            if retry_failed:
+                eligible = bool(prior and prior[0] in RETRY_DELAYS)
+            else:
+                eligible = prior is None or retry_due(*prior, now)
+            if eligible:
+                rows.append((prior is not None, t.term_id not in cat, -m.valid_from.timestamp(), t.term_id, t))
+    return [r[-1] for r in sorted(rows, key=lambda r: r[:-1])][:max(0, limit)]
+
+
+def _still_automatic(con: Connection, term_id: str, meaning_id: str) -> bool:
+    from ..storage import dictionary_store as ds
+
+    t = ds.get_term(con, term_id)
+    m = ds.current_meaning(con, term_id)
+    return bool(t and t.status == "verified" and m and m.meaning_id == meaning_id
+                and m.verification == "verified_auto" and not ds.under_review(con, term_id))
 
 
 def audit_one(con: Connection, term: Term) -> str:
     """한 말을 감사한다. 돌려주는 것: ok · fixed(다시 써서 통과) · flagged(다시 써도 고칠 것) · no_doc · error."""
     from ..storage import dictionary_store as ds
+    m = ds.current_meaning(con, term.term_id)
+    if not m or not _still_automatic(con, term.term_id, m.meaning_id):
+        return "skipped"
+    try:
+        return _audit_current(con, term, m)
+    except Exception as e:
+        # Persist only the error type; exceptions can contain prompts or credentials.
+        _log(con, term.term_id, m.meaning_id, "error", [type(e).__name__], "", "error")
+        return "error"
+
+
+def _audit_current(con: Connection, term: Term, m: Meaning) -> str:
+    from ..storage import dictionary_store as ds
     from . import research
 
-    m = ds.current_meaning(con, term.term_id)
     docs = documents(term, ds.list_evidences(con, term.term_id))
     if not docs:
         _log(con, term.term_id, m.meaning_id, "no_doc", [], "", "no_doc")
         return "no_doc"
+    if not _still_automatic(con, term.term_id, m.meaning_id):
+        return "skipped"
     c, used = check(con, term, m, docs, model="audit")
+    if not _still_automatic(con, term.term_id, m.meaning_id):
+        return "skipped"
     v, why = verdict(c)
     if v == "ok":
         _log(con, term.term_id, m.meaning_id, "ok", [], used, "ok")
@@ -255,11 +312,16 @@ def audit_one(con: Connection, term: Term) -> str:
         research.WIKI_CONTEXT.pop(term.canonical, None)
         _log(con, term.term_id, m.meaning_id, "fix", why, used, "error")
         return "error"
+    research.WIKI_CONTEXT.pop(term.canonical, None)
     m2 = ds.current_meaning(con, term.term_id)
+    if m2 and not _still_automatic(con, term.term_id, m2.meaning_id):
+        return "skipped"
     if not m2 or m2.meaning_id == m.meaning_id:
         _log(con, term.term_id, m.meaning_id, "fix", why, used, "flagged")
         return "flagged"
     c2, _ = check(con, term, m2, docs, model="audit")
+    if not _still_automatic(con, term.term_id, m2.meaning_id):
+        return "skipped"
     v2, why2 = verdict(c2)
     _log(con, term.term_id, m.meaning_id, "fix", why, used, "rewritten")
     _log(con, term.term_id, m2.meaning_id, v2, why2, used, "ok" if v2 == "ok" else "flagged")
@@ -290,7 +352,8 @@ def run(con: Connection) -> dict:
                     counts[audit_one(con, t)] += 1
                 except Exception as e:           # 한 말의 형식 실패가 나머지를 막지 않는다
                     counts["error"] += 1
-                    r.note += f"{t.canonical}:{type(e).__name__} "
+                    _log(con, t.term_id, ds_current(con, t), "error", [type(e).__name__], "", "error")
+                    r.note += f"{t.term_id}:{type(e).__name__} "
                 r.count += 1
             r.detail = dict(counts)
     return {"audit": r}

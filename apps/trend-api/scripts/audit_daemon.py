@@ -25,13 +25,26 @@ def main() -> None:
     a = argparse.ArgumentParser()
     a.add_argument("--worker", type=int, default=0)
     a.add_argument("--workers", type=int, default=1)
+    a.add_argument("--once", action="store_true", help="한 배치만 처리하고 종료")
+    a.add_argument("--retry-failures", action="store_true", help="error/no_doc만 재검사 (--once 필수)")
     args = a.parse_args()
+    if args.retry_failures and not args.once:
+        a.error("--retry-failures는 --once와 함께 사용하세요")
+    if args.workers < 1 or not 0 <= args.worker < args.workers:
+        a.error("workers는 양수이고 worker는 0 이상 workers 미만이어야 합니다")
     con = db.connect()
     counts: Counter = Counter()
     while True:
         while busy():
+            if args.once:
+                print("pipeline busy; audit batch deferred", flush=True)
+                con.close()
+                return
             time.sleep(300)
-        todo = [t for t in audit.targets(con, limit=10_000) if zlib.crc32(t.term_id.encode()) % args.workers == args.worker][:20]
+        todo = [t for t in audit.targets(con, limit=10_000, retry_failed=args.retry_failures) if zlib.crc32(t.term_id.encode()) % args.workers == args.worker][:20]
+        if not todo and args.once:
+            con.close()
+            return
         if not todo:
             print(f"[{datetime.now():%H:%M}] 감사할 것 없음 — 1시간 뒤 다시", counts, flush=True)
             time.sleep(3600)
@@ -41,9 +54,13 @@ def main() -> None:
                 v = audit.audit_one(con, t)
             except Exception as e:
                 v = f"error {type(e).__name__}"
-                audit._log(con, t.term_id, (audit.ds_current(con, t) or ""), "error", [str(e)[:120]], "", "error")
+                audit._log(con, t.term_id, (audit.ds_current(con, t) or ""), "error", [type(e).__name__], "", "error")
             counts[v] += 1
-            print(f"[{datetime.now():%H:%M}] w{args.worker} {t.canonical} → {v}", flush=True)
+            print(f"[{datetime.now():%H:%M}] w{args.worker} {t.term_id} → {v}", flush=True)
+
+        if args.once:
+            con.close()
+            return
 
 
 if __name__ == "__main__":
