@@ -1,11 +1,10 @@
 """시장별 포스터 시안 — 구성안은 규칙, 그림은 이미지 모델 한 번. 실제 모델은 부르지 않는다(가짜 클라이언트만)."""
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-
 from trend_agents import config, model_client
 from trend_agents.pipeline import gemini, poster
 from trend_agents.schemas import MeaningDraft, MemeFit, ProductBrief, Term
@@ -137,11 +136,10 @@ def test_failed_call_is_refunded(monkeypatch):
 
 def _api(monkeypatch):
     from fastapi.testclient import TestClient
-
     from trend_agents.api import app as api
 
     con = db.connect(":memory:")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     ds.upsert_term(con, Term(term_id="wy", canonical="장원영 같다", aliases=["원영적 사고"], lang="ko", status="verified", first_seen=now, last_seen=now))
     ds.add_meaning(con, "wy", MeaningDraft(definition="아주 좋다는 뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"],
                                            self_confidence=0.9), "verified_auto", [])
@@ -165,10 +163,10 @@ def test_api_off_returns_the_plan_only(monkeypatch):
     assert c.post("/campaign/poster", data={"market": "KR", "text": "라떼"}, files={"image": ("x.png", b"<svg>", "image/png")}).status_code == 415
 
 
-def test_api_on_returns_base64_png(monkeypatch):
+def test_api_on_returns_data_url(monkeypatch):
     c = _api(monkeypatch)
     _on(monkeypatch)
     r = c.post("/campaign/poster", data={"market": "US", "text": "iced latte", "term_ids": "wy"})
     assert r.status_code == 200
     body = r.json()
-    assert body["enabled"] is True and [base64.b64decode(i) for i in body["images"]] == [PNG]
+    assert body["enabled"] is True and [base64.b64decode(i.removeprefix("data:image/png;base64,")) for i in body["images"]] == [PNG] and body["images"][0].startswith("data:image/png;base64,")

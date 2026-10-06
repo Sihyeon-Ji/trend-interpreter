@@ -1,7 +1,7 @@
 """시장별 포스터 시안 (Plan 20 — 한국·일본·미국 캠페인 초안).
 
 1. 구성안  plan()      제품 설명(ProductBrief) + 고른 밈의 느낌·말투(MemeFit, 닫힌 낱말) + 시장 → 지시문      — 규칙(모델 없음)
-2. 그림    generate()  지시문(+ 올린 제품 사진)으로 이미지 모델 한 번 → PNG                                 — pipeline/gemini.py 를 거친다
+2. 그림    generate()  지시문(+ 올린 제품 사진)으로 이미지 모델 한 번 → PNG·JPEG·WebP                        — pipeline/gemini.py 를 거친다
 
 이미지에는 글자를 넣지 않는다. 포스터 문구는 카피 검사를 통과한 것을 화면이 그 위에 얹는다 — 모델이 그린 글자는 검사할 수 없고
 철자도 틀린다. 밈 이름과 사람 이름은 지시문에 넣지 않는다: 밈 이름이 곧 실존 인물인 말이 있다('장원영 같다', 10-06).
@@ -26,7 +26,6 @@ from .views import PosterPlan
 IMAGE_LEDGER = "img:"     # 이미지 생성 장부 — 이용자 요청 장부(req:)와 같은 표에 따로 센다
 MARKETS = {"KR": "South Korea", "JP": "Japan", "US": "the United States"}
 ASPECT = "4:5"            # 인스타그램 세로 피드
-PNG = b"\x89PNG\r\n\x1a\n"
 
 # 닫힌 낱말 → 그림의 분위기. 밈 이름 대신 이것만 지시문에 들어간다
 FEELING_MOOD = {
@@ -116,7 +115,7 @@ def plan(brief: ProductBrief, market: str, memes: Sequence[tuple[Sequence[str], 
 
 
 def generate(con: Connection, poster: PosterPlan, photo: bytes | None = None) -> list[bytes]:
-    """이미지 모델 한 번 → PNG 바이트 목록. pipeline/gemini.py 의 generate 로 부른다(이용자 요청 장부·금액 상한·호출 기록).
+    """이미지 모델 한 번 → 그림 바이트 목록(PNG·JPEG·WebP). pipeline/gemini.py 의 generate 로 부른다(이용자 요청 장부·금액 상한·호출 기록).
     그와 따로 하루 IMAGE_DAILY 회의 이미지 장부를 센다. 사진은 Part 로만 넘기고 파일로 쓰지 않는다. 결과도 저장하지 않는다.
     문구는 그리지 않는다 — 검사한 문구는 화면이 얹는다."""
     if not enabled():
@@ -145,7 +144,7 @@ def generate(con: Connection, poster: PosterPlan, photo: bytes | None = None) ->
         ds.gemini_spend(con, -1, IMAGE_LEDGER)
         raise Unavailable("지금은 포스터 시안을 만들지 못했습니다") from e
     images = [p.inline_data.data for c in (resp.candidates or []) for p in ((c.content.parts if c.content else None) or [])
-              if p.inline_data and (p.inline_data.data or b"")[:8] == PNG]
+              if p.inline_data and sniff_image(p.inline_data.data or b"")]      # 모델이 JPEG 로 줄 수도 있다 — 그림이면 받는다
     if not images:          # 응답은 왔다(과금됐다) — 장부는 그대로 둔다
         raise Unavailable("지금은 포스터 시안을 만들지 못했습니다")
     return images

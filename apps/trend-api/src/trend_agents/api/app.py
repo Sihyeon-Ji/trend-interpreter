@@ -641,7 +641,7 @@ def campaign_poster(market: str = Form(...), brief: str = Form(""), text: str = 
         return views.PosterResult(enabled=False, plan=plan)
     except poster_stage.Unavailable as e:
         raise HTTPException(503, str(e)) from None
-    return views.PosterResult(enabled=True, plan=plan, images=[base64.b64encode(b).decode("ascii") for b in images])
+    return views.PosterResult(enabled=True, plan=plan, images=[f"data:{poster_stage.sniff_image(b)};base64,{base64.b64encode(b).decode('ascii')}" for b in images])
 
 
 _briefing_limit = recommend_stage.RateLimit(per_minute=30)

@@ -777,7 +777,7 @@ class PosterPlan(BaseModel):
 class PosterResult(BaseModel):
     enabled: bool                      # 이미지 생성이 켜져 있나. 꺼져 있으면 구성안만 오고 화면이 자리 표시를 보인다
     plan: PosterPlan
-    images: list[str] = []             # base64 PNG. 저장하지 않는다
+    images: list[str] = []             # data URL(data:image/png;base64,…). 저장하지 않는다
 
 
 

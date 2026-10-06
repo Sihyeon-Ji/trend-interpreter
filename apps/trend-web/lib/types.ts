@@ -260,7 +260,7 @@ export interface PosterPlan {
 export interface PosterResult {
   enabled: boolean;               // 이미지 생성이 꺼져 있으면 false — 구성안만 오고 화면은 자리 표시
   plan: PosterPlan;
-  images: string[];               // base64 PNG. 저장하지 않는다
+  images: string[];               // data URL(data:image/png;base64,…). 저장하지 않는다
 }
 
 /* 트렌드 브리핑 — 백엔드 pipeline/views.py 의 Briefing 과 1:1. 목록·건수는 대시보드 규칙, 요약 문장만 모델(없으면 화면이 규칙 문장). */
