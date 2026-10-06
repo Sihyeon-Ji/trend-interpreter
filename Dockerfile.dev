@@ -19,12 +19,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml uv.lock ./
 RUN UV_PROJECT_ENVIRONMENT=/opt/data-tools-venv uv sync --locked
+# Dependencies first, sources after: a source edit then reuses the dependency layers instead of reinstalling them.
+COPY apps/trend-api/pyproject.toml apps/trend-api/uv.lock apps/trend-api/
+RUN uv sync --project apps/trend-api --locked --no-install-project
+COPY apps/alert-relay/pyproject.toml apps/alert-relay/uv.lock apps/alert-relay/
+RUN UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv sync --project apps/alert-relay --locked --no-install-project
+COPY apps/trend-web/package.json apps/trend-web/pnpm-lock.yaml apps/trend-web/pnpm-workspace.yaml apps/trend-web/
+RUN cd apps/trend-web && corepack pnpm install --frozen-lockfile
 COPY apps/trend-api/ apps/trend-api/
 RUN uv sync --project apps/trend-api --locked
 COPY apps/alert-relay/ apps/alert-relay/
 RUN UV_PROJECT_ENVIRONMENT=/opt/alert-relay-venv uv sync --project apps/alert-relay --locked
-COPY apps/trend-web/package.json apps/trend-web/pnpm-lock.yaml apps/trend-web/pnpm-workspace.yaml apps/trend-web/
-RUN cd apps/trend-web && corepack pnpm install --frozen-lockfile
 COPY apps/trend-web/ apps/trend-web/
 COPY tests/ tests/
 COPY scripts/ scripts/
