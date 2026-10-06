@@ -50,12 +50,14 @@ function score(brief: ProductBrief, fit: Fit, c: KeywordCard, tone: CampaignTone
 }
 
 /** pin: 사전 항목에서 먼저 고른 밈 — 순위 밖이어도 목록 끝에 넣는다(백엔드 recommend.recommend 의 pin 과 같다). */
-export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: string | null): RecommendResult {
+export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: string | null, category?: FitCategory | null): RecommendResult {
+  // 만들기(Plan 20)에서 고른 분야는 예시 제품 설명의 분야를 대신한다(백엔드 /recommend 의 category 와 같다)
+  const brief: ProductBrief = category ? { ...SAMPLE_BRIEF, category } : SAMPLE_BRIEF;
   const board = sampleKeywordBoard(regions);
   const cards = [...new Map([...board.rising, ...board.fading, ...board.caution].map((c) => [c.term_id, c])).values()];
   const scored = cards.flatMap((c) => {
     const fit = SAMPLE_FIT[c.term_id];
-    const got = fit ? score(SAMPLE_BRIEF, fit, c, tone) : null;
+    const got = fit ? score(brief, fit, c, tone) : null;
     return got ? [{ c, s: got[0], cat: got[1], shared: got[2], any: fit.any_category }] : [];
   }).sort((a, b) => b.s - a.s || b.c.mentions_4w - a.c.mentions_4w || a.c.canonical.localeCompare(b.c.canonical));
   // 근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만. 링크가 없는 것은 추천하지 않는다(백엔드 recommend._links 와 같다)
@@ -74,6 +76,6 @@ export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: str
     write_regions: board.regions.filter((r) => c.regions.includes(r) && writable(c.canonical, r)), score: Math.round(s * 100) / 100,
     evidences: links(c),
   }));
-  return { brief: SAMPLE_BRIEF, brief_source: "sample", regions: board.regions, tone, items, considered: scored.length,
+  return { brief, brief_source: "sample", regions: board.regions, tone, items, considered: scored.length,
            untagged: cards.filter((c) => !SAMPLE_FIT[c.term_id]).length };
 }

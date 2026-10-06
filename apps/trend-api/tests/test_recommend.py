@@ -159,6 +159,9 @@ def test_recommend_api_checks_input_before_any_model_call(monkeypatch):
     body = r.json()
     assert body["brief_source"] == "sample" and body["items"][0]["term_id"] == "good"
     assert "bad" not in {i["term_id"] for i in body["items"]}
+    # 만들기(Plan 20)에서 고른 분야는 읽은 분야보다 앞서고, 모르는 값은 무시한다
+    assert c.post("/recommend", data={"text": "여름 라떼", "regions": "KR", "category": "game"}).json()["brief"]["category"] == "game"
+    assert c.post("/recommend", data={"text": "여름 라떼", "regions": "KR", "category": "x"}).json()["brief"]["category"] == body["brief"]["category"]
 
 
 # 1×1 PNG — 바이트 머리(\x89PNG)로 형식을 본다

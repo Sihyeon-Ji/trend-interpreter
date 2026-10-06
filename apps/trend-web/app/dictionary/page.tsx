@@ -45,7 +45,7 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
             {t(locale, "pg_load_failed")}
           </StatePanel>
         ) : records.length === 0 ? (
-          <StatePanel action={<Link href="/" className="text-[14px] text-link-blue hover:underline">{t(locale, "pg_dict_go_dashboard")}</Link>}>
+          <StatePanel action={<Link href="/trends" className="text-[14px] text-link-blue hover:underline">{t(locale, "pg_dict_go_dashboard")}</Link>}>
             {t(locale, "pg_dict_empty")}
           </StatePanel>
         ) : (

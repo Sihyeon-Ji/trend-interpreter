@@ -61,8 +61,9 @@ def test_plan_keeps_meme_and_person_names_out_of_the_prompt():
 def test_plan_falls_back_to_brief_feelings_and_rejects_other_markets():
     assert poster.plan(LATTE, "JP").mood == ["bright and cheerful"]
     assert "Japan" in poster.plan(LATTE, "JP").prompt
+    assert "Taiwan" in poster.plan(LATTE, "TW").prompt and "natural light" in poster.plan(LATTE, "TW").prompt   # 따로 적지 않은 시장의 결
     with pytest.raises(ValueError):
-        poster.plan(LATTE, "TW")
+        poster.plan(LATTE, "FR")
 
 
 def test_off_never_creates_a_client():
@@ -153,7 +154,8 @@ def test_api_off_returns_the_plan_only(monkeypatch):
     body = r.json()
     assert body["enabled"] is False and body["images"] == [] and body["plan"]["market"] == "KR"
     assert "장원영" not in body["plan"]["prompt"] and "confident and bold" in body["plan"]["mood"]
-    assert c.post("/campaign/poster", data={"market": "TW", "text": "라떼"}).status_code == 400
+    assert c.post("/campaign/poster", data={"market": "TW", "text": "라떼"}).status_code == 200      # 목표 지역이면 어디든(Plan 20 만들기의 시장 칩)
+    assert c.post("/campaign/poster", data={"market": "FR", "text": "라떼"}).status_code == 400
     assert c.post("/campaign/poster", data={"market": "KR"}).status_code == 400
     assert c.post("/campaign/poster", data={"market": "KR", "brief": "{"}).status_code == 400
     assert c.post("/campaign/poster", data={"market": "KR", "text": "라떼"}, files={"image": ("x.png", b"<svg>", "image/png")}).status_code == 415

@@ -765,7 +765,7 @@ class GenerationResult(BaseModel):
 # ---------- 시장별 포스터 시안 — 구성안은 pipeline/poster.py 의 규칙이 만든다. 이미지에는 글자를 넣지 않고, 검사한 문구는 화면이 얹는다 ----------
 
 class PosterPlan(BaseModel):
-    market: Literal["KR", "JP", "US"]
+    market: str                        # 목표 지역 코드(poster.MARKETS)
     product: str                       # 제품 설명 (밈·사람 이름을 지운 것)
     scene: str
     mood: list[str]                    # 고른 밈의 느낌·말투에서 옮긴 분위기 낱말 (닫힌 낱말만)

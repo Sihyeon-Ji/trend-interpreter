@@ -248,7 +248,7 @@ export interface GenerationResult {
 
 /* 시장별 포스터 시안 (Plan 20) — 백엔드 pipeline/views.py 의 PosterPlan·PosterResult 와 1:1. 그림에는 글자가 없고 검사한 문구는 화면이 얹는다. */
 export interface PosterPlan {
-  market: "KR" | "JP" | "US";
+  market: string;                 // 목표 지역 코드
   product: string;                // 밈·사람 이름을 지운 제품 설명
   scene: string;
   mood: string[];                 // 고른 밈의 느낌·말투에서 옮긴 분위기 낱말

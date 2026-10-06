@@ -8,14 +8,12 @@ export function ShellChrome({ skip, sidebar, banner, footer, children }: {
 }) {
   if (usePathname().startsWith("/lab")) return <>{children}</>;
   return (
-    <div className="min-h-dvh lg:flex">
+    <div className="flex min-h-dvh flex-col">
       {skip}
       {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {banner}
-        {children}
-        {footer}
-      </div>
+      {banner}
+      {children}
+      {footer}
     </div>
   );
 }

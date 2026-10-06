@@ -1,26 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-/* 마케터가 밈으로 할 일 셋 — 첫 화면의 '무엇을 만들까요?', 트렌드 브리핑, 카피 검사. 예시 모드(모델·서버 없음). */
-
-test("home shows the three tools and carries the picked regions", async ({ page }) => {
-  await page.goto("/?regions=JP");
-  const tools = page.getByRole("region", { name: /무엇을 만들까요|What do you want to make/ });
-  await expect(tools.getByRole("link", { name: /캠페인 키트|Campaign kit/ })).toHaveAttribute("href", "/recommend?regions=JP");
-  await expect(tools.getByRole("link", { name: /트렌드 브리핑 보고서|Trend briefing report/ })).toHaveAttribute("href", "/briefing?regions=JP");
-  await expect(tools.getByRole("link", { name: /카피 검사|Copy check/ })).toHaveAttribute("href", "/check?regions=JP");
-  // 검정 버튼은 머리의 '추천받기' 하나 — 도구 카드는 테두리만
-  for (const link of await tools.getByRole("link").all()) await expect(link).not.toHaveClass(/bg-ink/);
-});
-
-test("dashboard opens with an at-a-glance summary of the picked market", async ({ page }) => {
-  await page.goto("/?regions=KR");
-  const glance = page.getByRole("region", { name: /한눈에 보기|At a glance/ });
-  await expect(glance).toContainText(/바로 써도 됨|Safe to use/);
-  await expect(glance).toContainText(/아직 판단 전|Not judged yet/);
-  const first = glance.getByRole("listitem").first().getByRole("link");
-  await expect(first).toHaveAttribute("href", /^\/dictionary\/.+\?regions=KR$/);
-  await expect(glance.getByRole("link", { name: /브리핑 보고서로 자세히 보기|full trend briefing/ })).toHaveAttribute("href", "/briefing?regions=KR");
-});
+/* 트렌드 브리핑과 카피 검사. 예시 모드(모델·서버 없음). 첫 화면의 도구 카드·한눈에 보기는 Plan 20 만들기 화면으로 바뀌었다(e2e/make.spec.ts). */
 
 test("briefing lists the market on one page with a rule summary, print and share", async ({ page }) => {
   await page.goto("/briefing?regions=KR");

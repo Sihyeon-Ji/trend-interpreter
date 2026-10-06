@@ -12,8 +12,8 @@ test("world map picks regions and opens them on the dashboard", async ({ page })
   await expect(table.getByRole("checkbox", { name: /한국 고르기|Pick South Korea|Pick Korea/ })).toBeChecked();
   await table.getByRole("checkbox", { name: /홍콩 고르기|Pick Hong Kong/ }).check();
   await expect(page).toHaveURL(/regions=KR%2CHK|regions=KR,HK/);
-  const open = page.getByRole("link", { name: /대시보드에서 보기|View on dashboard/ }).first();
-  await expect(open).toHaveAttribute("href", /\/\?regions=KR(%2C|,)HK&list=fading/);   // 들어올 때 보던 목록을 그대로 넘긴다
+  const open = page.getByRole("link", { name: /둘러보기에서 보기|View in Explore/ }).first();
+  await expect(open).toHaveAttribute("href", /\/trends\?regions=KR(%2C|,)HK&list=fading/);   // 들어올 때 보던 목록을 그대로 넘긴다
   await open.click();
   await expect(page).toHaveURL(/regions=KR(%2C|,)HK/);
 });

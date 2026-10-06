@@ -42,7 +42,7 @@ export default async function CountryPage({ params, searchParams }: {
       meta={view?.updated_at ? <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(view.updated_at, locale)}</span></span> : undefined}
       actions={target ? (
         <>
-          <Link href={`/?regions=${region}`} className={link}>{t(locale, "feeds_open_dashboard")}</Link>
+          <Link href={`/trends?regions=${region}`} className={link}>{t(locale, "feeds_open_dashboard")}</Link>
           <Link href={`/recommend?regions=${region}`} className={cn(buttonVariants(), "h-10 w-full rounded-md px-4 text-[14px] sm:w-auto")}>
             {t(locale, "country_recommend").replace("{country}", name)}
           </Link>
@@ -92,12 +92,12 @@ export default async function CountryPage({ params, searchParams }: {
                 <KeywordTable cards={cards.slice(0, MEMES_SHOWN)} locale={locale} linkRegions={[region]} />
                 <div className="flex flex-col gap-1.5 pt-1">
                   {cards.length > MEMES_SHOWN && (
-                    <Link href={`/?regions=${region}${tab === "caution" ? "&list=caution" : ""}`} className={link}>
+                    <Link href={`/trends?regions=${region}${tab === "caution" ? "&list=caution" : ""}`} className={link}>
                       {t(locale, "country_see_all").replace("{country}", name).replace("{n}", String(cards.length))}
                     </Link>
                   )}
                   {tab === "rising" && board.fading.length > 0 && (
-                    <Link href={`/?regions=${region}&list=fading`} className={link}>{t(locale, "country_fading_link").replace("{n}", String(board.fading.length))}</Link>
+                    <Link href={`/trends?regions=${region}&list=fading`} className={link}>{t(locale, "country_fading_link").replace("{n}", String(board.fading.length))}</Link>
                   )}
                 </div>
               </>
