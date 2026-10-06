@@ -244,12 +244,14 @@ def run(con: Connection) -> dict:
                 last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
                 last_look = ds.last_researched(con, t.term_id, ok_only=True)
                 t.lifecycle = recency_stage(max((d for d in (newest, last_raw) if d), default=None), now=as_of_last_look(last_look, now))
-            if t.lifecycle == "unknown":          # 원본도 조사 근거도 없으면 검색 관심도·위키 조회수로(위키 밈 분류로 들어온 말 대부분)
-                t.lifecycle = interest_lifecycle(con, t.term_id, today)
+            # 원본도 조사 근거도 없으면(위키 밈 분류로 들어온 말 대부분) 검색 관심도·위키 조회수를 따로 적는다. 생애주기로 쓰지 않는다 –
+            # 원본 언급과 κ −0.04, 최근 쓰임과 κ 0.13 이고 2015년 이전 밈의 71% 가 '꾸준함' 이 됐다(10-06 검증, Plan 02)
+            interest = interest_lifecycle(con, t.term_id, today) if t.lifecycle == "unknown" else "unknown"
             lifecycle, dif = t.lifecycle, diffusion(usage_kinds(con, t.term_id), t.lifecycle)
             # 다른 필드는 저장된 쪽에서 — 훑는 몇 분 사이 검수자가 승인·제외한 것을 시작 때 읽은 사본이 덮지 않게
             fresh = ds.get_term(con, t.term_id) or t
             fresh.lifecycle, fresh.diffusion = lifecycle, dif
+            fresh.interest = None if interest == "unknown" else interest
             fresh.first_seen = first.replace(tzinfo=timezone.utc)
             # 마지막 본 때 = 원본의 마지막 주와 가장 최근 쓰임 근거 가운데 늦은 것 — 생애주기(recency_stage)와 같은 재료.
             # 둘 다 없으면 비운다(예전 규칙으로 남은 날짜가 그대로 남아 있던 것, 검토 2차)

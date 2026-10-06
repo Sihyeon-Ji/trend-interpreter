@@ -308,6 +308,9 @@ class Term(BaseModel):
     status: TermStatus = "candidate"
     lifecycle: Lifecycle = "unknown"
     diffusion: Diffusion | None = None  # 태동·확산·주류·식상. 근거가 모자라면 None
+    # 검색 관심도(네이버 데이터랩·위키 조회수)의 최고점 대비 최근. 생애주기가 unknown 일 때만 채운다. 쓰임 단계가 아니다 –
+    # 원본 언급·최근 쓰임과 우연 수준으로 맞고 오래된 밈일수록 '유지' 로 기울어(10-06 검증, Plan 02) 생애주기에 넣지 않는다
+    interest: Literal["steady", "declining", "dormant"] | None = None
     risk_level: RiskLevel | None = None  # 없음·주의·사용 자제. None 은 판단 보류
     risk_reasons: list[str] = Field(default_factory=list)
     risk_checked_at: datetime | None = None

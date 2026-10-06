@@ -56,6 +56,9 @@ export function TermSummary(p: SummaryProps) {
           ? <><StageCell diffusion={term.diffusion} lifecycle={term.lifecycle ?? "unknown"} locale={locale} />
             {term.diffusion ? why(t(locale, `diffusion_${term.diffusion}_why`)) : (term.lifecycle ?? "unknown") === "unknown" && why(t(locale, "lifecycle_unknown_why"))}</>
           : notYet)}
+        {/* 검색 관심도는 생애주기와 따로 — 쓰임 단계가 아니라서 '요즘 쓰는가' 칸에 넣지 않는다(10-06 검증, Plan 02) */}
+        {p.verified && term.interest && row(t(locale, "term_sum_interest"),
+          <>{t(locale, `interest_${term.interest}`)}{why(t(locale, "interest_why"))}</>)}
         {row(t(locale, "term_sum_risk"), p.verified ? <><RiskCell item={term} locale={locale} />{why(riskReason(term, locale))}</> : notYet)}
         {p.regions && row(t(locale, "term_sum_regions"), p.regions)}
         {p.gens && row(t(locale, "term_sum_gens"), p.gens)}

@@ -8,6 +8,7 @@ export type Category = "slang" | "meme" | "song" | "drama" | "dance" | "news" | 
 export type Status = "candidate" | "researching" | "needs_review" | "verified" | "retired";
 export type Lifecycle = "emerging" | "rising" | "peak" | "steady" | "declining" | "dormant" | "unknown";
 export type Diffusion = ("underground" | "spreading" | "mainstream" | "fading") | null;
+export type Interest = ("steady" | "declining" | "dormant") | null;
 export type RiskLevel = ("none" | "caution" | "avoid") | null;
 export type RiskReasons = string[];
 export type RiskCheckedAt = string | null;
@@ -295,6 +296,7 @@ export interface Term {
   status?: Status;
   lifecycle?: Lifecycle;
   diffusion?: Diffusion;
+  interest?: Interest;
   risk_level?: RiskLevel;
   risk_reasons?: RiskReasons;
   risk_checked_at?: RiskCheckedAt;

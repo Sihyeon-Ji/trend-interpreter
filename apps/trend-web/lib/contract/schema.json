@@ -963,6 +963,23 @@
           "default": null,
           "title": "Diffusion"
         },
+        "interest": {
+          "anyOf": [
+            {
+              "enum": [
+                "steady",
+                "declining",
+                "dormant"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interest"
+        },
         "risk_level": {
           "anyOf": [
             {

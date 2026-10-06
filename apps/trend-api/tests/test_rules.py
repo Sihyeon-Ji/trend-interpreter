@@ -1600,7 +1600,7 @@ def test_interest_stage_from_search_and_pageviews():
     assert interest_stage([5000, 4000, 3000, 2000, 1500, 1200, 900, 800, 700, 600, 500, 450], "month") == "declining"
 
 
-def test_track_falls_back_to_search_interest_only_when_unknown():
+def test_track_keeps_search_interest_apart_from_lifecycle():
     from datetime import date, timedelta
 
     from trend_agents.pipeline import track
@@ -1614,4 +1614,5 @@ def test_track_falls_back_to_search_interest_only_when_unknown():
     weeks = [track._week(today - timedelta(weeks=i)) for i in range(20, 0, -1)]
     ds.set_interest(con, "t1", "naver", [(w, v) for w, v in zip(weeks, [100] * 4 + [60] * 4 + [30] * 4 + [12] * 8)], now.isoformat())
     track.run(con)
-    assert ds.get_term(con, "t1").lifecycle == "declining"           # 최근 평균 12 / 최고 100
+    t = ds.get_term(con, "t1")
+    assert (t.lifecycle, t.interest) == ("unknown", "declining")      # 최근 평균 12 / 최고 100 — 관심도는 쓰임 단계가 아니라 따로 둔다
