@@ -55,6 +55,21 @@ variable "gpu" {
     error_message = "Pin boot image, release generation/hash, object scope and numeric secret versions."
   }
 }
+variable "publisher" {
+  description = "Opt-in publication Job with a separate restricted database credential; null creates no Job."
+  type = object({
+    database_secret_version = string
+  })
+  default = null
+  validation {
+    condition = var.publisher == null ? true : can(regex(
+      "^projects/${var.project_id}/secrets/trend-${var.environment}-publisher-database/versions/[1-9][0-9]*$",
+      var.publisher.database_secret_version
+    ))
+    error_message = "Use the dedicated publisher database secret with a numeric pinned version."
+  }
+}
+
 variable "services" {
   description = "Pinned web/API images, existing Cloud SQL, and numeric secret versions. Null creates no Cloud Run services."
   type = object({

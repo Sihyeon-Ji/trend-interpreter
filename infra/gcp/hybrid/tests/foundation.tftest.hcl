@@ -3,7 +3,7 @@ mock_provider "google" {}
 run "disabled_has_no_resources" {
   command = plan
   assert {
-    condition     = length(google_compute_network.hybrid) == 0 && length(google_service_account.runtime) == 0 && length(google_secret_manager_secret.gateway) == 0 && length(google_compute_instance.gpu) == 0 && length(google_compute_disk.models) == 0
+    condition     = length(google_cloud_run_v2_job.publication) == 0 && length(google_compute_network.hybrid) == 0 && length(google_service_account.runtime) == 0 && length(google_secret_manager_secret.gateway) == 0 && length(google_compute_instance.gpu) == 0 && length(google_compute_disk.models) == 0
     error_message = "Default configuration must not create infrastructure."
   }
 }
@@ -212,4 +212,50 @@ run "gpu_api_requires_matching_vm_release" {
     }
   }
   expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "publisher_is_explicit_and_has_separate_credentials" {
+  command = plan
+  variables {
+    enabled = true
+    services = {
+      api_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      web_image                     = "asia-northeast1-docker.pkg.dev/stunning-crane-508614-c1/builder-cup/trend-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      sql_connection_name           = "stunning-crane-508614-c1:asia-northeast1:trend-project"
+      database_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-db/versions/1"
+      accounts_secret_version       = "projects/stunning-crane-508614-c1/secrets/trend-staging-accounts/versions/1"
+      frontend_token_secret_version = "projects/stunning-crane-508614-c1/secrets/trend-staging-frontend/versions/1"
+      session_secret_version        = "projects/stunning-crane-508614-c1/secrets/trend-staging-session/versions/1"
+    }
+    publisher = {
+      database_secret_version = "projects/stunning-crane-508614-c1/secrets/trend-staging-publisher-database/versions/2"
+    }
+  }
+  assert {
+    condition     = google_cloud_run_v2_job.publication[0].template[0].task_count == 1 && google_cloud_run_v2_job.publication[0].template[0].template[0].max_retries == 0
+    error_message = "One explicit batch per execution, without automatic retries."
+  }
+  assert {
+    condition     = google_cloud_run_v2_job.publication[0].template[0].template[0].containers[0].command == tolist(["python", "scripts/publication_job.py"])
+    error_message = "Use the schema-checked model-free publication entrypoint."
+  }
+  assert {
+    condition = alltrue([for pair in ["PUBLICATION_BATCH_ID=", "MODEL_PROVIDER=mock", "MODEL_REQUESTS_ENABLED=false", "GPU_GATEWAY_REQUESTS_ENABLED=false"] :
+    contains([for e in google_cloud_run_v2_job.publication[0].template[0].template[0].containers[0].env : "${e.name}=${e.value != null ? e.value : ""}"], pair)])
+    error_message = "No implicit batch, Gemini or GPU access."
+  }
+  assert {
+    condition     = google_secret_manager_secret_iam_member.publisher_database[0].secret_id == "projects/stunning-crane-508614-c1/secrets/trend-staging-publisher-database"
+    error_message = "Never reuse the shared API database credential."
+  }
+}
+
+run "publisher_shared_database_credential_is_rejected" {
+  command = plan
+  variables {
+    publisher = {
+      database_secret_version = "projects/stunning-crane-508614-c1/secrets/trend-staging-db/versions/1"
+    }
+  }
+  expect_failures = [var.publisher]
 }

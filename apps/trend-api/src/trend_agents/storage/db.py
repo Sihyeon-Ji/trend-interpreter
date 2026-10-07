@@ -264,6 +264,27 @@ def connect(path: str | None = None, *, url: str | None = None) -> Connection:
     return con
 
 
+def connect_existing(url: str | None = None) -> Connection:
+    """Open a prepared database without DDL; reject a mismatched runtime schema."""
+    from . import dictionary_store, store  # noqa: F401
+
+    try:
+        raw = psycopg.connect(url or DATABASE_URL, application_name="trend-publication")
+    except psycopg.Error:
+        raise RuntimeError("publication_database_unavailable") from None
+    con = Connection(raw)
+    try:
+        expected = {int(path.name.split("_", 1)[0]): hashlib.sha256(path.read_text(encoding="utf-8").encode()).hexdigest()
+                    for path in sorted(MIGRATIONS_DIR.glob("*.sql"))}
+        actual = dict(con.execute("SELECT version, checksum FROM schema_migrations").fetchall())
+        if actual != expected:
+            raise RuntimeError("publication_schema_not_ready")
+        return con
+    except Exception:
+        raw.close()
+        raise RuntimeError("publication_schema_not_ready") from None
+
+
 def connect_read_only(url: str | None = None) -> Connection:
     """읽기만 하는 연결(평가·표본 스크립트). 스키마 준비(DDL·마이그레이션)를 하지 않고, 쓰기는 서버가 거부한다 —
     connect() 로 붙으면 병합 전 가지의 마이그레이션이 운영 DB 에 적용되고 checksum 이 남아, 그 파일이 병합 전에 고쳐지면

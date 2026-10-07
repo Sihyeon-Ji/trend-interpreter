@@ -375,15 +375,15 @@ resource "google_monitoring_alert_policy" "api_errors" {
 }
 
 resource "google_monitoring_alert_policy" "backup_failed" {
-  display_name          = "Trend scheduled job failed"
+  display_name          = "Trend operational job failed"
   combiner              = "OR"
   severity              = "ERROR"
   notification_channels = local.alert_channels
 
   conditions {
-    display_name = "A backup or maintenance job execution failed (maintenance also fails when the data is over eight days old)"
+    display_name = "A backup, maintenance or publication job execution failed (maintenance checks publication age)"
     condition_threshold {
-      filter          = "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=one_of(\"trend-production-backup\", \"trend-production-maintenance\") AND metric.label.result=\"failed\""
+      filter          = "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.label.job_name=one_of(\"trend-production-backup\", \"trend-production-maintenance\", \"trend-production-publication\") AND metric.label.result=\"failed\""
       comparison      = "COMPARISON_GT"
       threshold_value = 0
       duration        = "0s"
