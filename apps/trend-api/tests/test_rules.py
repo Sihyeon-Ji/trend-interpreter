@@ -1521,7 +1521,7 @@ def test_audit_rule_overrides_model_when_meaning_describes_only_the_thing(monkey
     from datetime import datetime, timezone
 
     from trend_agents.pipeline import audit, research
-    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.schemas import Meaning, MeaningDraft, Term
     from trend_agents.storage import dictionary_store as ds
     from trend_agents.storage import store as db
 
@@ -1544,6 +1544,13 @@ def test_audit_rule_overrides_model_when_meaning_describes_only_the_thing(monkey
     rows = con.execute("SELECT action, reasons_json FROM audit_log ORDER BY checked_at").fetchall()
     assert [r[0] for r in rows] == ["rewritten", "ok"] and audit.NO_USAGE in rows[0][1]
     assert "발효식품" not in ds.current_meaning(con, "t_k").definition
+    # 뜻이 영어면 모델이 통과시켜도 규칙이 '한국어가 아니다' 로 고칠 것 — 언어판은 translations 몫
+    eng = Meaning(meaning_id="m_e", term_id="t_e", version=1, definition="A children's song that became an internet meme.", origin="x", nuance="y",
+                  generations=["20s"], regions=["US"], self_confidence=0.9, confidence=0.9, verification="verified_auto",
+                  valid_from=now, valid_to=None, created_by="research_agent", citations=[])
+    v, why = audit.verdict(audit.rule_overrides(passes, eng))
+    assert v == "fix" and audit.NOT_KOREAN in why
+    assert audit.verdict(audit.rule_overrides(passes, ds.current_meaning(con, "t_k")))[0] == "ok"
 
 
 def test_wikipedia_th_id_catalog_tags_and_person_categories():

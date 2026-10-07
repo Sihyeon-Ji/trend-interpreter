@@ -15,6 +15,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -29,6 +30,18 @@ from trend_agents.storage import store as db  # noqa: E402
 from trend_agents.verification import no_usage_meaning  # noqa: E402
 
 ACTIVE = {"emerging", "rising", "peak", "steady"}
+
+
+USAGE_CUE = re.compile(r"밈|드립|유행|쓰[이인는다며고여]|쓴다|사용|부르|불리|불린|들리|들린|가리키|비하|자조|놀리|패러디|비유|표현|말로|유명|화제|퍼지|퍼졌|"
+                       r"댓글|문화|짤|몬더그린|meme|slang|used|joke|parod|viral", re.I)
+
+
+def quote_about_usage(quote: str, term) -> bool:
+    """인용문이 그 말의 쓰임을 말하는가 — 표제어(또는 별칭)가 들어 있고 쓰임 낱말이 있을 때만. 가디안의 카드게임 데미지, 갈비찜의 웹툰 댓글처럼
+    표제어는 있어도 쓰임이 아닌 문장이 그대로 뜻에 들어갔다(10-07 첫 시험)."""
+    q = (quote or "").lower()
+    names = [term.canonical, *term.aliases]
+    return bool(q) and any(n and n.lower() in q for n in names) and bool(USAGE_CUE.search(q))
 
 
 def main() -> None:
@@ -64,7 +77,7 @@ def main() -> None:
         m = ds.current_meaning(con, t.term_id)
         if not m or m.verification == "verified_human":
             continue
-        if t.term_id in cat and no_usage_meaning(m.definition):
+        if want or (t.term_id in cat and no_usage_meaning(m.definition)):   # --terms 는 지정한 말을 그대로(다시 시험)
             picks.append((t, m))
         if len(picks) >= a.limit:
             break
@@ -94,7 +107,7 @@ def main() -> None:
     with (out / "results.jsonl").open("w", encoding="utf-8") as f:
         for i, (t, m) in enumerate(picks, 1):
             verdict, quote = quotes.get(t.term_id, ("", ""))
-            current_quote["text"] = quote if verdict == "meme" else ""
+            current_quote["text"] = quote if verdict == "meme" and quote_about_usage(quote, t) else ""
             t0 = time.time()
             try:
                 result = audit.audit_one(con, ds.get_term(con, t.term_id))

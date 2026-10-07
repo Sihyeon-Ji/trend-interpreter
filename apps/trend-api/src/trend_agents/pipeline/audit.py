@@ -63,6 +63,7 @@ JSON 하나로만 답한다: {{"verdict": "ok" 또는 "fix", "reason": "..."}}""
 
 # 대시보드가 이 까닭으로 남은 뜻(다시 써도 대상 소개뿐)의 말을 둘러보는 목록에서 뺀다(dashboard.meme_use)
 NO_USAGE = "밈으로 어떻게 쓰이는지가 없다"
+NOT_KOREAN = "뜻이 한국어가 아니다"      # 영어 표제어의 뜻이 영어로 써져 한국어 화면에 그대로 나왔다(10-07, 25개). 언어판은 translations 가 맡는다
 
 
 class AuditVerdict(BaseModel):
@@ -77,6 +78,7 @@ class AuditCheck(BaseModel):
     matches_doc: Literal["yes", "partly", "no"]
     origin_ok: bool
     missing_key: bool = False
+    not_korean: bool = False               # 규칙만 채운다(rule_overrides) — 모델에게 묻지 않는다
     reason: str = Field(default="")
 
 
@@ -84,11 +86,16 @@ def rule_overrides(c: AuditCheck, m: Meaning) -> AuditCheck:
     """모델의 체크리스트 위에 규칙을 덮는다 — 뜻이 대상 설명뿐이고 쓰임을 한마디도 안 하면(verification.no_usage_meaning) '쓰임을 설명한다' 는
     모델 답을 믿지 않는다. 감사관(gemma4:12b)이 김치·갈비찜·고길동·김여정처럼 백과사전식 뜻 36개를 통과시켰다(10-07 snapshot, Plan 16).
     규칙이 정하고 모델은 재료만 댄다(AGENTS)."""
+    import re
+
     from ..verification import no_usage_meaning
 
+    update = {}
     if c.describes_usage and no_usage_meaning(m.definition or ""):
-        return c.model_copy(update={"describes_usage": False})
-    return c
+        update["describes_usage"] = False
+    if (m.definition or "").strip() and not re.search("[가-힣]", m.definition):
+        update["not_korean"] = True          # 감사관 모델이 영어 뜻 14개를 '괜찮음' 으로 통과시켰다(10-07 두 번째 시험)
+    return c.model_copy(update=update) if update else c
 
 
 def verdict(c: AuditCheck) -> tuple[str, list[str]]:
@@ -106,6 +113,8 @@ def verdict(c: AuditCheck) -> tuple[str, list[str]]:
         why.append("유래가 문서와 다르거나 비었다")
     if c.missing_key:
         why.append("문서의 핵심(처음 나온 곳·주된 쓰임)이 빠졌다")
+    if c.not_korean:
+        why.append(NOT_KOREAN)
     return ("fix" if why else "ok"), why
 
 
