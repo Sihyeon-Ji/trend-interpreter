@@ -3,12 +3,13 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import uuid
 
 import pytest
 
 from trend_agents import config
 from trend_agents.schemas import MeaningDraft, Term
-from trend_agents.storage import db, dictionary_store as ds, publications as pub
+from trend_agents.storage import db, dictionary_store as ds, publications as pub, publisher_permissions as permissions
 
 spec = importlib.util.spec_from_file_location("publication_job", Path(__file__).resolve().parents[1] / "scripts/publication_job.py")
 job = importlib.util.module_from_spec(spec)
@@ -55,7 +56,17 @@ def test_job_requires_approval_then_replays_same_publication(monkeypatch, capsys
     schema = con.execute("SELECT current_schema()").fetchone()[0]
     url = config.DATABASE_URL + "?options=-csearch_path%3D" + schema
     connect = db.connect_existing
-    monkeypatch.setattr(job.db, "connect_existing", lambda: connect(url))
+    owner_connect = db.connect
+    role = "p_job_" + uuid.uuid4().hex[:12]
+    con.execute(f'CREATE ROLE "{role}" NOLOGIN')
+    con.commit()
+    permissions.configure(con, role)
+    def restricted_connection():
+        worker = connect(url)
+        worker.execute(f'SET ROLE "{role}"')
+        worker.commit()
+        return worker
+    monkeypatch.setattr(job.db, "connect_existing", restricted_connection)
     monkeypatch.setattr(job.db, "connect", lambda *a, **kw: pytest.fail("job must not migrate"))
     monkeypatch.setattr(sys, "argv", ["publication_job.py"])
     monkeypatch.setenv("PUBLICATION_BATCH_ID", "job_batch")
@@ -80,6 +91,10 @@ def test_job_requires_approval_then_replays_same_publication(monkeypatch, capsys
         assert con.execute("SELECT COUNT(*) FROM publications").fetchone()[0] == 1
     finally:
         con.close()
+        cleanup = owner_connect()
+        cleanup.execute(f'DROP ROLE "{role}"')
+        cleanup.commit()
+        cleanup.close()
 
 
 @pytest.mark.parametrize("message,code", [("private connection credentials and generated output", "publication_job_failed"),

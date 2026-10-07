@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from trend_agents.storage import db, publications  # noqa: E402
+from trend_agents.storage import db, publications, publisher_permissions  # noqa: E402
 
 
 def main() -> None:
@@ -22,6 +22,7 @@ def main() -> None:
     con = None
     try:
         con = db.connect_existing()
+        publisher_permissions.require_role(con)
         result = publications.publish(con, args.batch_id)
         print(json.dumps(result, sort_keys=True))
     except publications.PublicationError as exc:

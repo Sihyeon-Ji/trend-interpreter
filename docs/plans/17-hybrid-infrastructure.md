@@ -290,3 +290,7 @@ Gemma 특화 추론은 내부 gateway의 실제 readiness를 확인하고 deadli
 ## 10-07 게시 Job 기반 후속 구현
 
 배치 ID 한 개를 명시하는 모델 없는 게시 실행 파일과 기본 비활성 Cloud Run Job Terraform을 추가했다. Job은 migration을 적용하지 않고 DB migration 번호/체크섬과 실행 코드를 대조한다. 별도 publisher SA·전용 DB secret·Cloud SQL client만 연결하며 배치 미지정·미승인·스키마 불일치는 거부한다. DB 역할의 실제 쓰기/읽기 제한·staging Job 실행·운영 적용/복구는 남았다. [구현·명령·범위](../개발환경/승인-배치-게시.md#게시-job-실행-파일인프라-설정-10-07)를 따른다.
+
+## 10-07 게시 SQL 역할 로컬 검증 완료
+
+migration 021의 배치 승인/본문 변경 보호와 전용 PostgreSQL 역할 설정 도구를 추가했다. Job은 등록된 제한 역할만 허용하고, 사용자 원문/장부 조회·서비스 스키마 DDL·나중에 추가된 열 권한/역할 멤버십을 거부한다. 실제 SQL 역할에서 게시·중복 재실행·실패 롤백/재시도를 검증했다. 운영 로그인/secret·migration·staging Job·게시/복구 확인은 남는다. [권한 범위·명령·제한](../개발환경/승인-배치-게시.md#전용-postgresql-역할승인-경계-10-07-후속-완료)을 따른다.
