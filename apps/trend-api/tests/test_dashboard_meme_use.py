@@ -16,7 +16,7 @@ def test_unconfirmed_wiki_entries_leave_the_lists_but_stay_in_the_dictionary():
 
     def term(tid, name, *, catalog=True, checked=True, on=0, off=0, verification="verified_auto", lifecycle="steady", definition=None):
         ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", lifecycle=lifecycle, first_seen=now, last_seen=now))
-        m = ds.add_meaning(con, tid, MeaningDraft(definition=definition or f"{name} 뜻", origin="x", nuance="y", generations=["20s"], regions=["KR"],
+        m = ds.add_meaning(con, tid, MeaningDraft(definition=definition or f"{name}를 가리키는 말", origin="x", nuance="y", generations=["20s"], regions=["KR"],
                                                   self_confidence=0.9), verification, [])
         ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
         if catalog:
@@ -61,6 +61,25 @@ def test_mentions_mixed_with_other_stories_do_not_lead_the_list():
 
     rising, _, _ = dashboard.split([card("dori", 30, mixed=True), card("lucky", 5), card("new", 50, confirmed=False)])
     assert [c.term_id for c in rising] == ["lucky", "dori", "new"]
+
+
+def test_dashboard_holds_meanings_that_only_describe_the_thing():
+    """'김치는 발효식품이다' 처럼 쓰임이 없는 뜻은 목록에서 보류(사전에는 남는다). 사람이 확인한 뜻은 그대로."""
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    food = "채소를 절이고 발효시켜 먹는 한민족의 전통 발효식품이다."
+    for tid, definition, verification, catalog in (("kimchi", food, "verified_auto", True),
+                                                   ("kimchi_h", food, "verified_human", True),       # 사람이 확인한 뜻은 그대로
+                                                   ("kimchi_found", food, "verified_auto", False),   # 쓰임에서 발굴한 말은 보지 않는다
+                                                   ("kimchi_ja", "野菜を漬けて発酵させた韓国の伝統食品。", "verified_auto", True),  # 한국어가 아니면 가를 수 없다
+                                                   ("lucky", "나쁜 상황에서도 좋은 면을 찾는 태도를 뜻하는 말.", "verified_auto", True)):
+        ds.upsert_term(con, Term(term_id=tid, canonical=tid, lang="ko", status="verified", lifecycle="steady", first_seen=now, last_seen=now))
+        m = ds.add_meaning(con, tid, MeaningDraft(definition=definition, origin="x", nuance="y", generations=["20s"], regions=["KR"],
+                                                  self_confidence=0.9), verification, [])
+        if catalog:
+            con.execute("INSERT INTO wiki_catalog VALUES (?,?,?,?,?)", (tid, "namu", tid, '["인터넷 밈/한국"]', now.isoformat()))
+        held, _, _ = dashboard.meme_use(con, ds.get_term(con, tid), m, {})
+        assert held == (tid == "kimchi"), tid
 
 
 def test_meme_use_counts_labels():

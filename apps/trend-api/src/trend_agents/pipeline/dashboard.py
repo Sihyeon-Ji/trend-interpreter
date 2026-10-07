@@ -20,7 +20,7 @@ from ..config import REGIONS_FOCUS, home_region
 from ..schemas import Evidence, EvidenceBrief, Meaning, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from ..verification import evidence_note, guessed_meaning, vacuous_meaning
+from ..verification import evidence_note, guessed_meaning, no_usage_meaning, vacuous_meaning
 from .audit import NO_USAGE
 from .match import mentions, mostly_offtopic, unsafe
 from .runs import stage
@@ -286,6 +286,8 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
     - 뜻 칸이 뜻이 아니라 근거를 두고 한 모델의 메모다('근거에 쓰임 설명이 없음', verification.evidence_note — 확인된 뜻 162개)
     - 뜻이 '인터넷 밈으로 사용됨' 말고는 내용이 없다(verification.vacuous_meaning — 확인된 뜻 56개)
     - 뜻이 '…인 것으로 보인다' 같은 짐작이거나 낱말의 일반 뜻이라고 밝혔다(verification.guessed_meaning — 목록에 남은 카드 10개, 10-05)
+    - 위키 분류에서 들어온 말인데 뜻이 대상(게임·회사·음식·인물)을 설명할 뿐 어떻게 쓰이는지 한마디도 없다(verification.no_usage_meaning —
+      목록에 보이던 카드 38개, 10-06. 쓰임에서 발굴한 말은 뜻이 짧아도 쓰임이 있었던 말이라 보지 않는다: 걸린 99개 중 위키 분류가 95개)
     리스크 점검 전이라 근거 분류가 아직 없는 말은 빼지 않고 뒤로 보낸다(use_confirmed=False). 사람이 확인한 뜻은 그대로 둔다."""
     on = sum(1 for p, _ in labels.values() if p != "offtopic")
     mixed = mostly_offtopic(labels)
@@ -296,7 +298,8 @@ def meme_use(con: Connection, t: Term, m: Meaning | None, labels: dict[str, tupl
     no_usage = bool(row) and row[0] == "flagged" and NO_USAGE in json.loads(row[1] or "[]")
     catalog = con.execute("SELECT 1 FROM wiki_catalog WHERE term_id=? LIMIT 1", (t.term_id,)).fetchone() is not None
     text = m.definition if m else ""
-    hold = no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(text) or vacuous_meaning(text) or guessed_meaning(text)
+    hold = (no_usage or (catalog and t.risk_checked_at is not None and on == 0) or evidence_note(text) or vacuous_meaning(text)
+            or guessed_meaning(text) or (catalog and no_usage_meaning(text)))
     return hold, on > 0 or not catalog, mixed
 
 

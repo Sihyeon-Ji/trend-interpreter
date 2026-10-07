@@ -1550,6 +1550,26 @@ def test_pageviews_store_and_peak(monkeypatch):
     assert len(ds.get_pageviews(con, "t_x")) == 24
 
 
+def test_meanings_that_only_describe_the_thing_are_not_usage():
+    """게임·로켓·회사·음식 설명이 '확인된 뜻' 으로 들어온 말(10-06: '쓰이는 중' 283개 중 100개)은 둘러보는 목록에서 보류한다.
+    쓰임을 한마디라도 말한 뜻은 통과한다. 사람이 판정한 표본 16개의 뜻을 그대로 썼다(Plan 06·16)."""
+    from trend_agents.verification import no_usage_meaning
+
+    described = ["지뢰를 피해 빈 사각형을 찾는 것이 목표인, 주변 타일의 숫자를 통해 지뢰의 위치를 추리하는 게임의 이름.",
+                 "한국항공우주연구원이 KSLV 계획에 따라 개발하고 운용하는 우주 발사체. 대한민국 최초의 저궤도 실용 위성 발사용 로켓이다.",
+                 "일본의 일러스트레이터 나가노가 제작한 흰색 곰 형태의 유명 캐릭터 이름입니다.",
+                 "《아기공룡 둘리》에 등장하는 인물로, 희동이의 고모부이자 철수와 영희의 아버지이다.",
+                 "채소를 소금물에 절이고 발효시켜 보관성을 높인 후 갖은 양념으로 맛을 내어 먹는 한민족의 전통적인 발효식품이다."]
+    used = ["필요 이상으로 지나치게 몰입하는 것. 별것 아닌 일에 과하게 반응하는 모습을 가리킬 때 쓴다.",
+            "'갓(God)' 드립의 변형으로, 이름 글자를 전부 '갓'으로 바꿔 부르는 말. 칭찬뿐 아니라 비꼬는 뜻으로도 쓴다.",
+            "딱 맞는 말이 생각나지 않을 때 뭉뚱그려 대신 가리키는 말. 사람·사물을 가리지 않고 쓰는 대명사이자 감탄사다.",
+            "강아지를 귀엽게 부르는 말로 사용되는 신조어적 표현.",
+            "독특한 행동을 하는 사람을 정신병자에 빗대어 낮춰 부르는 속어."]
+    assert all(no_usage_meaning(d) for d in described)
+    assert not any(no_usage_meaning(d) for d in used)
+    assert not no_usage_meaning("") and not no_usage_meaning(None)
+
+
 def test_meanings_that_only_say_it_is_a_meme_are_not_meanings():
     """'인터넷 밈으로 사용됨.' 처럼 밈이라는 말 말고는 내용이 없는 뜻(10-04, 56개)은 막고, 대상을 말한 뜻은 통과시킨다."""
     from trend_agents.verification import vacuous_meaning
