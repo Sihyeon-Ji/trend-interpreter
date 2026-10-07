@@ -1515,6 +1515,37 @@ def test_audit_stage_logs_once_per_meaning_and_rewrites_on_fix(monkeypatch):
     assert {r[0] for r in con.execute("SELECT action FROM audit_log").fetchall()} == {"rewritten", "ok"}
 
 
+def test_audit_rule_overrides_model_when_meaning_describes_only_the_thing(monkeypatch):
+    """감사관 모델이 '쓰임을 설명한다' 고 통과시켜도, 뜻이 김치·갈비찜처럼 대상 설명뿐이면 규칙이 '고칠 것' 으로 바꿔 다시 쓰게 한다(10-07, Plan 16).
+    다시 쓴 뜻에 쓰임이 붙으면 규칙은 더 건드리지 않는다."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import audit, research
+    from trend_agents.schemas import MeaningDraft, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="t_k", canonical="김치", lang="ko", status="verified", aliases=[], first_seen=now, last_seen=now))
+    ds.add_meaning(con, "t_k", MeaningDraft(definition="채소를 소금물에 절이고 발효시켜 먹는 한민족의 전통 발효식품이다.", origin="x", nuance="y",
+                                             generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_auto", [])
+    ds.add_evidences(con, "t_k", [ev("wiki", "namu.wiki", "나무위키: 김치", "김치 는 밈이다", url="https://namu.wiki/w/김치")])
+    monkeypatch.setattr(audit, "documents", lambda t, evs: [(evs[0], "'김치' 는 사진 찍을 때 웃는 얼굴을 만들려고 외치는 말로 쓰인다")])
+    passes = audit.AuditCheck(same_subject=True, describes_usage=True, translation_only=False, matches_doc="yes", origin_ok=True)
+    monkeypatch.setattr(audit, "check", lambda *a, **k: (passes, "local:test"))          # 모델은 두 번 다 '괜찮다' 고 한다
+
+    def rewrite(con_, term, lean=False):
+        ds.add_meaning(con_, term.term_id, MeaningDraft(definition="사진 찍을 때 웃는 얼굴을 만들려고 외치는 말. '치즈' 대신 쓴다.", origin="x", nuance="y",
+                                                        generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_auto", [])
+        return "verified_auto", []
+    monkeypatch.setattr(research, "research_one", rewrite)
+    assert audit.audit_one(con, ds.get_term(con, "t_k")) == "fixed"
+    rows = con.execute("SELECT action, reasons_json FROM audit_log ORDER BY checked_at").fetchall()
+    assert [r[0] for r in rows] == ["rewritten", "ok"] and audit.NO_USAGE in rows[0][1]
+    assert "발효식품" not in ds.current_meaning(con, "t_k").definition
+
+
 def test_wikipedia_th_id_catalog_tags_and_person_categories():
     """위키백과 th·id 분류: region·연도 꼬리표를 읽고(불기 연도는 서기로), 사람 분류는 싣지 않고, 태국 글자는 th."""
     from trend_agents.pipeline import catalog

@@ -80,6 +80,17 @@ class AuditCheck(BaseModel):
     reason: str = Field(default="")
 
 
+def rule_overrides(c: AuditCheck, m: Meaning) -> AuditCheck:
+    """모델의 체크리스트 위에 규칙을 덮는다 — 뜻이 대상 설명뿐이고 쓰임을 한마디도 안 하면(verification.no_usage_meaning) '쓰임을 설명한다' 는
+    모델 답을 믿지 않는다. 감사관(gemma4:12b)이 김치·갈비찜·고길동·김여정처럼 백과사전식 뜻 36개를 통과시켰다(10-07 snapshot, Plan 16).
+    규칙이 정하고 모델은 재료만 댄다(AGENTS)."""
+    from ..verification import no_usage_meaning
+
+    if c.describes_usage and no_usage_meaning(m.definition or ""):
+        return c.model_copy(update={"describes_usage": False})
+    return c
+
+
 def verdict(c: AuditCheck) -> tuple[str, list[str]]:
     """체크리스트 → ('ok' | 'fix', 까닭들). 규칙이 정한다."""
     why = []
@@ -299,6 +310,7 @@ def _audit_current(con: Connection, term: Term, m: Meaning) -> str:
     c, used = check(con, term, m, docs, model="audit")
     if not _still_automatic(con, term.term_id, m.meaning_id):
         return "skipped"
+    c = rule_overrides(c, m)
     v, why = verdict(c)
     if v == "ok":
         _log(con, term.term_id, m.meaning_id, "ok", [], used, "ok")
