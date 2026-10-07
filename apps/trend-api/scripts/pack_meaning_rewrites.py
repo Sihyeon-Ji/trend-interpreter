@@ -43,7 +43,7 @@ def main() -> None:
 
     rows = [r for r in csv.DictReader(open(a.review, encoding="utf-8-sig")) if r.get("label(ok/fix)", "").strip().lower() == "ok"][:a.limit]
     src = db.connect()
-    base = rawdb.connect(url=a.baseline_url)
+    base = rawdb.connect_read_only(a.baseline_url)      # 기준 DB 는 읽기만 – 운영 DB 를 기준으로 쓸 때 마이그레이션이 적용되지 않게
     items, skipped = [], {}
     for r in rows:
         tid = r["term_id"]
