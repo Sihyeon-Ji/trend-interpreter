@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiFetch } from "@/lib/api-fetch";
 import { isSampleMode } from "@/lib/data";
-import { TARGET_REGIONS } from "@/lib/reader";
+import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleCopyCheck } from "@/lib/sample/copy-check";
 
 const MAX_TEXT = 1000;          // 백엔드 copycheck.MAX_TEXT
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const lang = body?.lang === "en" ? "en" : "ko";
   if (!text) return NextResponse.json({ error: "need_text" }, { status: 400 });
   if (text.length > MAX_TEXT) return NextResponse.json({ error: "too_long" }, { status: 400 });
-  if (!TARGET_REGIONS.includes(region)) return NextResponse.json({ error: "failed" }, { status: 400 });
+  if (!WRITE_REGIONS.includes(region)) return NextResponse.json({ error: "failed" }, { status: 400 });
 
   if (isSampleMode) return NextResponse.json(sampleCopyCheck(text, region));
 

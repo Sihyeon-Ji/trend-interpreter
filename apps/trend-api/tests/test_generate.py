@@ -217,6 +217,9 @@ def test_only_memes_writable_in_the_target_region(monkeypatch):
     res = generate.run(con, ["kronly", "hangul", "lv"], BRIEF, "JP", "friendly")
     assert res.memes == ["럭키비키"]                                              # 가타카나 별칭이 있다
     assert generate.writable(ds.get_term(con, "hangul"), "KR", {"KR", "JP"})
+    # 영어권(GLOBAL, Plan 20): 로마자 표기가 있고 영어권에서 쓰이는 말만
+    assert generate.REGION_LANG["GLOBAL"] == "en"
+    assert not generate.writable(ds.get_term(con, "hangul"), "GLOBAL", {"KR", "GLOBAL"})
 
 
 def test_caution_line_never_quotes_evidence(monkeypatch):

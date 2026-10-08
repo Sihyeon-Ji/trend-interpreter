@@ -22,9 +22,10 @@ from . import dashboard
 from .risk import sensitive_topic
 from .gemini import BudgetExhausted, configured, structured
 from .generate import REGION_LANG, writable
-from .views import KeywordCard, RecommendItem, RecommendResult
+from .views import ExcludedItem, KeywordCard, RecommendItem, RecommendResult
 
 TOP = 5
+EXCLUDED_PER_REGION = 4   # 만들기 화면의 '뺀 말' — 시장마다 이만큼
 MIN_FIT = 2          # 분야(3)나 느낌 하나(2)는 맞아야 추천한다 — 모자라면 채우지 않는다
 MIN_SCORE = 2.0      # 퍼진 정도·생애주기·리스크를 더한 뒤에도 이만큼은 돼야 한다(잠잠한 밈이 -0.5 로 추천되던 것을 막는다)
 # 톤마다 허용하는 말투와 반기는 느낌. '고급스러움' 은 장난스러운 말도 뺀다.
@@ -47,16 +48,33 @@ feelings 는 이 홍보가 전하고 싶은 느낌 1~3개를 joy · hype · cute
 romance · nostalgia · cool 가운데서. 브랜드가 피해야 할 표현·주제가 보이면 avoid 에. 글(product·values·scene·colors·avoid)은 {lang}로.
 {text}"""
 
-def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tuple[float, bool, list[str]] | None:
-    """(점수, 분야가 맞았나, 겹친 느낌). 추천하면 안 되는 것은 None. 모든 판단이 규칙이다."""
-    voices, liked = TONES[tone]
-    if card.risk_level == "avoid" or fit.voice == "crude" or fit.voice not in voices:
-        return None
+def blocked(fit: MemeFit, card: KeywordCard, tone: str) -> str | None:
+    """제품과 상관없이 권하지 않는 이유(ExcludedItem.code) — 없으면 None. 화면의 '뺀 말' 이 이 값을 그대로 보인다."""
+    if card.risk_level == "avoid":
+        return "avoid"
+    if fit.voice == "crude":
+        return "crude"
+    if fit.voice not in TONES[tone][0]:
+        return "tone"
     # 식어 가는 밈(대시보드와 같은 기준)과, 리스크를 아직 판단하지 않았는데 민감한 소재(자살·정치 등)인 밈은 권하지 않는다 —
     # 라떼 광고에 저메추·점메추(줄어드는 중)와 '죽고 싶지만 떡볶이는 먹고 싶어'(판단 전)가 들었다(실데이터 10-04)
     if dashboard._is_fading(card, datetime.now(timezone.utc)):
-        return None
+        return "fading"
     if card.risk_level is None and sensitive_topic(f"{card.canonical} {card.gloss_ko}"):
+        return "sensitive"
+    return None
+
+
+def related(brief: ProductBrief, fit: MemeFit) -> bool:
+    """제품과 이어지는 데가 있나 — 분야가 맞거나, 어디에나 쓰는 반응이거나, 느낌이 하나라도 겹친다. '뺀 말' 에는 이런 것만 보인다
+    (제품과 아무 상관 없는 수백 개를 '뺐다' 고 늘어놓지 않게)."""
+    return brief.category in fit.fits or fit.any_category or any(f in fit.feelings for f in brief.feelings)
+
+
+def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tuple[float, bool, list[str]] | None:
+    """(점수, 분야가 맞았나, 겹친 느낌). 추천하면 안 되는 것은 None. 모든 판단이 규칙이다."""
+    _, liked = TONES[tone]
+    if blocked(fit, card, tone):
         return None
     cat = brief.category in fit.fits
     if fit.fits and not cat and not fit.any_category:
@@ -150,7 +168,17 @@ def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: 
     cards = dashboard.cards(con, chosen)             # 표시 목록(30개씩)이 아니라 고른 지역의 모든 카드
     fits = {tid: f for tid, (_, f) in ds.all_fits(con).items()}
     scored, comparable = rank(brief, cards, fits, tone)
-    picked = [p for p in scored if _links(con, p[1])][:TOP]      # 근거 링크가 없는 것은 추천하지 않는다
+    # 시장마다 그 시장 말로 쓸 수 있는 것 가운데 상위 TOP 개씩(근거 링크가 없는 것은 추천하지 않는다). 셋을 통틀어 TOP 개만 뽑으면
+    # 언급이 많은 한국 말이 다 차지해 일본·영어권이 늘 비었다(10-06 실데이터, 만들기 화면)
+    def writes(c, r: str) -> bool:
+        t = ds.get_term(con, c.term_id)
+        return bool(t) and r in REGION_LANG and writable(t, r, dashboard.regions_for(con, t))     # 아래 write_regions 와 같은 값
+
+    linked = [p for p in scored if _links(con, p[1])]
+    picked = []
+    for r in chosen:
+        picked += [p for p in linked if r in p[1].regions and writes(p[1], r) and p not in picked][:TOP]
+    picked.sort(key=lambda p: (-p[0], -p[1].mentions_4w, p[1].canonical))
     if pin and all(c.term_id != pin for _, c, _, _ in picked):
         card = next((c for c in cards if c.term_id == pin), None)
         fit = fits.get(pin)
@@ -169,8 +197,18 @@ def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: 
                                    matched_feelings=feel, local_region=ctx[0] if ctx else None, local_note=ctx[1] if ctx else None,
                                    write_regions=[r for r in chosen if r in REGION_LANG and term and writable(term, r, regions)],
                                    score=round(s, 2), evidences=_links(con, c), pinned=c.term_id == pin))
+    # 뺀 말 — 제품과 이어지는데 규칙이 막은 것(만들기 화면의 '뺀 말', Plan 20). 시장마다 언급이 많은 것부터 몇 개만
+    shown = {i.term_id for i in items}
+    excluded = sorted(((code, c) for c in cards if c.term_id not in shown and (f := fits.get(c.term_id)) and related(brief, f)
+                       and (code := blocked(f, c, tone))), key=lambda x: (-x[1].mentions_4w, x[1].canonical))
+    out: list[ExcludedItem] = []
+    for r in chosen:
+        out += [ExcludedItem(term_id=c.term_id, canonical=c.canonical, lang=c.lang, regions=c.regions, code=code)  # type: ignore[arg-type]
+                for code, c in excluded if r in c.regions and all(o.term_id != c.term_id for o in out)][:EXCLUDED_PER_REGION]
     return RecommendResult(brief=brief, brief_source=brief_source, regions=chosen, tone=tone, items=items,
-                           considered=len(scored), untagged=len(cards) - comparable)
+                           considered=len(scored), untagged=len(cards) - comparable, excluded=out,
+                           pool={r: sum(1 for c in cards if r in c.regions) for r in chosen},
+                           considered_by_region={r: sum(1 for _, c, _, _ in scored if r in c.regions) for r in chosen})
 
 
 # 사진 입력 검사 — MIME 은 바이트 머리로 판단한다(업로드가 주장하는 Content-Type 은 믿지 않는다)

@@ -24,7 +24,10 @@ from .recommend import sniff_image
 from .views import PosterPlan
 
 IMAGE_LEDGER = "img:"     # 이미지 생성 장부 — 이용자 요청 장부(req:)와 같은 표에 따로 센다
-MARKETS = {"KR": "South Korea", "JP": "Japan", "US": "the United States"}
+# 추천·생성과 같은 목표 지역(config.REGIONS_FOCUS) + 미국. 화면의 시장 칩이 고르는 값 그대로다(10-06)
+MARKETS = {"KR": "South Korea", "JP": "Japan", "TW": "Taiwan", "HK": "Hong Kong", "TH": "Thailand", "VN": "Vietnam",
+           "ID": "Indonesia", "PH": "the Philippines", "MY": "Malaysia", "SG": "Singapore", "US": "the United States",
+           "GLOBAL": "English-speaking markets"}
 ASPECT = "4:5"            # 인스타그램 세로 피드
 
 # 닫힌 낱말 → 그림의 분위기. 밈 이름 대신 이것만 지시문에 들어간다
@@ -40,6 +43,7 @@ MARKET_LOOK = {   # 시장마다 광고 사진의 흔한 결 — 인물·문화 
     "JP": "airy, minimal print-ad composition with gentle natural light",
     "US": "bold, high-contrast lifestyle ad composition",
 }
+DEFAULT_LOOK = "clean social-media product shot with natural light"   # 따로 적지 않은 시장
 
 RULES = (
     ("Do not put any text, letters, words, numbers, logos or watermarks anywhere in the image. Leave clean empty space in the upper third "
@@ -83,7 +87,7 @@ def plan(brief: ProductBrief, market: str, memes: Sequence[tuple[Sequence[str], 
     """구성안과 지시문. 모두 규칙이다 — 같은 입력이면 같은 지시문. memes 는 [(표제어·별칭, MemeFit 또는 None)]: 이름은 지우는 데만 쓰고(낱말이 아직 없는 밈도 이름은 지운다),
     그림에는 느낌·말투만 간다. 고른 밈이 없거나 느낌이 비면 제품 설명의 느낌으로."""
     if market not in MARKETS:
-        raise ValueError("시장은 KR·JP·US 가운데 하나입니다")
+        raise ValueError("목표 지역이 아닌 시장입니다")
     names = _names(memes)
     feelings = list(dict.fromkeys(f for _, fit in memes if fit for f in fit.feelings)) or list(brief.feelings)
     voices = list(dict.fromkeys(fit.voice for _, fit in memes if fit and fit.voice in VOICE_STYLE))
@@ -98,7 +102,7 @@ def plan(brief: ProductBrief, market: str, memes: Sequence[tuple[Sequence[str], 
         f"Product: {product}." if product else "Product: the product in the attached photo.",
         ("If a product photo is attached, keep that product exactly as it is – same shape, label, colors and proportions; do not redraw, "
          "restyle, replace or cover it. Change only the background, lighting, mood, color palette and composition around it."),
-        f"Look: {MARKET_LOOK[market]}.",
+        f"Look: {MARKET_LOOK.get(market, DEFAULT_LOOK)}.",
     ]
     if scene:
         lines.append(f"Setting: {scene}.")

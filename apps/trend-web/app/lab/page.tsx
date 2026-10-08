@@ -6,6 +6,8 @@ export const metadata: Metadata = { title: "디자인 초안 · 트렌드 통역
 
 type Draft = { href: string; name: string; direction: string; model: string; note: string; samples?: boolean };
 const DRAFTS: Draft[] = [
+  { href: "/lab/r-flow", name: "리디자인 A", direction: "작업 공간형", model: "Opus 5.5", note: "시장 × 다섯 단계 표가 요청이 끝날 때마다 칸칸이 차오른다. 밈은 옆 패널로 열리고 Ctrl K 로 찾는다(10-06)." },
+  { href: "/lab/r-stage", name: "리디자인 B", direction: "무대형", model: "Opus 5.5", note: "세 시장이 지금 쓰이는 말을 들고 선 무대에서 초안이 차례로 조립된다. 일하는 시장이 앞으로 나온다(10-06)." },
   { href: "/lab/o-report", name: "초안 1", direction: "트렌드 리포트형", model: "Opus 5.5", note: "순위 목록과 추이 그래프 중심. 고른 밈을 오른쪽에서 미리 본다." },
   { href: "/lab/o-editorial", name: "초안 2", direction: "에디토리얼형", model: "Opus 5.5", note: "이번 주 호(號)처럼 읽는 밈 잡지. 큰 표제어와 표지 기사." },
   { href: "/lab/f-report", name: "초안 3", direction: "트렌드 리포트형", model: "Fable 5.1", note: "같은 리포트 구조를 다른 팀이 푼 안." },

@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
 import { SAMPLE_GRAPH, SAMPLE_GRAPH_CONTENTS } from "./sample/graph";
-import type { Briefing, GemmaUsage, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord } from "./types";
+import type { Briefing, GemmaUsage, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord, TermRelated } from "./types";
 import { sampleBriefing } from "./sample/briefing";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
@@ -325,6 +325,17 @@ export async function getMapData(): Promise<{ keywords: KeywordBoard; board: Tre
 }
 
 /** 콘텐츠 목록. 못 받으면 null — 예시로 바꾸지 않는다(화면이 '불러오지 못했습니다' 를 낸다). */
+/** 지식 그래프의 이웃(밈 카드·이어진 밈·같은 출처의 밈). 예시 모드나 서버에 없으면 null — 화면은 그 줄을 내지 않는다 */
+export async function getTermRelated(termId: string): Promise<TermRelated | null> {
+  if (isSampleMode) return null;
+  try {
+    const res = await apiFetch(`/terms/${encodeURIComponent(termId)}/related`, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
+    return res.ok ? ((await res.json()) as TermRelated) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getGraphContents(): Promise<GraphContentSummary[] | null> {
   if (isSampleMode) return SAMPLE_GRAPH_CONTENTS;
   // 그래프 API 가 아직 없는 서버(10-01 미리보기)에서는 시험판 예시를 '미리보기' 로 보인다 — API 가 생기면 그대로 실제 데이터

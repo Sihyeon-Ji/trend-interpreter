@@ -59,6 +59,32 @@ def test_rules_exclude_avoid_crude_off_tone_and_weak_fits():
     assert all(i.term_id in ("good", "ok") for i in premium.items)   # 무난한 말투만
 
 
+def test_excluded_lists_related_candidates_with_the_rule_that_blocked_them():
+    """'뺀 말'(Plan 20): 제품과 이어지는데 규칙이 막은 것만, 막은 이유와 함께. 제품과 상관없는 말은 늘어놓지 않는다."""
+    con = _con()
+    res = recommend.recommend(con, LATTE, "sample", ["KR"], "friendly")
+    why = {e.term_id: e.code for e in res.excluded}
+    assert why == {"bad": "avoid", "crude": "crude", "edgy": "tone", "dead": "fading"}     # nofit(느낌도 분야도 안 겹침)은 없다
+    assert res.pool["KR"] == 7 and res.considered_by_region["KR"] == res.considered
+
+
+def test_each_market_gets_its_own_top_picks():
+    """시장마다 따로 상위를 뽑는다 — 셋을 통틀어 TOP 개만 뽑으면 한국 말이 다 차지해 일본 열이 늘 비었다(10-06)."""
+    con = db.connect(":memory:")
+    for k in range(8):
+        _term(con, f"k{k}", f"한국말{k}", ["joy", "comfort"], fits=["food_drink"])
+    _term(con, "jp", "推し活", ["joy"])
+    now = datetime.now(timezone.utc)
+    t = ds.get_term(con, "jp")
+    t.lang = "ja"
+    ds.upsert_term(con, t)
+    ds.set_usage(con, "jp", [("20s", "JP", now.isoformat(), 1.0)])
+    dashboard.run(con)
+    res = recommend.recommend(con, LATTE, "sample", ["KR", "JP"], "friendly")
+    assert any("JP" in i.write_regions for i in res.items)                  # 점수가 낮아도 일본 몫이 있다
+    assert sum("KR" in i.write_regions for i in res.items) == recommend.TOP
+
+
 def test_top_five_and_explained_matches():
     con = db.connect(":memory:")
     for k in range(8):
@@ -159,6 +185,9 @@ def test_recommend_api_checks_input_before_any_model_call(monkeypatch):
     body = r.json()
     assert body["brief_source"] == "sample" and body["items"][0]["term_id"] == "good"
     assert "bad" not in {i["term_id"] for i in body["items"]}
+    # 만들기(Plan 20)에서 고른 분야는 읽은 분야보다 앞서고, 모르는 값은 무시한다
+    assert c.post("/recommend", data={"text": "여름 라떼", "regions": "KR", "category": "game"}).json()["brief"]["category"] == "game"
+    assert c.post("/recommend", data={"text": "여름 라떼", "regions": "KR", "category": "x"}).json()["brief"]["category"] == body["brief"]["category"]
 
 
 # 1×1 PNG — 바이트 머리(\x89PNG)로 형식을 본다

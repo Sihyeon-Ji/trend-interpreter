@@ -219,6 +219,10 @@ export interface RecommendItem {
   pinned: boolean;                // 사전 항목의 '이 밈으로 만들기' 로 먼저 고른 밈 — 순위 밖이어도 목록 끝에 들어온다
 }
 
+/** 제품과 이어지는데 규칙이 뺀 후보 (Plan 20 '뺀 말') — 백엔드 views.ExcludedItem */
+export type ExcludedCode = "avoid" | "crude" | "tone" | "fading" | "sensitive";
+export interface ExcludedItem { term_id: string; canonical: string; lang: string; regions: string[]; code: ExcludedCode }
+
 export interface RecommendResult {
   brief?: ProductBrief | null;    // 고른 지역에 비교할 후보가 없으면 읽지 않는다
   brief_source: "gemini" | "local" | "sample" | "none";
@@ -227,6 +231,9 @@ export interface RecommendResult {
   items: RecommendItem[];
   considered: number;
   untagged: number;
+  excluded?: ExcludedItem[];       // 시장마다 몇 개, 언급 많은 순
+  pool?: Record<string, number>;   // 시장마다 사전에서 확인된 후보 수
+  considered_by_region?: Record<string, number>;   // 시장마다 규칙을 통과해 점수를 받은 후보 수
 }
 
 /* 콘텐츠 생성 (Plan 08) — 백엔드 pipeline/views.py 의 GenerationResult·Dropped 와 1:1. 결과는 저장하지 않는다. */
@@ -248,7 +255,7 @@ export interface GenerationResult {
 
 /* 시장별 포스터 시안 (Plan 20) — 백엔드 pipeline/views.py 의 PosterPlan·PosterResult 와 1:1. 그림에는 글자가 없고 검사한 문구는 화면이 얹는다. */
 export interface PosterPlan {
-  market: "KR" | "JP" | "US";
+  market: string;                 // 목표 지역 코드
   product: string;                // 밈·사람 이름을 지운 제품 설명
   scene: string;
   mood: string[];                 // 고른 밈의 느낌·말투에서 옮긴 분위기 낱말
@@ -379,4 +386,15 @@ export interface GemmaUsage {
   calls_24h?: ModelCalls[];
   samples: { term_id: string; canonical: string; lang: string }[];
   generated_at: string;
+}
+
+/* 지식 그래프의 이웃 (백엔드 GET /terms/{id}/related, 트윈 pipeline/graph.related) — 밈 카드와 이어진 밈. 계약 미반영 뷰 모델 */
+export interface MemeCard { summary: string; kind: string; kind_ko: string; domains: string[]; domains_ko: string[]; source_type: string; source_name: string }
+export interface RelatedMeme { term_id: string; canonical: string; lang: string; rel: string }
+export interface TermRelated {
+  card: MemeCard | null;
+  related: RelatedMeme[];
+  candidates: { name: string; rel: string }[];
+  same_source: { term_id: string; canonical: string; lang: string }[];
+  source: { type: string; name: string } | null;
 }

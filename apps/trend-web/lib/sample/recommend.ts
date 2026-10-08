@@ -1,7 +1,7 @@
 /* 예시 데이터 모드의 밈 추천. 규칙은 백엔드 pipeline/recommend.py 의 score() 를 그대로 옮긴 것이고,
    표제어의 쓰임 낱말(fit 단계가 로컬 Gemma 로 붙이는 값)은 예시 사전 몇 개에 손으로 붙여 두었다.
    제품 설명도 모델 없이 고정 예시(SAMPLE_BRIEF)라, 화면이 "예시 제품으로 보여 준다" 고 알린다. */
-import type { CampaignTone, Feeling, FitCategory, KeywordCard, ProductBrief, RecommendItem, RecommendResult } from "../types";
+import type { CampaignTone, ExcludedCode, ExcludedItem, Feeling, FitCategory, KeywordCard, ProductBrief, RecommendItem, RecommendResult } from "../types";
 import { sampleKeywordBoard } from "./keyword-board";
 
 type Voice = "wholesome" | "playful" | "edgy" | "crude";
@@ -39,6 +39,7 @@ const writable = (name: string, region: string) => /^[\x00-\x7f\u00c0-\u024f\u1e
 function score(brief: ProductBrief, fit: Fit, c: KeywordCard, tone: CampaignTone): [number, boolean, Feeling[]] | null {
   const [voices, liked] = TONES[tone];
   if (c.risk_level === "avoid" || fit.voice === "crude" || !voices.includes(fit.voice)) return null;
+  if (c.lifecycle === "declining" || c.lifecycle === "dormant") return null;   // 식어 가는 밈은 권하지 않는다(백엔드 recommend.blocked 의 fading)
   const cat = fit.fits.includes(brief.category);
   const shared = brief.feelings.filter((f) => fit.feelings.includes(f)).slice(0, 3);
   const rel = (cat ? 3 : fit.any_category ? 1 : 0) + 2 * shared.length;
@@ -50,12 +51,14 @@ function score(brief: ProductBrief, fit: Fit, c: KeywordCard, tone: CampaignTone
 }
 
 /** pin: 사전 항목에서 먼저 고른 밈 — 순위 밖이어도 목록 끝에 넣는다(백엔드 recommend.recommend 의 pin 과 같다). */
-export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: string | null): RecommendResult {
+export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: string | null, category?: FitCategory | null): RecommendResult {
+  // 만들기(Plan 20)에서 고른 분야는 예시 제품 설명의 분야를 대신한다(백엔드 /recommend 의 category 와 같다)
+  const brief: ProductBrief = category ? { ...SAMPLE_BRIEF, category } : SAMPLE_BRIEF;
   const board = sampleKeywordBoard(regions);
   const cards = [...new Map([...board.rising, ...board.fading, ...board.caution].map((c) => [c.term_id, c])).values()];
   const scored = cards.flatMap((c) => {
     const fit = SAMPLE_FIT[c.term_id];
-    const got = fit ? score(SAMPLE_BRIEF, fit, c, tone) : null;
+    const got = fit ? score(brief, fit, c, tone) : null;
     return got ? [{ c, s: got[0], cat: got[1], shared: got[2], any: fit.any_category }] : [];
   }).sort((a, b) => b.s - a.s || b.c.mentions_4w - a.c.mentions_4w || a.c.canonical.localeCompare(b.c.canonical));
   // 근거 링크 두 건 — 쓰임 글이 먼저, 같은 주소는 한 번만. 링크가 없는 것은 추천하지 않는다(백엔드 recommend._links 와 같다)
@@ -74,6 +77,22 @@ export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: str
     write_regions: board.regions.filter((r) => c.regions.includes(r) && writable(c.canonical, r)), score: Math.round(s * 100) / 100,
     evidences: links(c),
   }));
-  return { brief: SAMPLE_BRIEF, brief_source: "sample", regions: board.regions, tone, items, considered: scored.length,
-           untagged: cards.filter((c) => !SAMPLE_FIT[c.term_id]).length };
+  // 뺀 말(Plan 20) — 백엔드 recommend.blocked·related 의 간단한 판
+  const [voices] = TONES[tone];
+  const shown = new Set(items.map((i) => i.term_id));
+  const blocked = (c: KeywordCard, f: Fit): ExcludedCode | null => c.risk_level === "avoid" ? "avoid" : f.voice === "crude" ? "crude"
+    : !voices.includes(f.voice) ? "tone" : c.lifecycle === "declining" || c.lifecycle === "dormant" ? "fading" : null;
+  const excluded: ExcludedItem[] = [];
+  for (const r of board.regions) {
+    excluded.push(...cards.flatMap((c) => {
+      const f = SAMPLE_FIT[c.term_id];
+      const code = f && !shown.has(c.term_id) && c.regions.includes(r) && !excluded.some((e) => e.term_id === c.term_id)
+        && (f.fits.includes(brief.category) || f.any_category || brief.feelings.some((x) => f.feelings.includes(x))) ? blocked(c, f) : null;
+      return code ? [{ term_id: c.term_id, canonical: c.canonical, lang: c.lang, regions: c.regions, code }] : [];
+    }).slice(0, 4));
+  }
+  return { brief, brief_source: "sample", regions: board.regions, tone, items, considered: scored.length,
+           untagged: cards.filter((c) => !SAMPLE_FIT[c.term_id]).length, excluded,
+           pool: Object.fromEntries(board.regions.map((r) => [r, cards.filter((c) => c.regions.includes(r)).length])),
+           considered_by_region: Object.fromEntries(board.regions.map((r) => [r, scored.filter(({ c }) => c.regions.includes(r)).length])) };
 }

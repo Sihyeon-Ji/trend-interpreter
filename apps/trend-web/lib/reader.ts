@@ -5,6 +5,10 @@ import type { Generation } from "./types";
 export const READER_GENS: Exclude<Generation, "all">[] = ["10s", "20s", "30s", "40s", "50s+"];
 /** 목표 지역(ADR 0001) — 백엔드 config.REGIONS_FOCUS 와 같다. 중국 본토는 없다. */
 export const TARGET_REGIONS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG"];
+/** 카피·검사·포스터를 만들 수 있는 시장 — 목표 지역 + 영어권(GLOBAL). 백엔드 config.WRITE_REGIONS 와 같다 (Plan 20) */
+export const WRITE_REGIONS = [...TARGET_REGIONS, "GLOBAL"];
+/** 만들기(Plan 20)의 시장 — 한국·일본·영어권. 서버 화면과 클라이언트 컴포넌트가 함께 쓰므로 여기에 둔다 */
+export const MAKE_MARKETS = ["KR", "JP", "GLOBAL"] as const;
 export const READER_REGIONS = ["KR", "JP", "TW", "HK", "TH", "VN", "ID", "PH", "MY", "SG", "IN", "AU", "US", "CA", "GB", "DE", "FR", "ES", "IT", "BR", "MX", "AR", "TR", "SA", "EG", "NG", "ZA"];
 
 export interface Reader {

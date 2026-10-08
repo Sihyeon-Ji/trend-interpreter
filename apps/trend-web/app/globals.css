@@ -1,10 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./stage.css" layer(components);
 
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
+   10-06 Plan 20: 시안 n-redesign('누가 정했나' 원장). 종이 #FFF · 먹 #000 · 회색 #525252/#6B6B6B · 선 #E5E5E5 · 입력 경계 #8A8A8A.
+   강조색은 서명 잉크 #24339B 하나 — 사람의 결정(승인)과 키보드 초점에만. 링크는 먹 글자 + 옅은 밑줄. 빨강은 '사용 자제', 호박은 '주의' 에만.
+   아래 예전 이름(link-blue 등)은 그대로 두고 값만 바꿨다. 앱 틀과 무대 화면(r-stage)의 부품은 stage.css.
    토큰 (docs/트렌드/디자인-개편.md, 2026-09-29). 이름은 예전(Notion DESIGN.md 에서 온 것) 그대로, 값만 새 팔레트:
    먹 #17191C · 짙은 회색 #4B525C · 회색 #646B76 · 선 #E4E7EB · 옅은 바탕 #F6F7F9 · 파랑 #1D5BD6, 상태 셋(주의·사용 자제·오름).
    Notion DESIGN.md (design/Notion/DESIGN.md) → Tailwind v4 토큰.
@@ -100,14 +104,14 @@
   --color-good: var(--good);
   --color-good-line: var(--good-line);
 
-  /* 모서리: shadcn 컴포넌트 관례(버튼 rounded-lg, 카드 rounded-xl)에 Notion 값을 맞춤 */
-  --radius-sm: 0.25rem;   /* 4px  태그 칩 */
-  --radius-md: 0.375rem;  /* 6px  타입 배지 */
-  --radius-lg: 0.5rem;    /* 8px  버튼·인풋 */
-  --radius-xl: 0.75rem;   /* 12px 카드 */
-  --radius-2xl: 1rem;     /* 16px 큰 패널 */
-  --radius-3xl: 1.25rem;
-  --radius-4xl: 1.5rem;
+  /* 모서리 (Plan 20, 시안 n-redesign): 표지·배지 3px, 버튼·입력 6px, 패널 6px. 그림자 없음 */
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.1875rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.375rem;
+  --radius-3xl: 0.375rem;
+  --radius-4xl: 0.375rem;
 
   /* 그림자 (Elevation 표) */
   --shadow-subtle: rgba(15, 15, 15, 0.04) 0px 1px 2px 0px;
@@ -119,47 +123,47 @@
 :root {
   --font-pretendard: "Pretendard Variable", Pretendard, Inter, "Noto Sans KR", "Noto Sans JP",
     "Noto Sans Thai", "Noto Sans Arabic", -apple-system, system-ui, "Segoe UI", sans-serif;
-  --radius: 0.5rem;
+  --radius: 0.375rem;
 
   /* shadcn 시맨틱 ← Notion */
   --background: #ffffff;
-  --foreground: #17191c;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #17191c;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #17191c;
-  --primary: #17191c;
+  --popover-foreground: #000000;
+  --primary: #000000;
   --primary-foreground: #ffffff;
-  --secondary: #f6f7f9;
-  --secondary-foreground: #17191c;
-  --muted: #f6f7f9;
-  --muted-foreground: #646b76;
-  --accent: #eef0f3;
-  --accent-foreground: #17191c;
+  --secondary: #f4f4f4;
+  --secondary-foreground: #000000;
+  --muted: #f4f4f4;
+  --muted-foreground: #6b6b6b;
+  --accent: #f4f4f4;
+  --accent-foreground: #000000;
   --destructive: #b3261e;
-  --border: #e4e7eb;
-  --input: #cbd0d6;
-  --ring: #1d5bd6;
+  --border: #e5e5e5;
+  --input: #8a8a8a;
+  --ring: #24339b;
   --chart-1: #5645d4;
   --chart-2: #0075de;
   --chart-3: #1aae39;
   --chart-4: #dd5b00;
   --chart-5: #a4a097;
-  --sidebar: #f6f7f9;
+  --sidebar: #ffffff;
   --sidebar-foreground: #17191c;
   --sidebar-primary: #17191c;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ffffff;
   --sidebar-accent-foreground: #17191c;
-  --sidebar-border: #e4e7eb;
-  --sidebar-ring: #1d5bd6;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #24339b;
 
   /* Notion 팔레트 원본 */
   --navy: #0a1530;
   --navy-deep: #070f24;
   --navy-mid: #1a2a52;
-  --link-blue: #1d5bd6;
-  --link-blue-pressed: #1747aa;
+  --link-blue: #000000;
+  --link-blue-pressed: #000000;
   --brand-orange: #dd5b00;
   --brand-orange-deep: #793400;
   --brand-pink: #ff64c8;
@@ -180,16 +184,16 @@
   --tint-yellow-bold: #f9e79f;
   --tint-cream: #f8f5e8;
   --tint-gray: #f0eeec;
-  --surface: #f6f7f9;
-  --surface-soft: #fafbfc;
-  --hairline: #e4e7eb;
-  --hairline-soft: #eef0f3;
-  --hairline-strong: #cbd0d6;
+  --surface: #f4f4f4;
+  --surface-soft: #fafafa;
+  --hairline: #e5e5e5;
+  --hairline-soft: #efefef;
+  --hairline-strong: #c9c9c9;
   --ink-deep: #000000;
-  --ink: #17191c;
-  --charcoal: #4b525c;
-  --slate: #4b525c;
-  --steel: #646b76;
+  --ink: #000000;
+  --charcoal: #525252;
+  --slate: #525252;
+  --steel: #6b6b6b;
   --stone: #8a919b;
   --faint: #b4bac2;
   --on-dark: #ffffff;
@@ -198,12 +202,12 @@
   --warning: #8f5500;
   --error: #b3261e;
   /* 상태 (디자인 개편 09-29): 글자 + 테두리로만 — 칸을 칠하지 않는다 */
-  --caution: #8f5500;
-  --caution-line: #e7c48c;
+  --caution: #8a5300;
+  --caution-line: #d9b46b;
   --avoid: #b3261e;
   --avoid-line: #edb2ad;
   --good: #16734d;
-  --good-line: #cbd0d6;   /* 오름 배지도 진한 선 — 토큰 밖 색을 쓰지 않는다(개편 종합 09-29) */
+  --good-line: #c9c9c9;   /* 오름 배지도 진한 선 — 토큰 밖 색을 쓰지 않는다(개편 종합 09-29) */
 }
 
 @layer base {
@@ -234,6 +238,11 @@
     line-break: strict;
   }
 }
+
+/* 링크는 먹 글자라 밑줄로 알아보게 한다(강조색은 사람의 결정에만) */
+a.text-link-blue { text-decoration: underline; text-decoration-color: var(--hairline-strong); text-underline-offset: 3px; }
+a.text-link-blue:hover { text-decoration-color: var(--ink); }
+
 
 
 /* 지구 말풍선 (globe.gl HTML 레이어). 기준점(.globe-anchor)은 라이브러리가 놓고, 말풍선은 그 안에서 비켜 놓는다 */

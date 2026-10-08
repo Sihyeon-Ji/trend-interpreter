@@ -2,6 +2,8 @@
 
 작성일 **2026-10-01** · 상태 **5안 대기 중(팀 회의에서 고름)** · 화면 `/lab`(목록), `/lab/<시안>`
 
+> **2026-10-08** – 리디자인 시안 [r-stage](r-stage.md)를 실제 화면으로 옮겼다(만들기 `/`, 초안 `/drafts`, 둘러보기 `/trends`, 사전 항목 `/dictionary/[termId]`, 앱 틀 전체). 코드는 `components/stage/`, `app/stage.css`. `/lab` 의 시안들(r-stage 원본 포함)은 비교용으로 그대로 둔다.
+
 | 시안 | 방향 | 만든 쪽 | 화면 | 설명서 |
 | --- | --- | --- | --- | --- |
 | 초안 1 `o-report` | 트렌드 리포트형 – 순위 목록·추이 그래프, 오른쪽 미리보기 | Opus 5.5 | `/lab/o-report` | [o-report.md](o-report.md) |

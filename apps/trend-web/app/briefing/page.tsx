@@ -96,7 +96,7 @@ export default async function BriefingPage({ searchParams }: { searchParams: Pro
   }
   const targets = picked.filter((r) => r !== "GLOBAL");
   const names = picked.length ? picked.map((r) => (r === "GLOBAL" ? t(locale, "dash_global") : regionLabel(locale, r))).join(", ") : t(locale, "dash_all");
-  const dashHref = `/?regions=${picked.length ? picked.join(",") : "all"}`;
+  const dashHref = `/trends?regions=${picked.length ? picked.join(",") : "all"}`;
   return (
     <PageShell>
       <div className="space-y-6">

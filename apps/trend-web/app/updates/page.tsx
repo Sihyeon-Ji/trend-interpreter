@@ -40,7 +40,7 @@ export default async function UpdatesPage({ searchParams }: { searchParams: Prom
   const header = (chips?: React.ReactNode) => (
     <PageHeader title={t(locale, "updates_title")} description={t(locale, "updates_intro")}
       meta={feed?.updated_at ? <span>{t(locale, "dash_updated")} <span className="tabular-nums text-charcoal">{fmtDateTime(feed.updated_at, locale)}</span></span> : undefined}
-      actions={<Link href="/" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>
+      actions={<Link href="/trends" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>
       {chips}
     </PageHeader>
   );
@@ -92,7 +92,7 @@ export default async function UpdatesPage({ searchParams }: { searchParams: Prom
           <h2 id="updates-list" className="sr-only">{tabs.find((x) => x.id === kind)?.label}</h2>
           <ListTabs items={tabs} current={kind} label={t(locale, "updates_kinds")} />
           {feed.total === 0 ? (
-            <StatePanel action={<Link href="/" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>{t(locale, "updates_none")}</StatePanel>
+            <StatePanel action={<Link href="/trends" className="text-[14px] text-link-blue hover:underline">{t(locale, "feeds_open_dashboard")}</Link>}>{t(locale, "updates_none")}</StatePanel>
           ) : rows.length === 0 ? (
             <StatePanel action={<Link href="/updates" className="text-[14px] text-link-blue hover:underline">{t(locale, "updates_regions_all")}</Link>}>{t(locale, "updates_none_filtered")}</StatePanel>
           ) : (

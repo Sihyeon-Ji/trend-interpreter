@@ -10,7 +10,7 @@ from queue import Queue
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Literal, get_args
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,13 +19,13 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.formparsers import MultiPartParser
 from pydantic import BaseModel, Field
 
-from ..config import REGIONS_FOCUS, WEB_ORIGINS
+from ..config import REGIONS_FOCUS, WEB_ORIGINS, WRITE_REGIONS
 from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
 from ..pipeline import briefing as briefing_stage, copycheck, poster as poster_stage
-from ..schemas import CampaignTone, ProductBrief, RiskLevel, Topic, TrendBoard
+from ..schemas import CampaignTone, FitCategory, ProductBrief, RiskLevel, Topic, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
 from ..storage import db
@@ -594,7 +594,7 @@ def _model_slot():
 
 @app.post("/recommend", response_model=views.RecommendResult)
 def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("friendly"), lang: str = Form("ko"),
-              image: UploadFile | None = File(None), term: str = Form("")):
+              image: UploadFile | None = File(None), term: str = Form(""), category: str = Form("")):
     """사진 한 장이나 홍보 문구(또는 둘 다)로 밈 추천 (Plan 07). 사진은 메모리에서만 읽고 저장·기록하지 않는다.
     모델 호출이 막히는 작업이라 동기 함수로 둔다(작업 스레드에서 돈다)."""
     if tone not in recommend_stage.TONES:
@@ -625,6 +625,9 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
             brief, source = recommend_stage.understand(_con, text, picture, ui)
         except recommend_stage.Unavailable as e:
             raise HTTPException(503, str(e)) from None
+    # category: 마케터가 고른 분야(Plan 20 '만들기'). 모델이 읽은 분야보다 앞선다 — 순위의 분야 겹침이 이 값으로 매겨진다
+    if category in get_args(FitCategory):
+        brief = brief.model_copy(update={"category": category})
     # term: 사전 항목의 '이 밈으로 만들기' 에서 먼저 고른 밈 id — 순위 밖이어도 목록에 넣는다(규칙 문턱만 건너뛴다)
     return recommend_stage.recommend(_con, brief, source, wanted, tone, term.strip()[:64] or None)
 
@@ -644,7 +647,7 @@ _generate_limit = recommend_stage.RateLimit(per_minute=10)
 def generate(body: GenerateIn):
     """SNS 카피·숏폼 대본·썸네일 구성안 (Plan 08). 모델은 생성 한 번, 다시 만들어도 두 번(검사는 규칙). 결과는 저장하지 않는다."""
     region = body.region.strip().upper()
-    if region not in REGIONS_FOCUS:
+    if region not in WRITE_REGIONS:
         raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
     if not _generate_limit.allow(time.monotonic()):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
@@ -668,7 +671,7 @@ def campaign_poster(market: str = Form(...), brief: str = Form(""), text: str = 
     brief 는 추천이 읽어 낸 제품 설명(JSON, 다시 읽지 않는다), 없으면 text 를 제품 설명으로 쓴다. 사진·결과는 저장하지 않는다."""
     market = market.strip().upper()
     if market not in poster_stage.MARKETS:
-        raise HTTPException(400, "시장은 KR·JP·US 가운데 하나입니다")
+        raise HTTPException(400, "목표 지역이 아닌 시장입니다")
     if len(brief) > 8 * 1024 or len(text) > 500:
         raise HTTPException(400, "제품 설명이 너무 깁니다")
     try:
@@ -743,7 +746,7 @@ def copy_check(body: CopyCheckIn):
     """카피 검사 — 문구에 든 밈을 사전으로 찾고, 고른 시장에서 써도 되는지는 규칙으로, 뜻에 맞게 썼는지는 모델 의견으로.
     문구는 저장하지 않고 기록에도 남기지 않는다. 모델 자리가 없거나 실패해도 규칙 결과는 돌려준다(fit_source 로 알린다)."""
     region = body.region.strip().upper()
-    if region not in REGIONS_FOCUS:
+    if region not in WRITE_REGIONS:
         raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
     text = body.text.strip()
     if not text:

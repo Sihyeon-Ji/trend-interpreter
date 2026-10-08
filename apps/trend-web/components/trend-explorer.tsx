@@ -202,7 +202,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
   const dashHref = (() => {
     const q = new URLSearchParams({ regions: picked.length ? picked.join(",") : "all" });
     if (list) q.set("list", list);
-    return `/?${q}`;
+    return `/trends?${q}`;
   })();
 
   // 지역 층: 대시보드와 같은 수 — 밈 수는 counts, 주의 수와 대표 밈(지금 쓰이는 밈 1위, 없으면 식어 가는 밈 1위)은 백엔드가 지역마다
