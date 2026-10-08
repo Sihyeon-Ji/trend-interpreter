@@ -43,6 +43,8 @@
 
 어느 쪽이든: 게시하면 42개의 언어판·추천 속성이 지워지므로 10-10 운영 갱신 직전·직후에 맞춘다. 게이트 경고 18개는 근거를 보고 예외 승인한다. 이 도구의 첫 운영 사용이라 게시 전에 sean 과 맞춘다. 배포 여부는 사용자 결정(10-06 "배포하지 말고")에 따라 멈춰 두었다.
 
+**10-08 갱신.** 10-07 저녁 sean 의 `8ce3626`으로 게시 경로가 정해졌다 – migration `021`(게시 역할 등록 표·배치 UPDATE 보호 trigger), 전용 PostgreSQL 역할(`configure_publisher_role.py`), 그 역할로만 도는 게시 Job(`publication_job.py`, Cloud Run Job 예정). 운영 적용(로그인·secret·021 적용·Job 연결)은 아직 남았다고 그 문서에 적혀 있다. 따라서 위 2안(이 PC 에서 CLI `publish`)은 더 이상 맞지 않고, 1안(배포) 뒤에도 게시는 sean 의 Job 경로로 한다. 이 배치는 준비(`stage`)와 승인까지만 우리가 하고, 게시는 운영 적용이 끝난 뒤 Job 으로 한다.
+
 다시 시작할 때: 프록시 스크립트(`gcloud secrets versions access latest --secret trend-production-database-url` → Cloud SQL Auth Proxy 2.26.0, 갱신 스크립트 `scripts/refresh-production-db.sh` 와 같은 방식)로 접속하고, 운영의 뜻 판이 그사이 바뀌었을 수 있으니 포장을 다시 한다.
 
 ## 2026-10-07 규칙과 Gemma 밈 확인 비교
