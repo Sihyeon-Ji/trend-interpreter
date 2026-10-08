@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test("market drafts, world map and dictionary open without a model", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/(새 캠페인 초안|New campaign drafts) — (트렌드 통역|Trend Interpreter)/);   // 화면마다 제목이 다르다(10-04)
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/새 캠페인 초안|New campaign drafts/);   // 첫 화면은 만들기(Plan 20)
-  await expect(page.getByRole("navigation", { name: /메뉴|Menu/ }).first()).toBeVisible();
+  await expect(page).toHaveTitle(/(만들기|Create) — (트렌드 통역|Trend Interpreter)/);   // 화면마다 제목이 다르다(10-04)
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/시장마다|For each market/);   // 첫 화면은 만들기(Plan 20)
+  await expect(page.getByRole("navigation", { name: /^(주 메뉴|Main menu)$/ })).toBeVisible();
 
   await page.goto("/map");
   await expect(page.getByRole("main")).toBeVisible();
@@ -13,18 +13,18 @@ test("market drafts, world map and dictionary open without a model", async ({ pa
   await expect(page.getByRole("main")).toBeVisible();
 });
 
-test("keyword dashboard filters by region and opens an entry", async ({ page }) => {
+test("explore switches market and opens an entry", async ({ page }) => {
   await page.goto("/trends");                                                     // 둘러보기(예전 대시보드)
 
   // 일본을 고르면 일본에서 쓰이는 것만 남는다: 推し活 은 있고, 한국에서만 쓰는 자만추 는 빠진다
   await page.getByRole("navigation", { name: /^(시장|Markets)$/ }).getByRole("link", { name: /^(일본|Japan)/ }).click();
-  await expect(page).toHaveURL(/regions=JP/);
-  const table = page.getByRole("table").first();
-  await expect(table.getByRole("link", { name: "推し活" })).toHaveCount(1);
-  await expect(page.getByRole("table").getByRole("link", { name: "자만추" })).toHaveCount(0);
+  await expect(page).toHaveURL(/m=JP/);
+  await expect(page.getByRole("button", { name: /推し活/ })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /자만추/ })).toHaveCount(0);
 
-  await table.getByRole("link", { name: "推し活" }).click();
-  await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu\?regions=JP$/);   // 고른 지역을 사전 항목에 넘긴다
+  await page.getByRole("button", { name: /推し活/ }).click();
+  await page.getByRole("link", { name: /^(자세히 보기|Open entry)/ }).first().click();
+  await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu\?m=JP$/);   // 고른 시장을 사전 항목에 넘긴다
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("推し活");
 });
 

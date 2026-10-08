@@ -1,14 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "./ledger.css" layer(components);
+@import "./stage.css" layer(components);
 
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------
    10-06 Plan 20: 시안 n-redesign('누가 정했나' 원장). 종이 #FFF · 먹 #000 · 회색 #525252/#6B6B6B · 선 #E5E5E5 · 입력 경계 #8A8A8A.
    강조색은 서명 잉크 #24339B 하나 — 사람의 결정(승인)과 키보드 초점에만. 링크는 먹 글자 + 옅은 밑줄. 빨강은 '사용 자제', 호박은 '주의' 에만.
-   아래 예전 이름(link-blue 등)은 그대로 두고 값만 바꿨다. 원장 화면의 부품은 ledger.css.
+   아래 예전 이름(link-blue 등)은 그대로 두고 값만 바꿨다. 앱 틀과 무대 화면(r-stage)의 부품은 stage.css.
    토큰 (docs/트렌드/디자인-개편.md, 2026-09-29). 이름은 예전(Notion DESIGN.md 에서 온 것) 그대로, 값만 새 팔레트:
    먹 #17191C · 짙은 회색 #4B525C · 회색 #646B76 · 선 #E4E7EB · 옅은 바탕 #F6F7F9 · 파랑 #1D5BD6, 상태 셋(주의·사용 자제·오름).
    Notion DESIGN.md (design/Notion/DESIGN.md) → Tailwind v4 토큰.
