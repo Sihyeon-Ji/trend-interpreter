@@ -1,6 +1,6 @@
 # Plan 07. 사진·홍보 문구 기반 밈 추천
 
-작성일 **2026-09-28** · 상태 **추천·사진 입력 테스트 구현 – 현 Gemini·실사진·독립 사람 품질 검증 대기** (예시 모드·pytest·e2e 확인. 로컬 gemma4:e4b 확인은 09-29 구조 변경 전이고, 사진 경로 추천·Gemini 품질·사람 판정은 [Plan 09](09-generation-quality-evaluation.md), 사진 표본은 사용자/팀 준비 대기. 09-30 점수 개선 반영) · 근거 [ADR 0002 §4](../adr/0002-고도화-방안.md) · 목표일 **2026-10-12** · 선행 [Plan 02](02-lifecycle-stages.md), [Plan 03](03-term-risk.md), [Plan 04](04-target-regions-and-keyword-dashboard.md)
+작성일 **2026-09-28** · 상태 **추천·사진 입력 테스트 구현 – 현 Gemini·실사진·독립 사람 품질 검증 대기** (예시 모드·pytest·e2e 확인. 로컬 gemma4:e4b 확인은 09-29 구조 변경 전이고, 사진 경로 추천·Gemini 품질·사람 판정은 [Plan 09](09-generation-quality-evaluation.md), 사진 표본은 사용자/팀 준비 대기. 09-30 점수 개선 반영) · 근거 [ADR 0002 §4](../adr/0002-고도화-방안.md) · 목표일 **2026-10-12** · 선행 [Plan 02](archive/02-lifecycle-stages.md), [Plan 03](03-term-risk.md), [Plan 04](archive/04-target-regions-and-keyword-dashboard.md)
 
 ## 2026-10-06 재점검
 

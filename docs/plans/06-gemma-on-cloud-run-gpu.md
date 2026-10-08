@@ -20,7 +20,7 @@
 
 ## 2026-10-06 밀린 영어판 Kaggle 번역 시험
 
-수집 서버의 track이 10-01부터 1시간 제한에 걸려 `translate`가 09-30 뒤로 돌지 않았다([Plan 02](02-lifecycle-stages.md)). 그래서 '지금 쓰이는' 한국 밈 85개 중 영어판이 16개뿐이다. 빠진 69개를 Kaggle T4에서 로컬 Gemma로 번역해 봤다. 이 PC의 GPU는 다른 작업의 vLLM이 쓰고 있어 쓰지 않았다.
+수집 서버의 track이 10-01부터 1시간 제한에 걸려 `translate`가 09-30 뒤로 돌지 않았다([Plan 02](archive/02-lifecycle-stages.md)). 그래서 '지금 쓰이는' 한국 밈 85개 중 영어판이 16개뿐이다. 빠진 69개를 Kaggle T4에서 로컬 Gemma로 번역해 봤다. 이 PC의 GPU는 다른 작업의 vLLM이 쓰고 있어 쓰지 않았다.
 
 - **입력:** 10-06 12:45 KST snapshot(`97146f8`)을 연구 DB에 올리고 Plan 02의 새 규칙으로 track을 다시 돌렸다. 그 뒤 '쓰이는 중'·한국 지역·영어판 없음인 verified 69개의 현행 뜻(뜻·확장·유래·뉘앙스)을 뽑았다. 비공개 Dataset `onzlchoi/trend-translate-kr-inuse`(`terms.jsonl` SHA-256 `7cc7e568…`)에 저장소 `trend_agents` 일부를 함께 넣었다.
 - **실행:** 비공개 Kaggle script `onzlchoi/trend-translate-run`. 코드는 [`models/kaggle/translate/translate_meanings.py`](../../models/kaggle/translate/translate_meanings.py)다. 저장소의 `gemma_translate.translate_meaning`을 그대로 불러 프롬프트·재질문·Ollama 호출 옵션이 수집 서버와 같다. 모델은 `gemma4:12b`(digest `6114515d63c1`), Ollama 0.35.1, T4.

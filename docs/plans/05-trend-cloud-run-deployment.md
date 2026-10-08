@@ -2,7 +2,7 @@
 
 > **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05). 승인 게시 미완료** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05). 승인 게시 미완료** · 선행 [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 

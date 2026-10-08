@@ -52,7 +52,7 @@
    - 대상 표제어의 `terms`·`meanings`(모든 판)·`review_queue`는 운영 값으로 **바꾼다.** 새 snapshot의 같은 표제어 자동 뜻은 버린다. 근거(`evidences`)는 합친다(운영에만 있는 행 추가).
    - `review_history`·`gemini_calls`·`reader_prefs`·`lookups`·`explain_cache`는 운영 행을 그대로 옮긴다. `gemini_calls`는 운영 값이 이긴다.
    - `terms` 행을 통째로 바꾸면 그 행의 자동 리스크 판정도 운영의 옛 값이 된다. 그래서 덮어 얹기는 끝에서 대상 표제어의 리스크만 규칙으로 다시 판정한다(`rejudge_risk`, 모델 없음, 사람이 정한 `risk_human`은 그대로). 전환 직전 덮어 얹기에도 같이 적용된다.
-   - 끝나면 `track`·`risk`·`board`·`dashboard` 단계를 새 DB에서 다시 계산한다. 수집 PC의 판정이 끝나지 않은 채 snapshot이 만들어지면 생애주기·리스크가 빠진 표제어가 생긴다(10-01 사본에서 746개, [Plan 02](02-lifecycle-stages.md) 10-05 진단).
+   - 끝나면 `track`·`risk`·`board`·`dashboard` 단계를 새 DB에서 다시 계산한다. 수집 PC의 판정이 끝나지 않은 채 snapshot이 만들어지면 생애주기·리스크가 빠진 표제어가 생긴다(10-01 사본에서 746개, [Plan 02](archive/02-lifecycle-stages.md) 10-05 진단).
 5. **검증.** 새 DB에서 사람 결정 건수(`review_history`, `verified_human` 뜻, 사람 리스크)가 운영과 같고, `gemini_calls`의 이번 달 `usd:` 값이 같은지 확인한다. 로컬 웹·API를 새 DB의 복원 사본에 붙여 사전·지도·검수 화면을 확인한다.
 6. **전환.** 검수자에게 알리고 검수 쓰기를 멈춘다(아래 결정 2). 4단계의 덮어 얹기를 한 번 더 실행해 그 사이 결정을 반영한다. 새 DB를 가리키는 secret version을 만들고 `production.tfvars.json`의 `database_secret_version`을 바꿔 API를 새 revision으로 배포한다. 백업 Job도 같은 secret을 쓰므로 함께 바뀐다.
 7. **확인과 정리.** 운영 URL의 사전·지도·해석, 검수 한 건, `/meta`의 갱신 시각을 확인한다. 이전 DB는 다음 갱신까지 남겨 두고(되돌리기 대상), 그다음 갱신 때 지운다.
