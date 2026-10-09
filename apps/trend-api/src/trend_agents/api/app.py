@@ -719,7 +719,7 @@ def trend_briefing(regions: str = "", lang: str = "ko", summary: bool = True):
     summary=false 면 모델을 부르지 않는다(이미 만든 요약은 준다) — 대시보드의 '한눈에 보기' 가 열 때마다 모델을 부르지 않게."""
     ui = "en" if lang == "en" else "ko"
     b = briefing_stage.build(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
-    hit = briefing_stage.cached(b, ui)
+    hit = briefing_stage.cached(_con, b, ui)
     if hit:
         b.summary, b.summary_source = hit  # type: ignore[assignment]
     elif summary and briefing_stage.model_ready() and _briefing_limit.allow(time.monotonic()) and _model_slots.acquire(blocking=False):

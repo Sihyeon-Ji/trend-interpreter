@@ -82,6 +82,28 @@ def test_briefing_summary_is_written_once_per_board_and_falls_back(con, monkeypa
     assert body["summary"] is None and body["summary_source"] == "none" and body["counts"]["use_now"] == 2   # 보고서는 그대로 열린다
 
 
+def test_briefing_summary_is_warmed_by_the_pipeline_and_shared_through_the_database(con, monkeypatch):
+    """새로 뜬 API 의 첫 브리핑이 Gemini 를 기다려 30초 걸렸다(10-09). dashboard 단계가 기본 지역 요약을 미리 만들어 두고,
+    새 인스턴스는 board_cache 에서 읽는다. 대시보드가 새로 만들어지면 옛 요약은 지운다."""
+    calls = []
+
+    def fake(_con, prompt, schema, **kw):
+        calls.append(kw["request"])
+        return briefing.BriefingText(text="warm summary"), "gemini-x"
+
+    monkeypatch.setattr(briefing, "model_ready", lambda: True)
+    monkeypatch.setattr(briefing, "structured", fake)
+    dashboard.run(con)
+    assert calls == [False, False]                                  # 한국어·영어, 파이프라인 장부로
+    briefing._cache.clear()                                         # 새 인스턴스
+    monkeypatch.setattr(briefing, "structured", lambda *a, **kw: pytest.fail("미리 만든 요약을 다시 부르면 안 된다"))
+    body = TestClient(api.app).get("/briefing", params={"lang": "en"}).json()
+    assert body["summary"] == "warm summary" and body["summary_source"] == "gemini"
+    monkeypatch.setattr(briefing, "structured", fake)
+    dashboard.run(con)
+    assert con.execute("SELECT count(*) FROM board_cache WHERE key LIKE 'briefing%'").fetchone()[0] == 2   # 옛 갱신의 요약은 지운다
+
+
 def test_copy_check_flags_by_rules_without_a_model(con):
     c = TestClient(api.app)
     text = "럭키비키! 조심말도 자제말도, 推し活 오살힘 간 때문이야 시발"

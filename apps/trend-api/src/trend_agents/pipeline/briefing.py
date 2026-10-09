@@ -7,9 +7,13 @@
   식어 가는 밈        대시보드의 식어 가는 밈
 
 요약은 대시보드 갱신 시각·지역·화면 언어마다 한 번만 만든다(같은 보고서를 다시 열 때 모델을 부르지 않는다).
+만든 요약은 board_cache 에도 두어 인스턴스끼리 나누고, dashboard 단계가 기본 지역의 한국어·영어 요약을 미리 만든다(warm) –
+운영 브리핑 첫 요청이 새 인스턴스마다 Gemini 를 기다려 30초 걸렸다(10-09).
 """
 from __future__ import annotations
 
+import json
+import logging
 import threading
 from datetime import datetime
 
@@ -81,12 +85,37 @@ def _key(b: Briefing, lang: str) -> tuple:
     return (tuple(b.regions), lang, stamp)
 
 
-def cached(b: Briefing, lang: str) -> tuple[str, str] | None:
+def _db_key(b: Briefing, lang: str) -> str:
+    regions, lang, stamp = _key(b, lang)
+    return f"briefing:{lang}:{','.join(regions)}:{stamp}"
+
+
+def _remember(b: Briefing, lang: str, out: tuple[str, str]) -> None:
     with _lock:
-        return _cache.get(_key(b, lang))
+        if len(_cache) >= CACHE_MAX:
+            _cache.pop(next(iter(_cache)))
+        _cache[_key(b, lang)] = out
 
 
-def summarize(con: Connection, b: Briefing, lang: str) -> tuple[str, str]:
+def cached(con: Connection, b: Briefing, lang: str) -> tuple[str, str] | None:
+    """프로세스 메모 → board_cache(다른 인스턴스나 파이프라인이 만든 것) 순서로 찾는다."""
+    with _lock:
+        hit = _cache.get(_key(b, lang))
+    if hit:
+        return hit
+    row = ds.cache_get(con, _db_key(b, lang))
+    if not row:
+        return None
+    try:
+        text, source = json.loads(row[0])
+    except (ValueError, TypeError):
+        return None
+    out = (str(text), str(source))
+    _remember(b, lang, out)
+    return out
+
+
+def summarize(con: Connection, b: Briefing, lang: str, request: bool = True) -> tuple[str, str]:
     """(요약, gemini·local). 실패하면 예외 — 부르는 쪽이 규칙 문장으로 대신한다. 모델이 설정되지 않았으면 부르지 않는다(부르는 쪽 책임)."""
     names = REGION_NAME["en" if lang == "en" else "ko"]
     c = b.counts
@@ -94,13 +123,32 @@ def summarize(con: Connection, b: Briefing, lang: str) -> tuple[str, str]:
                            rising=c.rising, use_now=c.use_now, careful=c.careful, undecided=c.undecided, fading=c.fading,
                            use_names=_names(b.use_now), careful_names=_names(b.careful),
                            fading_names=_names(b.fading))
-    parsed, model = structured(con, prompt, BriefingText, prefer_gemini=True, request=True)
+    parsed, model = structured(con, prompt, BriefingText, prefer_gemini=True, request=request)
     text = " ".join(((parsed.text if isinstance(parsed, BriefingText) else BriefingText.model_validate(parsed).text) or "").split())[:600]
     if not text:
         raise ValueError("빈 요약")
     out = (text, "local" if model.startswith("local:") else "gemini")
-    with _lock:
-        if len(_cache) >= CACHE_MAX:
-            _cache.pop(next(iter(_cache)))
-        _cache[_key(b, lang)] = out
+    _remember(b, lang, out)
+    ds.cache_set(con, _db_key(b, lang), json.dumps(out, ensure_ascii=False))
     return out
+
+
+def warm(con: Connection) -> int:
+    """dashboard 단계가 부른다 – 새 대시보드의 기본 지역(목표 지역 전체) 요약을 한국어·영어로 미리 만든다. 옛 갱신 시각의 요약은 지운다.
+    모델이 없거나 실패하면 그냥 넘어간다(화면은 규칙 문장을 쓴다). 만든 개수를 돌려준다."""
+    made = 0
+    b = build(con, None)
+    stamp = _key(b, "ko")[2]
+    con.execute("DELETE FROM board_cache WHERE key LIKE 'briefing%' AND key NOT LIKE ?", (f"%:{stamp}",))
+    con.commit()
+    if not model_ready():
+        return 0
+    for lang in ("ko", "en"):
+        if cached(con, b, lang):
+            continue
+        try:
+            summarize(con, b, lang, request=False)
+            made += 1
+        except Exception as e:        # 예산·장애·형식 – 요청 때 다시 시도하거나 규칙 문장으로 대신한다
+            logging.getLogger(__name__).warning("briefing warm %s failed: %s", lang, type(e).__name__)
+    return made
