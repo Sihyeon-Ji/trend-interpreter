@@ -157,7 +157,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 구현 순서
 
-1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. Plan 01의 GCS 고정 SQLite 스냅숏은 `scripts/migrate_sqlite_to_postgres.py`로 staging 이관·대조한 뒤 최초 적재합니다. SQLite `.sql.gz`를 `pg_dump`로 취급하지 않습니다. 검증한 PostgreSQL 사본은 `pg_dump`로 옮길 수 있습니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
+1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. Plan 01의 GCS 고정 SQLite 스냅숏은 `scripts/migrate_sqlite_to_postgres.py`로 staging 이관·대조한 뒤 최초 적재합니다. SQLite `.sql.gz`를 `pg_dump`로 취급하지 않습니다. 검증한 PostgreSQL 사본은 `pg_dump`로 옮길 수 있습니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](archive/01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
 2. 기존 운영 state와 분리한 `infra/gcp/hybrid`에 Trend용 service account, secret metadata, IAM을 구성하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
@@ -209,7 +209,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 7. 감시를 Trend 서비스로 옮긴다: 가동 확인은 Trend 웹 URL(웹에는 `/api/health` 경로가 없다 – `app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐), 오류 지표는 Cloud Run 요청 로그(`httpRequest.status>=500`)로.
 8. 다중 인스턴스 대비: `apply_migrations` 에 `pg_advisory_xact_lock`, 마이그레이션은 expand-only, 풀에 `check=ConnectionPool.check_connection`.
 9. **사용자/팀 결정 대기:** Cloud SQL 사양·에디션·버전·네트워크(공개 IP + Auth Proxy 만, 또는 비공개 IP + VPC), 월 비용 수용과 지출 상한(기존 상한은 Vertex AI·Gemini API 만 덮는다).
-10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.
+10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](archive/01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.
 
 ## 구현 기록
 

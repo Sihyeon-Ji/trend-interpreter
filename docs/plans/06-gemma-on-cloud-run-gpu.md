@@ -2,11 +2,11 @@
 
 > **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](archive/01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
-[계획 목록](README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
+[계획 목록](README.md) · [Plan 01 데이터 이관](archive/01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
 
 ## 2026-10-06 공개 조회·검수 경계 후속 구현
 
@@ -206,7 +206,7 @@ GPU 종류는 `machine_shape`(`kaggle kernels push --accelerator`)로 정하며 
 
 현재 Ollama 리스크 노트북은 `ollama.chat()`으로 답만 생성하므로 학습이 일어나지 않는다. 학습에는 정답이 붙은 입력·출력 쌍, 학습 프레임워크, 손실 계산·역전파, 체크포인트 저장 코드가 필요하다. Google의 [Gemma 텍스트 QLoRA 가이드](https://ai.google.dev/gemma/docs/core/huggingface_text_finetune_qlora)는 기본 모델을 4비트로 읽고 작은 **LoRA 어댑터 가중치**만 학습하는 예를 제공한다.
 
-**12B QLoRA는 이미 학습 서버에서 돌았다.** `models/lora/audit_qlora.py`는 학습 서버의 RTX 4090 한 장에서 사전 감사관을 약 9분, 최대 9.8 GiB로 학습했다([Plan 16](16-wiki-meme-catalog-and-tendency.md)). 실행 환경은 `models/lora/pyproject.toml`과 `uv.lock`이다. 이 실행은 기준선으로 보존하고, Plan 17에 따라 팀원별 Kaggle에서 같은 입력과 설정으로 재현하는 경로를 구축한다. 기존 스크립트의 `save_strategy="no"`를 중간 체크포인트 저장과 `resume_from_checkpoint`로 보완해야 한다.
+**12B QLoRA는 이미 학습 서버에서 돌았다.** `models/lora/audit_qlora.py`는 학습 서버의 RTX 4090 한 장에서 사전 감사관을 약 9분, 최대 9.8 GiB로 학습했다([Plan 16](archive/16-wiki-meme-catalog-and-tendency.md)). 실행 환경은 `models/lora/pyproject.toml`과 `uv.lock`이다. 이 실행은 기준선으로 보존하고, Plan 17에 따라 팀원별 Kaggle에서 같은 입력과 설정으로 재현하는 경로를 구축한다. 기존 스크립트의 `save_strategy="no"`를 중간 체크포인트 저장과 `resume_from_checkpoint`로 보완해야 한다.
 
 1. 먼저 한 작업을 고른다. 사람이 판정·수정한 입력과 정답을 모으고 용어·출처 단위로 학습/검증/최종 평가 세트를 분리한다. 모델이 만든 기존 분류를 정답으로 그대로 재사용하거나 같은 문장의 변형을 학습과 평가 양쪽에 넣지 않는다. 학습 데이터(`audit_sft.jsonl` 등)는 비공개 Dataset으로 올리고 Git에는 넣지 않는다.
 2. Kaggle T4에서는 `bf16` 대신 `fp16`으로 바꿔 **20~50 학습 단계만** 먼저 돌린다. 손실이 정상으로 줄어드는지, 최대 GPU 메모리, 단계당 시간, 설치·다운로드·저장 시간을 잰다. 손실이 `nan`이 되거나 빈 답을 내면 T4 학습을 멈추고 bf16을 지원하는 TPU v3-8(JAX/Keras 경로), 더 작은 모델, 또는 학습 서버를 쓴다. 이 단계는 실행 가능성 점검이며 품질 개선의 증거가 아니다.

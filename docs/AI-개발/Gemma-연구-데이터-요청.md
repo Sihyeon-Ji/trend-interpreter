@@ -1,6 +1,6 @@
 # Gemma 파인튜닝·고도화 연구 데이터 요청 (초안)
 
-작성일 **2026-10-01** · 상태 **수집 서버에서 10-01 10:35 에 한 번 뽑음(아래 '10-01 실행 결과'), Kaggle 게시는 대기** · 관련 [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md) · [Plan 16](../plans/16-wiki-meme-catalog-and-tendency.md)
+작성일 **2026-10-01** · 상태 **수집 서버에서 10-01 10:35 에 한 번 뽑음(아래 '10-01 실행 결과'), Kaggle 게시는 대기** · 관련 [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md) · [Plan 16](../plans/archive/16-wiki-meme-catalog-and-tendency.md)
 
 수집 서버 담당 팀원에게 부탁하는 데이터 목록이다. 실데이터는 **수집 서버의 DB**에만 있고 개발 PC의 DB는 비어 있거나 예시다. 뽑은 결과는 Kaggle 비공개 Dataset으로 올려 Kaggle 실험(Plan 06)과 학습 서버 QLoRA에 쓴다.
 

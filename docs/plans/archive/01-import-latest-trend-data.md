@@ -1,29 +1,29 @@
 # Plan 01. 최신 수집 데이터 받아서 한 번에 이관
 
-작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **부분 완료 – Cloud SQL staging/production 적재·첫 운영 갱신 기록, 수집 PostgreSQL 전환·승인 게시 남음** · 선행 **없음** · 목표일 **2026-10-01**
+작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **보관(10-09) – Cloud SQL 적재·운영 갱신(Plan 19)·첫 승인 게시 완료. 수집 서버 PostgreSQL 전환은 수집 서버 담당자에게 넘김** · 선행 **없음** · 목표일 **2026-10-01**
 
-[계획 목록](README.md) · [개발 명령어의 이관 절차](../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
+[계획 목록](../README.md) · [개발 명령어의 이관 절차](../../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](../05-trend-cloud-run-deployment.md)
 
 ## 2026-10-06 재점검
 
 10-03 이후 Cloud SQL staging/production 적재 manifest와 10-05 첫 운영 갱신(Plan 19)을 확인했다. 아래 10-03 판정의 Cloud SQL 미완료 서술은 당시 상태다. 현재 남은 범위는 수집 서버 PostgreSQL 전환·같은 입력 재현·승인 변경 게시이며, 첫 DB 전환을 승인 배치 게시 완료로 세지 않는다.
 
-최신 계획별 판정과 우선순위는 [10-06 재점검](archive/구현-완료도-실측-점검-2026-10-06.md)을 따른다. 아래 날짜별 기록은 당시 범위로 보존한다.
+최신 계획별 판정과 우선순위는 [10-06 재점검](구현-완료도-실측-점검-2026-10-06.md)을 따른다. 아래 날짜별 기록은 당시 범위로 보존한다.
 
 ## 2026-10-03 점검
 
 고정 사본 `20261001T224511-e56b90d`의 무결성·41표 건수·이용자 표 제외를 다시 확인했다. 10-02 실행 기록의 로컬 PostgreSQL 대조는 완료이며 Cloud SQL staging·API 모드·복원·수집 PostgreSQL 전환·승인 변경 게시와 구분한다. 목표일 10-01은 지났으나 전체 완료 조건은 남아 있다.
 
-근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](archive/구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 배경
 
 이 저장소에 있던 `trend.db`(2026-09-23자, 용어 613개, 약 21만 행)는 이미 로컬 PostgreSQL로 옮겨 검증했습니다.
-그러나 [인수인계 기록](../트렌드/인수인계-2026-09-15.md)에 따르면 그 뒤로도 다른 Linux PC(`/home/cytur/trend`)에서
+그러나 [인수인계 기록](../../트렌드/인수인계-2026-09-15.md)에 따르면 그 뒤로도 다른 Linux PC(`/home/cytur/trend`)에서
 파이프라인이 cron으로 계속 돌았으므로, 그쪽 파일이 더 최신일 가능성이 큽니다. 사전 뜻은 version으로 갱신되기 때문에
 이미 있는 행을 건너뛰는 방식으로는 갱신된 뜻이 반영되지 않습니다. 그래서 **빈 DB에 최신 파일 하나로 다시 이관**합니다.
 
-2026-10-01부터 인수 원본은 [Plan 17](17-hybrid-infrastructure.md)의 `gs://copybara-team-shared-bucket/taewoo/trend-interpreter/`입니다. 현재 수집 서버가 SQLite를 사용한다는 것은 현황이며 장기 유지 결정이 아닙니다. 기존 계획의 수집 서버 PostgreSQL 전환 작업은 유지합니다. 전환 대상 DB·실행 위치·접속 권한·백업 형식은 실행 전에 정하고, 원자료/초안과 서비스의 승인 게시 데이터는 분리합니다. 아래 09-29 결과는 당시 PC 사본의 검증 기록이며 최신 GCS 자료의 검증 결과가 아닙니다.
+2026-10-01부터 인수 원본은 [Plan 17](../17-hybrid-infrastructure.md)의 `gs://copybara-team-shared-bucket/taewoo/trend-interpreter/`입니다. 현재 수집 서버가 SQLite를 사용한다는 것은 현황이며 장기 유지 결정이 아닙니다. 기존 계획의 수집 서버 PostgreSQL 전환 작업은 유지합니다. 전환 대상 DB·실행 위치·접속 권한·백업 형식은 실행 전에 정하고, 원자료/초안과 서비스의 승인 게시 데이터는 분리합니다. 아래 09-29 결과는 당시 PC 사본의 검증 기록이며 최신 GCS 자료의 검증 결과가 아닙니다.
 
 ## 절차
 
@@ -56,7 +56,7 @@
 
 Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_cache`)과 계정별 설정(`reader_prefs`)을 뺍니다.
 스크립트로 바로 옮기면 `--fresh --skip-user-data`, 로컬 DB에서 내보내면
-`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
+`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](../05-trend-cloud-run-deployment.md)).
 
 현재 이관 스크립트의 `--skip-user-data`는 `explain_cache`·`lookups`·`reader_prefs`를 모두 제외합니다(10-02 수정·테스트). 고정 인수본에서 세 표가 없음을 다시 검증했으며, 10-02 로컬 PostgreSQL 이관 기록에서도 세 표 0행을 확인했습니다. Cloud SQL 최초 적재에서도 이 조건을 다시 확인합니다.
 

@@ -22,6 +22,13 @@
 | [운영 05](05-model-request-controls.md) | AI 요청량 제어와 결과 형식 검증 |
 | [운영 06](06-release-recovery.md) | 배포 기록과 안전 복구 경로 |
 | [18](18-ci-parallelization.md) | CI 병렬화와 배포 시간 단축(16분→약 6분, 10-05) |
+| [현행 Plan 03](03-term-risk.md) | 용어별 리스크 판정, 표본 20개 일치율(10-09) |
+| [현행 Plan 08](08-content-generation.md) | SNS 카피·숏폼 대본·썸네일 생성(10-09) |
+| [현행 Plan 12](12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조(10-09) |
+| [현행 Plan 15](15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별(10-09) |
+| [현행 Plan 01](01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09). 수집 서버 PostgreSQL 전환은 그 담당자에게 넘김 |
+| [현행 Plan 16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재 – 용어 3,006개까지 하고 보류(10-09). 완료가 아니다 |
+| [현행 Plan 10](10-term-relation-graph.md) | 용어 관계 그래프 – 미착수로 보류(10-09). 완료가 아니다 |
 | [20](20-trend-operations-schedule.md) | 운영 일정 8개·후속 작업 4개 GitHub Project 등록 및 검증(10-05) |
 
 ## 종료된 점검 보고서

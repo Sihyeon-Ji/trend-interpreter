@@ -241,7 +241,7 @@ SQLite에서 `INSERT OR IGNORE INTO review_history (…) SELECT …`로 씁니�
 
 ### 참고 문서 목록이 늘어남 (2026-09-30~10-01)
 
-[Plan 16](../16-wiki-meme-catalog-and-tendency.md)의 출처 확대로 참고 문서 도메인이 늘었다(`verification.REFERENCE_DOMAINS`): 니코니코 대백과(dic.nicovideo.jp), PTT鄉民百科, 香港網絡大典, 리브레 위키, Trend A Word 글(/trendaword/posts/).
+[Plan 16](16-wiki-meme-catalog-and-tendency.md)의 출처 확대로 참고 문서 도메인이 늘었다(`verification.REFERENCE_DOMAINS`): 니코니코 대백과(dic.nicovideo.jp), PTT鄉民百科, 香港網絡大典, 리브레 위키, Trend A Word 글(/trendaword/posts/).
 위 §1 의 '니코니코 대백과는 쓰지 않는다' 는 수집기를 두지 않는다는 뜻으로 그대로다. 위키데이터가 이어 둔 외부 문서 ID 로 문서가 있다는 것만 알고 주소·제목만 근거로 쓴다.
 참고 문서는 **제목이 표제어로 시작하는 문서만** 센다(`verification.doc_titled`). 엉뚱한 문서('Aura Monster' 에 리제로 캐릭터)가 근거로 붙는 것을 막는 규칙이고, 이미 실린 것은 감사 단계가 문서를 보고 판단한다.
 

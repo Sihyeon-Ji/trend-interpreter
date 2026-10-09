@@ -210,7 +210,7 @@
 | 추천 수 | 21 | 60 |
 
 - 사전이 늘자 KR·JP·TW 는 제품 네 가지 모두 끝까지 됐고, 사례마다 추천 5개(상한)가 나왔다. 태국·인도네시아는 여전히 추천 0이다.
-- **생애주기·리스크가 비어 있다.** 추천 60개 가운데 생애주기 unknown 48, 리스크 판단 보류 51이다. 위키에서 들어온 말은 언급 기록이 없어서다. 추천의 '지금 써도 되나' 를 이 상태로는 판정할 수 없다([Plan 16](16-wiki-meme-catalog-and-tendency.md), [Plan 15](archive/15-overseas-generation-signals.md)의 생애주기 보강).
+- **생애주기·리스크가 비어 있다.** 추천 60개 가운데 생애주기 unknown 48, 리스크 판단 보류 51이다. 위키에서 들어온 말은 언급 기록이 없어서다. 추천의 '지금 써도 되나' 를 이 상태로는 판정할 수 없다([Plan 16](archive/16-wiki-meme-catalog-and-tendency.md), [Plan 15](archive/15-overseas-generation-signals.md)의 생애주기 보강).
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 

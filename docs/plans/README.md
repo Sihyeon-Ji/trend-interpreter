@@ -27,16 +27,13 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 작업 | 상태 | 다음 완료 증거 | 목표일 |
 | --- | --- | --- | --- | --- |
-| [01](01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관 | Cloud SQL 적재·첫 운영 갱신 완료 | 수집 서버 PostgreSQL 전환, 같은 입력 이관 재현, 승인 게시 운영 기록 | 10-01 |
 | [05](05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수 | 운영 배포·release 경로·예약 백업/유지보수·승인 게시 Job 운영 중 | 복구·경보 실측 | 10-09 |
 | [06](06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS·승인 게시 | 전체 QLoRA 실행·사람 정답 20건 봉인·영어 뜻 60개 첫 승인 게시(10-09) | 팀 재현, 봉인 정답 모델 비교 | 10-10 |
 | [07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 | 추천·사진 흐름 구현. 쓰임 낱말에 밈 종류·사용층을 더하고 인물·작품·특정 팬덤·분야 밖 일반 낱말을 거름, 후보 170개 사람 검토, 같은 입력에 같은 제품 이해(10-09) | 빈 시장 후보 보강, 실사진 평가 | 10-12 |
 | [09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가와 데모 | 7차 측정·검토 판정 네 차례(어울림 85% · 사용성 2.75/3) | 사진 평가, 배포본 데모 3개·영상·덱 | 10-15 |
-| [10](10-term-relation-graph.md) | 용어 관계 그래프(선택) | 미착수 | 근거 있는 용어 관계와 원조 추적 5사례 | 여유 시 |
 | [11](11-public-repository-release-protection.md) | 공개 저장소 전환과 배포 승인 | 전체 이력 재검사 완료, WIF 분리는 별도 브랜치 | 코드 적용, 공개·보호 설정, 실제 계정 검증 | 10-17 |
 | [13](13-cloud-sql-trial-to-paid-transition.md) | Cloud SQL 체험 종료 전 유료 전환 | 계획 | 만료·비용 확인 뒤 전환 또는 이전 결정 | 10-26 |
 | [14](14-gemma-visible-in-deployment.md) | 배포본에서 Gemma 활용 보이기 | 모델 기록 표시 구현 | 배포본 확인, GPU 관리자 실행·중단 검증 | 10-12 |
-| [16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재와 성향 분석 | 뜬 해 있는 용어 3,006개 | 조사 중 28개·카탈로그 실패 189건 재시도, 뜻 품질 사람 검수 | 10-06 |
 | [17](17-hybrid-infrastructure.md) | 하이브리드 인프라 통합 | 운영 웹/API·Cloud SQL·GCE 추론 시험·예약 운영·승인 게시 Job | 팀 재현, 모델 승격, 최종 평가 | 10-12 |
 | [19](19-production-data-refresh.md) | 사람의 결정을 지키는 운영 DB 갱신 | 두 번째 전환(10-09, `trend_20261009`, 빠진 결정 0) | 되돌리기 명령 실행 기록, 10-16 마지막 갱신 | 10-16 |
 | [20](20-copy-check-localization-flow.md) | 문구 검사·현지화·승인 흐름 | '무대' 화면 개편 반영(시장은 한국·일본·영어권), 포스터 backend 일부 | 일본어 화면, 승인/공유 결정과 구현 | 10-14 |
@@ -54,6 +51,9 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | [Plan 08](archive/08-content-generation.md) | SNS 카피·숏폼 대본·썸네일 생성, 밈 소개 문구·짤 이름 처리(10-09). 품질 평가는 Plan 09 |
 | [Plan 12](archive/12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조와 '문서 대조' 단계(10-09). 확대 사전 대조는 제출 뒤 |
 | [Plan 15](archive/15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별과 검색 관심 분리(10-09). 계정 기반 2·3단계는 제출 뒤 |
+| [Plan 01](archive/01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09 보관). 운영 이관·갱신은 Plan 19, 게시는 승인 게시가 이어받음. 수집 서버 PostgreSQL 전환은 수집 서버 담당 |
+| [Plan 16](archive/16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재와 성향 분석 – 뜬 해 있는 용어 3,006개까지 하고 **보류**(10-09). 재시도·뜻 품질 검수는 제출 뒤 |
+| [Plan 10](archive/10-term-relation-graph.md) | 용어 관계 그래프 – 미착수로 **보류**(10-09) |
 | [Archive 02](archive/02-model-evaluation.md) | 모델 평가와 비교 보고서 |
 | [Archive 03](archive/03-local-model-history.md) | 실제 모델 실행 이력 연결 |
 | [Archive 04](archive/04-database-recovery.md) | DB 변경과 백업·복구 |
