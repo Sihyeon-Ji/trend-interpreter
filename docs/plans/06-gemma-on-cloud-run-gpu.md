@@ -2,7 +2,7 @@
 
 > **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-06** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
@@ -17,6 +17,20 @@
 짧은 학습 재개 이후 전체 QLoRA 80·160스텝 실행 기록과 사람 감사 정답 20건 봉인을 확인했다. 전체 실행·32개 모델 정답의 JSON 성공은 독립 품질 개선의 근거가 아니다. 봉인 사람 정답 비교·팀 동일 입력 재현·승인 게시가 남는다. 69개 번역 시험은 저장소에 결과를 게시하지 않았고 사람 검토에서 원문 뜻과 번역 오류가 확인됐다.
 
 최신 계획별 판정과 우선순위는 [10-06 재점검](archive/구현-완료도-실측-점검-2026-10-06.md)을 따른다. 아래 날짜별 기록은 당시 범위로 보존한다.
+
+## 2026-10-09 데모 화면 영어 뜻 번역 – 첫 운영 승인 배치 준비
+
+영어 화면에서 운영 둘러보기 세 시장 첫 쪽의 93개가 'English explanation not available yet'이었다([대상](../대회/제출/데모-영어뜻-대상.csv), [Plan 09](09-generation-quality-evaluation.md)). 10-06 시험과 달리 이번에는 판 ID·해시가 고정된 입력으로 돌려 승인 배치까지 이었다.
+
+| 단계 | 결과 |
+| --- | --- |
+| 입력 | 로컬 10-05 snapshot(`20261005T124512-e56b90d`)에서 `publication.py export-translations` – 89개(입력 SHA `fecc6bc8…`). banger·rng·xD·네포 4개는 10-05 뒤 운영에서 실린 말이라 로컬에 없어 뺐다. 운영 DB 읽기는 Claude Code 안전 규칙이 막아 로컬 사본을 썼다 |
+| 번역 | 비공개 Kaggle `onzlchoi/trend-translate-demo-1009-run`(T4, `gemma4:12b` `6114515d…`, Ollama 0.40.2, 저장소 `gemma_translate`). 89개 실패 0, 총 17.5분·중앙값 9.4초. 뜻에 한글이 남은 17개는 줄임말 원형·예문 인용이다 |
+| 검토 | Claude가 원문과 대조한 초안을 ejchoi가 그대로 확정: ok 60 · fix 7 · drop 22. fix는 고유명사·제목 오류(Office 도우미 Kyle → Kairu, Urosa → Ursa, 8번 출구 → The Exit 8, ゲッダン 원곡자 이름은 원문부터 틀림 등). drop은 **원문 뜻이 밈 쓰임이 아닌 말**이다(Cancer 질병 정의, Faith·Vulnerable·promise 사전 뜻, i-dle 걸그룹 소개, Sharon 직역만, 草 정치 지지율). 10-06과 같은 결론 – 번역보다 원문 뜻이 문제다 |
+| 포장 | `pack-translations --exclude-term …`(사람 검토로 뺀 29개) → `translation-en-demo-20261009`, 항목 60, `payload_sha256` `afc30b85…`. 원문 뉘앙스가 빈 인정·HeadOn을 받도록 포장 규칙을 고쳤다(`f694507`) |
+| 운영 준비 | 사용자 확인 뒤 운영 DB에 `stage` – 상태 `draft`, 60개 모두 운영의 현재 뜻 판과 일치(충돌 0). 공개 화면은 바뀌지 않는다 |
+
+남은 것: 관리 화면 '변경 묶음'에서 승인(해시 확인) → sean의 게시 Job. 승인 게시의 첫 운영 사용이다. 10-10 운영 갱신 뒤에 게시하면 새 snapshot에서 뜻 판이 바뀐 말은 게시 때 충돌로 걸리고, 그 말만 빼고 다시 포장한다. drop 22개는 뜻부터 고쳐야 하고(데모 영어권 첫 칸의 Cancer 포함), fix 7개는 게시 뒤 관리 화면에서 고친다. 작업 파일은 `artifacts/translate-1009/`(Git 제외: 입력·결과·검토 표·배치).
 
 ## 2026-10-06 밀린 영어판 Kaggle 번역 시험
 
