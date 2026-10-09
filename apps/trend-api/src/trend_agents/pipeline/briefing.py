@@ -3,7 +3,7 @@
 
   지금 써도 되는 밈   지금 쓰이는 밈 가운데 리스크 '없음'
   조심해서 쓸 밈      지금 쓰이는 밈 가운데 '주의'
-  쓰지 말 밈          사용 자제
+  (사용 자제는 공개 목록에서 빠져 브리핑에도 싣지 않는다, 10-09)
   식어 가는 밈        대시보드의 식어 가는 밈
 
 요약은 대시보드 갱신 시각·지역·화면 언어마다 한 번만 만든다(같은 보고서를 다시 열 때 모델을 부르지 않는다).
@@ -34,15 +34,14 @@ REGION_NAME = {
 
 PROMPT = """너는 브랜드 마케터에게 이번 주 밈 트렌드를 알려 주는 편집자다. 아래 사실만으로 {lang} 2~3문장 요약을 써라.
 - 숫자와 밈 이름은 그대로 쓰고, 아래에 없는 밈·숫자·사건을 지어내지 않는다.
-- 각 밈이 어느 목록에 있는지(써도 됨·조심·쓰지 말 것·식어 감)를 바꾸지 않는다. '안전하다' 고 단정하지 않는다.
+- 각 밈이 어느 목록에 있는지(써도 됨·조심·식어 감)를 바꾸지 않는다. '안전하다' 고 단정하지 않는다.
 - 제목·목록·따옴표·이모지 없이 문장만.
 
 지역: {regions}
 지금 쓰이는 밈 {rising}개 가운데 리스크 문제가 없는 밈 {use_now}개, 조심해서 쓸 밈 {careful}개, 근거가 부족해 판단을 미룬 밈 {undecided}개.
-쓰지 말 밈 {avoid}개, 식어 가는 밈 {fading}개.
+식어 가는 밈 {fading}개.
 지금 써도 되는 밈(앞에서부터): {use_names}
 조심해서 쓸 밈: {careful_names}
-쓰지 말 밈: {avoid_names}
 식어 가는 밈: {fading_names}"""
 
 
@@ -62,7 +61,7 @@ def build(con: Connection, regions: list[str] | None) -> Briefing:
     rising, fading, caution = dashboard.split(picked, generated_at)
     use_now = [c for c in rising if c.risk_level == "none"]
     careful = [c for c in rising if c.risk_level == "caution"]
-    avoid = [c for c in caution if c.risk_level == "avoid"]
+    avoid = [c for c in caution if c.risk_level == "avoid"]     # 사용 자제는 공개 목록에서 빠져(10-09) 늘 비어 있다 – 계약 모양만 지킨다
     counts = BriefingCounts(rising=len(rising), use_now=len(use_now), careful=len(careful),
                             undecided=sum(1 for c in rising if c.risk_level is None), avoid=len(avoid), fading=len(fading))
     return Briefing(generated_at=generated_at, collected_at=ds.last_collected(con), regions=chosen, counts=counts, use_now=use_now[:BRIEF_TOP], careful=careful[:BRIEF_TOP],
@@ -92,8 +91,8 @@ def summarize(con: Connection, b: Briefing, lang: str) -> tuple[str, str]:
     names = REGION_NAME["en" if lang == "en" else "ko"]
     c = b.counts
     prompt = PROMPT.format(lang="영어로" if lang == "en" else "한국어로", regions=", ".join(names.get(r, r) for r in b.regions),
-                           rising=c.rising, use_now=c.use_now, careful=c.careful, undecided=c.undecided, avoid=c.avoid, fading=c.fading,
-                           use_names=_names(b.use_now), careful_names=_names(b.careful), avoid_names=_names(b.avoid),
+                           rising=c.rising, use_now=c.use_now, careful=c.careful, undecided=c.undecided, fading=c.fading,
+                           use_names=_names(b.use_now), careful_names=_names(b.careful),
                            fading_names=_names(b.fading))
     parsed, model = structured(con, prompt, BriefingText, prefer_gemini=True, request=True)
     text = " ".join(((parsed.text if isinstance(parsed, BriefingText) else BriefingText.model_validate(parsed).text) or "").split())[:600]
