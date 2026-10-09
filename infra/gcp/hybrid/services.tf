@@ -254,7 +254,8 @@ resource "google_cloud_run_v2_service_iam_member" "public_web" {
   depends_on = [google_cloud_run_v2_service_iam_member.web_invokes_api]
 }
 resource "google_service_account_iam_member" "deploy_act_as" {
-  for_each           = local.services_enabled ? toset(["api", "web"]) : toset([])
+  # maintenance and publisher: the release moves those jobs to the new API image.
+  for_each           = local.services_enabled ? toset(["api", "web", "maintenance", "publisher"]) : toset([])
   service_account_id = google_service_account.runtime[each.key].name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:builder-cup-deploy@${var.project_id}.iam.gserviceaccount.com"

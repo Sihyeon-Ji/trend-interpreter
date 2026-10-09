@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy the Trend API and web images as candidates, verify each, and only then move traffic: API first, then the
 # web that talks to it. Terraform owns every other service setting (network, secrets, limits, identities); this
-# script changes only the image. A failed check leaves the serving revisions untouched.
+# script changes only the images, including those of the jobs that run the API image. A failed check leaves the serving revisions untouched.
 set -euo pipefail
 
 : "${PROJECT_ID:?}" "${REGION:?}" "${ENVIRONMENT:?}" "${API_ID_TOKEN:?}"
@@ -57,6 +57,13 @@ fetch -H "Authorization: Bearer $API_ID_TOKEN" "$api_candidate/health" |
 anonymous=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$api_candidate/health")
 [[ $anonymous == 401 || $anonymous == 403 ]] || { echo "API candidate accepted an anonymous request ($anonymous)" >&2; exit 1; }
 promote "$api" "$api_revision"
+# The maintenance and publication jobs run the API image against the same database and refuse a migration set that
+# differs from their own, so they follow the promoted API.
+jobs=$(gcloud run jobs list --project="$PROJECT_ID" --region="$REGION" --format='value(metadata.name)')
+for job in "trend-$ENVIRONMENT-maintenance" "trend-$ENVIRONMENT-publication"; do
+  grep -qx "$job" <<<"$jobs" || continue
+  gcloud run jobs update "$job" --project="$PROJECT_ID" --region="$REGION" --image="$api_image" --quiet >/dev/null
+done
 
 deploy_candidate "$web" "$web_image"
 web_candidate=$(field "$web" candidate)

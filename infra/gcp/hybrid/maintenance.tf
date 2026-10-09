@@ -15,6 +15,10 @@ resource "google_cloud_run_v2_job" "maintenance" {
   name                = "${local.prefix}-maintenance"
   location            = var.region
   deletion_protection = true
+  lifecycle {
+    # scripts/deploy-trend.sh moves the image with each API release.
+    ignore_changes = [template[0].template[0].containers[0].image, client, client_version]
+  }
   template {
     task_count = 1
     template {
