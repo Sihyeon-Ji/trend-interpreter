@@ -238,7 +238,7 @@ export interface RecommendResult {
 }
 
 /* 콘텐츠 생성 (Plan 08) — 백엔드 pipeline/views.py 의 GenerationResult·Dropped 와 1:1. 결과는 저장하지 않는다. */
-export type DropCode = "unsafe" | "no_meme" | "x_too_long" | "avoid_word";
+export type DropCode = "unsafe" | "no_meme" | "x_too_long" | "avoid_word" | "meta_meme";
 export interface Dropped { id: string; code: DropCode; reason: string }   // reason 은 같은 문제의 한국어 설명(운영 기록용) — 화면은 code 로 쓴다
 
 export interface GenerationResult {

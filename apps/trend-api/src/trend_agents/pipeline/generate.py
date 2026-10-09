@@ -41,7 +41,10 @@ GEN_PROMPT = """너는 {region} 시장의 SNS 마케터다. 아래 제품을 아
 {memes}
 
 만들 것 (글은 모두 {lang}로. 밈 이름은 사전 표기 그대로 넣는다. 설명 칸 note_ko·layout·subject·colors 만 {explain}로 — 마케터가 읽는다):
-- copies: 인스타그램 캡션 2안(platform="instagram", 해시태그 3~6개), X 게시글 2안(platform="x"). 네 안 모두 밈 하나 이상을 글에 넣는다.
+- copies: 인스타그램 캡션 2안(platform="instagram", 해시태그 3~6개), X 게시글 2안(platform="x"). 네 안 모두 밈 하나 이상을 본문이나 해시태그에 넣는다.
+  밈은 그 밈을 쓰는 사람들이 실제로 쓰듯 문장 속의 말로 쓴다. 밈을 소개하거나 견주지 마라 — "'밈'처럼", "'밈' 같은", "'밈' 알지?",
+  "like 밈", "밈みたいな" 같은 말은 쓰지 않는다. 밈이 캐릭터·작품·사람·사이트 이름이라 문장 속 말로 쓸 수 없으면, 그 밈의 말투·구도·문장 틀만
+  살리고 이름은 해시태그에만 넣는다.
   해시태그는 # 없이, 띄어쓰기·기호 없이 쓴다. X 게시글은 해시태그까지 합쳐 {x_limit} 이내다 — 한글·가나·한자·이모지는 2로 세므로
   한국어·일본어·중국어는 해시태그까지 130자 안팎으로 쓴다.
 - script: 틱톡·릴스용 15~30초 대본. 장면마다 시작·끝 초, 화면, 자막, 대사.
@@ -126,6 +129,20 @@ def x_length(text: str) -> int:
     return sum(w(ch) for ch in text)
 
 
+def _meta_pattern(name: str) -> re.Pattern:
+    """밈을 쓰지 않고 소개·비교하는 말 — "'인정'처럼", "『いまいち萌えない娘』みたいな", "on Know Your Meme"(사람 판정 10-09)."""
+    n = re.escape(name)
+    q, quoted = r"['‘’\"“”『』「」]?", r"['‘’\"“”『』「」]"
+    # '갑툭튀 같은 지출' 은 그 말을 쓴 것이라, '같은' 은 따옴표로 묶어 견줄 때만 잡는다
+    return re.compile(rf"{q}{n}{q}\s*(?:처럼|알지|みたいな|のような|のように|ばり|って知ってる)|{quoted}{n}{quoted}\s*같은|"
+                      rf"\b(?:like|on|from)\s+(?:the\s+)?{q}{n}{q}(?![\w])|{q}{n}{q}\s+meme\b", re.I)
+
+
+def meta_mention(text: str, terms) -> str:
+    """본문(해시태그 제외)에서 밈을 소개·비교한 이름. 없으면 빈 문자열."""
+    return next((n for t in terms for n in (t.canonical, *t.aliases) if n and _meta_pattern(n).search(text)), "")
+
+
 def check(items: dict[str, object], terms, brief: ProductBrief) -> dict[str, tuple[str, str]]:
     """규칙 검사 — {id: (코드, 한국어 설명)}. 모델을 부르지 않는다."""
     out: dict[str, tuple[str, str]] = {}
@@ -141,6 +158,8 @@ def check(items: dict[str, object], terms, brief: ProductBrief) -> dict[str, tup
             out[k] = ("x_too_long", f"X 글자 수 {x_length(copy_text(item))} — {X_LIMIT} 초과(한글·가나·한자는 2로 셈)")
         elif hit:
             out[k] = ("avoid_word", f"제품 설명이 피하라고 한 표현이 들어 있음: {hit}")
+        elif isinstance(item, SocialCopy) and (meta := meta_mention(item.text, terms)):
+            out[k] = ("meta_meme", f"밈을 문장 속 말로 쓰지 않고 소개함: {meta}")
     return out
 
 

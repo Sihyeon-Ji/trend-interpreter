@@ -211,6 +211,7 @@ const ko = {
   drop_no_meme: "고른 밈이 글에 없음",
   drop_x_too_long: "X 글자 수 초과",
   drop_avoid_word: "피하라고 한 표현이 들어감",
+  drop_meta_meme: "밈을 쓰지 않고 소개만 함",
 
   ex_avoid: "쓰지 않음",
   ex_crude: "저속한 말투",
@@ -581,6 +582,7 @@ const en: Copy = {
   drop_no_meme: "meme missing from the text",
   drop_x_too_long: "over X's length limit",
   drop_avoid_word: "uses a phrase to avoid",
+  drop_meta_meme: "talks about the meme instead of using it",
 
   ex_avoid: "Don't use",
   ex_crude: "Crude tone",

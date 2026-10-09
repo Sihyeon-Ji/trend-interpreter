@@ -107,6 +107,18 @@ def test_rules():
         generate.run(con, ["bad"], BRIEF, "KR", "friendly")                    # 사용 자제 밈으로는 만들지 않는다
 
 
+def test_rules_catch_copy_that_talks_about_the_meme():
+    """밈을 쓰지 않고 소개·비교한 카피는 뺀다 — 사람 판정(10-09)에서 'Know Your Meme 에 검색하면'·'『いまいち萌えない娘』みたいな' 가 못 쓸 카피였다.
+    문장 속 말로 쓰거나 해시태그에만 넣은 것은 통과한다."""
+    con = _con()
+    lv = [ds.get_term(con, "lv")]
+    got = generate.check({"copy0": SocialCopy(platform="x", text="오늘 라떼는 '럭키비키'처럼 상큼해요"),
+                          "copy1": SocialCopy(platform="x", text="Tastes just like 럭키비키 vibes"),
+                          "copy2": SocialCopy(platform="x", text="비 와도 라떼 한 잔이면 완전 럭키비키잖아"),
+                          "copy3": SocialCopy(platform="instagram", text="더운 오후엔 라떼 한 잔", hashtags=["럭키비키"])}, lv, BRIEF)
+    assert {k: v[0] for k, v in got.items()} == {"copy0": "meta_meme", "copy1": "meta_meme"}
+
+
 def test_x_length_counts_cjk_as_two_and_includes_hashtags():
     assert generate.x_length("a" * 280) == 280 and generate.x_length("가" * 140) == 280
     assert generate.x_length("สวัสดี") == 6                                      # 태국 글자는 1

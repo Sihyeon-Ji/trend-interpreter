@@ -765,7 +765,7 @@ class RecommendResult(BaseModel):
 
 class Dropped(BaseModel):
     id: str                            # copy0…copy3·script·thumbnail
-    code: Literal["unsafe", "no_meme", "x_too_long", "avoid_word"]   # 걸린 규칙 — 화면이 언어별 문구로 보인다
+    code: Literal["unsafe", "no_meme", "x_too_long", "avoid_word", "meta_meme"]   # 걸린 규칙 — 화면이 언어별 문구로 보인다
     reason: str                        # 같은 문제의 한국어 설명 (운영 기록용)
 
 
