@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import psycopg
 
 from trend_agents.schemas import Term
 from trend_agents.storage import db, dictionary_store as ds, store
@@ -59,6 +60,23 @@ def test_pooled_sessions_share_the_migrated_schema():
     with db.session() as con:
         assert con.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] >= 1
         assert isinstance(store.top_videos(con, 1), list)
+
+
+def test_pool_replaces_connection_lost_while_idle(monkeypatch):
+    previous_pool = db._pool
+    monkeypatch.setattr(db, "_pool", None)
+    monkeypatch.setattr(db, "DB_POOL_SIZE", 1)
+    try:
+        with db.session() as con:
+            old_pid = con.execute("SELECT pg_backend_pid()").fetchone()[0]
+        with psycopg.connect(db.DATABASE_URL, autocommit=True) as killer:
+            assert killer.execute("SELECT pg_terminate_backend(%s)", (old_pid,)).fetchone()[0]
+        with db.session() as con:
+            assert con.execute("SELECT 1").fetchone()[0] == 1
+            assert con.execute("SELECT pg_backend_pid()").fetchone()[0] != old_pid
+    finally:
+        db._pool.close()
+        db._pool = previous_pool
 
 
 def test_read_only_connection_skips_schema_setup_and_refuses_writes(monkeypatch):

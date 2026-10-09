@@ -338,6 +338,7 @@ def pool() -> ConnectionPool:
         if _pool is None:
             connect().close()  # 스키마와 마이그레이션을 먼저 맞춰 둔다
             _pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=DB_POOL_SIZE, timeout=30,
+                                   check=ConnectionPool.check_connection,
                                    kwargs={"application_name": "trend-api"}, open=True)
     return _pool
 

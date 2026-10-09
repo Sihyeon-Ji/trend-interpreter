@@ -62,6 +62,7 @@ deploy_candidate "$web" "$web_image"
 web_candidate=$(field "$web" candidate)
 web_revision=$(field "$web" latest)
 fetch "$web_candidate/" | grep -q "<html" || { echo "web candidate did not render" >&2; exit 1; }
+fetch -o /dev/null "$web_candidate/map"
 fetch -o /dev/null "$web_candidate/briefing"
 promote "$web" "$web_revision"
 

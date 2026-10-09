@@ -316,7 +316,7 @@ export async function getTermSignals(termId: string, regions: string[] = []): Pr
  *  api 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다 → app/map/error.tsx. 실데이터처럼 보이는 2021년 예시가 뜨던 문제(개편 검토). */
 export async function getMapData(): Promise<{ keywords: KeywordBoard; board: TrendBoard }> {
   const [keywords, board] = isSampleMode ? [sampleKeywordBoard([], 1, true), SAMPLE_BOARD]
-    : await Promise.all([apiNoStore<KeywordBoard>("/dashboard?summary=1"), api<TrendBoard>("/trends/board", 30)]);
+    : await Promise.all([api<KeywordBoard>("/dashboard?summary=1", false), api<TrendBoard>("/trends/board", false)]);
   // 지도는 지역 요약과 나라를 건너간 밈(topics)만 쓴다 — 급증 이유(why 737KB)·검색어·목록 셋까지 브라우저로 보내 화면이 1MB 였다
   return {
     keywords: keywords.summary ? { ...keywords, rising: [], fading: [], caution: [] } : keywords,

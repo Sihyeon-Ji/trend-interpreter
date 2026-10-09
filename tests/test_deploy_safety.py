@@ -90,6 +90,44 @@ def test_failed_trend_api_candidate_keeps_both_services_on_their_revisions(tmp_p
     assert "trend-production-web --project=test-project --region=asia-northeast1 --image" not in calls
 
 
+def test_failed_public_map_candidate_keeps_web_traffic_on_previous_revision(tmp_path):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    trace = tmp_path / "gcloud-calls.txt"
+    gcloud = tools / "gcloud"
+    gcloud.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json,os,sys\n"
+        "args=sys.argv[1:]\n"
+        "with open(os.environ['FAKE_GCLOUD_TRACE'],'a') as out: out.write(' '.join(args)+'\\n')\n"
+        "if args[:3]==['run','services','describe']:\n"
+        " print(json.dumps({'status':{'latestReadyRevisionName':'candidate-revision',"
+        "'traffic':[{'revisionName':'previous-revision','percent':100},{'tag':'candidate','url':'https://candidate.test'}]}}))\n"
+    )
+    gcloud.chmod(0o755)
+    curl = tools / "curl"
+    curl.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "url=sys.argv[-1]\n"
+        "if url.endswith('/map'): sys.exit(22)\n"
+        "if url.endswith('/health') and '--write-out' in sys.argv: print('401', end='')\n"
+        "elif url.endswith('/health'): print('{\"ok\":true,\"terms\":1}')\n"
+        "elif url=='https://candidate.test/': print('<html>ok</html>')\n"
+    )
+    curl.chmod(0o755)
+    env = os.environ.copy()
+    env.update(PATH=f"{tools}:{env['PATH']}", FAKE_GCLOUD_TRACE=str(trace), PROJECT_ID="test-project",
+               REGION="asia-northeast1", ENVIRONMENT="production", API_ID_TOKEN="synthetic-test-token")
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(["bash", "scripts/deploy-trend.sh", "api@sha256:abc", "web@sha256:def"],
+                            cwd=root, env=env, capture_output=True, text=True)
+    calls = trace.read_text()
+    assert result.returncode != 0
+    assert calls.count("run services update-traffic") == 1
+    assert "trend-production-web --project=test-project --region=asia-northeast1 --to-revisions" not in calls
+
+
 def test_trend_deploy_refuses_unpinned_images():
     root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
