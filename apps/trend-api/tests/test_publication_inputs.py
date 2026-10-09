@@ -108,3 +108,38 @@ def test_input_cannot_claim_original_meaning_hash_while_translating_different_te
     results[0]["source"] = rows[0]["entry"]
     with pytest.raises(pub.PublicationError, match="invalid_translation_files"):
         inputs.pack_translations(modified, lines(results), run, "invalid")
+
+
+def test_review_exclusions_leave_rows_out_but_keep_lineage_checks(packet):
+    con, content, run, results = packet
+    batch, failed = inputs.pack_translations(content, lines(results), run, "translated", exclude=frozenset({"t_two"}))
+    assert failed == 0 and [item.term_id for item in batch.items] == ["t_one"]
+    with pytest.raises(pub.PublicationError, match="translation_exclude_unknown"):
+        inputs.pack_translations(content, lines(results), run, "translated", exclude=frozenset({"t_other"}))
+    with pytest.raises(pub.PublicationError, match="empty_translation_batch"):
+        inputs.pack_translations(content, lines(results), run, "translated", exclude=frozenset({"t_one", "t_two"}))
+    results[1]["source"]["definition"] = "changed input"                 # 뺀 행도 원문 계보는 맞아야 한다
+    with pytest.raises(pub.PublicationError, match="translation_source_conflict"):
+        inputs.pack_translations(content, lines(results), run, "translated", exclude=frozenset({"t_two"}))
+
+
+def test_empty_source_fields_may_stay_empty_in_translation(packet):
+    con, _, _, _ = packet
+    ds.upsert_term(con, Term(term_id="t_bare", canonical="t_bare", status="verified"))
+    ds.add_meaning(con, "t_bare", MeaningDraft(definition="a documented published definition", origin="origin", nuance="",
+                                               generations=["20s"], regions=["KR"], self_confidence=0.9), "verified_auto", [])
+    content = inputs.translation_inputs(con, ["t_bare"], "fixed-snapshot", "a" * 64)
+    run = {"input_sha256": hashlib.sha256(content).hexdigest(), "model": "gemma4:12b", "model_digest": "b" * 64, "gemma_translate_sha256": "c" * 64}
+    row = json.loads(content)
+    result = {"term_id": "t_bare", "term": row["term"], "source": row["entry"], "expected_meaning_id": row["expected_meaning_id"],
+              "derived_from_sha256": row["derived_from_sha256"], "en": {"definition": "English", "origin": "origin", "nuance": ""},
+              "error": None, **{key: run[key] for key in ("model", "model_digest", "gemma_translate_sha256", "input_sha256")}}
+    batch, _ = inputs.pack_translations(content, lines([result]), run, "bare")
+    staged = pub.stage(con, batch)
+    pub.review(con, batch.batch_id, staged["payload_sha256"], "reviewer", approve=True)
+    pub.publish(con, batch.batch_id)
+    assert ds.get_translation(con, "t_bare", "en").definition == "English"
+    result["en"]["origin"] = ""                                            # 원문에 있는 유래를 빠뜨리면 막는다
+    with pytest.raises(pub.PublicationError, match="invalid_translation_output"):
+        inputs.pack_translations(content, lines([result]), run, "bare2")
+

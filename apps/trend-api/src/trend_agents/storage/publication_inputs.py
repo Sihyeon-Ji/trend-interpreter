@@ -53,7 +53,10 @@ def translation_inputs(con: Connection, term_ids: list[str], snapshot_id: str, s
     return ("\n".join(rows) + "\n").encode()
 
 
-def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_id: str, *, skip_failed: bool = False) -> tuple[ChangeBatch, int]:
+def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_id: str, *, skip_failed: bool = False,
+                      exclude: frozenset[str] = frozenset()) -> tuple[ChangeBatch, int]:
+    """exclude: 사람이 번역 검토에서 뺀 표제어. 계보 검사는 다른 행과 똑같이 거치고 배치에만 넣지 않는다 –
+    모델 실패(skip_failed)와 섞지 않는다. 뺀 건수는 부르는 쪽이 len(exclude)로 기록한다."""
     try:
         inputs = [TranslationInput.model_validate_json(line) for line in input_bytes.splitlines() if line.strip()]
         outputs = [json.loads(line) for line in output_bytes.splitlines() if line.strip()]
@@ -76,6 +79,8 @@ def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_
     except Exception:
         raise PublicationError("missing_translation_provenance") from None
     indexed = {i.term_id: i for i in inputs}
+    if not exclude <= set(indexed):
+        raise PublicationError("translation_exclude_unknown")
     seen, items, failures = set(), [], 0
     for result in outputs:
         if not isinstance(result, dict) or not isinstance(result.get("term_id"), str):
@@ -96,6 +101,8 @@ def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_
                 or result.get("input_sha256") != run["input_sha256"]
                 or result.get("gemma_translate_sha256") != prompt_hash):
             raise PublicationError("translation_model_conflict")
+        if tid in exclude:
+            continue
         if result.get("error") is not None:
             failures += 1
             if not skip_failed:
@@ -103,7 +110,9 @@ def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_
             continue
         try:
             translated = MeaningText.model_validate(result["en"])
-            if not all(getattr(translated, field).strip() for field in ("definition", "origin", "nuance")):
+            # 원문에 있는 칸만 번역에도 있어야 한다 – 원문 뉘앙스가 빈 말('인정' 등)은 번역 뉘앙스도 비어 있다(10-09)
+            if not translated.definition.strip() or any(getattr(source.entry, field).strip() and not getattr(translated, field).strip()
+                                                       for field in ("origin", "nuance")):
                 raise ValueError()
         except Exception:
             raise PublicationError("invalid_translation_output") from None

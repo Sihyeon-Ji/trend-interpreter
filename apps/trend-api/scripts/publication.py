@@ -51,19 +51,20 @@ def main() -> None:
     pack.add_argument("--batch-id", required=True)
     pack.add_argument("--out", type=Path, required=True)
     pack.add_argument("--skip-failed", action="store_true")
+    pack.add_argument("--exclude-term", action="append", default=[], help="사람이 번역 검토에서 뺀 표제어 ID(여러 번)")
     args = parser.parse_args()
     if args.command == "pack-translations":
         try:
             batch, failures = inputs.pack_translations(args.input.read_bytes(), args.results.read_bytes(),
                                                        json.loads(args.run.read_bytes()), args.batch_id,
-                                                       skip_failed=args.skip_failed)
+                                                       skip_failed=args.skip_failed, exclude=frozenset(args.exclude_term))
             private_write(args.out, pub.canonical(batch).encode())
         except pub.PublicationError as exc:
             raise SystemExit(exc.code) from None
         except Exception:
             raise SystemExit("invalid_translation_files_or_output") from None
         print(json.dumps({"batch_id": batch.batch_id, "payload_sha256": pub.digest(batch), "item_count": len(batch.items),
-                          "skipped_failed_rows": failures}, sort_keys=True))
+                          "skipped_failed_rows": failures, "excluded_by_review": len(set(args.exclude_term))}, sort_keys=True))
         return
     reviewer = None
     batch = None
