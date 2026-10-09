@@ -157,3 +157,23 @@ def test_refresh_accepts_a_source_database_from_before_publication_migration(dbs
     result = refresh.overlay(source, target)
     assert all(result["copied_rows"][t] == 0 for t in refresh.PUBLICATION_TABLES)
     assert refresh.compare(source, target)["differences"] == []
+
+
+def test_overlay_carries_production_ad_fit_tags_set_by_a_person_or_gemini(dbs):
+    """사람이 고정한 쓰임 낱말(human:)과 운영에서 Gemini 로 다시 붙인 것은 snapshot 의 로컬 모델 값보다 새롭다(Plan 07, 10-09)."""
+    from trend_agents.schemas import MemeFit
+
+    source, target = dbs
+    fit = lambda kind: MemeFit(feelings=["joy"], uses=["reaction"], voice="wholesome", audience="online", kind=kind)
+    for con in (source, target):
+        for tid in ("untouched", "risky"):
+            ds.set_fit(con, tid, ds.current_meaning(con, tid).meaning_id, MemeFit(feelings=["joy"], uses=["reaction"], voice="wholesome"),
+                       "local:gemma4:e4b")
+    ds.set_fit(source, "untouched", ds.current_meaning(source, "untouched").meaning_id, fit("word"), "human:ejchoi")
+    ds.set_fit(source, "brand-gone", "m", fit("topic"), "gemini-3.5-flash")            # 새 DB 에 없는 말은 옮기지 않는다
+    source.commit()
+    got = refresh.overlay(source, target)
+    fits = ds.all_fits(target)
+    assert fits["untouched"][1].kind == "word" and got["copied_rows"]["term_fit_carried"] == 1
+    assert "brand-gone" not in fits
+    assert refresh.compare(source, target)["missing"]["fit_human"] == 0

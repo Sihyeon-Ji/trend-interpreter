@@ -21,6 +21,9 @@ MERGED = ("evidences",)
 # Written only by the service, so production is the only source. gemini_calls holds the monthly spending ledger.
 PUBLICATION_TABLES = ("change_batches", "change_items", "publications", "publication_state")
 CARRIED = ("review_history", "gemini_calls", "reader_prefs", "lookups", "explain_cache", *PUBLICATION_TABLES)
+# Ad-fit tags set by a person or re-tagged with Gemini on production (fit_backfill --gemini, Plan 07) are newer than the
+# snapshot's local-model tags, so production's rows win for every term the new database still has.
+FIT_CARRIED_WHERE = "(model LIKE 'human:%' OR model LIKE 'gemini-%')"
 
 HUMAN_TERMS_SQL = (
     "SELECT DISTINCT term_id FROM review_history",
@@ -35,6 +38,7 @@ KEYS_SQL = {
     "risk_decided": "SELECT term_id, json::jsonb ->> 'risk_human', json::jsonb ->> 'risk_decided_at' FROM terms "
                     "WHERE json::jsonb ->> 'risk_decided_by' IS NOT NULL",
     "retired": "SELECT term_id FROM terms WHERE status = 'retired' AND term_id IN (SELECT term_id FROM review_history)",
+    "fit_human": "SELECT term_id, meaning_id, json FROM term_fit WHERE model LIKE 'human:%'",
     "gemini_calls": "SELECT day, count FROM gemini_calls",
     "reader_prefs": "SELECT reader, updated_at FROM reader_prefs",
     "change_batches": "SELECT batch_id, payload_sha256, status, reviewed_by, reviewed_at FROM change_batches",
@@ -100,9 +104,22 @@ def overlay(src: db.Connection, dst: db.Connection) -> dict:
         copied[table] = _copy(src, dst, table, "nothing", ids)
     for table in CARRIED:
         copied[table] = _copy(src, dst, table, "update")
+    copied["term_fit_carried"] = carry_fits(src, dst)
     dst.commit()
     ds.rebuild_aliases(dst)
     return {"human_terms": len(ids), "copied_rows": copied, "risk_rejudged": rejudge_risk(dst, ids)}
+
+
+def carry_fits(src: db.Connection, dst: db.Connection) -> int:
+    present = {row[0] for row in dst.execute("SELECT term_id FROM terms").fetchall()}
+    cols = _columns(src, dst, "term_fit")
+    names = ", ".join(cols)
+    rows = [r for r in src.execute(f"SELECT {names} FROM term_fit WHERE {FIT_CARRIED_WHERE}").fetchall()
+            if r[cols.index("term_id")] in present]
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "term_id")
+    dst.executemany(f"INSERT INTO term_fit ({names}) VALUES ({', '.join('?' * len(cols))}) "
+                    f"ON CONFLICT (term_id) DO UPDATE SET {updates}", rows)
+    return len(rows)
 
 
 def rejudge_risk(con: db.Connection, term_ids: list[str]) -> int:
