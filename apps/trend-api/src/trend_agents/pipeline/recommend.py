@@ -77,6 +77,8 @@ def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tu
     _, liked = TONES[tone]
     if blocked(fit, card, tone):
         return None
+    if fit.kind == "topic":
+        return None                   # 밈의 소재(인물·작품·노래)는 이름만으로 밈이 아니다 — 밈 여부 라벨에서 화면 첫 쪽의 1/4(10-09)
     if fit.audience == "niche" and brief.category not in NICHE_OK:
         return None                   # 서브컬처 캐릭터 밈(いまいち萌えない娘)이 화장품·러닝화에 나왔다(사람 판정 10-09)
     cat = brief.category in fit.fits

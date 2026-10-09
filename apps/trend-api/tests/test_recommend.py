@@ -21,7 +21,7 @@ LATTE = ProductBrief(product="아이스 라떼", category="food_drink", feelings
 
 
 def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=True, lifecycle="steady", risk="none", diffusion="mainstream",
-          audience="general"):
+          audience="general", kind="expr"):
     now = datetime.now(timezone.utc)
     ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", lifecycle=lifecycle, first_seen=now, last_seen=now,
                              risk_level=risk, diffusion=diffusion))
@@ -33,7 +33,7 @@ def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=Tru
                                          source_domain="news.example", observed_at=now, excerpt=f"{name} 진짜")])
     cur = ds.current_meaning(con, tid)
     ds.set_fit(con, tid, cur.meaning_id, MemeFit(feelings=list(feelings), uses=["reaction"], fits=list(fits), any_category=any_category, voice=voice,
-                                                       audience=audience), "test")
+                                                       audience=audience, kind=kind), "test")
     return m
 
 
@@ -239,7 +239,8 @@ def test_fit_stage_tags_only_new_or_changed_meanings(monkeypatch):
     monkeypatch.setattr(fit, "local_ok", lambda: True)
     monkeypatch.setattr(fit, "structured", lambda con, prompt, schema: ([FitLabel(i=0, feelings=["joy"], uses=["praise"], voice="wholesome")], "test"))
     assert fit.run(con)["fit"].count == 1 and fit.todo(con) == []
-    assert ds.all_fits(con)["good"][1].audience == "online"          # 모델이 빠뜨린 audience 는 online 으로 — 다시 붙이지 않는다
+    got = ds.all_fits(con)["good"][1]
+    assert (got.audience, got.kind) == ("online", "expr")           # 모델이 빠뜨린 칸은 기본값으로 — 다시 붙이지 않는다
 
 
 def test_fit_stage_retags_fits_made_before_audience(monkeypatch):
@@ -250,6 +251,15 @@ def test_fit_stage_retags_fits_made_before_audience(monkeypatch):
     m = ds.current_meaning(con, "ok")
     ds.set_fit(con, "ok", m.meaning_id, MemeFit(feelings=["joy"], uses=["reaction"], any_category=True, voice="wholesome"), "old")
     assert [t.term_id for t, _ in fit.todo(con)] == ["ok"]
+
+
+def test_topics_are_not_recommended():
+    """밈의 소재(인물·작품·노래)는 추천하지 않는다 — 일반 낱말(word)은 카피에 잘 녹아 남긴다(인정·OOTD, 10-09 판정)."""
+    con = db.connect(":memory:")
+    _term(con, "song", "노래제목", ["joy", "comfort"], fits=["food_drink"], kind="topic")
+    _term(con, "plain", "보통말", ["joy", "comfort"], fits=["food_drink"], kind="word")
+    dashboard.run(con)
+    assert [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items] == ["plain"]
 
 
 def test_niche_memes_only_for_entertainment_and_game():

@@ -135,6 +135,8 @@ FitCategory = Literal["food_drink", "fashion_beauty", "tech", "game", "entertain
 Voice = Literal["wholesome", "playful", "edgy", "crude"]
 # 누가 알아듣나 — 누구나(general) · 인터넷 문화를 아는 사람(online) · 특정 작품·캐릭터·팬덤·서브컬처 안(niche)
 Audience = Literal["general", "online", "niche"]
+# 표제어가 무엇인가 — 표현(expr) · 밈의 이름(meme_name) · 밈의 소재가 된 인물·작품·노래·사건(topic) · 일반 낱말(word). 밈 여부 라벨(GUIDE.md)과 같은 낱말
+MemeKind = Literal["expr", "meme_name", "topic", "word"]
 CampaignTone = Literal["friendly", "witty", "premium"]   # 홍보 톤: 친근함·재치·고급스러움
 
 
@@ -155,6 +157,7 @@ class MemeFit(BaseModel):
     voice: Voice = Field(description="말투의 결")
     # None 은 이 칸이 생기기 전(10-09)에 붙인 것 — fit 단계가 다시 붙인다
     audience: Audience | None = Field(default=None, description="누가 알아듣는 말인가")
+    kind: MemeKind | None = Field(default=None, description="표제어가 무엇인가")
 
     @field_validator("feelings", "uses", "fits", mode="before")
     @classmethod
@@ -182,6 +185,15 @@ class FitLabel(MemeFit):
         # 모르는 값·빈 값은 'online' — 빈칸으로 두면 다음 실행이 같은 말을 끝없이 다시 붙인다
         v = str(v or "").strip().lower()
         return v if v in get_args(Audience) else "online"
+
+    kind: MemeKind = Field(default="expr", description="표제어가 무엇인가")
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _kind(cls, v):
+        # 모르는 값은 'expr' — 추천에서 빼는 것은 topic 뿐이라, 형식 실수로 밈을 잃지 않게
+        v = str(v or "").strip().lower()
+        return v if v in get_args(MemeKind) else "expr"
 
 
 # ---------- 콘텐츠 생성 (Plan 08) — Gemini 한 번의 구조화 출력과 Gemma 의 사전 대조 검사 ----------
