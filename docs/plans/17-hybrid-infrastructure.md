@@ -1,6 +1,6 @@
 # Plan 17. Gemma·Gemini 하이브리드 인프라 구축
 
-작성일 **2026-10-01** · 상태 **실제 운영 웹/API·Cloud SQL·GCE 시험·예약 작업까지 진척 – 팀 재현·승격·승인 게시·품질/데모 미완료** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
+작성일 **2026-10-01** · 상태 **진행 – 거부 경로·Gemini 0회·Job 이미지·release 되돌리기 확인(10-10), GCE 추론은 Plan 14 결정 대기, 팀 재현·승격은 하지 않음** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
 
 [계획 목록](README.md) · [10-02 실행 기록](17-hybrid-infrastructure-실행기록.md) · [확정한 아키텍처 제안서](../AI-개발/Gemma-Gemini%20하이브리드%20아키텍처%20제안서.md) · [현재 구현 점검](archive/구현-완료도-실측-점검-2026-10-03.md)
 
@@ -10,10 +10,27 @@
 
 10-08 읽기 전용 확인 시 현재 `gcloud` 계정에는 수집 키의 프로젝트 `trend-agents-2026` 조회 권한이 없었다. 따라서 이 계정의 다른 기본 프로젝트 사용량을 대신 기록하지 않았다. 해당 프로젝트를 볼 수 있는 계정의 API 할당량 화면 또는 수집 서버 사용 기록이 필요하다.
 
-## 2026-10-09 Plan 05에서 넘겨받은 일
+## 2026-10-10 완료 기준 정리
 
-- **Job 이미지:** 유지보수·게시 Job은 Terraform `services.api_image`를 쓰고, release는 웹·API만 바꾼다. 새 migration이 든 배포 뒤 이 값을 맞추지 않으면 게시 Job은 실행을 거부하고, 유지보수 Job은 옛 코드로 돈다. release가 Job 이미지도 바꾸게 하거나, 배포 체크리스트에 Terraform 적용을 넣는다.
-- **Gemini 0회 확인:** `gemini_call` 로그 지표를 만들고, 끈 상태 revision에서 호출 0회를 지표와 Vertex AI 요청 수로 확인한다.
+| 기준(9절) | 상태 | 근거 |
+| --- | --- | --- |
+| ① 팀원 두 명의 Kaggle 재현 | 하지 않음 | 사용자 결정 10-10, Plan 06 중단과 같은 이유 |
+| ② 모델 계보·승격 | 하지 않음 | 사용자 결정 10-10 |
+| ③ GCE 실제 추론 | 대기 | [Plan 14](14-gemma-visible-in-deployment.md) 결정에 따른다 |
+| ④ 웹 실데이터 흐름·Vertex 호출 | 완료 | 운영 revision의 `gemini_call` 로그, [Plan 05](archive/05-trend-cloud-run-deployment.md) 재확인 |
+| ⑤ 거부 경로 | 완료 | 아래 10-10 확인 |
+| ⑥ 승인 배치 게시 | 완료 | 10-09 운영 게시와 Job 재실행, [승인 배치 게시](../개발환경/승인-배치-게시.md) |
+| ⑦ GPU·PC 중단 | 대기 | 운영에 GPU가 없다. Plan 14와 함께 본다 |
+| ⑧ 백업·복원·이전 release 복구 | 일부 | release 되돌리기 10-10 실행. 이전 DB로 되돌리기는 [Plan 11](11-submission-operations.md) |
+| ⑨ 품질·데모 | Plan 09로 넘김 | 데모는 다른 담당자 |
+
+**거부 경로(10-10).** staging 서비스 계정은 운영 API invoker와 운영 secret 6개 어디에도 권한이 없다. 로그인 없이, 또는 위조 쿠키로 검수·리스크·게시 쓰기를 보내면 401이고, API에 직접 보내면 403이다. 운영에 GPU VM은 없다.
+
+**Gemini 0회(10-10).** `MODEL_REQUESTS_ENABLED=false`인 revision을 트래픽 0%로 띄워 `/recommend` 2건을 보냈다. 응답은 200, 제품 이해는 규칙 기반(`brief_source=sample`)이었고 그 revision의 `gemini_call` 로그는 0건이었다. 같은 시간 운영 revision에는 `gemini_call`이 있다. 로그 기반 지표는 만들지 않았고 근거는 로그 조회다. 시험 뒤 서비스 정의를 되돌리고 시험 revision을 지웠다.
+
+**Job 이미지(10-10).** `scripts/deploy-trend.sh`가 API를 승격한 뒤 유지보수·게시 Job의 이미지도 같은 digest로 바꾼다. Terraform은 두 Job의 이미지를 무시하고, 배포 계정에 두 Job 서비스 계정의 actAs를 주었다. 711770c 배포에서 두 Job이 새 이미지로 옮겨진 것을 확인했다. Job은 여러 플랫폼 묶음(index)의 digest를, 서비스 revision은 풀린 플랫폼 digest를 보이므로 두 값이 달라 보여도 같은 이미지다.
+
+**release 되돌리기(10-10).** `scripts/rollback-gcp.sh`로 API를 `trend-production-api-db20261009-r2`, 웹을 `trend-production-web-00050-muj`로 옮겨 health·첫 화면·사전·지도 200을 확인하고 새 revision으로 돌아왔다. 처음에는 점검이 실패했다 – Cloud Run이 secret을 별칭(`secret-alias-1`)과 annotation으로 보고하는데 도구가 별칭을 풀지 않았다. `release_recovery.secret_name`이 annotation으로 풀게 고쳤다.
 
 ## 2026-10-09 승인 게시 운영 적용
 
