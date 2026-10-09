@@ -210,6 +210,9 @@ def _hashtag(x) -> str:
     return "".join(ch for ch in str(x) if ch == "_" or unicodedata.category(ch)[0] in "LMN")[:40]
 
 
+TRAILING_TAGS = re.compile(r"(?:\s*#[^\s#]+)+\s*$")   # 본문 끝의 '#a #b' 묶음
+
+
 class SocialCopy(BaseModel):
     """SNS 카피 한 안. 글은 목표 지역의 언어, note_ko 는 마케터가 읽는 설명(화면 언어 — 이름은 예전 그대로)."""
 
@@ -233,6 +236,19 @@ class SocialCopy(BaseModel):
             if (t := _hashtag(x)) and t not in out:
                 out.append(t)
         return out[:8]
+
+    @model_validator(mode="after")
+    def _trailing_tags(self):
+        # 모델이 본문 끝에도 해시태그 묶음을 적어 화면·글자 수에 두 번 들어갔다(8차 판정 JP x). 끝 묶음은 hashtags 로 옮긴다
+        m = TRAILING_TAGS.search(self.text)
+        if not m or not m.start():
+            return self
+        tags = list(self.hashtags)
+        for x in m.group(0).split("#"):
+            if (t := _hashtag(x)) and t not in tags:
+                tags.append(t)
+        self.text, self.hashtags = self.text[:m.start()].rstrip(), tags[:8]
+        return self
 
 
 class ScriptScene(BaseModel):

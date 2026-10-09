@@ -119,6 +119,16 @@ def test_rules_catch_copy_that_talks_about_the_meme():
     assert {k: v[0] for k, v in got.items()} == {"copy0": "meta_meme", "copy1": "meta_meme"}
 
 
+def test_trailing_hashtags_in_text_move_to_hashtags():
+    c = SocialCopy(platform="x", text="一口でこころぴょんぴょん！ #アイス黒糖ラテ #夏限定 #カフェ", hashtags=["アイス黒糖ラテ", "夏限定", "カフェ", "黒糖"])
+    assert c.text == "一口でこころぴょんぴょん！"
+    assert c.hashtags == ["アイス黒糖ラテ", "夏限定", "カフェ", "黒糖"]
+    assert generate.copy_text(c).count("#夏限定") == 1
+    assert SocialCopy(platform="x", text="오늘 #럭키비키 한 잔", hashtags=["라떼"]).text == "오늘 #럭키비키 한 잔"   # 문장 가운데 태그는 둔다
+    assert SocialCopy(platform="x", text="#럭키비키").text == "#럭키비키"                                       # 본문 전체가 태그면 둔다
+    assert SocialCopy(platform="x", text="새 라떼 #여름 #흑당").hashtags == ["여름", "흑당"]
+
+
 def test_x_length_counts_cjk_as_two_and_includes_hashtags():
     assert generate.x_length("a" * 280) == 280 and generate.x_length("가" * 140) == 280
     assert generate.x_length("สวัสดี") == 6                                      # 태국 글자는 1
