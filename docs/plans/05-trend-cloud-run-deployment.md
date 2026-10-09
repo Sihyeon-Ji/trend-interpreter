@@ -2,11 +2,24 @@
 
 > **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-04** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05). 승인 게시 미완료** · 선행 [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05). 승인 게시 미완료** · 선행 [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
 [계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
 > **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+
+## 2026-10-09 배포 네 번과 운영 확인
+
+10-06(`1a51276`) 뒤 첫 운영 배포다. 팀원 배포(`59a8f78`·`b2425cf`·`7187853`)와 번갈아 `release/gcp`를 앞으로만 옮겼다. 매번 로컬 `docker compose run --rm --build check`·`e2e`를 통과시킨 뒤 올렸다.
+
+| 실행 | 커밋 | 결과 |
+| --- | --- | --- |
+| 37890843888 | `1be66b3`(develop 59커밋) | **배포 건너뜀** – static 검사의 osv-scanner가 `next` 16.3.6(6건, High 1)과 shadcn CLI가 끌어오는 `@modelcontextprotocol/sdk` 1.30.0(High 1)을 잡았다 |
+| 37892512903 | `6c60d7a` – next·eslint-config-next 16.3.8, SDK는 overrides 1.31.0 | 성공. 새 API가 시작하며 migration 018~021을 운영 DB에 적용했다(새 열·새 표·새 표의 trigger뿐) |
+| 37896346240 | `9845a04` – 사용 자제 공개 숨김([Plan 03](03-term-risk.md#2026-10-09-공개-숨김과-운영-리스크-사람-결정)) | 성공 |
+| 37900800448 | `bd5a7b3` – 브리핑 요약·소개의 '쓰지 말 밈' 문구 제거 | 성공(이 회차는 로컬 e2e가 Docker 정지로 끝나지 못해 CI e2e로 갈음) |
+
+확인(로그인 없이, 운영 웹): 새 무대 화면, `/`·`/dictionary`·`/trends`·`/map`·`/check`·`/updates`·`/about` 200, 없는 주소 404, `/admin`은 로그인으로. 숨김 대상(アヘ顔·2 Girls 1 Cup·Let's Go Brandon·Fuck Tha Police 등)은 항목 주소 404, 공개 항목(밤티·오살힘·推し活) 200, 둘러보기 세 시장 첫 쪽에 숨김 대상 이름 0건. 관리 화면 '변경 묶음'(020 표)이 열리고 사람 리스크 결정 7건이 배포 뒤에도 남았다. 배포 뒤 API·웹 ERROR 로그 0건. 첫 요청은 사전 2초 남짓, 브리핑은 Gemini 요약을 새로 쓰느라 30초(두 번째부터 0.6초) – 녹화·심사 전에 한 번씩 연다. 운영 DB의 `schema_migrations`를 직접 조회하지는 않았다(리비전이 떴으므로 적용된 것으로 본다).
 
 ## 2026-10-06 공개 조회·검수 경계 후속 구현
 

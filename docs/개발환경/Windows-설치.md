@@ -59,3 +59,12 @@ Windows에 별도로 클론한 다른 폴더를 수정하면 실행 중인 컨�
 접속이 안 되면 [Microsoft WSL 네트워크 안내](https://learn.microsoft.com/en-us/windows/wsl/networking)를 참고하세요.
 
 이후 실행·검사·패키지 관리 명령은 Mac과 같습니다. [개발 명령어 모음](개발-명령어.md)을 사용하세요.
+
+## 5. Docker Desktop이 멈췄을 때
+
+`docker compose run --rm --build check`·`e2e`를 여러 번 돌리면 빌드 캐시가 쌓여 Docker 데이터 파일(`%LOCALAPPDATA%\Docker\wsl\disk\docker_data.vhdx`)이 40GB 넘게 커진다. C 드라이브가 1~2GB까지 차면 엔진이 멈추고 모든 명령이 `500 Internal Server Error`를 낸다(10-07·10-09 실제 사례).
+
+1. 검사를 여러 번 돌리기 전에 C 드라이브 여유를 보고, 필요하면 `docker builder prune -af`로 빌드 캐시를 비운다. 로컬 DB 볼륨(`ai-builder-cup_postgres_data`)은 지우지 않는다.
+2. 멈췄으면 Docker Desktop을 끄고 `wsl --shutdown` 뒤 다시 켠다. 켜지자마자 꺼지면(백엔드 로그 `…sailor-ingest.sock … cannot be accessed`) 비정상 종료 때 남은 소켓 파일 때문이다. `%LOCALAPPDATA%\Docker\run`과 `%LOCALAPPDATA%\docker-secrets-engine` 폴더 이름을 바꿔 비켜 두고 다시 켠다.
+3. Docker 프로세스가 강제 종료로도 꺼지지 않으면 PC를 재부팅한다.
+4. 공간을 C 드라이브로 돌려받으려면 Docker를 끈 뒤 관리자 PowerShell에서 `Optimize-VHD -Path "$env:LOCALAPPDATA\Docker\wsl\disk\docker_data.vhdx" -Mode Full`을 실행한다. 엔진이 멈췄던 동안 남은 데이터는 Docker 목록에 보이지 않아 압축으로도 줄지 않을 수 있다 – 그때는 Troubleshoot → Clean / Purge data(로컬 이미지·DB 볼륨이 지워진다)뿐이다.
