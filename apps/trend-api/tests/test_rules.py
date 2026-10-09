@@ -1430,7 +1430,7 @@ def test_research_counts_reference_documents_already_stored(monkeypatch):
 
 def test_risk_catches_sensitive_topics_without_usage_sentences():
     """위키에서 들어온 말은 쓰임 문장이 없어 판단 보류로만 남았다. 뜻풀이가 민감한 소재를 다루거나 위키 분류가 정치·종교 밈이면 '주의'(09-30).
-    과자 논쟁 같은 '전쟁' 은 잡지 않는다."""
+    과자 논쟁 같은 '전쟁' 은 잡지 않는다. '지나치게'·'참가자' 속 글자도 소재가 아니다(10-09)."""
     from datetime import datetime, timezone
 
     from trend_agents.pipeline import catalog, risk
@@ -1448,6 +1448,10 @@ def test_risk_catches_sensitive_topics_without_usage_sentences():
 
     assert risk.judge(con, put("a", "Heil meme", "나치 경례를 흉내 내는 밈"))[0] == "caution"
     assert risk.judge(con, put("b", "Kinoko war", "과자 두 종류를 두고 벌이는 전쟁 같은 논쟁"))[0] is None
+    assert risk.judge(con, put("d", "Uncle style", "지나치게 친한 척하는 중년 남성의 말투"))[0] is None   # '지나치게' 의 나치
+    assert risk.judge(con, put("e", "Bike guy", "참가자들이 지나가자 사진을 찍는 장면에서 나온 말"))[0] is None
+    assert risk.judge(con, put("f", "Gaza joke", "가자 지구 전쟁을 소재로 한 밈"))[0] == "caution"
+    assert risk.judge(con, put("g", "Neo meme", "신나치 집회 구호를 비튼 밈"))[0] == "caution"
     t = put("c", "Some slogan", "어떤 구호를 따라 하는 밈")
     catalog.record(con, "c", "Some slogan", "namu", ["인터넷 밈/정치 및 사회"])
     level, reasons = risk.judge(con, t)

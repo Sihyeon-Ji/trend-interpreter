@@ -1,4 +1,4 @@
-"""추천·만들기 품질 평가 (Plan 09). 목표 지역 5곳 × 제품 4종 = 20개 사례를 실제 모델로 한 번 돌린다.
+"""추천·만들기 품질 평가 (Plan 09). 시장 3곳 × 제품 4종 = 12개 사례를 실제 모델로 한 번 돌린다.
 
 재는 것 — 규칙으로 잴 수 있는 것만 여기서 채운다. 사람이 볼 것(추천 적합도·바로 쓸 수 있는가·뜻 정확성·리스크 누락)은 빈칸으로 내보낸다.
   응답 시간(추천·만들기 각각 p50·최대), 모델 호출 수, 추천 수, 규칙 검사로 뺀 안(코드별), 추천의 리스크·생애주기 분포,
@@ -25,7 +25,8 @@ from trend_agents.pipeline import generate, recommend
 from trend_agents.storage import store as db
 
 OUT = Path(__file__).resolve().parents[3] / "artifacts" / "eval"
-REGIONS = ["KR", "JP", "TW", "TH", "ID"]
+# 만들기 화면의 시장과 같게(Plan 20: 한국·일본·영어권). TW·TH·ID 는 고를 수 없는 지역이라 후보가 2~9개뿐이었다(10-09)
+REGIONS = ["KR", "JP", "GLOBAL"]
 # 제품 4종 (Plan 09: 식품·화장품·패션·앱). 사진 대신 그 나라 마케터가 넣을 만한 문구로 돌린다.
 PRODUCTS = {
     "food": "여름 한정 아이스 흑당 라떼. 더운 오후 한 잔으로 기분 전환",
