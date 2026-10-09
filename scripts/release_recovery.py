@@ -20,6 +20,13 @@ class RecoveryError(Exception):
     pass
 
 
+def secret_name(revision: dict, name: str) -> str:
+    """Cloud Run reports secrets mounted from Secret Manager under aliases listed in an annotation."""
+    annotation = revision["metadata"].get("annotations", {}).get("run.googleapis.com/secrets", "")
+    aliases = dict(entry.split(":", 1) for entry in annotation.split(",") if ":" in entry)
+    return aliases.get(name, name).rsplit("/secrets/", 1)[-1]
+
+
 def command(*args: str) -> str:
     return subprocess.run(args, capture_output=True, text=True, check=True).stdout.strip()
 
@@ -59,7 +66,7 @@ def validate_revision(service: str, revision: dict) -> tuple[str, str]:
         raise RecoveryError("Required secret reference is missing")
     reference = matching[0].get("valueFrom", {}).get("secretKeyRef", {})
     version = reference.get("key", "")
-    if reference.get("name") != secret or not isinstance(version, str) or not version.isdecimal():
+    if secret_name(revision, reference.get("name", "")) != secret or not isinstance(version, str) or not version.isdecimal():
         raise RecoveryError("Revision must reference a numbered secret version")
     return image, version
 

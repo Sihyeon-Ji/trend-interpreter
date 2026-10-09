@@ -42,6 +42,19 @@ def test_revision_preflight_rejects_wrong_service_unready_or_unpinned_secret():
             recovery.validate_revision("trend-production-api", target)
 
 
+def test_revision_preflight_resolves_secret_aliases():
+    target = revision()
+    variable, secret = recovery.SECRETS["trend-production-api"]
+    target["metadata"]["annotations"] = {
+        "run.googleapis.com/secrets": f"secret-alias-2:projects/p/secrets/other,secret-alias-1:projects/p/secrets/{secret}"
+    }
+    target["spec"]["containers"][0]["env"][0]["valueFrom"]["secretKeyRef"]["name"] = "secret-alias-1"
+    assert recovery.validate_revision("trend-production-api", target)[1] == "1"
+    target["spec"]["containers"][0]["env"][0]["valueFrom"]["secretKeyRef"]["name"] = "secret-alias-2"
+    with pytest.raises(recovery.RecoveryError):
+        recovery.validate_revision("trend-production-api", target)
+
+
 def test_relay_invoker_policy_must_stay_private():
     push = f"serviceAccount:builder-cup-alert-push@{recovery.PROJECT_ID}.iam.gserviceaccount.com"
     recovery.validate_relay_iam({"bindings": [{"role": "roles/run.invoker", "members": [push]}]})
