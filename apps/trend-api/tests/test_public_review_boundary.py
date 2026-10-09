@@ -139,7 +139,7 @@ def test_explanation_discards_legacy_draft_cache_and_rechecks_retired_entries(bo
     ds.explain_cache_set(con, "ko", "published pending", ["published", "pending"], "DRAFT REWRITE")
     seen = []
 
-    def rewrite(text, lang, glossary, reader):
+    def rewrite(text, lang, glossary, reader, **kw):
         seen.append(glossary)
         return "APPROVED REWRITE" if glossary else None
 

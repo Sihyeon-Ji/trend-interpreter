@@ -49,7 +49,24 @@ def _generate_apart(prompt: str):
         return generate(con, prompt)
 
 
-def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S) -> str | None:
+def _late(fut, on_late, read) -> None:
+    """시간 초과 뒤에 도착한 답 – 요청은 이미 매칭 결과만 돌려줬다. 버리지 않고 on_late 로 넘겨 다음 요청이 캐시에서 받게 한다.
+    운영 Gemini 재작성이 17초 걸려 12초 한도에 늘 잘리고 캐시도 안 돼, 메시지 해석 예시가 방문마다 12초였다(10-09)."""
+    def done(f) -> None:
+        try:
+            plain = read(f.result())
+        except Exception:
+            return
+        if plain:
+            try:
+                on_late(plain)
+            except Exception:
+                pass
+    fut.add_done_callback(done)
+
+
+def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict | None = None, timeout_s: float = REWRITE_TIMEOUT_S,
+            on_late=None) -> str | None:
     if not glossary:
         return None
     g = "\n".join(f"- {t}: {m}" for t, m in glossary)
@@ -60,7 +77,11 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
             fut = _pool.submit(gemma_rewrite.rewrite_plain, text, [gemma_rewrite.GlossaryItem(term=t, meaning=m) for t, m in glossary], lang)
             try:
                 return fut.result(timeout=timeout_s)
-            except (FutureTimeout, Exception):  # 시간 초과·형식 실패 — Gemini 로 넘기지 않는다(generate 도 로컬로 가서 수 분 막힌다). 매칭 결과만 돌려준다
+            except FutureTimeout:      # 늦게 온 답은 다음 요청을 위해 남긴다
+                if on_late:
+                    _late(fut, on_late, lambda out: out)
+                return None
+            except Exception:          # 형식 실패 — Gemini 로 넘기지 않는다(generate 도 로컬로 가서 수 분 막힌다). 매칭 결과만 돌려준다
                 return None
     aud = ""
     if reader and (reader.get("gen") or reader.get("region")):
@@ -69,7 +90,11 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
     try:
         resp, _ = fut.result(timeout=timeout_s)
         return (resp.text or "").strip() or None
-    except (BudgetExhausted, FutureTimeout, Exception):
+    except FutureTimeout:
+        if on_late:
+            _late(fut, on_late, lambda out: (out[0].text or "").strip() or None)
+        return None
+    except (BudgetExhausted, Exception):
         return None
 
 
@@ -88,7 +113,11 @@ def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -
         meaning = (tr.plain or tr.definition) if tr else (m.definition if m else "")
         if meaning and t.status == "verified":
             glossary.append((t.canonical, meaning))
-    plain = rewrite(text, lang, glossary, reader)
+    def keep(late: str) -> None:              # 작업 스레드 – 요청 연결은 이미 돌아갔으니 따로 빌린다
+        with db.session() as c:
+            ds.explain_cache_set(c, key_lang, text, ids, late)
+
+    plain = rewrite(text, lang, glossary, reader, on_late=keep)
     if not terms:
         ds.log_lookup_miss(con, text, lang)  # 사전에 없는 표현일 수 있다 → 발굴(spot) 단계 재료
     if plain is not None or not glossary:  # 시간 초과로 재작성이 빠진 답은 캐시하지 않는다 — 다음엔 다시 시도

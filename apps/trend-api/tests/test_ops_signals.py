@@ -329,3 +329,20 @@ def test_stale_threshold_follows_the_environment(monkeypatch):
     assert importlib.reload(config).STALE_AFTER_HOURS == 192
     monkeypatch.delenv("STALE_AFTER_HOURS")
     assert importlib.reload(config).STALE_AFTER_HOURS == 12
+
+
+def test_explain_rewrite_that_arrives_after_the_timeout_is_kept_for_the_next_request(monkeypatch):
+    """운영 Gemini 재작성이 17초라 12초 한도에 늘 잘렸고, 잘린 답은 캐시도 안 돼 방문마다 12초였다(10-09).
+    요청은 기다리지 않고 매칭 결과만 돌려주되, 늦게 온 답은 on_late 로 넘겨 남긴다."""
+    import threading
+    import time
+
+    from trend_agents.pipeline import explain
+
+    monkeypatch.setattr(explain, "USE_LOCAL_GEMMA", False)
+    monkeypatch.setattr(explain, "_generate_apart", lambda prompt: (time.sleep(0.3), (SimpleNamespace(text=" late plain "), "gemini-x"))[1])
+    got, arrived = [], threading.Event()
+    out = explain.rewrite("완전 럭키비키", "ko", [("럭키비키", "좋게 받아들이는 태도")], timeout_s=0.05,
+                          on_late=lambda plain: (got.append(plain), arrived.set()))
+    assert out is None
+    assert arrived.wait(5) and got == ["late plain"]
