@@ -9,6 +9,7 @@ import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, Up
 import { SAMPLE_GRAPH, SAMPLE_GRAPH_CONTENTS } from "./sample/graph";
 import type { Briefing, GemmaUsage, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord, TermRelated } from "./types";
 import { sampleBriefing } from "./sample/briefing";
+import { loadBriefing } from "./briefing-fetch";
 import type { Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
@@ -282,10 +283,13 @@ export async function getKeywordBoard(regions: string[], page = 1): Promise<Keyw
  *  없으면 화면이 규칙 문장을 쓴다. 실데이터 모드에서 서버가 실패하면 예시로 바꾸지 않고 던진다. */
 export async function getBriefing(regions: string[], locale: Locale): Promise<Briefing> {
   if (isSampleMode) return sampleBriefing(regions);
-  const q = new URLSearchParams({ lang: locale });
-  if (regions.length) q.set("regions", regions.join(","));
-  // 요약을 처음 쓸 때 모델 호출(수 초)이 끼므로 대시보드보다 길게 기다린다
-  const res = await apiFetch(`/briefing?${q}`, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  // 요약을 처음 쓸 때 모델 호출이 끼어 늦을 수 있다 – 늦거나 실패하면 목록만 받아 규칙 문장으로 연다(briefing-fetch)
+  const res = await loadBriefing((summary, waitMs) => {
+    const q = new URLSearchParams({ lang: locale });
+    if (regions.length) q.set("regions", regions.join(","));
+    if (!summary) q.set("summary", "false");
+    return apiFetch(`/briefing?${q}`, { cache: "no-store", signal: AbortSignal.timeout(waitMs) });
+  });
   if (!res.ok) throw new ApiError("/briefing", res.status);
   return (await res.json()) as Briefing;
 }
