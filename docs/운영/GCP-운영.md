@@ -585,17 +585,20 @@ scripts/refresh-production-db.sh overlay trend_<날짜> artifacts/refresh/<snaps
 scripts/refresh-production-db.sh secret trend_<날짜>
 ```
 
-6. `infra/gcp/hybrid/production.tfvars.json`의 `services.database_secret_version`을 새 version으로 바꾸고 (Terraform은 `infra/gcp/hybrid`에서 `TF_DATA_DIR=.terraform/production`으로 실행한다 – 기본 `.terraform`은 staging 상태다) `scripts/terraform-vars.sh save`로 사본을 남긴 뒤, API와 백업 Job만 적용한다. API는 새 revision이 생기지만 트래픽은 지금 revision에 남는다.
+6. `infra/gcp/hybrid/production.tfvars.json`의 `services.database_secret_version`을 새 version으로 바꾸고 (Terraform은 `infra/gcp/hybrid`에서 `TF_DATA_DIR=.terraform/production`으로 실행한다 – 기본 `.terraform`은 staging 상태다) `scripts/terraform-vars.sh save`로 사본을 남긴 뒤, API·백업 Job·유지보수 Job을 적용한다. 10-09 전환은 유지보수 Job을 빠뜨려 옛 DB를 계속 보게 했다. API는 새 revision이 생기지만 트래픽은 지금 revision에 남는다.
 
 ```bash
 terraform plan -var-file=production.tfvars.json \
   -target=google_cloud_run_v2_service.api -target=google_cloud_run_v2_job.backup \
   -target='google_secret_manager_secret_iam_member.runtime["api-DATABASE_URL"]' \
+  -target=google_cloud_run_v2_job.maintenance \
   -target='google_secret_manager_secret_iam_member.runtime["backup-DATABASE_URL"]' -out=switch.tfplan
 terraform apply switch.tfplan
 ```
 
    10-09부터 API는 배포 스크립트가 revision 이름을 정해 Terraform이 409로 실패한다. 그때는 백업 Job만 Terraform으로 맞추고, API는 **서비스 정의를 막 다시 읽어** Cloud Run v2 API로 template의 DB secret 버전과 새 revision 이름만 바꾼다(트래픽은 그대로, [Plan 19 10-09 기록](../plans/19-production-data-refresh.md#2026-10-09-두-번째-전환)). 덮어 얹기(4)는 반드시 secret(5) 전에 끝낸다.
+
+   게시 Job도 새 DB로 옮긴다. 새 DB에 `GRANT CONNECT … TO trend_publisher`와 `configure_publisher_role.py --role trend_publisher`를 실행하고, 새 DB 이름으로 `trend-production-publisher-database` version을 추가해 `publisher.database_secret_version`을 바꾼다([승인 배치 게시](../개발환경/승인-배치-게시.md)).
 
 7. 새 API revision이 Ready인지 보고 트래픽을 옮긴다. 웹은 DB를 직접 쓰지 않아 바꾸지 않는다.
 
