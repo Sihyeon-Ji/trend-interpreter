@@ -1,6 +1,6 @@
 """리스크 판정 표본 20개 — 검수자 체크리스트와 일치율 (Plan 03 완료 기준 '표본 20개를 사람이 검토한 일치율'). 모델을 부르지 않는다.
 
-  uv run scripts/risk_sample.py draw --sqlite <DB 사본>   # 층을 나눠 뽑아 docs/plans/03-term-risk-sample.csv 에 쓴다(파일이 있으면 --force 없이는 쓰지 않는다)
+  uv run scripts/risk_sample.py draw --sqlite <DB 사본>   # 층을 나눠 뽑아 docs/plans/archive/03-term-risk-sample.csv 에 쓴다(파일이 있으면 --force 없이는 쓰지 않는다)
   uv run scripts/risk_sample.py agree                     # 그 파일에 검수자가 적은 수준을 뽑을 때의 규칙 수준과 견준다 — DB 를 보지 않는다
   (draw 는 --sqlite 가 없으면 DATABASE_URL 의 PostgreSQL 에 읽기 전용으로 붙는다 — 스키마·마이그레이션을 건드리지 않는다)
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-SAMPLE = Path(__file__).resolve().parents[3] / "docs" / "plans" / "03-term-risk-sample.csv"
+SAMPLE = Path(__file__).resolve().parents[3] / "docs" / "plans" / "archive" / "03-term-risk-sample.csv"
 QUOTAS = {"avoid": 5, "caution": 7, "none": 5, "hold": 3}
 # Plan 03 1차 검토(개발자 16/20)에서 어긋난 넷(viral video·pov·brah 는 문장 분위기로 '주의', Tralalero Tralala 는 원본 음성의
 # 신성모독을 놓쳐 '없음' — 규칙이 위험을 놓친 쪽의 유일한 예)과 검토 중 논의된 말 — 표본마다 다시 본다

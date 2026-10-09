@@ -1,6 +1,6 @@
 # 제안: 운영에 Gemma 4를 올려 두고 '라이브 분류' 버튼으로만 실행
 
-상태 **제안 초안 (팀 검토 전)** · 작성일 **2026-09-29** · 제안 최은지 · 관련 [Gemma 로컬 편집 결정](Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](../plans/03-term-risk.md) · [Plan 05 배포](../plans/05-trend-cloud-run-deployment.md) · [Plan 06 로컬 편집](../plans/06-gemma-on-cloud-run-gpu.md)
+상태 **제안 초안 (팀 검토 전)** · 작성일 **2026-09-29** · 제안 최은지 · 관련 [Gemma 로컬 편집 결정](Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](../plans/archive/03-term-risk.md) · [Plan 05 배포](../plans/05-trend-cloud-run-deployment.md) · [Plan 06 로컬 편집](../plans/06-gemma-on-cloud-run-gpu.md)
 
 ## 요약
 

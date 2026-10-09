@@ -4,7 +4,7 @@
 
 작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 구현(10-06) – 사전 항목 '이 판정의 근거 문장', 공개 설명 `/about`, 관리 화면 '모델 기록'과 단계별 호출 수·시간. live-risk·관리자 실행 미구현** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
-[계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](03-term-risk.md) · [Plan 12 문서 대조](12-dictionary-crosscheck.md)
+[계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](archive/03-term-risk.md) · [Plan 12 문서 대조](archive/12-dictionary-crosscheck.md)
 
 ## 2026-10-06 0단계 구현
 
@@ -105,7 +105,7 @@ API는 `POST /terms/{term_id}/live-risk`다. 권한·하루 한도·용어별 10
 | 결과 | 공개 값을 바로 바꾸지 않는다. `risk`·`fit`·`translate`의 새 값은 검수 큐에 제안으로 올리고, `crosscheck`는 지금처럼 검수 큐에 올린다. 사람이 승인해야 게시된다 |
 | 화면 | 실행 중 단계, 용어별 처리 수, 걸린 시간, 모델 이름, 이전 값과 새 값의 차이 |
 
-`risk`·`fit`·`translate`를 검수 큐에 올리려면 [Plan 12](12-dictionary-crosscheck.md)의 제안 종류(`review_queue.kind`)에 종류를 더해야 한다.
+`risk`·`fit`·`translate`를 검수 큐에 올리려면 [Plan 12](archive/12-dictionary-crosscheck.md)의 제안 종류(`review_queue.kind`)에 종류를 더해야 한다.
 이것이 부담스러우면 첫 판은 **결과를 화면에만 보이고 저장하지 않는** 미리보기로 시작하고, 검수 큐 연결은 다음 판으로 미룬다.
 
 ## 운영 Gemma 서비스
