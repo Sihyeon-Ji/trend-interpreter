@@ -27,6 +27,7 @@ from .views import ExcludedItem, KeywordCard, RecommendItem, RecommendResult
 TOP = 5
 EXCLUDED_PER_REGION = 4   # 만들기 화면의 '뺀 말' — 시장마다 이만큼
 MIN_FIT = 2          # 분야(3)나 느낌 하나(2)는 맞아야 추천한다 — 모자라면 채우지 않는다
+NICHE_OK = {"entertainment", "game"}   # 특정 작품·팬덤 안에서만 통하는 밈을 권하는 제품 분야
 MIN_SCORE = 2.0      # 퍼진 정도·생애주기·리스크를 더한 뒤에도 이만큼은 돼야 한다(잠잠한 밈이 -0.5 로 추천되던 것을 막는다)
 # 톤마다 허용하는 말투와 반기는 느낌. '고급스러움' 은 장난스러운 말도 뺀다.
 TONES: dict[str, tuple[set[str], set[str]]] = {
@@ -76,6 +77,8 @@ def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tu
     _, liked = TONES[tone]
     if blocked(fit, card, tone):
         return None
+    if fit.audience == "niche" and brief.category not in NICHE_OK:
+        return None                   # 서브컬처 캐릭터 밈(いまいち萌えない娘)이 화장품·러닝화에 나왔다(사람 판정 10-09)
     cat = brief.category in fit.fits
     if fit.fits and not cat and not fit.any_category:
         return None                   # 분야가 정해진 밈은 그 분야 제품에만(팬덤 말 推し活 을 카드 광고에 — 09-30 실측)

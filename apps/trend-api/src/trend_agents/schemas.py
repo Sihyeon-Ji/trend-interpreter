@@ -133,6 +133,8 @@ Feeling = Literal["joy", "hype", "cute", "funny", "relatable", "comfort", "pride
 MemeUse = Literal["reaction", "praise", "self_mockery", "celebration", "complaint", "recommendation", "greeting", "challenge", "catchphrase", "format"]
 FitCategory = Literal["food_drink", "fashion_beauty", "tech", "game", "entertainment", "travel", "finance", "health_fitness", "education", "lifestyle"]
 Voice = Literal["wholesome", "playful", "edgy", "crude"]
+# 누가 알아듣나 — 누구나(general) · 인터넷 문화를 아는 사람(online) · 특정 작품·캐릭터·팬덤·서브컬처 안(niche)
+Audience = Literal["general", "online", "niche"]
 CampaignTone = Literal["friendly", "witty", "premium"]   # 홍보 톤: 친근함·재치·고급스러움
 
 
@@ -151,6 +153,8 @@ class MemeFit(BaseModel):
     fits: list[FitCategory] = Field(default_factory=list, description="자연스럽게 어울리는 제품 분야 0~3개")
     any_category: bool = Field(default=False, description="분야를 가리지 않고 쓰는 반응·감탄 표현이면 true")
     voice: Voice = Field(description="말투의 결")
+    # None 은 이 칸이 생기기 전(10-09)에 붙인 것 — fit 단계가 다시 붙인다
+    audience: Audience | None = Field(default=None, description="누가 알아듣는 말인가")
 
     @field_validator("feelings", "uses", "fits", mode="before")
     @classmethod
@@ -170,6 +174,14 @@ class FitLabel(MemeFit):
     """배치로 여러 표제어를 한 번에 붙일 때의 한 줄 — i 는 입력 번호."""
 
     i: int
+    audience: Audience = Field(default="online", description="누가 알아듣는 말인가")
+
+    @field_validator("audience", mode="before")
+    @classmethod
+    def _audience(cls, v):
+        # 모르는 값·빈 값은 'online' — 빈칸으로 두면 다음 실행이 같은 말을 끝없이 다시 붙인다
+        v = str(v or "").strip().lower()
+        return v if v in get_args(Audience) else "online"
 
 
 # ---------- 콘텐츠 생성 (Plan 08) — Gemini 한 번의 구조화 출력과 Gemma 의 사전 대조 검사 ----------

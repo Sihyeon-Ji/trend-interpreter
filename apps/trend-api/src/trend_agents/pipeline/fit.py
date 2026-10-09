@@ -27,6 +27,9 @@ fits (이 표현을 넣은 광고 문구가 자연스러운 제품 분야, 0~3�
   외모·옷차림 말 → fashion_beauty, 직장·돈 이야기 → finance·lifestyle, 공부·시험 → education.
 any_category: 특정 분야와 이어지지 않고 어떤 제품에나 붙는 반응·감탄 표현이면 true (그때는 fits 를 비워도 된다)
 voice (말투의 결): wholesome 누구에게나 무난 · playful 장난스러움 · edgy 비꼬거나 아슬아슬함 · crude 저속·선정
+audience (누가 알아듣나): general 인터넷을 잘 안 하는 사람도 아는 말 · online 인터넷 문화(짤·커뮤니티)를 아는 사람이면 아는 말 ·
+  niche 특정 작품·캐릭터·게임·팬덤·서브컬처를 아는 사람끼리만 통하는 말
+  캐릭터·작품·게임에서 나온 밈은 그 작품의 분야(entertainment·game)다 — 캐릭터의 생김새·옷차림만으로 fashion_beauty 를 붙이지 마라.
 뜻에 없는 것을 지어내지 마라. 분야와 이어지는 근거가 뜻에 없으면 fits 를 비운다. 입력 번호를 i 로 그대로 돌려줘라.
 
 표현:
@@ -34,12 +37,12 @@ voice (말투의 결): wholesome 누구에게나 무난 · playful 장난스러�
 
 
 def todo(con: Connection) -> list[tuple]:
-    """(표제어, 현재 뜻) — 아직 안 붙였거나 뜻이 바뀐 것만. 최근 언급이 많은 것부터(대시보드 윗줄이 먼저 준비되게)."""
+    """(표제어, 현재 뜻) — 아직 안 붙였거나 뜻이 바뀌었거나 audience 칸이 생기기 전에 붙인 것만. 최근 언급이 많은 것부터(대시보드 윗줄이 먼저 준비되게)."""
     fits = ds.all_fits(con)
     out = []
     for t in ds.list_terms(con, ("verified",)):
         m = ds.current_meaning(con, t.term_id)
-        if m and (t.term_id not in fits or fits[t.term_id][0] != m.meaning_id):
+        if m and (t.term_id not in fits or fits[t.term_id][0] != m.meaning_id or fits[t.term_id][1].audience is None):
             out.append((t, m, sum(c for _, c in ds.get_weekly(con, t.term_id, 4))))
     out.sort(key=lambda x: -x[2])
     return [(t, m) for t, m, _ in out]

@@ -20,7 +20,8 @@ def _no_models(monkeypatch):
 LATTE = ProductBrief(product="아이스 라떼", category="food_drink", feelings=["joy", "comfort"], values=["시원함"], scene="카페")
 
 
-def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=True, lifecycle="steady", risk="none", diffusion="mainstream"):
+def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=True, lifecycle="steady", risk="none", diffusion="mainstream",
+          audience="general"):
     now = datetime.now(timezone.utc)
     ds.upsert_term(con, Term(term_id=tid, canonical=name, lang="ko", status="verified", lifecycle=lifecycle, first_seen=now, last_seen=now,
                              risk_level=risk, diffusion=diffusion))
@@ -31,7 +32,8 @@ def _term(con, tid, name, feelings, voice="wholesome", fits=(), any_category=Tru
     ds.add_evidences(con, tid, [Evidence(evidence_id=f"e_{tid}", kind="news", url=f"https://news.example/{tid}", title=f"{name} 기사",
                                          source_domain="news.example", observed_at=now, excerpt=f"{name} 진짜")])
     cur = ds.current_meaning(con, tid)
-    ds.set_fit(con, tid, cur.meaning_id, MemeFit(feelings=list(feelings), uses=["reaction"], fits=list(fits), any_category=any_category, voice=voice), "test")
+    ds.set_fit(con, tid, cur.meaning_id, MemeFit(feelings=list(feelings), uses=["reaction"], fits=list(fits), any_category=any_category, voice=voice,
+                                                       audience=audience), "test")
     return m
 
 
@@ -237,6 +239,28 @@ def test_fit_stage_tags_only_new_or_changed_meanings(monkeypatch):
     monkeypatch.setattr(fit, "local_ok", lambda: True)
     monkeypatch.setattr(fit, "structured", lambda con, prompt, schema: ([FitLabel(i=0, feelings=["joy"], uses=["praise"], voice="wholesome")], "test"))
     assert fit.run(con)["fit"].count == 1 and fit.todo(con) == []
+    assert ds.all_fits(con)["good"][1].audience == "online"          # 모델이 빠뜨린 audience 는 online 으로 — 다시 붙이지 않는다
+
+
+def test_fit_stage_retags_fits_made_before_audience(monkeypatch):
+    """audience 칸이 생기기 전에 붙인 쓰임 낱말은 뜻이 그대로여도 다시 붙인다(10-09)."""
+    from trend_agents.pipeline import fit
+
+    con = _con()
+    m = ds.current_meaning(con, "ok")
+    ds.set_fit(con, "ok", m.meaning_id, MemeFit(feelings=["joy"], uses=["reaction"], any_category=True, voice="wholesome"), "old")
+    assert [t.term_id for t, _ in fit.todo(con)] == ["ok"]
+
+
+def test_niche_memes_only_for_entertainment_and_game():
+    """특정 작품·팬덤 밈은 엔터·게임 제품에만 권한다 — 서브컬처 캐릭터 밈이 화장품·러닝화에 나왔다(사람 판정 10-09)."""
+    con = db.connect(":memory:")
+    _term(con, "otaku", "캐릭터밈", ["joy", "comfort"], fits=["food_drink", "entertainment"], audience="niche")
+    _term(con, "plain", "모두아는말", ["joy", "comfort"], fits=["food_drink", "entertainment"])
+    dashboard.run(con)
+    assert [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items] == ["plain"]
+    show = LATTE.model_copy(update={"category": "entertainment"})
+    assert {i.term_id for i in recommend.recommend(con, show, "sample", ["KR"], "friendly").items} == {"otaku", "plain"}
 
 
 # ---------- 검토 2차 ----------
