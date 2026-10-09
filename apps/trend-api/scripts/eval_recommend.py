@@ -39,7 +39,7 @@ PRODUCTS = {
 TONE = "friendly"
 
 
-def run_case(con, region: str, kind: str, text: str, given: ProductBrief | None = None) -> dict:
+def run_case(con, region: str, kind: str, text: str, given: tuple[ProductBrief, str] | None = None) -> dict:
     row: dict = {"region": region, "product": kind, "text": text}
     row["candidates"] = recommend.ready(con, [region])
     if not row["candidates"]:
@@ -48,7 +48,7 @@ def run_case(con, region: str, kind: str, text: str, given: ProductBrief | None 
     t0 = time.time()
     try:
         # 제품 이해는 실행마다 느낌 태그가 달라진다(10-09: 러닝화가 '편안함·공감' → '편안함·멋짐' 이 되자 '인정' 이 빠졌다) — 규칙을 견줄 때는 고정한다
-        brief, source = (given, "given") if given else recommend.understand(con, text, None, "ko")
+        brief, source = given or recommend.understand(con, text, None, "ko")
         res = recommend.recommend(con, brief, source, [region], TONE)
     except Exception as e:
         row["status"] = f"추천 실패: {type(e).__name__}"
@@ -104,9 +104,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--local", action="store_true", help="로컬 Gemma 로만 (Gemini 를 부르지 않는다)")
     ap.add_argument("--only", help="한 지역만")
-    ap.add_argument("--briefs", help="이전 결과 JSON — 그 실행의 제품 이해(brief)를 제품마다 다시 쓴다")
+    ap.add_argument("--briefs", help="이전 결과 JSON — 그 실행의 제품 이해(brief)를 사례(지역·제품)마다 다시 쓴다")
     a = ap.parse_args()
-    briefs = {r["product"]: ProductBrief.model_validate(r["brief"]) for r in json.loads(Path(a.briefs).read_text(encoding="utf-8"))
+    briefs = {(r["region"], r["product"]): (ProductBrief.model_validate(r["brief"]), r["brief_source"]) for r in json.loads(Path(a.briefs).read_text(encoding="utf-8"))
               if r.get("brief")} if a.briefs else {}
     if a.local:
         from trend_agents.pipeline import gemini
@@ -116,7 +116,7 @@ def main() -> None:
     rows = []
     for region in ([a.only] if a.only else REGIONS):
         for kind, text in PRODUCTS.items():
-            r = run_case(con, region, kind, text, briefs.get(kind))
+            r = run_case(con, region, kind, text, briefs.get((region, kind)))
             print(f"{region} {kind:9s} {r.get('status')} 추천 {len(r.get('items', []))} {r.get('recommend_s', '-')}s 만들기 {r.get('generate_s', '-')}s", flush=True)
             rows.append(r)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
