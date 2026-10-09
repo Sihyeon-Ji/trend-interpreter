@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
 from datetime import datetime, timezone
 
@@ -119,6 +121,12 @@ def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None 
     로컬 모델이 설정돼 있는데 꺼져 있으면 예시로 대신하지 않고 오류로 알린다(남의 제품으로 추천하지 않게, 검토 2차)."""
     if not (USE_LOCAL_GEMMA or configured()):
         return SAMPLE_BRIEF, "sample"
+    # 같은 입력은 처음 읽은 결과를 다시 쓴다 — 같은 문구라도 실행마다 느낌 태그가 달라져 추천이 바뀌었다(10-09: 러닝화가 '편안함·공감' →
+    # '편안함·멋짐' 이 되자 '인정' 이 빠졌다). 키는 입력의 해시뿐이라 원문을 남기지 않고, 이용자 입력 표(explain_cache)에 두어 7일 뒤 지운다
+    key = "brief:" + hashlib.sha256(lang.encode() + b"\0" + text[:500].encode() + b"\0" + (image[0] if image else b"")).hexdigest()
+    if (hit := ds.brief_cache_get(con, key)):
+        cached = json.loads(hit)
+        return ProductBrief.model_validate(cached["brief"]), cached["source"]
     what = ("제품 사진" + (" 과 홍보 문구" if text else "")) if image else "홍보 문구"
     prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang="한국어" if lang == "ko" else "영어")
     try:
@@ -131,7 +139,9 @@ def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None 
     if parsed is None:                 # Gemini 가 형식을 못 맞추면 parsed 가 비어 온다
         raise Unavailable("지금은 사진·문구를 읽지 못했습니다")
     brief = parsed if isinstance(parsed, ProductBrief) else ProductBrief.model_validate(parsed)
-    return brief, "local" if model.startswith("local:") else "gemini"
+    source = "local" if model.startswith("local:") else "gemini"
+    ds.brief_cache_set(con, key, json.dumps({"brief": brief.model_dump(), "source": source}, ensure_ascii=False))
+    return brief, source
 
 
 def ready(con: Connection, regions: list[str]) -> int:

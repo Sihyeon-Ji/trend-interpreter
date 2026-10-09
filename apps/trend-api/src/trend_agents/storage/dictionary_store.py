@@ -856,6 +856,18 @@ def explain_cache_set(con: Connection, lang: str, text: str, term_ids: list[str]
     con.commit()
 
 
+def brief_cache_get(con: Connection, key: str) -> str | None:
+    """추천의 제품 이해 캐시 — 이용자 입력에서 나온 것이라 해석 캐시와 같은 표에 둔다(보존 기한·내보내기 제외·게시 때 삭제가 같게)."""
+    row = con.execute("SELECT plain FROM explain_cache WHERE key=?", (key,)).fetchone()
+    return row[0] if row else None
+
+
+def brief_cache_set(con: Connection, key: str, payload: str) -> None:
+    """원문은 남기지 않는다 — key 는 입력의 해시, text 칸은 비운다."""
+    con.execute("INSERT OR REPLACE INTO explain_cache VALUES (?,?,?,?,?,?)", (key, "", "", "[]", payload, now_s()))
+    con.commit()
+
+
 # ---------- 급증 원인 설명 · 지식그래프 엣지 ----------
 
 def save_explanation(con: Connection, x) -> None:

@@ -43,8 +43,8 @@ GEN_PROMPT = """너는 {region} 시장의 SNS 마케터다. 아래 제품을 아
 만들 것 (글은 모두 {lang}로. 밈 이름은 사전 표기 그대로 넣는다. 설명 칸 note_ko·layout·subject·colors 만 {explain}로 — 마케터가 읽는다):
 - copies: 인스타그램 캡션 2안(platform="instagram", 해시태그 3~6개), X 게시글 2안(platform="x"). 네 안 모두 밈 하나 이상을 본문이나 해시태그에 넣는다.
   밈은 그 밈을 쓰는 사람들이 실제로 쓰듯 문장 속의 말로 쓴다. 밈을 소개하거나 견주지 마라 — "'밈'처럼", "'밈' 같은", "'밈' 알지?",
-  "like 밈", "밈みたいな" 같은 말은 쓰지 않는다. 밈이 캐릭터·작품·사람·사이트 이름이라 문장 속 말로 쓸 수 없으면, 그 밈의 말투·구도·문장 틀만
-  살리고 이름은 해시태그에만 넣는다.
+  "like 밈", "밈みたいな" 같은 말은 쓰지 않는다. [짤·형식] 이라고 적힌 밈(Wojak 같은 짤·영상 형식의 이름)은 글과 해시태그에 이름을 넣지
+  않는다 – 그 밈의 말투·문장 틀(예: That feel when …)만 글에 살리고, 그 짤은 thumbnail 의 subject 와 script 의 화면에 이름과 함께 적는다.
   해시태그는 # 없이, 띄어쓰기·기호 없이 쓴다. X 게시글은 해시태그까지 합쳐 {x_limit} 이내다 — 한글·가나·한자·이모지는 2로 세므로
   한국어·일본어·중국어는 해시태그까지 130자 안팎으로 쓴다.
 - script: 틱톡·릴스용 15~30초 대본. 장면마다 시작·끝 초, 화면, 자막, 대사.
@@ -70,7 +70,13 @@ def caution_note(con: Connection, t) -> str:
     return "; ".join(parts + ["비하·조롱·선정·정치 맥락으로 쓰지 말 것"])
 
 
-def _meme_lines(con: Connection, terms) -> str:
+def name_memes(con: Connection, terms) -> set[str]:
+    """짤·형식의 이름인 밈(쓰임 낱말 kind=meme_name)의 term_id. 카피에 '#Wojak' 만 붙으면 짤 없이는 알아보기 어렵다(10-09 판정)."""
+    fits = ds.all_fits(con)
+    return {t.term_id for t in terms if t.term_id in fits and fits[t.term_id][1].kind == "meme_name"}
+
+
+def _meme_lines(con: Connection, terms, names: set[str] = frozenset()) -> str:
     out = []
     for t in terms:
         m = ds.current_meaning(con, t.term_id)
@@ -78,7 +84,7 @@ def _meme_lines(con: Connection, terms) -> str:
         text = ko or m
         caution = caution_note(con, t)
         alias = f" (다른 표기: {', '.join(t.aliases[:3])})" if t.aliases else ""
-        out.append(f"- {t.canonical}{alias}: {(text.definition if text else '')[:160]} (뉘앙스: {(text.nuance if text else '')[:120]})"
+        out.append(f"- {t.canonical}{alias}{' [짤·형식]' if t.term_id in names else ''}: {(text.definition if text else '')[:160]} (뉘앙스: {(text.nuance if text else '')[:120]})"
                    + (f" / 쓸 때 조심: {caution}" if caution else ""))
     return "\n".join(out)
 
@@ -103,6 +109,13 @@ def _items(d: ContentDraft) -> dict[str, object]:
     got: dict[str, object] = {f"copy{i}": c for i, c in enumerate(d.copies[:4])}
     got["script"], got["thumbnail"] = d.script, d.thumbnail
     return got
+
+
+def _without_name_tags(c: SocialCopy, terms) -> SocialCopy:
+    """짤·형식 이름 해시태그(#Wojak)를 뺀다 — 프롬프트가 말려도 모델이 붙였다(10-09). 글자만 견준다(대소문자·띄어쓰기 무시)."""
+    key = lambda s: re.sub(r"\s+", "", s).lower()  # noqa: E731
+    banned = {key(n) for t in terms for n in (t.canonical, *t.aliases) if n}
+    return c.model_copy(update={"hashtags": [h for h in c.hashtags if key(h) not in banned]}) if banned else c
 
 
 def copy_text(c: SocialCopy) -> str:
@@ -143,17 +156,20 @@ def meta_mention(text: str, terms) -> str:
     return next((n for t in terms for n in (t.canonical, *t.aliases) if n and _meta_pattern(n).search(text)), "")
 
 
-def check(items: dict[str, object], terms, brief: ProductBrief) -> dict[str, tuple[str, str]]:
-    """규칙 검사 — {id: (코드, 한국어 설명)}. 모델을 부르지 않는다."""
+def check(items: dict[str, object], terms, brief: ProductBrief, names: set[str] = frozenset()) -> dict[str, tuple[str, str]]:
+    """규칙 검사 — {id: (코드, 한국어 설명)}. 모델을 부르지 않는다. names 는 짤·형식 이름인 밈 — 카피 대신 썸네일에 있어야 한다."""
     out: dict[str, tuple[str, str]] = {}
+    in_copy = [t for t in terms if t.term_id not in names] or None
     avoid = [a for a in brief.avoid if len(a) >= 2]
     for k, item in items.items():
         text = _text(item)
         hit = next((a for a in avoid if a.lower() in text.lower()), "")
         if unsafe(text):
             out[k] = ("unsafe", "욕설·선정 표현이 들어 있음")
-        elif k.startswith("copy") and not any(mentions(text, t.canonical, t.aliases) for t in terms):
+        elif k.startswith("copy") and in_copy and not any(mentions(text, t.canonical, t.aliases) for t in in_copy):
             out[k] = ("no_meme", "고른 밈이 글에 없음")
+        elif k == "thumbnail" and not in_copy and not any(mentions(text, t.canonical, t.aliases) for t in terms):
+            out[k] = ("no_meme", "고른 짤이 썸네일에 없음")
         elif isinstance(item, SocialCopy) and item.platform == "x" and x_length(copy_text(item)) > X_LIMIT:
             out[k] = ("x_too_long", f"X 글자 수 {x_length(copy_text(item))} — {X_LIMIT} 초과(한글·가나·한자는 2로 셈)")
         elif hit:
@@ -192,10 +208,11 @@ def _explanations_in_ui_language(d: ContentDraft, ui: str, terms) -> ContentDraf
     return d
 
 
-def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: str, feedback: str, ui: str) -> tuple[ContentDraft, str]:
+def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: str, feedback: str, ui: str,
+              names: set[str] = frozenset()) -> tuple[ContentDraft, str]:
     lang = REGION_LANG.get(region, "en")
     prompt = GEN_PROMPT.format(region=region, tone=TONE_KO.get(tone, tone), product=brief.product, scene=brief.scene or "-",
-                               values=", ".join(brief.values) or "-", avoid=", ".join(brief.avoid) or "-", memes=_meme_lines(con, terms),
+                               values=", ".join(brief.values) or "-", avoid=", ".join(brief.avoid) or "-", memes=_meme_lines(con, terms, names),
                                lang=LANG_NAME.get(lang, lang), explain="한국어" if ui == "ko" else "영어", x_limit=X_LIMIT,
                                explain_rule="" if ui == "ko" else "Write note_ko, layout, subject and colors in English.\n", feedback=feedback)
     try:
@@ -223,17 +240,18 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     # 모델이 아예 설정되지 않은 개발 환경만 예시 — 설정된 모델이 꺼져 있을 때 예시(남의 제품 카피)를 내지 않는다(검토 3차, 추천의 understand 와 같은 기준)
     if not (USE_LOCAL_GEMMA or configured()):
         return sample(terms, region, tone)
-    first, source = _generate(con, terms, brief, region, tone, "", ui)
+    names = name_memes(con, terms)
+    first, source = _generate(con, terms, brief, region, tone, "", ui, names)
     calls = 1
-    problems = check(_items(first), terms, brief)
+    problems = check(_items(first), terms, brief, names)
     kept = {k: v for k, v in _items(first).items() if k not in problems}
     dropped: list[Dropped] = []
     if problems:
         feedback = "\n지난 초안의 문제(이번에는 고쳐라):\n" + "\n".join(f"- {k}: {why}" for k, (_, why) in problems.items())
         calls += 1
         try:
-            second, _ = _generate(con, terms, brief, region, tone, feedback, ui)
-            again, redo = check(_items(second), terms, brief), _items(second)
+            second, _ = _generate(con, terms, brief, region, tone, feedback, ui, names)
+            again, redo = check(_items(second), terms, brief, names), _items(second)
         except Unavailable:
             # 다시 만들기가 실패해도(예산·장애·형식 오류) 첫 안에서 통과한 것은 돌려준다 — 통째로 503 이 났다(검토 3차)
             again, redo = {}, {}
@@ -243,7 +261,7 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
             else:
                 code, why = again.get(k, first_problem)
                 dropped.append(Dropped(id=k, code=code, reason=why))  # type: ignore[arg-type]
-    copies = [kept[k] for k in IDS[:4] if k in kept]
+    copies = [_without_name_tags(kept[k], [t for t in terms if t.term_id in names]) for k in IDS[:4] if k in kept]
     return GenerationResult(region=region, language=lang, tone=tone, memes=[t.canonical for t in terms], copies=copies,  # type: ignore[arg-type]
                             script=kept.get("script"), thumbnail=kept.get("thumbnail"), dropped=dropped, model_calls=calls, source=source)
 

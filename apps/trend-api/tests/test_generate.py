@@ -335,3 +335,26 @@ def test_capacity_errors_move_on_without_retrying(monkeypatch):
     monkeypatch.setattr(gemini.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("기다리면 안 됨")))
     assert gemini.generate(con, "hi")[1] == "gemini-3.7-flash" and tries == ["gemini-3.8-flash", "gemini-3.7-flash"]
     assert gemini.models(con)[-1] == "gemini-3.8-flash"                      # 쉬는 동안은 맨 뒤
+
+
+def test_name_memes_go_to_the_thumbnail_not_the_copy(monkeypatch):
+    """짤·형식 이름(kind=meme_name)은 카피에 이름이 없어도 되고 해시태그에서 빠지며, 썸네일에 있어야 한다 — '#Wojak' 만 붙은 카피는
+    짤 없이 알아보기 어려웠다(10-09 판정)."""
+    from trend_agents.schemas import MemeFit
+
+    con = _con()
+    ds.set_fit(con, "lv", ds.current_meaning(con, "lv").meaning_id,
+               MemeFit(feelings=["joy"], uses=["format"], voice="wholesome", audience="online", kind="meme_name"), "test")
+    draft = ContentDraft(
+        copies=[SocialCopy(platform="instagram", text="That feel when 라떼가 시원할 때", hashtags=["럭키비키", "라떼"]),
+                SocialCopy(platform="instagram", text="오후의 한 잔", hashtags=["Lucky"]),
+                SocialCopy(platform="x", text="그 기분 아시죠"), SocialCopy(platform="x", text="오늘도 시원하게")],
+        script=ShortScript(title="라떼", duration_s=15, scenes=[ScriptScene(start_s=0, end_s=15, visual="럭키비키 짤", caption="시원")]),
+        thumbnail=ThumbnailPlan(headline="시원한 오후", layout="왼쪽 제품", subject="럭키비키 짤 표정 옆에 라떼"))
+    calls = _fake(monkeypatch, [draft])
+    res = generate.run(con, ["lv"], BRIEF, "KR", "friendly")
+    assert res.model_calls == 1 and not res.dropped and len(res.copies) == 4
+    assert res.copies[0].hashtags == ["라떼"]                                  # 짤 이름 해시태그는 뺀다
+    assert "[짤·형식]" in calls[0][1]
+    assert generate.check({"thumbnail": ThumbnailPlan(headline="시원", layout="왼쪽")}, [ds.get_term(con, "lv")], BRIEF,
+                          {"lv"}) == {"thumbnail": ("no_meme", "고른 짤이 썸네일에 없음")}

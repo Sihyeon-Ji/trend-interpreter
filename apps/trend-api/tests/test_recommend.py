@@ -376,3 +376,25 @@ def test_score_skips_fading_and_unjudged_sensitive_memes():
     assert recommend.score(LATTE, fit, card("철지난", dated=True), "friendly") is None
     assert recommend.score(LATTE, fit, card("죽고 싶지만 떡볶이는 먹고 싶어", "우울한 감정", risk=None), "friendly") is None
     assert recommend.score(LATTE, fit, card("오살힘", "하루를 버티게 해 주는 것", risk=None), "friendly") is not None   # 판단 전이어도 소재가 무난하면
+
+
+def test_same_input_reuses_the_first_product_brief(monkeypatch):
+    """같은 문구·사진은 처음 읽은 제품 이해를 다시 쓴다 — 실행마다 느낌 태그가 달라져 추천이 바뀌었다(10-09)."""
+    con = db.connect(":memory:")
+    monkeypatch.setattr(recommend, "configured", lambda: True)
+    calls = []
+
+    def read(con, prompt, schema, **k):
+        calls.append(prompt)
+        return LATTE.model_copy(update={"feelings": ["joy"] if len(calls) == 1 else ["cool"]}), "gemini-x"
+
+    monkeypatch.setattr(recommend, "structured", read)
+    first = recommend.understand(con, "아이스 라떼 문구")
+    assert recommend.understand(con, "아이스 라떼 문구") == first and len(calls) == 1
+    assert recommend.understand(con, "다른 문구")[0].feelings == ["cool"] and len(calls) == 2
+    assert recommend.understand(con, "아이스 라떼 문구", (b"png", "image/png"))[0].feelings == ["cool"]   # 사진이 붙으면 다른 입력
+    rows = con.execute("SELECT key, text FROM explain_cache").fetchall()
+    assert len(rows) == 3 and not [r for r in rows if "라떼" in r[0] or r[1]]      # 원문을 남기지 않는다
+    assert not con.execute("SELECT 1 FROM board_cache WHERE key LIKE 'brief:%'").fetchall()     # 공개 파생 표에 두지 않는다
+    ds.prune_user_text(con, cache_days=-1)                                            # 해석 캐시와 같이 기한이 지나면 지운다
+    assert not con.execute("SELECT 1 FROM explain_cache").fetchall()
