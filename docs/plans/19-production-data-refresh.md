@@ -88,6 +88,31 @@ snapshot `20261005T124512-e56b90d`(10-05 12:45 KST, 표제어 11,356개)로 전�
 
 되돌리기는 `gcloud run services update-traffic trend-production-api --region=asia-northeast1 --to-revisions=trend-production-api-00016-bif=100`이다. 이전 `trend` DB(283MB)는 다음 갱신까지 남긴다.
 
+## 2026-10-09 두 번째 전환
+
+10-10 예정이던 갱신을 사용자 결정으로 앞당겼다. 수집 PC가 10-09 12:45 KST에 올린 snapshot `20261009T124515-8b2a19c`(표제어 11,471개)를 썼다. 다른 세션의 커밋하지 않은 변경이 갱신 이미지에 섞이지 않게 `origin/develop`의 별도 worktree에서 실행했다.
+
+| 순서 | 결과 |
+| --- | --- |
+| `build` | 사람 결정 표제어 146개 덮어 얹기, 사람·Gemini 쓰임 낱말 170개 이어 받기, 재계산(track 11,393·risk 7,554·board 79·dashboard 7,220), 대조 빠진 결정 0, 덤프 79MB |
+| `create`·`upload` | `trend_20261009`, 표 54개 |
+| 새 후보 쓰임 낱말 | 추천 후보가 170 → 279개로 늘어 꼬리표 없는 124개를 `gemini-3.5-flash`(묶음 25개, 5회)로 붙였다 |
+| 전환 전 백업 | `trend-20261009T123411Z.dump`, 복원 검증 표 54개·739,348행 |
+| 직전 덮어 얹기 | 빠진 결정 0 |
+| secret | version 3 → `trend_20261009`, `production.tfvars.json` 갱신·`terraform-vars.sh save` |
+| 백업 Job | Terraform으로 version 3 |
+| API | Terraform이 409로 실패(아래). 서비스 중이던 revision의 정의에서 DB secret만 3으로 바꾼 `trend-production-api-db20261009`를 Cloud Run v2 API로 만들고 트래픽 100% |
+| 확인 | 웹 `/`·`/map`·`/dictionary`·`/explain`·`/briefing`·사전 항목 200, 전환 뒤 API 오류 로그 0, 이전 DB(`trend_20261005`)와 새 DB 대조 빠진 결정 0, 전환 뒤 백업 `trend-20261009T130214Z.dump` 79MB, Terraform plan 변경 없음 |
+
+**절차에서 드러난 것.**
+
+- **Terraform 상태 위치.** `infra/gcp/hybrid/.terraform`은 staging 상태(`hybrid/staging`)에 붙어 있다. production은 `TF_DATA_DIR=.terraform/production`으로 실행해야 한다. 기본값으로 계획하면 production 변수로 staging 상태를 비교해 생성 10·삭제 8이 나온다(적용하지 않았다).
+- **API는 Terraform으로 전환할 수 없다.** API의 revision 이름은 배포 스크립트가 정하고 Terraform은 무시한다(`ignore_changes`). 그래서 Terraform이 지금 revision 이름 그대로 설정을 바꾸려다 409(`Revision ... with different configuration already exists`)가 난다. `gcloud run services update --update-secrets`는 v2 secret 경로를 읽지 못해 멈추고, `gcloud run services replace`는 cloudresourcemanager API를 켤지 묻다 멈춘다. Cloud Run v2 API로 template의 secret 버전과 revision 이름만 바꾸는 것이 통했다.
+- **다른 세션의 배포.** 전환 중에 다른 세션이 `release/gcp`를 배포했다. 서비스 정의는 전환 직전에 다시 읽어야 한다(먼저 읽은 정의를 적용하면 이전 이미지로 돌아간다).
+- **직전 덮어 얹기는 secret을 만들기 전에.** secret이 새 DB를 가리킨 뒤에는 도구가 덮어 얹기를 거부한다. 그래서 전환 뒤 두 DB를 직접 대조해 빠진 결정 0을 확인했다.
+
+되돌리기: `gcloud run services update-traffic trend-production-api --region=asia-northeast1 --to-revisions=trend-production-api-00052-kab=100`(이전 DB `trend_20261005`를 가리킨다). 백업 Job은 `production.tfvars.json`을 version 2로 되돌리고 Terraform으로 맞춘다. `trend_20261005`는 다음 갱신까지 남기고 그 전 DB `trend`는 이번에 지울 수 있다.
+
 ## 5. 결정 (2026-10-05 사용자)
 
 1. **경로** – A. 새 DB를 꾸민 뒤 연결을 바꾼다. B·C는 쓰지 않으며, C는 제출 뒤 과제로 둔다.
