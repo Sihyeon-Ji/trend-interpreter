@@ -46,7 +46,7 @@ def _generate_apart(prompt: str):
     풀에 돌아가 다른 요청이 쓴다. 그래서 /ask/stream 처럼 풀에서 따로 빌린다 — 풀이 차 있으면 기다리는 사이 요청이 먼저 끝나 매칭 결과만 나간다.
     전에는 요청 연결을 넘겨 장부를 읽기도 전에 RuntimeError 가 났고, 그 오류를 삼켜 API 에서 재작성이 늘 비었다(호출 0회)."""
     with db.session() as con:
-        return generate(con, prompt)
+        return generate(con, prompt, request=True)   # 이용자 요청 – 요청 장부로 센다(10-09 전에는 파이프라인 장부를 깎았다)
 
 
 def _late(fut, on_late, read) -> None:
