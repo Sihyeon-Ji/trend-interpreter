@@ -30,6 +30,7 @@ export interface TermUsage {
   segment: Segment;
   first_seen: string;
   share: number;
+  source?: string;
 }
 
 /** 주간 언급 수 (쇼츠 등장 + 뉴스 + 데이터랩 합산). 생애주기 판정의 입력. */

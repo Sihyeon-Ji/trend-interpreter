@@ -24,6 +24,7 @@ test("explain puts the input first, labels the sample and explains a pasted mess
   const row = page.getByRole("listitem").filter({ has: page.getByRole("heading", { level: 3, name: "럭키비키" }) });
   await expect(row.getByText(/^(단계|Stage)$/)).toBeVisible();
   await expect(row.getByText(/^(쓸 때 조심|Watch out)$/)).toBeVisible();
+  await expect(row.getByText(/검색 관심이 확인된 세대|Age groups with measured search interest/)).toHaveCount(0);
   await expect(input).toHaveValue("");                                             // 성공했을 때만 비운다
 });
 

@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { packRows, unpackRows, type DictionaryRow } from "../lib/dictionary/rows";
+import { packRows, toRow, unpackRows, type DictionaryRow } from "../lib/dictionary/rows";
+import { SAMPLE_RECORDS } from "../lib/sample/dictionary";
+import type { TermUsage } from "../lib/types";
 
 const row: DictionaryRow = {
   term_id: "t1", canonical: "럭키비키", lang: "ko", aliases: ["원영적 사고"], expansion: null,
@@ -12,4 +14,12 @@ test("dictionary rows survive the compact transport unchanged and drop the repea
   const packed = packRows([row, { ...row, term_id: "t2", risk_level: "caution", risk_checked_at: "2026-10-05" }]);
   expect(unpackRows(packed)).toEqual([row, { ...row, term_id: "t2", risk_level: "caution", risk_checked_at: "2026-10-05" }]);
   expect(JSON.stringify(packed)).not.toContain("definition");
+});
+
+test("generation filtering uses measured ages instead of a model's meaning", () => {
+  const estimated: TermUsage = { segment: { segment_id: "JP-20s", generation: "20s", region: "JP" }, first_seen: "2026-01-01", share: 1, source: "model" };
+  const measured: TermUsage = { segment: { segment_id: "JP-30s", generation: "30s", region: "JP" }, first_seen: "2026-01-02", share: 1, source: "datalab" };
+  const record = { ...SAMPLE_RECORDS[0], usage: [estimated] };
+  expect(toRow(record, "ko").generations).toEqual([]);
+  expect(toRow({ ...record, usage: [estimated, measured] }, "ko").generations).toEqual(["30s"]);
 });

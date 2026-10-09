@@ -24,6 +24,7 @@ class TermUsage(BaseModel):
     segment: Segment
     first_seen: str
     share: float
+    source: str = "model"
 
 
 class WeeklyPoint(BaseModel):
@@ -231,7 +232,7 @@ def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord
         meanings = [m for m in meanings if m.verification in PUBLIC_VERIFICATIONS]
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
-    usage = [TermUsage(segment=Segment(segment_id=u["segment_id"], generation=u["generation"], region=u["region"]), first_seen=u["first_seen"], share=u["share"])
+    usage = [TermUsage(segment=Segment(segment_id=u["segment_id"], generation=u["generation"], region=u["region"]), first_seen=u["first_seen"], share=u["share"], source=u["source"])
              for u in ds.get_usage(con, t.term_id)]
     weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
     reasons = ds.gate_reasons(con, t.term_id) if t.status == "needs_review" else None
@@ -563,7 +564,7 @@ def country_page(con: Connection, region: str) -> CountryPage:
     share: dict[str, float] = {}
     for r in recs:
         for u in r.usage:
-            if u.segment.region == region:
+            if u.segment.region == region and u.source == "datalab":
                 share[u.segment.generation] = share.get(u.segment.generation, 0) + u.share
     total = sum(share.values()) or 1
     return CountryPage(region=region, items=items, why=why, terms=recs, generation_share={k: round(v / total, 3) for k, v in share.items()},

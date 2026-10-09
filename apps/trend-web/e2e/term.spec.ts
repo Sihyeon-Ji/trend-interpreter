@@ -25,6 +25,12 @@ test("an unknown word says what to do next", async ({ page }) => {
   await expect(page.getByRole("main").getByRole("link", { name: /^(둘러보기|Explore)$/ })).toHaveAttribute("href", "/trends");
 });
 
+test("model-estimated ages are absent from measured search-interest fields", async ({ page }) => {
+  await page.goto("/dictionary/t_oshikatsu");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText(/검색 관심이 확인된 세대|Age groups with measured search interest/)).toHaveCount(0);
+});
+
 test("the phone layout never scrolls sideways", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/dictionary/t_crumbl");

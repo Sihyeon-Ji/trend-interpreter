@@ -1333,7 +1333,7 @@ def test_generation_shares_shown_are_measured_only():
     """세대 비중은 네이버 데이터랩 실측만 보인다. 조사 모델의 추정은 '추정' 으로만 말하고, 실측이 들어오면 그 나라의 추정 줄은 지워진다(Plan 15)."""
     from datetime import datetime, timezone
 
-    from trend_agents.pipeline import tools
+    from trend_agents.pipeline import tools, views
     from trend_agents.schemas import MeaningDraft, Term
     from trend_agents.storage import dictionary_store as ds
     from trend_agents.storage import store as db
@@ -1353,6 +1353,12 @@ def test_generation_shares_shown_are_measured_only():
     assert "실측 자료 없음" in out and "추정" in out
     assert ctx.cards[-1]["bars"] == []                                                         # 추정은 막대로 보이지 않는다
     assert tools.term_usage(ctx, {"term": "럭키비키"}) and [b["ratio"] for b in ctx.cards[-1]["bars"]] == [0.7, 0.3]
+    assert views.term_record(con, ds.get_term(con, "t_ja")).usage[0].source == "model"
+    assert views.term_record(con, ds.get_term(con, "t_ko")).usage[0].source == "datalab"
+    assert views.country_page(con, "JP").generation_share == {}
+    assert views.country_page(con, "KR").generation_share == {"10s": 0.7, "20s": 0.3}
+    assert "없습니다" in tools.list_terms(ctx, {"generation": "20s", "region": "JP"})
+    assert "럭키비키" in tools.list_terms(ctx, {"generation": "10s", "region": "KR"})
 
 
 def test_a_reference_document_alone_lists_the_term_and_community_posts_never_count():

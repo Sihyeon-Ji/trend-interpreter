@@ -474,7 +474,7 @@ def list_terms(ctx: Ctx, args: dict) -> str:
                 continue
             if gen or region:
                 use = ds.get_usage(ctx.con, t.term_id)
-                if gen and not any(u["generation"] in (gen, "all") for u in use):
+                if gen and not any(u["source"] == "datalab" and u["generation"] in (gen, "all") for u in use):
                     continue
                 if region and not any(u["region"] == region for u in use):
                     continue

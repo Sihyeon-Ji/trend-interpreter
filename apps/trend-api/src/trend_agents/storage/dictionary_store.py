@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS lookups (key TEXT PRIMARY KEY, text TEXT, lang TEXT, 
 -- 표제어의 위키백과 월별 조회수(과거 관심 추이). 제목이 표제어인 문서만.
 CREATE TABLE IF NOT EXISTS term_pageviews (term_id TEXT, lang TEXT, title TEXT, month TEXT, views BIGINT, PRIMARY KEY(term_id, lang, month));
 CREATE TABLE IF NOT EXISTS pageviews_done (term_id TEXT PRIMARY KEY, at TEXT);
--- 검색 관심도(주별, 네이버 데이터랩 등). 값은 같이 부른 말끼리의 상대값 — 모양(그 말의 최고점 대비)만 쓴다. 생애주기를 원본으로 못 정할 때만(lifecycle.interest_stage).
+-- 검색 관심도(주별, 네이버 데이터랩 등). 값은 같이 부른 말끼리의 상대값 — 모양(그 말의 최고점 대비)만 생애주기와 별도로 쓴다.
 CREATE TABLE IF NOT EXISTS search_interest (term_id TEXT, source TEXT, period TEXT, value REAL, fetched_at TEXT, PRIMARY KEY(term_id, source, period));
 -- 콘텐츠(작품) 하나에서 나라마다 파생된 밈 — 조사 에이전트(pipeline/content_agent.py)가 위키를 읽고 찾은 것과 규칙 확인 결과.
 -- 본문은 두지 않는다: 근거 주소와 그 문서 속 문장 하나(sentence)만. verified 는 규칙(근거 문서에 밈 이름 + 콘텐츠를 말함)이 정한다.
@@ -1290,4 +1290,3 @@ def mention_outlets(con: Connection, term_id: str, since: str) -> list[tuple[str
 def research_count(con: Connection, term_id: str) -> int:
     """이 용어를 조사한 횟수(실패 포함). 커뮤니티를 나라마다 번갈아 뒤질 때 차례로 쓴다."""
     return con.execute("SELECT COUNT(*) FROM research_log WHERE term_id=?", (term_id,)).fetchone()[0]
-

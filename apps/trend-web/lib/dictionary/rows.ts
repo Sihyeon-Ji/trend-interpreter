@@ -4,7 +4,7 @@ import type { Diffusion, RiskLevel } from "../contract/types";
 import { currentMeaning, textFor } from "../explain";
 import type { Locale } from "../i18n";
 import type { Category, Generation, Lifecycle, TermRecord } from "../types";
-import { lastUsedOf, termRegions } from "./regions";
+import { lastUsedOf, measuredUsage, termRegions } from "./regions";
 
 /** 뜻 한 줄: 풀이(expansion)와 뜻을 잇는다. 끝 문장부호를 떼고, 뜻에 이미 풀이가 들어 있으면 풀이를 뺀다.
  *  위키 문서 제목이 풀이로 들어온 것('… (disambiguation)')은 버린다 — 마침표 두 개, 같은 말 반복이 나가던 것. */
@@ -50,7 +50,7 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     // 정렬·'검사했나'에만 쓰는 시각은 날짜까지만 — 행마다 마이크로초까지 실려 나갔다
     regions: termRegions(r), last_used: lastUsedOf(r), changed: m?.valid_from?.slice(0, 10) ?? null,
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
-    generations: m?.generations ?? [],
+    generations: [...new Set(measuredUsage(r.usage).map((u) => u.segment.generation))],
     alt: m?.definition && m.definition !== definition ? m.definition : null,
   };
 }

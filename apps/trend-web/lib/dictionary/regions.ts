@@ -1,6 +1,8 @@
 /* 사전 항목의 지역과 마지막 쓰임 — 대시보드(백엔드 pipeline/dashboard.py)와 같은 규칙을 한 곳에. 사전 색인·메시지 해석이 함께 쓴다. */
 import { TARGET_REGIONS } from "../reader";
-import type { TermRecord } from "../types";
+import type { TermRecord, TermUsage } from "../types";
+
+export const measuredUsage = (usage: TermUsage[]): TermUsage[] => usage.filter((u) => u.source === "datalab");
 
 const LANG_REGION: Record<string, string> = { ko: "KR", ja: "JP", id: "ID", th: "TH", vi: "VN", zh: "TW", tl: "PH", fil: "PH", ms: "MY" };
 // 광동어에만 쓰는 글자가 들었거나 광동어 코드면 홍콩, 다른 중국어는 대만 (백엔드 config.home_region)
@@ -33,4 +35,3 @@ export function lastUsedOf(r: TermRecord): string | null {
   const used = r.evidences.filter((e) => ["community", "news", "short"].includes(e.kind) && hasPath(e.url)).map((e) => e.observed_at).sort();
   return used.at(-1) ?? r.term.last_seen ?? null;
 }
-

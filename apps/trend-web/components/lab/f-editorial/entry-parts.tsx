@@ -6,6 +6,7 @@ import { L, fmtDate, regionLabel } from "@/lib/labels";
 import { scriptLang } from "@/lib/lang";
 import type { Topic, TopicVariant } from "@/lib/trends/types";
 import type { Meaning, Term, TermUsage } from "@/lib/types";
+import { measuredUsage } from "@/lib/dictionary/regions";
 import { diffusionWord, lifecycleWord, riskClass, riskReasonText, riskWord } from "./stickers";
 
 /* 항목(기사)의 부품 — 사실 칸, 출처, 뜻의 이력, 나라별 차이. 전부 서버에서 그린다. */
@@ -17,7 +18,9 @@ export function FactRail({ term, verified, meaning, usage, lastUsed, sources, lo
   const risk = riskWord(term, locale);
   const why = risk ? (risk.key === "none" ? words(locale).riskWhy.none : riskReasonText(term, locale)?.text ?? words(locale).riskWhy[risk.key]) : null;
   const whyLang = risk && risk.key !== "none" ? riskReasonText(term, locale)?.lang : undefined;
-  const firstSeen = [...usage].sort((a, b) => a.first_seen.localeCompare(b.first_seen)).slice(0, 3);
+  const measured = measuredUsage(usage);
+  const generations = [...new Set(measured.map((u) => u.segment.generation))];
+  const firstSeen = measured.sort((a, b) => a.first_seen.localeCompare(b.first_seen)).slice(0, 3);
   const row = (label: string, value: React.ReactNode) => (
     <div className="fe-facts__row"><dt>{label}</dt><dd>{value}</dd></div>
   );
@@ -28,7 +31,7 @@ export function FactRail({ term, verified, meaning, usage, lastUsed, sources, lo
         {verified && term.diffusion && row(fe(locale, "f_spread"), diffusionWord(locale, term.diffusion))}
         {verified && risk && row(fe(locale, "f_risk"), <><span className={riskClass(risk.key)}>{risk.label}</span>{why && <span className="fe-facts__why" lang={whyLang}>{why}</span>}</>)}
         {meaning && meaning.regions.length > 0 && row(fe(locale, "f_regions"), meaning.regions.map((r) => regionLabel(locale, r)).join(", "))}
-        {meaning && meaning.generations.length > 0 && row(fe(locale, "f_gens"), meaning.generations.map((g) => labels.generation[g]).join(", "))}
+        {generations.length > 0 && row(fe(locale, "f_gens"), generations.map((g) => labels.generation[g]).join(", "))}
         {lastUsed && row(fe(locale, "f_last"), fmtDate(lastUsed))}
         {firstSeen.length > 0 && row(fe(locale, "f_first"), firstSeen.map((u) => `${regionLabel(locale, u.segment.region)} ${labels.generation[u.segment.generation]} ${fmtDate(u.first_seen)}`).join(" / "))}
         {(term.aliases?.length ?? 0) > 0 && row(fe(locale, "f_aliases"), term.aliases!.map((a, i) => <span key={a}>{i > 0 && ", "}<span lang={scriptLang(a)}>{a}</span></span>))}

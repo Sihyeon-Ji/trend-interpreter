@@ -4,6 +4,10 @@
 
 [현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
 
+## 2026-10-08 WIF 변경 병합 준비
+
+`origin/security/wif-environment`(`925948c`)와 현행 `develop`은 `git merge-tree --write-tree`에서 충돌 없이 합쳐진다. 다만 [적용 순서](../운영/WIF-배포-계정-분리.md#적용-순서)는 GCP IAM 적용·GitHub 변수 등록을 코드 병합보다 먼저 요구한다. 저장소 규칙상 GCP 변경에는 사용자 확인이 필요하며, WIF 변경은 아직 적용하지 않았다. 이번에는 병합·`release/gcp` push·공개 전환을 실행하지 않는다.
+
 ## 2026-10-06 WIF 배포 계정 분리 (코드 준비, 미적용)
 
 배포 계정을 environment 없는 job(`trend_images`)도 쓸 수 있던 경계를 좁히는 변경을 브랜치 `security/wif-environment`에 준비했다. 배포 계정은 `gcp` environment job만, 이미지 push는 새 전용 계정으로 나눈다. 문제·바꾼 파일·적용 순서·확인·되돌리기는 [WIF 배포 계정 분리](../운영/WIF-배포-계정-분리.md)에 있다. GCP 적용(`terraform apply`)과 변수 등록은 아직 하지 않았다.

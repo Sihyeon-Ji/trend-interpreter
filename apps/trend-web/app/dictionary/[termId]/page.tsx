@@ -9,6 +9,7 @@ import { diffusionWord, isMarket, marketName, tx, type Market } from "@/componen
 import { RelGraph, hasGraph } from "@/components/stage/graph";
 import { isPartialWeek } from "@/components/trend-chart";
 import { getTermRecord, getTermRelated, getTermSignals } from "@/lib/data";
+import { measuredUsage } from "@/lib/dictionary/regions";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
@@ -61,7 +62,8 @@ export default async function TermPage({ params, searchParams }: Props) {
   const decidedAt = byHuman ? term.risk_decided_at : term.risk_checked_at;
   const canMake = term.status === "verified" && term.risk_level !== "avoid";
   const regions = record.regions ?? m?.regions ?? [];
-  const gens = (m?.generations ?? []).filter((g) => g !== "all");
+  // 세대는 데이터랩으로 잰 쓰임에서만 — 뜻의 세대와 다른 출처의 쓰임은 모델 추정이라 실측처럼 보이지 않게 한다 (Plan 15)
+  const gens = [...new Set(measuredUsage(record.usage).map((u) => u.segment.generation))].filter((g) => g !== "all");
   const weekly = signals?.weekly ?? record.weekly.slice(-12);
   const hasTrend = weekly.some((p) => p.count > 0);
   const partial = isPartialWeek(weekly.at(-1));
