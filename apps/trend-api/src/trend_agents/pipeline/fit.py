@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 
-from ..config import LITE_MODEL
 from ..schemas import FitLabel, MemeFit
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
@@ -53,8 +52,8 @@ def todo(con: Connection) -> list[tuple]:
     return [(t, m) for t, m, _ in out]
 
 
-def label(con: Connection, batch: list[tuple], *, gemini: bool = False) -> int:
-    """gemini 는 밀린 것을 몰아 붙일 때만(fit_backfill --gemini) — 로컬 e4b 가 audience·kind 를 거의 가르지 못했다(10-09, 210개 중 niche 1개)."""
+def label(con: Connection, batch: list[tuple], *, gemini: str | None = None) -> int:
+    """gemini 는 Gemini 모델 이름 — 밀린 것을 몰아 붙일 때만(fit_backfill --gemini). 로컬 e4b 가 audience·kind 를 거의 가르지 못했다(10-09, 210개 중 niche 1개)."""
     lines = []
     for i, (t, m) in enumerate(batch):
         ko = ds.get_translation(con, t.term_id, "ko")
@@ -63,7 +62,7 @@ def label(con: Connection, batch: list[tuple], *, gemini: bool = False) -> int:
         origin = (ko.origin if ko else m.origin)[:100]                  # 분야의 근거는 유래에 많다(먹방·게임 대사·팬덤)
         lines.append(f"{i}. {t.canonical} — {text} (유래: {origin} / 뉘앙스: {nuance})")
     prompt = PROMPT.format(items="\n".join(lines))
-    parsed, model = (structured(con, prompt, list[FitLabel], model=LITE_MODEL, prefer_gemini=True) if gemini
+    parsed, model = (structured(con, prompt, list[FitLabel], model=gemini, prefer_gemini=True) if gemini
                      else structured(con, prompt, list[FitLabel]))
     n = 0
     for p in parsed or []:

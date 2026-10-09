@@ -3,7 +3,8 @@
 묶음마다 잡고, 잡혀 있으면 쉰다. 추천 후보(대시보드 카드)부터 붙인다 — 추천이 바로 새 칸을 쓰게.
   USE_LOCAL_GEMMA=1 uv run scripts/fit_backfill.py            # 다 끝날 때까지
   USE_LOCAL_GEMMA=1 uv run scripts/fit_backfill.py --max 80   # 시험
-  uv run scripts/fit_backfill.py --gemini --max 200            # Gemini Flash-Lite 로(로컬 e4b 가 audience·kind 를 가르지 못할 때, 10-09)
+  uv run scripts/fit_backfill.py --gemini gemini-3.5-flash --batch 12 --max 200
+      # Gemini 로(로컬 e4b 가 audience·kind 를 가르지 못할 때, 10-09). 이용자 요청의 모델 차례(GEMINI_MODELS)에 없는 모델을 골라야 그날 요청 몫을 쓰지 않는다
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from trend_agents.config import GEMINI_MODEL  # noqa: E402
 from trend_agents.pipeline import dashboard, fit  # noqa: E402
 from trend_agents.pipeline.gemini import configured, local_ok  # noqa: E402
 from trend_agents.storage import store as db  # noqa: E402
@@ -23,7 +25,10 @@ from trend_agents.storage import store as db  # noqa: E402
 def main() -> None:
     a = argparse.ArgumentParser()
     a.add_argument("--max", type=int, default=100000)
-    a.add_argument("--gemini", action="store_true", help="Gemini Flash-Lite 로 붙인다(비용이 든다 — 묶음 8개에 호출 한 번)")
+    # Flash-Lite 는 같은 말에 실행마다 다른 kind 를 붙였다(ON AIR 가 한 번은 topic, 한 번은 아님 — 10-09). 기본은 Flash
+    a.add_argument("--gemini", nargs="?", const=GEMINI_MODEL, help=f"Gemini 로 붙인다(비용이 든다 — 묶음 8개에 호출 한 번). 모델을 비우면 {GEMINI_MODEL}")
+    # Flash 계열은 모델마다 하루 20회(config.GEMINI_LIMITS) — 묶음을 키워 호출 수를 줄인다
+    a.add_argument("--batch", type=int, default=fit.BATCH, help="한 호출에 붙일 표제어 수")
     args = a.parse_args()
     if args.gemini and not configured():
         sys.exit("Gemini 가 설정돼 있지 않다 — MODEL_PROVIDER=vertex·MODEL_REQUESTS_ENABLED=true·GCP_PROJECT_ID 를 확인하라")
@@ -44,7 +49,7 @@ def main() -> None:
             time.sleep(300)
             continue
         try:
-            batch, todo = todo[:fit.BATCH], todo[fit.BATCH:]
+            batch, todo = todo[:args.batch], todo[args.batch:]
             try:
                 done += fit.label(con, batch, gemini=args.gemini)
             except Exception as e:                  # 한 묶음의 형식 실패가 나머지를 막지 않는다
