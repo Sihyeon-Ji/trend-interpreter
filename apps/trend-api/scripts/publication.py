@@ -44,6 +44,7 @@ def main() -> None:
     export.add_argument("--snapshot-id", required=True)
     export.add_argument("--snapshot-sha256", required=True)
     export.add_argument("--out", type=Path, required=True)
+    export.add_argument("--glossary", type=Path, help="JSON {term_id: {원문 표기: 대상 언어 표기}} – 사람이 정한 고유명사 표기")
     pack = sub.add_parser("pack-translations")
     pack.add_argument("--input", type=Path, required=True)
     pack.add_argument("--results", type=Path, required=True)
@@ -91,7 +92,8 @@ def main() -> None:
             result = pub.stage(con, batch)
         elif args.command == "export-translations":
             try:
-                payload = inputs.translation_inputs(con, args.term_id, args.snapshot_id, args.snapshot_sha256)
+                glossary = json.loads(args.glossary.read_bytes()) if args.glossary else None
+                payload = inputs.translation_inputs(con, args.term_id, args.snapshot_id, args.snapshot_sha256, glossary)
                 private_write(args.out, payload)
             except pub.PublicationError:
                 raise

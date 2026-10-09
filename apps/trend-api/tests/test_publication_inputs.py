@@ -143,3 +143,20 @@ def test_empty_source_fields_may_stay_empty_in_translation(packet):
     with pytest.raises(pub.PublicationError, match="invalid_translation_output"):
         inputs.pack_translations(content, lines([result]), run, "bare2")
 
+
+
+def test_glossary_rides_in_the_hashed_input_and_must_name_text_in_the_entry(packet):
+    con, _, _, _ = packet
+    content = inputs.translation_inputs(con, ["t_one"], "fixed-snapshot", "a" * 64, {"t_one": {"origin": "Origin"}})
+    row = json.loads(content)
+    assert row["glossary"] == {"origin": "Origin"}
+    run = {"input_sha256": hashlib.sha256(content).hexdigest(), "model": "gemma4:12b", "model_digest": "b" * 64, "gemma_translate_sha256": "c" * 64}
+    result = {"term_id": "t_one", "term": row["term"], "source": row["entry"], "expected_meaning_id": row["expected_meaning_id"],
+              "derived_from_sha256": row["derived_from_sha256"], "en": {"definition": "English", "origin": "Origin", "nuance": "nuance"},
+              "error": None, **{key: run[key] for key in ("model", "model_digest", "gemma_translate_sha256", "input_sha256")}}
+    batch, _ = inputs.pack_translations(content, lines([result]), run, "named")
+    assert [item.term_id for item in batch.items] == ["t_one"]
+    with pytest.raises(pub.PublicationError, match="glossary_term_unknown"):
+        inputs.translation_inputs(con, ["t_one"], "s", "a" * 64, {"t_two": {"origin": "Origin"}})
+    with pytest.raises(Exception):                                   # 원문에 없는 표기는 받지 않는다
+        inputs.translation_inputs(con, ["t_one"], "s", "a" * 64, {"t_one": {"not in the entry": "X"}})

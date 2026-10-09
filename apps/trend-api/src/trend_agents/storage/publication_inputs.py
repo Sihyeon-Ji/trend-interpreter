@@ -24,18 +24,27 @@ class TranslationInput(StrictModel):
     snapshot_sha256: str = Field(pattern=SHA)
     meaning_source: MeaningDraft
     entry: MeaningText
+    # 사람이 정한 고유명사 표기(원문 표기 → 대상 언어 표기). 입력 해시에 들어가 번역 출처와 함께 남는다(10-09)
+    glossary: dict[str, str] = Field(default_factory=dict, max_length=20)
 
     @model_validator(mode="after")
     def consistent_source(self):
         if (digest(self.meaning_source) != self.derived_from_sha256
                 or self.entry != MeaningText.model_validate(self.meaning_source.model_dump())):
             raise ValueError("Translation text must match the versioned meaning source")
+        text = self.term + self.entry.model_dump_json()
+        if any(not 0 < len(k) <= 80 or not 0 < len(v) <= 80 or k not in text for k, v in self.glossary.items()):
+            raise ValueError("Glossary keys must appear in the entry")
         return self
 
 
-def translation_inputs(con: Connection, term_ids: list[str], snapshot_id: str, snapshot_sha256: str) -> bytes:
+def translation_inputs(con: Connection, term_ids: list[str], snapshot_id: str, snapshot_sha256: str,
+                       glossary: dict[str, dict[str, str]] | None = None) -> bytes:
+    glossary = glossary or {}
     if not term_ids or len(term_ids) > 1000 or len(set(term_ids)) != len(term_ids):
         raise PublicationError("invalid_term_selection")
+    if not set(glossary) <= set(term_ids):
+        raise PublicationError("glossary_term_unknown")
     rows = []
     # The caller must use connect_read_only(); one snapshot keeps IDs and contents consistent.
     with con.transaction():
@@ -48,7 +57,8 @@ def translation_inputs(con: Connection, term_ids: list[str], snapshot_id: str, s
             entry = MeaningText.model_validate(source.model_dump())
             row = TranslationInput(term_id=tid, term=term.canonical, expected_meaning_id=meaning.meaning_id,
                                    derived_from_sha256=digest(source), meaning_source=source, entry=entry,
-                                   snapshot_id=snapshot_id, snapshot_sha256=snapshot_sha256)
+                                   snapshot_id=snapshot_id, snapshot_sha256=snapshot_sha256,
+                                   glossary=glossary.get(tid, {}))
             rows.append(canonical(row))
     return ("\n".join(rows) + "\n").encode()
 

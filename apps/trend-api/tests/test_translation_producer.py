@@ -64,3 +64,18 @@ def test_producer_carries_original_version_and_model_provenance_without_logging_
     assert result["gemma_translate_sha256"] == run["gemma_translate_sha256"]
     assert result["source"] == source["entry"] and result["en"]["definition"] == "PRIVATE TRANSLATION"
     assert "PRIVATE" not in capsys.readouterr().out
+
+
+def test_glossary_is_appended_only_when_given(monkeypatch):
+    from trend_agents.interpreters import gemma_translate
+    from trend_agents.schemas import MeaningText
+
+    prompts = []
+    monkeypatch.setattr(gemma_translate.local_chat, "structured",
+                        lambda prompt, *a, **kw: prompts.append(prompt) or MeaningText(definition="English text", origin="o", nuance="n"))
+    entry = MeaningText(definition="우루사 광고에서 나온 말", origin="origin", nuance="nuance")
+    gemma_translate.translate_meaning(entry, "간 때문이야", "en")
+    gemma_translate.translate_meaning(entry, "간 때문이야", "en", glossary={"우루사": "URSA"})
+    plain = gemma_translate.PROMPT.format(target="English", term="간 때문이야", entry=entry.model_dump_json(indent=2))
+    assert prompts[0] == plain                                       # 표기 목록이 없으면 예전 지시문 그대로
+    assert prompts[1].startswith(plain) and "- 우루사 → URSA" in prompts[1]

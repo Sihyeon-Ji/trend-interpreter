@@ -38,8 +38,18 @@ def _in_target(text: str, target: str) -> bool:
     return bool(re.search(r"[A-Za-z]", text))       # en 등 로마자
 
 
-def translate_meaning(text: MeaningText, term: str, target: str, model: str = GEMMA_LOCAL_MODEL) -> MeaningText:
+GLOSSARY = """
+
+Name glossary (decided by a human editor). Wherever the entry mentions one of these, write it exactly as given here,
+even where a rule above says to keep the original wording:
+{lines}"""
+
+
+def translate_meaning(text: MeaningText, term: str, target: str, model: str = GEMMA_LOCAL_MODEL,
+                      glossary: dict[str, str] | None = None) -> MeaningText:
     prompt = PROMPT.format(target=LANG_NAME.get(target, target), term=term, entry=text.model_dump_json(indent=2))
+    if glossary:     # 없으면 지시문은 예전과 같다
+        prompt += GLOSSARY.format(lines="\n".join(f"- {k} → {v}" for k, v in glossary.items()))
     out = local_chat.structured(prompt, MeaningText, temperature=0.1, model=model)
     if _in_target(out.definition or "", target):
         return out

@@ -93,7 +93,8 @@ def main() -> None:
                 continue
             t0 = time.time()
             try:
-                out = gemma_translate.translate_meaning(MeaningText(**r["entry"]), r["term"], "en", model=MODEL)
+                out = gemma_translate.translate_meaning(MeaningText(**r["entry"]), r["term"], "en", model=MODEL,
+                                                       glossary=r.get("glossary") or None)
                 result, error = out.model_dump(), None
                 if HANGUL.search(out.definition or ""):
                     still_korean += 1
