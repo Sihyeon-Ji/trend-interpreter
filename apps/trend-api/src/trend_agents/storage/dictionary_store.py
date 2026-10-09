@@ -1047,10 +1047,19 @@ def recent_updates(con: Connection, hours: int = 48, limit: int | None = 60, kin
 def update_feed(con: Connection, hours: int = 48, kinds: tuple[str, ...] = USER_UPDATE_KINDS, limit: int = 100) -> dict:
     """'최근 변화' 화면용. 이용자 종류는 한 표현에 하루 한 행(가장 중요한 변화 하나)으로 줄이고, 종류별 합계는 자르기 전에 센다 —
     한도에 잘린 조각을 세면 건수가 전부인지 알 수 없다(화면 개편 2차 검토). 작업 기록 종류는 그대로 둔다(관리 화면에서 기록으로 본다)."""
+    from ..verification import hidden_headword
+
     rank = {k: i for i, k in enumerate(("meaning_changed", "verified", "spike"))}
     best: dict[tuple, dict] = {}
     rest: list[dict] = []
+    hidden: dict[str, bool] = {}
     for r in recent_updates(con, hours=hours, limit=None, kinds=kinds):
+        tid = r.get("term_id")
+        if tid and tid not in hidden:
+            t = get_term(con, tid)
+            hidden[tid] = bool(t) and hidden_headword(t)
+        if tid and hidden[tid]:      # 공개 사전에서 숨긴 욕설·성적 표제어는 피드에도 이름을 내지 않는다(10-09)
+            continue
         if r["kind"] not in rank:
             rest.append(r)
             continue

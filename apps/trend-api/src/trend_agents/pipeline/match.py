@@ -178,7 +178,7 @@ UNSAFE = re.compile(
     r"fuck|\b(?:bull|dog|horse)?shit(?:s|ty|post\w*)?\b|\bporn|hentai|ahegao|nsfw|goatse|"
     r"\b(?:bitch(?:es|y)?|cunts?|pussy|nigg(?:a|er)s?|retard(?:ed|s)?|whores?|sluts?)\b|"
     # 목표 지역(검토 2차): 일본어·태국어·베트남어·인도네시아어·타갈로그어·말레이어 — 뜻이 하나뿐인 말만
-    r"セックス|ちんこ|まんこ|ちんぽ|ควย|เย็ด|เหี้ย|หี(?![บ])|\bđịt\b|\blồn\b|\bcặc\b|\bđụ\b|"
+    r"セックス|ちんこ|まんこ|ちんぽ|アヘ顔|ควย|เย็ด|เหี้ย|หี(?![บ])|\bđịt\b|\blồn\b|\bcặc\b|\bđụ\b|"
     r"\b(?:kontol|ngentot|memek|jancok|pukimak|putangina|tangina|pakyu)\b|"
     # 대만·홍콩의 중국어
     r"性侵|強姦|强奸|色情|做愛|做爱|幹你娘|干你娘|肏|屄", re.I)

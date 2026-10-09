@@ -70,6 +70,28 @@ def test_public_list_detail_history_and_related_routes_hide_drafts(boundary):
     }
 
 
+def test_profane_headword_is_hidden_from_public_reads_until_a_reviewer_clears_it(boundary, monkeypatch):
+    con, client, headers = boundary
+    add(con, "published")
+    ds.upsert_term(con, Term(term_id="rude", canonical="Fuck Tha Police", lang="en", status="verified"))
+    ds.add_meaning(con, "rude", draft("rude approved definition"), "verified_auto", [])
+    monkeypatch.setattr(explain, "rewrite", lambda *a, **kw: None)
+    for path in ("/terms", "/terms?slim=true"):
+        assert [r["term"]["term_id"] for r in client.get(path).json()] == ["published"]
+    for suffix in ("", "/topic", "/graph", "/signals", "/generations"):
+        assert client.get(f"/terms/rude{suffix}").status_code == 404
+    assert client.post("/explain", json={"text": "Fuck Tha Police"}).json()["term_ids"] == []
+    feed = {i.get("term_id") for i in client.get("/updates?kinds=all").json()["items"]}
+    assert "published" in feed and "rude" not in feed
+    assert "rude" in {r["term"]["term_id"] for r in client.get("/review/terms", headers=headers).json()}
+    # 오탐은 검수자가 '특이 사항 없음' 으로 풀면 다시 공개된다
+    t = ds.get_term(con, "rude")
+    t.risk_human = t.risk_level = "none"
+    ds.upsert_term(con, t, human=True)
+    assert client.get("/terms/rude").status_code == 200
+    assert "rude" in [r["term"]["term_id"] for r in client.get("/terms?slim=true").json()]
+
+
 def test_slim_cache_changes_when_current_approval_changes(boundary):
     con, client, _ = boundary
     m = add(con, "published")

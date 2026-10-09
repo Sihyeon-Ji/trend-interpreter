@@ -107,6 +107,14 @@ def test_unsafe_covers_target_region_chinese():
     assert not unsafe("傻眼貓咪") and not unsafe("樹洞") and not unsafe("럭키비키")
 
 
+def test_unsafe_covers_japanese_ahegao():
+    """アヘ顔(아헤가오의 일본어)가 운영 일본 첫 화면 '뜨는' 목록에 판단 보류로 올랐다(10-09). 영어·한국어 표기는 이미 걸렸다."""
+    from trend_agents.pipeline.match import unsafe
+
+    assert unsafe("アヘ顔") and unsafe("Ahegao") and unsafe("아헤가오")
+    assert not unsafe("推し活") and not unsafe("オタクに優しいギャル")
+
+
 
 def test_wiki_is_meme_rejects_songs_films_people_keeps_undescribed():
     from trend_agents.collectors.wiki_memes import is_meme

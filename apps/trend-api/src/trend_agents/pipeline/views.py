@@ -429,7 +429,7 @@ def _index_stamp(con: Connection) -> str:
         "(SELECT md5(string_agg(md5(json), '' ORDER BY meaning_id)) FROM meanings WHERE valid_to IS NULL), "
         "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM translations), "
         "(SELECT count(*) FROM evidences)").fetchone()
-    return hashlib.md5(("public-v1|" + "|".join(str(v) for v in row)).encode()).hexdigest()
+    return hashlib.md5(("public-v2|" + "|".join(str(v) for v in row)).encode()).hexdigest()   # v2: 욕설·성적 표제어를 공개에서 뺀 뒤(10-09)
 
 
 def save_term_index(con: Connection) -> bytes:
