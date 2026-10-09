@@ -92,6 +92,25 @@ def test_profane_headword_is_hidden_from_public_reads_until_a_reviewer_clears_it
     assert "rude" in [r["term"]["term_id"] for r in client.get("/terms?slim=true").json()]
 
 
+def test_avoid_verdict_is_hidden_from_public_reads(boundary, monkeypatch):
+    con, client, headers = boundary
+    add(con, "published")
+    add(con, "slogan")
+    t = ds.get_term(con, "slogan")
+    t.risk_human = t.risk_level = "avoid"
+    ds.upsert_term(con, t, human=True)
+    monkeypatch.setattr(explain, "rewrite", lambda *a, **kw: None)
+    assert [r["term"]["term_id"] for r in client.get("/terms?slim=true").json()] == ["published"]
+    assert client.get("/terms/slogan").status_code == 404
+    assert client.post("/explain", json={"text": "slogan"}).json()["term_ids"] == []
+    assert "slogan" not in {i.get("term_id") for i in client.get("/updates?kinds=all").json()["items"]}
+    assert "slogan" in {r["term"]["term_id"] for r in client.get("/review/terms", headers=headers).json()}
+    # 사용 자제를 거두면 다시 공개된다
+    t.risk_human = t.risk_level = "caution"
+    ds.upsert_term(con, t, human=True)
+    assert client.get("/terms/slogan").status_code == 200
+
+
 def test_slim_cache_changes_when_current_approval_changes(boundary):
     con, client, _ = boundary
     m = add(con, "published")

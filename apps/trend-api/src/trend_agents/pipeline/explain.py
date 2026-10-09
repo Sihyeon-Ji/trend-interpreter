@@ -74,7 +74,7 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
 
 
 def explain(con: Connection, text: str, lang: str, reader: dict | None = None) -> tuple[list[str], str | None]:
-    key_lang = "public-v2|" + lang + (f"|{reader.get('gen','')}|{reader.get('region','')}" if reader else "")  # 읽는 사람이 다르면 재작성도 다르다
+    key_lang = "public-v3|" + lang + (f"|{reader.get('gen','')}|{reader.get('region','')}" if reader else "")  # 읽는 사람이 다르면 재작성도 다르다
     cached = ds.explain_cache_get(con, key_lang, text)
     terms = match_terms(text, ds.list_terms(con, ("verified",)))
     terms = [t for t in terms if is_public_entry(t, ds.current_meaning(con, t.term_id))]

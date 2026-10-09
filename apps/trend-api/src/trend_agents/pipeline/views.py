@@ -430,7 +430,7 @@ def _index_stamp(con: Connection) -> str:
         "(SELECT md5(string_agg(md5(json), '' ORDER BY meaning_id)) FROM meanings WHERE valid_to IS NULL), "
         "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM translations), "
         "(SELECT count(*) FROM evidences)").fetchone()
-    return hashlib.md5(("public-v2|" + "|".join(str(v) for v in row)).encode()).hexdigest()   # v2: 욕설·성적 표제어를 공개에서 뺀 뒤(10-09)
+    return hashlib.md5(("public-v3|" + "|".join(str(v) for v in row)).encode()).hexdigest()   # v3: 사용 자제·욕설·성적 표제어를 공개에서 뺀 뒤(10-09)
 
 
 def save_term_index(con: Connection) -> bytes:
@@ -553,14 +553,12 @@ def country_page(con: Connection, region: str) -> CountryPage:
     board = TrendBoard.model_validate_json(cached[0]) if cached else None
     items = [i for i in board.items if i.region == region] if board else []
     why = [w for w in board.why if w.region == region] if board else []
-    from .match import unsafe
-
-    # 둘러보는 목록이다 — 표제어 자체가 욕설·성적 표현인 것은 내지 않는다(검수자가 '문제 없음' 으로 푼 것은 낸다, 대시보드와 같은 규칙)
+    # 둘러보는 목록이다 — 사용 자제·욕설·성적 표제어는 is_public_entry 가 뺀다(대시보드와 같은 규칙)
     # 확인된 것만 — 공개 사전(/terms)과 같은 규칙. 확인 전 표현이 '확인된 표현' 으로 섞여 나왔다(화면 개편 2차 검토)
     from ..verification import is_public_entry
 
     recs = [term_record(con, t, public=True) for t in ds2.list_terms(con, ("verified",))
-            if is_public_entry(t, ds2.current_meaning(con, t.term_id)) and any(u["region"] == region for u in ds2.get_usage(con, t.term_id)) and (not unsafe(t.canonical) or t.risk_level == "none")]
+            if is_public_entry(t, ds2.current_meaning(con, t.term_id)) and any(u["region"] == region for u in ds2.get_usage(con, t.term_id))]
     share: dict[str, float] = {}
     for r in recs:
         for u in r.usage:

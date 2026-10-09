@@ -371,18 +371,18 @@ def test_dashboard_regions_lists_and_search_follow_rules():
 
     b = dashboard.board(con)
     assert b.regions == dashboard.REGIONS_FOCUS
-    assert [c.term_id for c in b.rising] == ["kr"] and [c.term_id for c in b.fading] == ["jp"] and [c.term_id for c in b.caution] == ["bad"]
+    assert [c.term_id for c in b.rising] == ["kr"] and [c.term_id for c in b.fading] == ["jp"] and b.caution == []   # 사용 자제(bad)는 공개 목록에서 뺀다(10-09)
     assert b.rising[0].search[0].query == "럭키비키 뜻"
-    assert b.counts["KR"] == 2 and b.counts["JP"] == 1 and b.counts["GLOBAL"] == 1 and "DE" not in b.counts
+    assert b.counts["KR"] == 1 and b.counts["JP"] == 1 and b.counts["GLOBAL"] == 1 and "DE" not in b.counts
 
     g = dashboard.board(con, ["GLOBAL"])
     assert [c.term_id for c in g.rising] == ["us"] and g.rising[0].search == []   # 인도네시아 순위는 인도네시아를 고를 때만
     assert dashboard.board(con, ["ID", "GLOBAL"]).rising[0].search[0].region == "ID"
     assert dashboard.board(con, ["XX"]).regions == dashboard.REGIONS_FOCUS          # 모르는 지역은 무시하고 기본값
 
-    ds.set_risk(con, "kr", "avoid", ["위험 유형이 붙은 근거 3건"], now)   # 리스크 필드는 리스크 단계·검수자 길로만 바뀐다
-    dashboard.refresh_card(con, "kr")                                             # 검수 결정이 다음 파이프라인을 기다리지 않는다
-    assert {c.term_id for c in dashboard.board(con).caution} == {"bad", "kr"}
+    ds.set_risk(con, "kr", "caution", ["위험 유형이 붙은 근거 3건"], now)   # 리스크 필드는 리스크 단계·검수자 길로만 바뀐다
+    dashboard.refresh_card(con, "kr")                                               # 검수 결정이 다음 파이프라인을 기다리지 않는다
+    assert {c.term_id for c in dashboard.board(con).caution} == {"kr"}
     assert dashboard.card(con, "de").regions == []                                # 사전 화면용으로는 지역 밖도 만든다
 
 

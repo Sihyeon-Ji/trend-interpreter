@@ -27,12 +27,12 @@ function ruleSummary(b: Briefing, locale: Locale, names: string): string {
   const c = b.counts;
   const parts = [fill(t(locale, "brief_rule_1"), { regions: names, rising: c.rising, use_now: c.use_now })];
   if (b.use_now.length) parts.push(fill(t(locale, "brief_rule_top"), { top: b.use_now.slice(0, 3).map((x) => x.canonical).join(", ") }));
-  parts.push(fill(t(locale, "brief_rule_2"), { careful: c.careful, avoid: c.avoid, fading: c.fading }));
+  parts.push(fill(t(locale, "brief_rule_2"), { careful: c.careful, fading: c.fading }));
   if (c.undecided) parts.push(fill(t(locale, "brief_rule_3"), { undecided: c.undecided }));
   return parts.join(" ");
 }
 
-type Kind = "use_now" | "careful" | "avoid" | "fading";
+type Kind = "use_now" | "careful" | "fading";
 
 function Section({ kind, cards, total, locale, regions }: { kind: Kind; cards: KeywordCard[]; total: number; locale: Locale; regions: string[] }) {
   const q = regions.length ? `?regions=${regions.join(",")}` : "";
@@ -63,7 +63,7 @@ function Section({ kind, cards, total, locale, regions }: { kind: Kind; cards: K
                 </div>
                 <div className="flex flex-col items-start gap-1.5 sm:items-end">
                   <StageCell diffusion={c.diffusion} lifecycle={c.lifecycle} locale={locale} />
-                  {(kind === "careful" || kind === "avoid") && <RiskCell item={c} locale={locale} />}
+                  {kind === "careful" && <RiskCell item={c} locale={locale} />}
                 </div>
               </li>
             );
@@ -125,7 +125,6 @@ export default async function BriefingPage({ searchParams }: { searchParams: Pro
             </section>
             <Section kind="use_now" cards={b.use_now} total={b.counts.use_now} locale={locale} regions={picked} />
             <Section kind="careful" cards={b.careful} total={b.counts.careful} locale={locale} regions={picked} />
-            <Section kind="avoid" cards={b.avoid} total={b.counts.avoid} locale={locale} regions={picked} />
             <Section kind="fading" cards={b.fading} total={b.counts.fading} locale={locale} regions={picked} />
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-[14px] print:hidden">
               <Link href={targets.length ? `/recommend?regions=${targets.join(",")}` : "/recommend"} className="text-link-blue hover:underline">{t(locale, "brief_to_kit")}</Link>

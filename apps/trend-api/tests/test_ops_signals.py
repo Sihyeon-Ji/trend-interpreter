@@ -298,7 +298,7 @@ def test_explain_rewrite_borrows_its_own_connection_in_the_api(monkeypatch, capl
     assert body == {"term_ids": ["t_rv1"], "plain": "REWRITTEN"} and len(sent) == 1
     assert [e["outcome"] for e in _calls(caplog)] == ["ok"]
     assert gemini.budget_left(con) == gemini.GEMINI_DAILY_BUDGET - 1           # 장부도 이 스키마에 남았다
-    assert ds.explain_cache_get(con, "public-v2|ko", "오늘 완전 럭키비키잖아") == (["t_rv1"], "REWRITTEN")
+    assert ds.explain_cache_get(con, "public-v3|ko", "오늘 완전 럭키비키잖아") == (["t_rv1"], "REWRITTEN")
 
 
 def test_disabled_requests_log_no_call_and_spend_no_budget(monkeypatch, caplog):

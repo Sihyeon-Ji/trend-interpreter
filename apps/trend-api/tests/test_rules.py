@@ -694,6 +694,8 @@ def test_dashboard_follows_live_decisions_and_regions_round2():
     assert dashboard.card(con, "vn").regions == ["VN"] and dashboard.card(con, "idn").regions == ["ID"]
 
     ds.set_risk(con, "kr", "avoid", ["사전 뜻풀이에 적힌 주의점"], now)                # 캐시를 만든 뒤의 결정
+    assert "kr" not in {c.term_id for c in dashboard.cards(con, ["KR"])}             # 사용 자제는 공개 목록에서 뺀다(10-09)
+    ds.set_risk(con, "kr", "caution", ["사전 뜻풀이에 적힌 주의점"], now)
     assert "kr" in {c.term_id for c in dashboard.board(con, ["KR"]).caution}
     t = ds.get_term(con, "kr")
     t.status = "retired"

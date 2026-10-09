@@ -5,9 +5,10 @@ import { expect, test } from "@playwright/test";
 test("briefing lists the market on one page with a rule summary, print and share", async ({ page }) => {
   await page.goto("/briefing?regions=KR");
   await expect(page.getByRole("heading", { level: 1, name: /트렌드 브리핑|Trend briefing/ })).toBeVisible();
-  for (const name of [/지금 써도 되는 밈|Use now/, /조심해서 쓸 밈|Use with care/, /쓰지 말 밈|Avoid/, /식어 가는 밈|Fading/]) {
+  for (const name of [/지금 써도 되는 밈|Use now/, /조심해서 쓸 밈|Use with care/, /식어 가는 밈|Fading/]) {
     await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
   }
+  await expect(page.getByRole("heading", { level: 2, name: /쓰지 말 밈|Avoid/ })).toHaveCount(0);   // 사용 자제는 공개 목록에서 뺐다(10-09)
   const summary = page.getByRole("region", { name: /^(요약|Summary)$/ });
   await expect(summary).toContainText(/한국에서 지금 쓰이는 밈은 \d+개|memes are in use in Korea/);
   await expect(summary).toContainText(/목록과 건수로 만든 요약|Built from the lists and counts/);   // 예시 모드는 모델이 없다

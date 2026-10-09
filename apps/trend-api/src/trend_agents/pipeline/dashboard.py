@@ -20,9 +20,9 @@ from ..config import REGIONS_FOCUS, home_region
 from ..schemas import Evidence, EvidenceBrief, Meaning, Term
 from ..storage import dictionary_store as ds
 from ..storage.db import Connection
-from ..verification import evidence_note, guessed_meaning, no_usage_meaning, vacuous_meaning
+from ..verification import evidence_note, guessed_meaning, hidden_from_public, no_usage_meaning, vacuous_meaning
 from .audit import NO_USAGE
-from .match import mentions, mostly_offtopic, unsafe
+from .match import mentions, mostly_offtopic
 from .runs import stage
 from .views import CATEGORY_MAP, GenPeak, KeywordBoard, KeywordCard, RegionSummary, RegionTop, SearchHit, Tone, WeeklyPoint
 
@@ -444,8 +444,9 @@ def _with_risk(s: Stored, level: str | None, reasons: list[str], checked: str | 
 
 
 def _browsable(c: KeywordCard) -> bool:
-    """둘러보는 목록에 낼 수 있나. 표제어 자체가 욕설·성적 표현이면 내지 않는다 — 검수자가 '문제 없음' 으로 정한 것은 낸다(오탐을 사람이 풀 수 있게)."""
-    return not unsafe(c.canonical) or c.risk_level == "none"
+    """둘러보는 목록에 낼 수 있나. 공개 사전과 같은 규칙(verification.hidden_from_public) – '사용 자제' 이거나 표제어 자체가
+    욕설·성적 표현이면 내지 않는다. 검수자가 '특이 사항 없음' 으로 푼 표제어 오탐은 낸다."""
+    return not hidden_from_public(c.canonical, c.risk_level)
 
 
 def _loaded(con: Connection) -> tuple[list[Stored], datetime]:

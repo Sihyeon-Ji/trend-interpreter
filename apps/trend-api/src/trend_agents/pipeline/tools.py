@@ -14,7 +14,8 @@ from difflib import SequenceMatcher
 from ..collectors.community import is_community_post
 from ..lifecycle import recheck_interval_days  # noqa: F401  (생애주기 라벨과 같은 모듈을 쓴다는 표시)
 from ..storage import dictionary_store as ds
-from .match import keywords, loose_key, strip_particle, unsafe
+from .match import keywords, loose_key, strip_particle
+from ..verification import hidden_from_public
 from .views import shown_evidences
 from ..storage.db import Connection
 
@@ -487,7 +488,7 @@ def list_terms(ctx: Ctx, args: dict) -> str:
         # 나라를 물었으면 그 나라 말, 아니면 지금 답하는 말. 한국어로 물었는데 일본어 표제어가 먼저 나오면 엉뚱하다.
         lang_of = {"KR": "ko", "JP": "ja", "ID": "id", "US": "en", "GB": "en"}.get(region, "") or ctx.lang
         # '요즘' 은 실제 언급으로 잰다. last_seen 은 예전에 조사할 때마다 덮여서 '최근 조사한 순' 이 돼 있었다.
-        rows = [t for t in rows if not unsafe(t.canonical) or t.risk_level == "none"]   # 검수자가 '문제 없음' 으로 푼 오탐은 보인다
+        rows = [t for t in rows if not hidden_from_public(t.canonical, t.risk_level)]   # 공개 사전과 같은 규칙
         recent = {t.term_id: sum(c for _, c in ds.get_weekly(ctx.con, t.term_id, weeks=4)) for t in rows}
         rows.sort(key=lambda t: (1 if lang_of and t.lang == lang_of else 0, recent[t.term_id],
                                  1 if ds.get_usage(ctx.con, t.term_id) else 0), reverse=True)

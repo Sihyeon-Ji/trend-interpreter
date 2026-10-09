@@ -9,7 +9,7 @@ import json
 from ..collectors.community import is_community_post
 from ..schemas import EvidenceBrief, Text2, Topic, TopicVariant, TopicVariantLink, TrendBoard, TrendItem, TrendWhy
 from ..storage import dictionary_store as ds
-from .match import unsafe
+from ..verification import hidden_from_public
 from .runs import stage
 from ..storage.db import Connection
 
@@ -110,8 +110,8 @@ def build(con: Connection) -> TrendBoard:
         regions = sorted({u["region"] for u in usage} | set(timeline))
         if len(regions) < 2:
             continue
-        # 표제어 자체가 욕설·성적 표현이면 둘러보는 목록(세계 지도 '나라를 건너간 밈')에 내지 않는다 — dashboard._browsable 과 같은 규칙
-        if unsafe(t.canonical) and t.risk_level != "none":
+        # 공개 사전에서 뺀 말(사용 자제·욕설·성적 표제어)은 세계 지도 '나라를 건너간 밈' 에도 내지 않는다 — dashboard._browsable 과 같은 규칙
+        if hidden_from_public(t.canonical, t.risk_level):
             continue
         m = ds.current_meaning(con, t.term_id)
         en = ds.get_translation(con, t.term_id, "en")
@@ -150,6 +150,11 @@ def build(con: Connection) -> TrendBoard:
 _MEMO: dict[str, tuple[tuple[str, str], TrendBoard]] = {}
 
 
+def _hidden_topic(con: Connection, topic_id: str) -> bool:
+    t = ds.get_term(con, topic_id.removeprefix("tp_"))
+    return bool(t) and hidden_from_public(t.canonical, t.risk_level)
+
+
 def cached(con: Connection) -> TrendBoard | None:
     """마지막으로 만든 보드(board_cache 'board'). 아직 없으면 None. 돌려준 객체는 고치지 않는다."""
     stamp = ds.cache_stamp(con, "board")
@@ -162,6 +167,8 @@ def cached(con: Connection) -> TrendBoard | None:
     if not row:
         return None
     b = TrendBoard.model_validate_json(row[0])
+    # 캐시는 파이프라인이 만든 때의 판정이다 — 그 뒤 사용 자제로 바뀐 말도 읽을 때 뺀다(다음 board 실행을 기다리지 않게)
+    b.topics = [tp for tp in b.topics if not _hidden_topic(con, tp.id)]
     _MEMO["board"] = (stamp, b)
     return b
 

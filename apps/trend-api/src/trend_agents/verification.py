@@ -26,15 +26,15 @@ PUBLIC_VERIFICATIONS = frozenset({"verified_auto", "verified_human"})
 def is_public_entry(term: Term | None, meaning: Meaning | None) -> bool:
     """Only a verified entry with an approved current meaning may be read publicly."""
     return bool(term and term.status == "verified" and meaning and meaning.verification in PUBLIC_VERIFICATIONS
-                and not hidden_headword(term))
+                and not hidden_from_public(term.canonical, term.risk_level))
 
 
-def hidden_headword(term: Term) -> bool:
-    """표제어 자체가 욕설·성적 표현인 말은 공개 사전에서 숨긴다(10-09 사용자 결정 – 사전에서 직접 찾아도 나오던 것).
-    검수자가 '특이 사항 없음' 으로 푼 것은 낸다(오탐을 사람이 풀 수 있게, 대시보드 `_browsable` 과 같은 규칙). 검수 화면에는 그대로 남는다."""
+def hidden_from_public(canonical: str, risk_level: str | None) -> bool:
+    """공개 사전·목록에서 빼는 말 – '사용 자제' 판정이거나 표제어 자체가 욕설·성적 표현인 말(10-09 사용자 결정).
+    표제어 규칙은 검수자가 '특이 사항 없음' 으로 풀면 낸다(오탐을 사람이 풀 수 있게). 검수 화면과 카피 검사의 경고에는 그대로 남는다."""
     from .pipeline.match import unsafe
 
-    return unsafe(term.canonical) and term.risk_level != "none"
+    return risk_level == "avoid" or (unsafe(canonical) and risk_level != "none")
 
 MIN_INDEPENDENT_DOMAINS = 2
 MIN_SELF_CONFIDENCE = 0.5

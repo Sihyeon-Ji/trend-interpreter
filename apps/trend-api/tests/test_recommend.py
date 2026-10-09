@@ -64,8 +64,9 @@ def test_excluded_lists_related_candidates_with_the_rule_that_blocked_them():
     con = _con()
     res = recommend.recommend(con, LATTE, "sample", ["KR"], "friendly")
     why = {e.term_id: e.code for e in res.excluded}
-    assert why == {"bad": "avoid", "crude": "crude", "edgy": "tone", "dead": "fading"}     # nofit(느낌도 분야도 안 겹침)은 없다
-    assert res.pool["KR"] == 7 and res.considered_by_region["KR"] == res.considered
+    # nofit(느낌도 분야도 안 겹침)은 없다. 사용 자제(bad)는 공개 목록에서 빠져 '뺀 말' 에도 이름이 나오지 않는다(10-09)
+    assert why == {"crude": "crude", "edgy": "tone", "dead": "fading"}
+    assert res.pool["KR"] == 6 and res.considered_by_region["KR"] == res.considered
 
 
 def test_each_market_gets_its_own_top_picks():

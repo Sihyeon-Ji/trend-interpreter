@@ -46,8 +46,9 @@ def con(monkeypatch):
 def test_briefing_lists_follow_the_dashboard_rules(con):
     b = briefing.build(con, ["KR"])
     ids = {k: [c.term_id for c in getattr(b, k)] for k in ("use_now", "careful", "avoid", "fading")}
-    assert ids == {"use_now": ["fresh"], "careful": ["warn"], "avoid": ["bad"], "fading": ["old"]}
-    assert b.counts.model_dump() == {"rising": 3, "use_now": 1, "careful": 1, "undecided": 1, "avoid": 1, "fading": 1}
+    # 사용 자제는 공개 목록에서 뺀다(10-09) – 브리핑에도 이름을 싣지 않는다. 카피 검사의 경고에만 남는다(아래)
+    assert ids == {"use_now": ["fresh"], "careful": ["warn"], "avoid": [], "fading": ["old"]}
+    assert b.counts.model_dump() == {"rising": 3, "use_now": 1, "careful": 1, "undecided": 1, "avoid": 0, "fading": 1}
     assert b.regions == ["KR"] and b.summary is None and b.summary_source == "none"
     assert briefing.build(con, []).regions == dashboard.chosen_regions([])     # 지역이 없으면 목표 지역 전체 — 대시보드와 같다
 
@@ -58,7 +59,7 @@ def test_briefing_summary_is_written_once_per_board_and_falls_back(con, monkeypa
     def fake(_con, prompt, schema, **kw):
         calls.append(prompt)
         assert kw == {"prefer_gemini": True, "request": True}
-        assert "럭키비키" in prompt and "자제말" in prompt and "보류말" not in prompt   # 목록에 실린 이름만 넘긴다
+        assert "럭키비키" in prompt and "자제말" not in prompt and "보류말" not in prompt   # 목록에 실린 이름만 넘긴다
         return briefing.BriefingText(text="  이번 주 한국에서는\n럭키비키를 써 볼 만합니다. "), "gemini-x"
 
     monkeypatch.setattr(briefing, "model_ready", lambda: True)
