@@ -82,6 +82,8 @@ def score(brief: ProductBrief, fit: MemeFit, card: KeywordCard, tone: str) -> tu
     if fit.audience == "niche" and brief.category not in NICHE_OK:
         return None                   # 서브컬처 캐릭터 밈(いまいち萌えない娘)이 화장품·러닝화에 나왔다(사람 판정 10-09)
     cat = brief.category in fit.fits
+    if fit.kind == "word" and not cat:
+        return None                   # 일반 낱말은 그 분야 제품에만 — lol·xD 가 라떼 카피 끝마다 붙어 못 쓸 카피가 됐다(FOMO 는 금융에, 10-09 판정)
     if fit.fits and not cat and not fit.any_category:
         return None                   # 분야가 정해진 밈은 그 분야 제품에만(팬덤 말 推し活 을 카드 광고에 — 09-30 실측)
     shared = [f for f in brief.feelings if f in fit.feelings][:3]

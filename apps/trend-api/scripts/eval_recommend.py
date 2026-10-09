@@ -7,6 +7,7 @@
   uv run scripts/eval_recommend.py                 # 설정된 대로(요청 때는 Gemini — 요청 장부 REQUEST_GEMINI_DAILY 안에서)
   uv run scripts/eval_recommend.py --local         # 로컬 Gemma 로만(개발 PC. Gemini 를 부르지 않는다)
   uv run scripts/eval_recommend.py --only KR       # 한 지역만
+  uv run scripts/eval_recommend.py --briefs artifacts/eval/recommend-….json   # 그 실행의 제품 이해를 다시 쓴다(규칙만 견줄 때)
 
 결과는 저장소 루트의 artifacts/eval/ 에 JSON 과 사람이 채울 CSV 로 남긴다(artifacts/ 는 커밋하지 않는다). 요약 수치만 Plan 09 에 옮긴다.
 """
@@ -22,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 from trend_agents.pipeline import generate, recommend
+from trend_agents.schemas import ProductBrief
 from trend_agents.storage import store as db
 
 OUT = Path(__file__).resolve().parents[3] / "artifacts" / "eval"
@@ -37,7 +39,7 @@ PRODUCTS = {
 TONE = "friendly"
 
 
-def run_case(con, region: str, kind: str, text: str) -> dict:
+def run_case(con, region: str, kind: str, text: str, given: ProductBrief | None = None) -> dict:
     row: dict = {"region": region, "product": kind, "text": text}
     row["candidates"] = recommend.ready(con, [region])
     if not row["candidates"]:
@@ -45,7 +47,8 @@ def run_case(con, region: str, kind: str, text: str) -> dict:
         return row
     t0 = time.time()
     try:
-        brief, source = recommend.understand(con, text, None, "ko")
+        # 제품 이해는 실행마다 느낌 태그가 달라진다(10-09: 러닝화가 '편안함·공감' → '편안함·멋짐' 이 되자 '인정' 이 빠졌다) — 규칙을 견줄 때는 고정한다
+        brief, source = (given, "given") if given else recommend.understand(con, text, None, "ko")
         res = recommend.recommend(con, brief, source, [region], TONE)
     except Exception as e:
         row["status"] = f"추천 실패: {type(e).__name__}"
@@ -101,7 +104,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--local", action="store_true", help="로컬 Gemma 로만 (Gemini 를 부르지 않는다)")
     ap.add_argument("--only", help="한 지역만")
+    ap.add_argument("--briefs", help="이전 결과 JSON — 그 실행의 제품 이해(brief)를 제품마다 다시 쓴다")
     a = ap.parse_args()
+    briefs = {r["product"]: ProductBrief.model_validate(r["brief"]) for r in json.loads(Path(a.briefs).read_text(encoding="utf-8"))
+              if r.get("brief")} if a.briefs else {}
     if a.local:
         from trend_agents.pipeline import gemini
 
@@ -110,7 +116,7 @@ def main() -> None:
     rows = []
     for region in ([a.only] if a.only else REGIONS):
         for kind, text in PRODUCTS.items():
-            r = run_case(con, region, kind, text)
+            r = run_case(con, region, kind, text, briefs.get(kind))
             print(f"{region} {kind:9s} {r.get('status')} 추천 {len(r.get('items', []))} {r.get('recommend_s', '-')}s 만들기 {r.get('generate_s', '-')}s", flush=True)
             rows.append(r)
     stamp = datetime.now().strftime("%Y%m%d-%H%M")

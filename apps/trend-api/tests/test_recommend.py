@@ -254,10 +254,11 @@ def test_fit_stage_retags_fits_made_before_audience(monkeypatch):
 
 
 def test_topics_are_not_recommended():
-    """밈의 소재(인물·작품·노래)는 추천하지 않는다 — 일반 낱말(word)은 카피에 잘 녹아 남긴다(인정·OOTD, 10-09 판정)."""
+    """밈의 소재(인물·작품·노래)는 추천하지 않고, 일반 낱말(word)은 그 분야 제품에만 권한다(10-09 판정)."""
     con = db.connect(":memory:")
     _term(con, "song", "노래제목", ["joy", "comfort"], fits=["food_drink"], kind="topic")
     _term(con, "plain", "보통말", ["joy", "comfort"], fits=["food_drink"], kind="word")
+    _term(con, "chat", "채팅말", ["joy", "comfort"], kind="word")             # 어디에나 붙는 일반 낱말(lol)은 분야가 없어 빠진다
     dashboard.run(con)
     assert [i.term_id for i in recommend.recommend(con, LATTE, "sample", ["KR"], "friendly").items] == ["plain"]
 
