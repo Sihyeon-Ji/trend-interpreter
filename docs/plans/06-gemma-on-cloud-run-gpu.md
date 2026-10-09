@@ -2,11 +2,11 @@
 
 > **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](archive/01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](archive/01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](archive/05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
 > 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
-[계획 목록](README.md) · [Plan 01 데이터 이관](archive/01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
+[계획 목록](README.md) · [Plan 01 데이터 이관](archive/01-import-latest-trend-data.md) · [Plan 05 배포](archive/05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
 
 ## 2026-10-06 공개 조회·검수 경계 후속 구현
 
@@ -235,7 +235,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 4. **검수와 운영 게시.** 스키마·근거·언어별 뜻 보존을 검사하고 사람이 승인한 결과만 별도 게시 도구로 Plan 05의 Cloud SQL에 반영한다. 게시 도구는 Plan 17의 Cloud Run 게시 Job으로 구현하고 관리되는 개발 환경에서 검증하며 Kaggle에는 운영 DB 자격증명을 주지 않는다. 배치 ID와 뜻 버전으로 중복·오래된 결과의 덮어쓰기를 막고, 실패 시 마지막 정상 게시본을 유지한다. Cloud SQL Auth Proxy를 쓰더라도 private IP에는 별도 네트워크 경로가 필요하다. 자격증명·사용자 원문·생성 결과 전문은 운영 로그나 Git에 기록하지 않는다.
    현재 `/meta`와 유지보수 작업은 `pipeline_runs`의 `board`·`dashboard` 성공 행으로 게시 시각을 판단한다(`ds.PUBLISH_STAGES`). Plan 17에서는 게시 트랜잭션의 활성 `publication_id`와 성공 시각을 기준으로 바꾸고, 두 소비자를 함께 수정한다. 전환 전 검증에서는 현행 신호를 유지하며, 완료되지 않은 게시를 성공 행으로 꾸미지 않는다.
 5. **서비스 분리와 보존·감시.** Cloud Run 웹·API는 PC와 Kaggle이 꺼져도 게시 자료를 읽어야 한다. 운영에서 PC의 localhost 모델 폴백을 제거한다. 일반 생성은 Vertex AI Gemini·규칙으로 처리하고, 승인된 특화 작업만 Plan 17의 GCE 내부 gateway로 호출한다. 감사관 어댑터를 리스크·번역 등 다른 작업에 품질 검증 없이 적용하지 않는다. 해석 캐시 7일·미해결 질문 30일 삭제, 마지막 정상 게시 시각과 오래된 자료 경보는 Plan 05의 독립 예약 작업으로 운영한다.
-   2026-09-29 코드 구현: `scripts/maintenance.py`, `/meta`의 `last_run`(마지막 정상 게시)·`stale`. 예약 실행과 경보 연결은 남았다([Plan 05 구현 기록](05-trend-cloud-run-deployment.md#구현-기록)).
+   2026-09-29 코드 구현: `scripts/maintenance.py`, `/meta`의 `last_run`(마지막 정상 게시)·`stale`. 예약 실행과 경보 연결은 남았다([Plan 05 구현 기록](archive/05-trend-cloud-run-deployment.md#구현-기록)).
    `stale`은 게시가 멈춘 것만 뜻한다. 지도·대시보드는 저장된 행으로 다시 만들어 수집원이 모두 실패해도 성공하므로, 수집원 실패는 관리 화면 '수집 현황'과 `health_check.py`가 본다.
 6. **품질 평가와 시연.** 같은 원자료의 Gemma 초안, 근거 검사, 사람 수정, 게시본을 추적한다. 언어별 뜻 보존·국가별 차이·출처에 없는 주장·처리 시간을 측정해 Plan 09에 넣는다. 미세조정 모델을 실제 채택한 경우에만 해당 어댑터와 전후 평가 결과를 제출 근거로 사용한다.
 
@@ -260,7 +260,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 | --- | --- | --- |
 | Gemma 초안을 만들고 모델 ID·시각·근거·검수 상태 추적 | 일부 | 위 PC 파이프라인이 만들지만, 번역에 모델 ID 를 `local:{GEMMA_LOCAL_MODEL}` 로 남기지 않고 실행마다 모델도 기록하지 않는다 |
 | 검증 안 된 초안은 공개 API 에 안 나가고 재실행에도 안전 | **팀 결정 대기** | `GET /terms/{id}` 는 제외되지 않은 모든 용어를 돌려주고(`api/app.py`) `needs_review` 도 200 이다. `/explain` 도 그렇다. 게시 경계(직접 쓰기 또는 단계 게시)와 표시된 `needs_review` 초안을 이용자에게 보일지 정해야 한다 |
-| PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
+| PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](archive/05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
 | 실시간 기능이 PC·Gemma 없이 작동, 원문은 PC 로 안 감 | 미충족 | `/ask`·`/ask/stream` 의 도구 호출 루프는 로컬 모델(`local_chat.chat_with_tools`)로만 돈다. 로컬 모델이 없으면 규칙 폴백뿐이다 |
 | 정리·건강 점검이 PC 배치와 독립 | 미충족 | Plan 05 의 같은 항목(정리는 `collect.retention` 안에만, `health_check.py` 는 출력만) |
 | Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |

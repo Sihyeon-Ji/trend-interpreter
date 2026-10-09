@@ -60,7 +60,7 @@ API key 없이 프로젝트·위치만으로 클라이언트를 만드는 것을
 
 ## 운영 배포 뒤 조정 방법
 
-Trend 앱은 아직 Cloud Run에 배포하지 않았습니다. [Plan 05](../plans/05-trend-cloud-run-deployment.md)에서
+Trend 앱은 아직 Cloud Run에 배포하지 않았습니다. [Plan 05](../plans/archive/05-trend-cloud-run-deployment.md)에서
 배포 스크립트를 만들 때 위 값을 Cloud Run 환경변수로 넘기고, 중지·재개는 새 revision 배포로 적용합니다.
 배포 후에는 이 절에 실제 명령을 채웁니다.
 

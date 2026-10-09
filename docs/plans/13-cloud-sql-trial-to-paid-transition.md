@@ -1,8 +1,8 @@
 # Plan 13. Cloud SQL 무료 체험 종료 전 유료 전환
 
-작성일 **2026-09-29** · 상태 **계획 유지 – 비용 결정·정확한 체험 만료 확인·전환 실행 대기** · 연계 [Plan 05](05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
+작성일 **2026-09-29** · 상태 **계획 유지 – 비용 결정·정확한 체험 만료 확인·전환 실행 대기** · 연계 [Plan 05](archive/05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
 
-[계획 목록](README.md) · [Trend 앱 배포](05-trend-cloud-run-deployment.md) · [GCP 운영](../운영/GCP-운영.md)
+[계획 목록](README.md) · [Trend 앱 배포](archive/05-trend-cloud-run-deployment.md) · [GCP 운영](../운영/GCP-운영.md)
 
 ## 2026-10-03 점검
 
@@ -97,6 +97,6 @@ Billing 예산 알림은 지출을 자동으로 막지 않으므로, 실제 보�
 - 만료일까지 어느 경로도 완료하지 못하면 서비스가 중지될 수 있음을 운영 기록에 남긴다. 90일 데이터 보관은
   서비스 가용성을 보장하지 않는다. 데이터나 사용 중인 서비스를 확인하지 않고 인스턴스를 삭제하지 않는다.
 
-전환 완료 뒤 [Plan 05](05-trend-cloud-run-deployment.md)와 [GCP 운영 문서](../운영/GCP-운영.md)에 실제 사양,
+전환 완료 뒤 [Plan 05](archive/05-trend-cloud-run-deployment.md)와 [GCP 운영 문서](../운영/GCP-운영.md)에 실제 사양,
 비용 확인일, 체험 종료 상태, 연결 대상, 백업 결정을 갱신한다. 콘솔에서 만든 `trend-project`는 현재 Terraform 외부
 자원이므로 같은 이름의 생성 리소스를 추가하지 않는다.

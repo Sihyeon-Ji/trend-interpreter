@@ -1,12 +1,29 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-> **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
+> **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](../17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 구현 – staging·production 웹/API 배포와 `release/gcp` 배포 경로 완료, 이전 `builder-cup` 삭제, 운영 DB 예약 백업 완료(10-04), 예약 유지보수 Job 완료(10-05), 승인 게시 운영 적용(10-09)** · 선행 [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **보관(10-09) – 완료 기준 8개 중 5개 충족. Job 이미지 갱신·Gemini 0회 확인은 Plan 17, 체험 종료 결정은 Plan 13으로 넘김** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
-[계획 목록](README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../운영/시스템-아키텍처.md) · [AI 호출 제어](../운영/AI-호출-제어.md) · [GCP 운영](../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)
+[계획 목록](../README.md) · [Plan 13: Cloud SQL 유료 전환](../13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../../운영/시스템-아키텍처.md) · [AI 호출 제어](../../운영/AI-호출-제어.md) · [GCP 운영](../../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
-> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](../06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+
+## 2026-10-09 완료 기준 재확인과 보관
+
+운영을 직접 조회해 완료 기준을 다시 맞춰 봤다. 아래 '과거 상태' 표(09-29)는 당시 기록이다.
+
+| 완료 기준 | 상태 | 근거(10-09) |
+| --- | --- | --- |
+| `release/gcp` 한 번으로 웹·API·유지보수 작업 배포 | 일부 | 웹·API는 `deploy-trend.sh`가 후보 확인 뒤 배포한다(10-09 여러 번). 유지보수·게시 Job 이미지는 Terraform `services.api_image`에 고정돼 release를 따라가지 않는다. 10-09에 유지보수 Job이 옛 이미지·옛 DB를 보던 것을 바로잡았다 |
+| 웹 URL 실데이터·API 익명 거부 | 충족 | 웹 200, API `/health` 익명 403 |
+| 재시작 뒤 Cloud SQL 유지 | 충족 | 10-04부터 Cloud SQL, 배포 뒤 사람 결정 유지 확인(10-09) |
+| 예약 백업·복원·보존 정리, 체험 결정 기록 | 일부 | 매일 03:00 백업·04:00 유지보수 성공, 복원 검증 10-04. 체험 종료 결정은 Plan 13(10-26 전) |
+| PC 없이 읽기·정리·건강 점검·Discord 경고 | 충족 | Scheduler 2개, 경보 정책 6개(예약 Job 실패·미시작, 서버 오류, 웹 불가 등) 켜짐 |
+| 동시성 = `DB_POOL_SIZE` | 충족 | 동시성 8, `DB_POOL_SIZE` 기본 8 |
+| migration 적용·JSON 로그 | 충족 | 새 revision이 018~021 적용(10-09), Cloud Logging에 `jsonPayload` 기록 |
+| `MODEL_REQUESTS_ENABLED=false`에서 호출 0회 | 미충족 | `gemini_call` 이벤트는 로그에 남지만 로그 지표가 없고, 끈 상태 재배포 확인을 하지 않았다 |
+
+웹·API 배포라는 이 계획의 몫은 끝났다고 보고 archive로 옮긴다. 남은 두 가지(Job 이미지가 release를 따라가게 하기, 끈 상태 0회 확인)는 [Plan 17](../17-hybrid-infrastructure.md#2026-10-09-plan-05에서-넘겨받은-일)이, 체험 종료 결정은 [Plan 13](../13-cloud-sql-trial-to-paid-transition.md)이 맡는다.
 
 ## 2026-10-09 배포 네 번과 운영 확인
 
@@ -16,7 +33,7 @@
 | --- | --- | --- |
 | 37890843888 | `1be66b3`(develop 59커밋) | **배포 건너뜀** – static 검사의 osv-scanner가 `next` 16.3.6(6건, High 1)과 shadcn CLI가 끌어오는 `@modelcontextprotocol/sdk` 1.30.0(High 1)을 잡았다 |
 | 37892512903 | `6c60d7a` – next·eslint-config-next 16.3.8, SDK는 overrides 1.31.0 | 성공. 새 API가 시작하며 migration 018~021을 운영 DB에 적용했다(새 열·새 표·새 표의 trigger뿐) |
-| 37896346240 | `9845a04` – 사용 자제 공개 숨김([Plan 03](archive/03-term-risk.md#2026-10-09-공개-숨김과-운영-리스크-사람-결정)) | 성공 |
+| 37896346240 | `9845a04` – 사용 자제 공개 숨김([Plan 03](03-term-risk.md#2026-10-09-공개-숨김과-운영-리스크-사람-결정)) | 성공 |
 | 37900800448 | `bd5a7b3` – 브리핑 요약·소개의 '쓰지 말 밈' 문구 제거 | 성공(이 회차는 로컬 e2e가 Docker 정지로 끝나지 못해 CI e2e로 갈음) |
 
 확인(로그인 없이, 운영 웹): 새 무대 화면, `/`·`/dictionary`·`/trends`·`/map`·`/check`·`/updates`·`/about` 200, 없는 주소 404, `/admin`은 로그인으로. 숨김 대상(アヘ顔·2 Girls 1 Cup·Let's Go Brandon·Fuck Tha Police 등)은 항목 주소 404, 공개 항목(밤티·오살힘·推し活) 200, 둘러보기 세 시장 첫 쪽에 숨김 대상 이름 0건. 관리 화면 '변경 묶음'(020 표)이 열리고 사람 리스크 결정 7건이 배포 뒤에도 남았다. 배포 뒤 API·웹 ERROR 로그 0건. 첫 요청은 사전 2초 남짓, 브리핑은 Gemini 요약을 새로 쓰느라 30초(두 번째부터 0.6초) – 녹화·심사 전에 한 번씩 연다. 운영 DB의 `schema_migrations`를 직접 조회하지는 않았다(리비전이 떴으므로 적용된 것으로 본다).
@@ -47,7 +64,7 @@ API 로그를 보니 둘 다 Gemini를 요청 중에 기다리고 있었다.
 
 ## 2026-10-06 공개 조회·검수 경계 후속 구현
 
-공개 사전·해석·챗봇 검색은 현재 승인된 verified 뜻만 읽고, 검수 대기 항목과 승인되지 않은 뜻 이력을 제외한다. 관리자 조회는 웹의 검수자 세션 확인과 API의 서버 토큰 검사를 모두 거친다. `status=all`은 공개 `/terms`에서 제거하고 보호된 `/review/terms`로 분리했다. 캐시와 예시 화면도 같은 기준으로 보완했다. 운영 배포·승인 변경 배치 게시는 별도로 남는다. 상세와 검증 결과는 [10-06 재점검의 후속 구현](archive/구현-완료도-실측-점검-2026-10-06.md#재점검-후-바로-구현--공개-조회와-검수-권한-경계)을 따른다.
+공개 사전·해석·챗봇 검색은 현재 승인된 verified 뜻만 읽고, 검수 대기 항목과 승인되지 않은 뜻 이력을 제외한다. 관리자 조회는 웹의 검수자 세션 확인과 API의 서버 토큰 검사를 모두 거친다. `status=all`은 공개 `/terms`에서 제거하고 보호된 `/review/terms`로 분리했다. 캐시와 예시 화면도 같은 기준으로 보완했다. 운영 배포·승인 변경 배치 게시는 별도로 남는다. 상세와 검증 결과는 [10-06 재점검의 후속 구현](구현-완료도-실측-점검-2026-10-06.md#재점검-후-바로-구현--공개-조회와-검수-권한-경계)을 따른다.
 
 ## 2026-10-04 production 배포
 
@@ -55,13 +72,13 @@ API 로그를 보니 둘 다 Gemini를 요청 중에 기다리고 있었다.
 
 첫 실행에서 CI가 세 번 실패했다. 설치기 테스트가 runner 디스크 여유에 의존했고, E2E가 개발 서버의 첫 컴파일 시간 때문에 시간을 넘겼고, 웹 이미지가 추적 파일 없는 `public` 폴더를 요구했다. 각각 고친 뒤 `b0e1826`이 API `trend-production-api-00002-kob`, 웹 `trend-production-web-00002-miz`로 배포됐고 이미지 digest가 release 커밋 빌드와 일치했다.
 
-production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 예약 유지보수 Job은 10-05에 매일 04:00 KST 실행으로 연결했다([유지보수 Job](../운영/GCP-운영.md#유지보수-job)). 승인 배치 게시(4)는 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)).
+production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](../19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 예약 유지보수 Job은 10-05에 매일 04:00 KST 실행으로 연결했다([유지보수 Job](../../운영/GCP-운영.md#유지보수-job)). 승인 배치 게시(4)는 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업)).
 
 ## 2026-10-03 점검
 
 공통 API 인증 fetch와 분리된 `infra/gcp/hybrid`의 VPC·SA·gateway secret 기반이 추가됐다. 유지보수·운영 신호 코드는 준비됐지만 Trend 배포 job·Cloud Run 서비스·Cloud SQL staging·예약 백업/경보는 남았다. 초안 공개 조회·승인 게시·운영 연결을 배포 차단으로 기록한다. 최초 보안 실패는 후속 13건 수정·개발 도구 1건 기한부 예외 후 재검사에서 통과했다. 실제 GCP 상태는 이번에 재조회하지 않았다.
 
-근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](archive/구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 배경
 
@@ -146,7 +163,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 | 항목 | 결정 | 상태 |
 | --- | --- | --- |
-| Gemma 4 사용 | Kaggle 학습·편집 실험, GCS/DVC 버전 관리·GCE GPU 운영 특화 추론 | [Plan 17](17-hybrid-infrastructure.md)로 확정. GPU 추론·품질·gateway와 [Plan 14](14-gemma-visible-in-deployment.md)의 화면 연결은 구현·검증 필요 |
+| Gemma 4 사용 | Kaggle 학습·편집 실험, GCS/DVC 버전 관리·GCE GPU 운영 특화 추론 | [Plan 17](../17-hybrid-infrastructure.md)로 확정. GPU 추론·품질·gateway와 [Plan 14](../14-gemma-visible-in-deployment.md)의 화면 연결은 구현·검증 필요 |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
 | 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | `scripts/maintenance.py`를 Cloud Run Job `trend-production-maintenance`가 매일 04:00 KST 실행(2026-10-05) |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |
@@ -157,7 +174,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 구현 순서
 
-1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. Plan 01의 GCS 고정 SQLite 스냅숏은 `scripts/migrate_sqlite_to_postgres.py`로 staging 이관·대조한 뒤 최초 적재합니다. SQLite `.sql.gz`를 `pg_dump`로 취급하지 않습니다. 검증한 PostgreSQL 사본은 `pg_dump`로 옮길 수 있습니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](archive/01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
+1. 기존 `trend-project`가 `RUNNABLE`이고 콘솔에 남은 체험 일수가 표시되는지 확인합니다. 별도 앱 DB와 최소 권한 사용자를 준비하고, 런타임 service account에 `roles/cloudsql.client`를 부여합니다. Plan 01의 GCS 고정 SQLite 스냅숏은 `scripts/migrate_sqlite_to_postgres.py`로 staging 이관·대조한 뒤 최초 적재합니다. SQLite `.sql.gz`를 `pg_dump`로 취급하지 않습니다. 검증한 PostgreSQL 사본은 `pg_dump`로 옮길 수 있습니다. 스크립트는 빈 DB에 `--fresh --skip-user-data`로, `pg_dump`는 `--exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`로 이용자 문장과 계정별 설정을 뺍니다(리허설 결과는 [Plan 01](01-import-latest-trend-data.md)). 인스턴스나 DB 비밀번호를 Terraform에 다시 생성하거나 기록하지 않습니다.
 2. 기존 운영 state와 분리한 `infra/gcp/hybrid`에 Trend용 service account, secret metadata, IAM을 구성하고 `terraform fmt -check`·`validate`·`plan`으로 확인합니다.
 3. `scripts/deploy-trend.sh`를 만듭니다. 후보 revision 배포 → API health와 웹 첫 화면·인증 거부 확인 → 트래픽 전환 → `release_summary.py` 기록 순서를 relay 배포 스크립트와 같게 맞춥니다.
    API 서비스는 **`--concurrency`와 `DB_POOL_SIZE`를 같은 값(기본 8)으로** 배포하고 `--max-instances 2`로 둡니다. 두 값을 스크립트의 한 변수에서 함께 넘겨 따로 바뀌지 않게 합니다.
@@ -166,7 +183,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 5. `.github/workflows/release-gcp.yml`에 application job을 다시 추가하고, `scripts/release_scope.py`의 `app` 판정이 그 job을 켜도록 연결합니다. `scripts/release_recovery.py`의 `SECRETS`에 새 서비스를 추가합니다.
 6. `infra/gcp/main.tf`의 uptime check 경로(`/health`), 로그 기반 오류 지표, 대시보드 필터를 새 서비스 이름으로 바꿉니다.
 7. Trend 서비스가 정상 운영되면 이전 `builder-cup` 서비스를 삭제하고 `builder-cup-demo-key` secret과 관련 IAM을 Terraform에서 제거합니다.
-8. [AI 호출 제어](../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../운영/배포-복구.md)에 실제 명령을 채웁니다.
+8. [AI 호출 제어](../../운영/AI-호출-제어.md)의 "운영 배포 뒤 조정 방법"과 [배포 복구](../../운영/배포-복구.md)에 실제 명령을 채웁니다.
 9. **예약 백업·복원 검증 완료(10-04), 복원 사본의 보존 기간 정리 검증은 남음.** 운영 전용 비공개 경로로 예약 `pg_dump` 백업을 남기고, 별도 PostgreSQL 복원·보존 기간 정리를 검증합니다. 연구용 사용자 제외 SQLite 백업과 구분합니다. 체험 종료 전 처리와 유료 전환/이전 뒤 관리형 백업·PITR 적용 여부는 Plan 13에 기록합니다.
 
 ## 완료 기준
@@ -178,12 +195,12 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 - PC가 꺼져도 마지막 성공 게시본을 읽을 수 있고, 갱신 시각·오래된 자료 상태가 표시된다. 보존 기간 정리와 건강 점검은 PC와 독립적으로 실행되며 경고가 Discord로 온다.
 - API의 Cloud Run 동시성과 `DB_POOL_SIZE`가 같은 값으로 배포되어 있다.
 - 새 revision이 시작할 때 `schema_migrations`에 없는 마이그레이션만 적용되고, 로그가 Cloud Logging에 JSON으로 남는다.
-- `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 `gemini_call` 로그 지표와 프로젝트의 Vertex AI API 요청 수로 함께 확인한다. 먼저 켠 상태의 호출 한 번이 두 값에 모두 잡히는지 본다([AI 호출 제어](../운영/AI-호출-제어.md#호출-기록)).
+- `MODEL_REQUESTS_ENABLED=false`로 재배포하면 Gemini 호출이 0회가 되는 것을 `gemini_call` 로그 지표와 프로젝트의 Vertex AI API 요청 수로 함께 확인한다. 먼저 켠 상태의 호출 한 번이 두 값에 모두 잡히는지 본다([AI 호출 제어](../../운영/AI-호출-제어.md#호출-기록)).
 - 문서의 현재 상태와 검증 결과가 갱신되어 있다.
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 
-아래 표·목록은 당시 점검 기록이다. 현재 진척도는 [10-03 실측 점검](archive/구현-완료도-실측-점검-2026-10-03.md)을 따른다. 현재 구축에는 Plan 17을 적용하며, 기존 Cloud SQL은 소유 범위 확인·참조/import 후 무변경 plan부터 검토한다. 아래 과거 목록을 근거로 인스턴스를 중복 생성하지 않는다.
+아래 표·목록은 당시 점검 기록이다. 현재 진척도는 [10-03 실측 점검](구현-완료도-실측-점검-2026-10-03.md)을 따른다. 현재 구축에는 Plan 17을 적용하며, 기존 Cloud SQL은 소유 범위 확인·참조/import 후 무변경 plan부터 검토한다. 아래 과거 목록을 근거로 인스턴스를 중복 생성하지 않는다.
 
 완료 기준 8개 중 충족한 것은 없고, 코드가 준비된 것이 일부 있다.
 
@@ -196,11 +213,11 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 | Cloud Run 동시성 = `DB_POOL_SIZE` | 미충족 | `DB_POOL_SIZE` 기본 8(`config.py`)만 있고 배포 스크립트가 `--concurrency` 를 넘기지 않는다 |
 | 마이그레이션 적용·JSON 로그 | 일부 | `apply_migrations` 와 `logging_setup.py`(`K_SERVICE` 가 있으면 JSON)는 있고 테스트가 있으나 Cloud Run 에서 검증하지 않았다 |
 | `MODEL_REQUESTS_ENABLED=false` 로 호출 0회 확인 | 미충족 | 차단 게이트(`model_client.py`)는 있으나 호출마다 남기는 로그 이벤트와 Trend 용 로그 지표가 없다 |
-| 문서 갱신 | 미충족 | [AI 호출 제어](../운영/AI-호출-제어.md) 의 실제 명령은 배포 뒤 채우기로 남아 있고, [배포 복구](../운영/배포-복구.md) 는 builder-cup 과 알림 중계기만 다룬다 |
+| 문서 갱신 | 미충족 | [AI 호출 제어](../../운영/AI-호출-제어.md) 의 실제 명령은 배포 뒤 채우기로 남아 있고, [배포 복구](../../운영/배포-복구.md) 는 builder-cup 과 알림 중계기만 다룬다 |
 
 남은 일(구현 순서 1~9 와 같은 순서, 아래는 실측으로 보탠 구체 항목):
 
-1. Cloud SQL Terraform(인스턴스·DB, 명시한 에디션·사양, 백업·PITR, `deletion_protection`), `sqladmin.googleapis.com` 활성화, 서비스 계정 `roles/cloudsql.client`. 지금 인스턴스는 콘솔에서 만든 것이라 Terraform 과 어긋난다([Plan 13](13-cloud-sql-trial-to-paid-transition.md)).
+1. Cloud SQL Terraform(인스턴스·DB, 명시한 에디션·사양, 백업·PITR, `deletion_protection`), `sqladmin.googleapis.com` 활성화, 서비스 계정 `roles/cloudsql.client`. 지금 인스턴스는 콘솔에서 만든 것이라 Terraform 과 어긋난다([Plan 13](../13-cloud-sql-trial-to-paid-transition.md)).
 2. Trend 서비스 계정(웹·API·유지보수)과 secret 메타데이터(`trend-database-url`·`trend-frontend-api-token`·`trend-session-secret`·`trend-accounts`), 서비스 계정별 `secretAccessor`. secret 값은 Terraform 상태에 넣지 않고 부트스트랩이 만든다.
 3. 웹 서버 전용 헬퍼 하나로 메타데이터 서버에서 Cloud Run ID 토큰을 받아(audience = `TREND_API_URL`, 약 55분 캐시, Cloud Run 밖에서는 아무것도 안 함) fetch 14곳에 붙인다.
 4. `scripts/deploy-trend.sh`: 후보 revision `--no-traffic --tag=candidate`, API `--no-allow-unauthenticated`·`--concurrency` 와 `DB_POOL_SIZE` 를 한 변수로·`--max-instances 2`·`--add-cloudsql-instances`. `release-gcp.yml` 에 application job 추가, `release_recovery.py` 를 Trend 서비스용으로 일반화.
@@ -209,7 +226,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 7. 감시를 Trend 서비스로 옮긴다: 가동 확인은 Trend 웹 URL(웹에는 `/api/health` 경로가 없다 – `app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐), 오류 지표는 Cloud Run 요청 로그(`httpRequest.status>=500`)로.
 8. 다중 인스턴스 대비: `apply_migrations` 에 `pg_advisory_xact_lock`, 마이그레이션은 expand-only, 풀에 `check=ConnectionPool.check_connection`.
 9. **사용자/팀 결정 대기:** Cloud SQL 사양·에디션·버전·네트워크(공개 IP + Auth Proxy 만, 또는 비공개 IP + VPC), 월 비용 수용과 지출 상한(기존 상한은 Vertex AI·Gemini API 만 덮는다).
-10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](archive/01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.
+10. **사용자 확인 뒤(제출 직전) 실행:** `terraform apply`·부트스트랩, 원작자 서버 `trend.db` 를 Auth Proxy 로 Cloud SQL 에 초기 적재([Plan 01](01-import-latest-trend-data.md) 선행), 첫 `release/gcp` push, 익명 403·재시작 유지 확인, Trend 가 서비스되면 `builder-cup` 서비스·`builder-cup-demo-key` secret·IAM 정리, 운영 문서의 실제 명령·검증 결과 기록.
 
 ## 구현 기록
 
@@ -231,7 +248,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
     그런 실패는 관리 화면 '수집 현황'과 `health_check.py`의 '하루 안에 실패한 단계'가 본다.
   - 당시 신선도 구현은 운영 `pipeline_runs`의 `board`·`dashboard` 성공 행이 필요했다. Plan 17에서는 `/meta`와 유지보수 점검을 활성 `publication_id`·게시 성공 시각으로 함께 전환한다. 이 전환은 아직 완료되지 않았다.
 - **Gemini 호출 이벤트.** `pipeline/gemini.py`가 Vertex에 요청을 보낼 때마다 `event=gemini_call`(`model`·`ledger`·`outcome`·`code`) 한 줄을 남긴다.
-  Cloud Run 서비스와 Job은 JSON 로그라 `jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있다([AI 호출 제어](../운영/AI-호출-제어.md)).
+  Cloud Run 서비스와 Job은 JSON 로그라 `jsonPayload.event="gemini_call"`로 로그 기반 지표를 만들 수 있다([AI 호출 제어](../../운영/AI-호출-제어.md)).
   호출이 꺼져 있으면(`MODEL_REQUESTS_ENABLED=false`) 장부를 깎기 전에 끝나 이벤트가 0이다. 전에는 보내지 않은 요청이 호출마다 장부를 1씩 깎았다
   (시험에서 파이프라인 장부 36→35, 요청 장부 12→11. 운영 API에서 그렇게 부르는 곳은 `/ask`·`/ask/stream`의 목록 간추리기·지금 찾아보기다).
   이벤트 0건은 설계상 결과라 그것만으로 호출 중지를 증명하지 않는다.
@@ -247,12 +264,12 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 ## 10-07 승인 배치 게시·웹 검수 연결
 
-불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../개발환경/승인-배치-게시.md)을 따른다.
+불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../../개발환경/승인-배치-게시.md)을 따른다.
 
 ## 10-07 게시 Job 기반 후속 구현
 
-배치 ID 한 개를 명시하는 모델 없는 게시 실행 파일과 기본 비활성 Cloud Run Job Terraform을 추가했다. Job은 migration을 적용하지 않고 DB migration 번호/체크섬과 실행 코드를 대조한다. 별도 publisher SA·전용 DB secret·Cloud SQL client만 연결하며 배치 미지정·미승인·스키마 불일치는 거부한다. DB 역할의 실제 쓰기/읽기 제한·staging Job 실행·운영 적용/복구는 남았다. [구현·명령·범위](../개발환경/승인-배치-게시.md#게시-job-실행-파일인프라-설정-10-07)를 따른다.
+배치 ID 한 개를 명시하는 모델 없는 게시 실행 파일과 기본 비활성 Cloud Run Job Terraform을 추가했다. Job은 migration을 적용하지 않고 DB migration 번호/체크섬과 실행 코드를 대조한다. 별도 publisher SA·전용 DB secret·Cloud SQL client만 연결하며 배치 미지정·미승인·스키마 불일치는 거부한다. DB 역할의 실제 쓰기/읽기 제한·staging Job 실행·운영 적용/복구는 남았다. [구현·명령·범위](../../개발환경/승인-배치-게시.md#게시-job-실행-파일인프라-설정-10-07)를 따른다.
 
 ## 10-07 게시 SQL 역할 로컬 검증 완료
 
-migration 021의 배치 승인/본문 변경 보호와 전용 PostgreSQL 역할 설정 도구를 추가했다. Job은 등록된 제한 역할만 허용하고, 사용자 원문/장부 조회·서비스 스키마 DDL·나중에 추가된 열 권한/역할 멤버십을 거부한다. 실제 SQL 역할에서 게시·중복 재실행·실패 롤백/재시도를 검증했다. 운영 로그인/secret·migration·staging Job·게시/복구 확인은 남는다. [권한 범위·명령·제한](../개발환경/승인-배치-게시.md#전용-postgresql-역할승인-경계-10-07-후속-완료)을 따른다.
+migration 021의 배치 승인/본문 변경 보호와 전용 PostgreSQL 역할 설정 도구를 추가했다. Job은 등록된 제한 역할만 허용하고, 사용자 원문/장부 조회·서비스 스키마 DDL·나중에 추가된 열 권한/역할 멤버십을 거부한다. 실제 SQL 역할에서 게시·중복 재실행·실패 롤백/재시도를 검증했다. 운영 로그인/secret·migration·staging Job·게시/복구 확인은 남는다. [권한 범위·명령·제한](../../개발환경/승인-배치-게시.md#전용-postgresql-역할승인-경계-10-07-후속-완료)을 따른다.

@@ -1,6 +1,6 @@
 # Plan 20. Trend 운영 일정 등록
 
-작성일 **2026-10-05** · 상태 **완료(10-05) – GitHub Project 일정 등록·검증 완료** · 연계 [Plan 05](../05-trend-cloud-run-deployment.md), [Plan 13](../13-cloud-sql-trial-to-paid-transition.md), [Plan 17](../17-hybrid-infrastructure.md), [Plan 19](../19-production-data-refresh.md)
+작성일 **2026-10-05** · 상태 **완료(10-05) – GitHub Project 일정 등록·검증 완료** · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](../13-cloud-sql-trial-to-paid-transition.md), [Plan 17](../17-hybrid-infrastructure.md), [Plan 19](../19-production-data-refresh.md)
 
 [계획 목록](../README.md) · [GCP 운영](../../운영/GCP-운영.md)
 

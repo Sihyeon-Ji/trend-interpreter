@@ -1,6 +1,6 @@
 # Plan 18. CI 병렬화와 배포 시간 단축
 
-작성일 **2026-10-04** · 상태 **완료(10-05) – 16분에서 약 6분으로 단축, 완료 기준 세 가지 확인** · staging은 두지 않음(10-04 결정) · 연계 [Plan 05](../05-trend-cloud-run-deployment.md), [Plan 17](../17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
+작성일 **2026-10-04** · 상태 **완료(10-05) – 16분에서 약 6분으로 단축, 완료 기준 세 가지 확인** · staging은 두지 않음(10-04 결정) · 연계 [Plan 05](05-trend-cloud-run-deployment.md), [Plan 17](../17-hybrid-infrastructure.md) · 목표일 **2026-10-08**
 
 [현재 계획](../README.md) · [Cloud Run 서비스 준비](../../개발환경/Cloud-Run-서비스-준비.md) · [GCP 운영](../../운영/GCP-운영.md)
 

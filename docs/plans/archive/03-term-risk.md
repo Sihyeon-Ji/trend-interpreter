@@ -6,7 +6,7 @@
 
 ## 2026-10-09 공개 숨김과 운영 리스크 사람 결정
 
-**공개 숨김 규칙(배포).** 사용 자제 판정이거나 표제어 자체가 욕설·성적 표현인 말은 공개 사전·목록에서 뺀다(사용자 결정). 규칙은 `verification.hidden_from_public` 하나이고, 공개 관문 `is_public_entry`와 대시보드·세계 지도·나라 화면·챗봇 목록·최근 변화·브리핑이 모두 이것을 따른다. 표제어 규칙은 검수자가 '특이 사항 없음'으로 풀면 다시 공개된다. 카피 검사의 '사용 자제' 경고와 관리 화면은 그대로다. 일본어 `アヘ顔`를 욕설·성적 표현 목록에 더했다. 커밋 `1be66b3`(표제어) · `9845a04`(사용 자제 전체) · `bd5a7b3`(브리핑 문구), 배포와 확인은 [Plan 05](../05-trend-cloud-run-deployment.md#2026-10-09-배포-네-번과-운영-확인)를 따른다.
+**공개 숨김 규칙(배포).** 사용 자제 판정이거나 표제어 자체가 욕설·성적 표현인 말은 공개 사전·목록에서 뺀다(사용자 결정). 규칙은 `verification.hidden_from_public` 하나이고, 공개 관문 `is_public_entry`와 대시보드·세계 지도·나라 화면·챗봇 목록·최근 변화·브리핑이 모두 이것을 따른다. 표제어 규칙은 검수자가 '특이 사항 없음'으로 풀면 다시 공개된다. 카피 검사의 '사용 자제' 경고와 관리 화면은 그대로다. 일본어 `アヘ顔`를 욕설·성적 표현 목록에 더했다. 커밋 `1be66b3`(표제어) · `9845a04`(사용 자제 전체) · `bd5a7b3`(브리핑 문구), 배포와 확인은 [Plan 05](05-trend-cloud-run-deployment.md#2026-10-09-배포-네-번과-운영-확인)를 따른다.
 
 로컬 10-05 snapshot 기준 verified 7,651개 중 표제어 규칙으로 45개가 숨는다(영어 22·한국어 20·중국어 2·일본어 1). 운영에서는 사용 자제 판정 약 10개가 더 빠진다(2 Girls 1 Cup, Let's Go Brandon, All Eyes on Rafah, Bavovna, 북한, 을용타 등).
 
@@ -131,7 +131,7 @@ Tralalero Tralala 는 원본 음성의 신성모독 표현이 근거 문장에 �
 - **규칙 테스트는 일부.** `tests/test_store_and_board.py` 가 잡음 한 건·단일 출처 주의·복수 출처 사용 자제·부정 비율·딴 이야기 제외·보류를 확인한다. 표제어 자체가 부적절한 말의 사용 자제 규칙과 영상 유래가 나쁜 말의 사용 자제 규칙은 판정 단위 테스트가 아직 없다.
 - **사용자/팀 결정 대기.** 표본 20개 사람 일치율은 위 개발자 1차 16/20(80%)뿐이다. 그 값은 09-29 규칙 변경(식상 제외·뉘앙스 규칙·욕설 부분 문자열·ADR 0003 인용) 전 것이고 표본 목록도 남아 있지 않다.
 
-이전 '남은 일' 가운데 끝난 것: 누가 바꿨는지 기록(`risk_decided_by`·`risk_decided_at`, `schemas.py`·`api/app.py`), Plan 07 추천 화면의 경고 표시(`recommend.py`·`recommend-form.tsx`). Spanner DDL 은 [Plan 05](../05-trend-cloud-run-deployment.md) 가 PostgreSQL 로 정해 범위에서 뺐다.
+이전 '남은 일' 가운데 끝난 것: 누가 바꿨는지 기록(`risk_decided_by`·`risk_decided_at`, `schemas.py`·`api/app.py`), Plan 07 추천 화면의 경고 표시(`recommend.py`·`recommend-form.tsx`). Spanner DDL 은 [Plan 05](05-trend-cloud-run-deployment.md) 가 PostgreSQL 로 정해 범위에서 뺐다.
 
 남은 일:
 

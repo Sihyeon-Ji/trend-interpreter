@@ -26,6 +26,7 @@
 | [현행 Plan 08](08-content-generation.md) | SNS 카피·숏폼 대본·썸네일 생성(10-09) |
 | [현행 Plan 12](12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조(10-09) |
 | [현행 Plan 15](15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별(10-09) |
+| [현행 Plan 05](05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09). 남은 두 가지는 Plan 17로 넘김 |
 | [현행 Plan 01](01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09). 수집 서버 PostgreSQL 전환은 그 담당자에게 넘김 |
 | [현행 Plan 16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재 – 용어 3,006개까지 하고 보류(10-09). 완료가 아니다 |
 | [현행 Plan 10](10-term-relation-graph.md) | 용어 관계 그래프 – 미착수로 보류(10-09). 완료가 아니다 |

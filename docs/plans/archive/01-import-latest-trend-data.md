@@ -2,7 +2,7 @@
 
 작성일 **2026-09-28** · 변경일 **2026-10-03** · 상태 **보관(10-09) – Cloud SQL 적재·운영 갱신(Plan 19)·첫 승인 게시 완료. 수집 서버 PostgreSQL 전환은 수집 서버 담당자에게 넘김** · 선행 **없음** · 목표일 **2026-10-01**
 
-[계획 목록](../README.md) · [개발 명령어의 이관 절차](../../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](../05-trend-cloud-run-deployment.md)
+[계획 목록](../README.md) · [개발 명령어의 이관 절차](../../개발환경/개발-명령어.md#sqlite-시절-데이터-옮기기) · [Plan 05 배포](05-trend-cloud-run-deployment.md)
 
 ## 2026-10-06 재점검
 
@@ -56,7 +56,7 @@
 
 Cloud SQL로 보낼 사본에서는 이용자가 붙여 넣은 문장(`explain_cache`)과 계정별 설정(`reader_prefs`)을 뺍니다.
 스크립트로 바로 옮기면 `--fresh --skip-user-data`, 로컬 DB에서 내보내면
-`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](../05-trend-cloud-run-deployment.md)).
+`pg_dump -Fc --no-owner --exclude-table-data=explain_cache --exclude-table-data=lookups --exclude-table-data=reader_prefs`입니다([Plan 05](05-trend-cloud-run-deployment.md)).
 
 현재 이관 스크립트의 `--skip-user-data`는 `explain_cache`·`lookups`·`reader_prefs`를 모두 제외합니다(10-02 수정·테스트). 고정 인수본에서 세 표가 없음을 다시 검증했으며, 10-02 로컬 PostgreSQL 이관 기록에서도 세 표 0행을 확인했습니다. Cloud SQL 최초 적재에서도 이 조건을 다시 확인합니다.
 

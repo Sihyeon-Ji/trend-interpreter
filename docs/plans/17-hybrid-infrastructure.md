@@ -10,6 +10,11 @@
 
 10-08 읽기 전용 확인 시 현재 `gcloud` 계정에는 수집 키의 프로젝트 `trend-agents-2026` 조회 권한이 없었다. 따라서 이 계정의 다른 기본 프로젝트 사용량을 대신 기록하지 않았다. 해당 프로젝트를 볼 수 있는 계정의 API 할당량 화면 또는 수집 서버 사용 기록이 필요하다.
 
+## 2026-10-09 Plan 05에서 넘겨받은 일
+
+- **Job 이미지:** 유지보수·게시 Job은 Terraform `services.api_image`를 쓰고, release는 웹·API만 바꾼다. 새 migration이 든 배포 뒤 이 값을 맞추지 않으면 게시 Job은 실행을 거부하고, 유지보수 Job은 옛 코드로 돈다. release가 Job 이미지도 바꾸게 하거나, 배포 체크리스트에 Terraform 적용을 넣는다.
+- **Gemini 0회 확인:** `gemini_call` 로그 지표를 만들고, 끈 상태 revision에서 호출 0회를 지표와 Vertex AI 요청 수로 확인한다.
+
 ## 2026-10-09 승인 게시 운영 적용
 
 첫 배치(영어 뜻 60개)를 운영에 게시했고, 전용 DB 역할 `trend_publisher`·secret `trend-production-publisher-database`·Job `trend-production-publication`을 운영에 적용했다. Job은 이미 게시한 배치로 한 번 실행해 역할 검사와 재실행 처리를 확인했다. 실제 변경이 있는 게시의 실행 시간은 아직 재지 않았다. 순서와 사용법은 [승인 배치 게시](../개발환경/승인-배치-게시.md)에 있다.
