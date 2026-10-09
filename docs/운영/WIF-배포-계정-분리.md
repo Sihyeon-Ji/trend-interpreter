@@ -1,6 +1,6 @@
 # WIF 배포 계정 분리: 배포 계정은 gcp environment job만
 
-작성일 **2026-10-06** · 상태 **코드 준비 완료, GCP 미적용 – 브랜치 `security/wif-environment`(`2b8f474`)** · 관련 [Plan 11 공개 저장소와 GCP 배포 승인](../plans/11-public-repository-release-protection.md) · [GCP 운영](GCP-운영.md)
+작성일 **2026-10-06** · 상태 **코드 준비 완료, GCP 미적용 – 브랜치 `security/wif-environment`(`2b8f474`)** · 관련 [Plan 11 공개 저장소와 GCP 배포 승인](../plans/archive/11-public-repository-release-protection.md) · [GCP 운영](GCP-운영.md)
 
 저장소를 공개하기 전에 GitHub Actions가 GCP 권한을 받는 경계를 좁힌다. 이 문서는 문제, 바꾼 것, 적용 순서, 확인과 되돌리기를 한곳에 적는다.
 

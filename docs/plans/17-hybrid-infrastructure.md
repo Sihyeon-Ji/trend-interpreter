@@ -225,7 +225,7 @@ GCS 문자열 prefix 자체는 IAM 경계가 아니다. 공유 버킷은 [manage
 
 Gemma 특화 추론은 내부 gateway의 실제 readiness를 확인하고 deadline·큐 길이·GPU 전체 동시성을 제한한다. API 인스턴스별 세마포어만으로 VM 전체 한도를 지켰다고 판단하지 않는다. 최초 동시성은 1부터 실측하고 늘린다. `localhost` PC 폴백을 운영에서 제거한다. GPU 장애 시 게시 데이터 조회는 유지하고, 특화 작업은 보류/실패로 알린다. 일반 생성의 Gemini 장애는 기존 규칙에 따라 부분 결과나 오류로 응답한다.
 
-운영 PostgreSQL 백업은 연구 버킷의 사용자 제외 SQLite 백업과 별도다. 운영 백업 전용 비공개 경로에 저장하고 실제 복원을 확인한다. 사용자 표를 포함한 복원 뒤에는 보존 기간 정리를 실행한다. Cloud SQL 체험 종료와 사양/비용 전환은 [Plan 13](13-cloud-sql-trial-to-paid-transition.md)에 연결한다.
+운영 PostgreSQL 백업은 연구 버킷의 사용자 제외 SQLite 백업과 별도다. 운영 백업 전용 비공개 경로에 저장하고 실제 복원을 확인한다. 사용자 표를 포함한 복원 뒤에는 보존 기간 정리를 실행한다. Cloud SQL 체험 종료와 사양/비용 전환은 [Plan 13](archive/13-cloud-sql-trial-to-paid-transition.md)에 연결한다.
 
 ## 7. 구현 순서와 산출물
 

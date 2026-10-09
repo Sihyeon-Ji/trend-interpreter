@@ -2,7 +2,7 @@
 
 > **2026-10-01 인프라 결정:** Gemma 운영 서빙 위치는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU로 확정했다. 운영 기반은 아래 GCE runtime·내부 gateway·비동기 작업 설계를 따른다. 사용자 화면과 관리자 실행 UX는 계속 팀 검토 대상으로 두며 품질·로그·장애 시 조회 유지 조건은 적용한다.
 
-작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 구현(10-06) – 사전 항목 '이 판정의 근거 문장', 공개 설명 `/about`, 관리 화면 '모델 기록'과 단계별 호출 수·시간. live-risk·관리자 실행 미구현** · 선행 [Plan 05](archive/05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
+작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계 구현(10-06) – 사전 항목 '이 판정의 근거 문장', 공개 설명 `/about`, 관리 화면 '모델 기록'과 단계별 호출 수·시간. live-risk·관리자 실행 미구현** · 선행 [Plan 05](archive/05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](archive/06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
 [계획 목록](README.md) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](archive/03-term-risk.md) · [Plan 12 문서 대조](archive/12-dictionary-crosscheck.md)
 

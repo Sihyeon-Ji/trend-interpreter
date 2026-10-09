@@ -1,26 +1,26 @@
 # Plan 06. Kaggle Gemma 4 편집·미세조정 실험과 운영 데이터 게시
 
-> **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
+> **2026-10-01 통합 계획:** [Plan 17](../17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
-작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **부분 완료 – DVC·입력 검증·Kaggle 실제 짧은 학습/재개 확인, 사람 정답 20건 봉인(10-04). 전체 학습·기본 모델 대비 비교·팀 재현·편집 배치·승인 게시 남음** · 선행 실험은 [Plan 01](archive/01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](archive/05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
+작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **중단(10-09) – 하지 않기로 함. DVC·Kaggle 짧은 학습/재개·전체 QLoRA·사람 정답 20건 봉인·번역 시험과 영어 뜻 60개 첫 승인 게시까지 했다. 팀 재현·봉인 정답 모델 비교는 하지 않는다** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
-> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
+> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](../17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
-[계획 목록](README.md) · [Plan 01 데이터 이관](archive/01-import-latest-trend-data.md) · [Plan 05 배포](archive/05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../트렌드/파이프라인.md)
+[계획 목록](../README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../../트렌드/파이프라인.md)
 
 ## 2026-10-06 공개 조회·검수 경계 후속 구현
 
-공개 사전·해석·챗봇 검색은 현재 승인된 verified 뜻만 읽고, 검수 대기 항목과 승인되지 않은 뜻 이력을 제외한다. 관리자 조회는 웹의 검수자 세션 확인과 API의 서버 토큰 검사를 모두 거친다. `status=all`은 공개 `/terms`에서 제거하고 보호된 `/review/terms`로 분리했다. 캐시와 예시 화면도 같은 기준으로 보완했다. 운영 배포·승인 변경 배치 게시는 별도로 남는다. 상세와 검증 결과는 [10-06 재점검의 후속 구현](archive/구현-완료도-실측-점검-2026-10-06.md#재점검-후-바로-구현--공개-조회와-검수-권한-경계)을 따른다.
+공개 사전·해석·챗봇 검색은 현재 승인된 verified 뜻만 읽고, 검수 대기 항목과 승인되지 않은 뜻 이력을 제외한다. 관리자 조회는 웹의 검수자 세션 확인과 API의 서버 토큰 검사를 모두 거친다. `status=all`은 공개 `/terms`에서 제거하고 보호된 `/review/terms`로 분리했다. 캐시와 예시 화면도 같은 기준으로 보완했다. 운영 배포·승인 변경 배치 게시는 별도로 남는다. 상세와 검증 결과는 [10-06 재점검의 후속 구현](구현-완료도-실측-점검-2026-10-06.md#재점검-후-바로-구현--공개-조회와-검수-권한-경계)을 따른다.
 
 ## 2026-10-06 재점검
 
 짧은 학습 재개 이후 전체 QLoRA 80·160스텝 실행 기록과 사람 감사 정답 20건 봉인을 확인했다. 전체 실행·32개 모델 정답의 JSON 성공은 독립 품질 개선의 근거가 아니다. 봉인 사람 정답 비교·팀 동일 입력 재현·승인 게시가 남는다. 69개 번역 시험은 저장소에 결과를 게시하지 않았고 사람 검토에서 원문 뜻과 번역 오류가 확인됐다.
 
-최신 계획별 판정과 우선순위는 [10-06 재점검](archive/구현-완료도-실측-점검-2026-10-06.md)을 따른다. 아래 날짜별 기록은 당시 범위로 보존한다.
+최신 계획별 판정과 우선순위는 [10-06 재점검](구현-완료도-실측-점검-2026-10-06.md)을 따른다. 아래 날짜별 기록은 당시 범위로 보존한다.
 
 ## 2026-10-09 데모 화면 영어 뜻 번역 – 첫 운영 승인 배치 준비
 
-영어 화면에서 운영 둘러보기 세 시장 첫 쪽의 93개가 'English explanation not available yet'이었다([대상](../대회/제출/데모-영어뜻-대상.csv), [Plan 09](09-generation-quality-evaluation.md)). 10-06 시험과 달리 이번에는 판 ID·해시가 고정된 입력으로 돌려 승인 배치까지 이었다.
+영어 화면에서 운영 둘러보기 세 시장 첫 쪽의 93개가 'English explanation not available yet'이었다([대상](../../대회/제출/데모-영어뜻-대상.csv), [Plan 09](../09-generation-quality-evaluation.md)). 10-06 시험과 달리 이번에는 판 ID·해시가 고정된 입력으로 돌려 승인 배치까지 이었다.
 
 | 단계 | 결과 |
 | --- | --- |
@@ -37,7 +37,7 @@
 
 drop 22개는 뜻부터 고쳐야 한다. 데모 영어권 첫 칸의 Cancer도 여기 들어 있다. 작업 파일은 `artifacts/translate-1009/`에 있다(Git 제외: 입력·결과·검토 표·배치).
 
-**승인 잠김(10-09 저녁).** 관리 화면에서 승인 버튼이 눌리지 않았다. 같은 시각 운영 DB에서 Plan 07의 밈 종류 다시 붙이기가 `term_fit`을 갱신하면서 준비 기준값을 바꿨기 때문이다. 같은 60개를 `translation-en-demo-20261009b`(`2f910e0a…`)로 다시 준비해도 계속 어긋났다. 그 작업이 끝난 뒤 새 ID로 다시 준비하고 바로 승인한다([승인 배치 게시](../개발환경/승인-배치-게시.md)). 21:33 뒤 갱신이 멎은 것을 보고 같은 60개를 `translation-en-demo-20261009c`(`6c7f8f07…`)로 다시 준비했다(`draft`). 승인은 사람 확인을 기다린다.
+**승인 잠김(10-09 저녁).** 관리 화면에서 승인 버튼이 눌리지 않았다. 같은 시각 운영 DB에서 Plan 07의 밈 종류 다시 붙이기가 `term_fit`을 갱신하면서 준비 기준값을 바꿨기 때문이다. 같은 60개를 `translation-en-demo-20261009b`(`2f910e0a…`)로 다시 준비해도 계속 어긋났다. 그 작업이 끝난 뒤 새 ID로 다시 준비하고 바로 승인한다([승인 배치 게시](../../개발환경/승인-배치-게시.md)). 21:33 뒤 갱신이 멎은 것을 보고 같은 60개를 `translation-en-demo-20261009c`(`6c7f8f07…`)로 다시 준비했다(`draft`). 승인은 사람 확인을 기다린다.
 
 **첫 운영 게시(10-09).** c의 사람 검토에서 디스맨·Italian brainrot·갓갓갓 세 뜻을 고쳐 `translation-en-demo-20261009d`(60개, `798e352f…`)로 다시 준비했다. copybara가 13:17 UTC에 d를 승인하고 a·b·c를 거절했다. `publication.py publish`로 게시해 `pub_54a1c6ca0d709be81e0e7060`(14:27 UTC)이 남았다. `publication_state`가 이 게시를 가리키고, 디스맨·갓갓갓의 영어 뜻이 고친 문장으로 바뀌었으며 사전 화면은 200이다. 이번 게시는 운영자 계정으로 PC에서 Cloud SQL Auth Proxy를 거쳐 실행했다. 전용 역할 `trend_publisher`와 게시 Job은 남았다.
 
@@ -53,10 +53,10 @@ drop 22개는 뜻부터 고쳐야 한다. 데모 영어권 첫 칸의 Cancer도 
 
 ## 2026-10-06 밀린 영어판 Kaggle 번역 시험
 
-수집 서버의 track이 10-01부터 1시간 제한에 걸려 `translate`가 09-30 뒤로 돌지 않았다([Plan 02](archive/02-lifecycle-stages.md)). 그래서 '지금 쓰이는' 한국 밈 85개 중 영어판이 16개뿐이다. 빠진 69개를 Kaggle T4에서 로컬 Gemma로 번역해 봤다. 이 PC의 GPU는 다른 작업의 vLLM이 쓰고 있어 쓰지 않았다.
+수집 서버의 track이 10-01부터 1시간 제한에 걸려 `translate`가 09-30 뒤로 돌지 않았다([Plan 02](02-lifecycle-stages.md)). 그래서 '지금 쓰이는' 한국 밈 85개 중 영어판이 16개뿐이다. 빠진 69개를 Kaggle T4에서 로컬 Gemma로 번역해 봤다. 이 PC의 GPU는 다른 작업의 vLLM이 쓰고 있어 쓰지 않았다.
 
 - **입력:** 10-06 12:45 KST snapshot(`97146f8`)을 연구 DB에 올리고 Plan 02의 새 규칙으로 track을 다시 돌렸다. 그 뒤 '쓰이는 중'·한국 지역·영어판 없음인 verified 69개의 현행 뜻(뜻·확장·유래·뉘앙스)을 뽑았다. 비공개 Dataset `onzlchoi/trend-translate-kr-inuse`(`terms.jsonl` SHA-256 `7cc7e568…`)에 저장소 `trend_agents` 일부를 함께 넣었다.
-- **실행:** 비공개 Kaggle script `onzlchoi/trend-translate-run`. 코드는 [`models/kaggle/translate/translate_meanings.py`](../../models/kaggle/translate/translate_meanings.py)다. 저장소의 `gemma_translate.translate_meaning`을 그대로 불러 프롬프트·재질문·Ollama 호출 옵션이 수집 서버와 같다. 모델은 `gemma4:12b`(digest `6114515d63c1`), Ollama 0.35.1, T4.
+- **실행:** 비공개 Kaggle script `onzlchoi/trend-translate-run`. 코드는 [`models/kaggle/translate/translate_meanings.py`](../../../models/kaggle/translate/translate_meanings.py)다. 저장소의 `gemma_translate.translate_meaning`을 그대로 불러 프롬프트·재질문·Ollama 호출 옵션이 수집 서버와 같다. 모델은 `gemma4:12b`(digest `6114515d63c1`), Ollama 0.35.1, T4.
 - **결과:** 69개 모두 형식 실패 없음. 합계 760초, 중앙값 7.4초.
 
 | 영어 뜻의 한글 | 개수 | 뜻 |
@@ -80,9 +80,9 @@ drop 22개는 뜻부터 고쳐야 한다. 데모 영어권 첫 칸의 Cancer도 
 
 ## 2026-10-03 점검
 
-10-02 기록과 manifest에 실제 T4의 optimizer update 2→4회·체크포인트 재개가 있다. 기존 합성 리스크 노트북과 별도 감사관 학습 경로이며, 전체 학습이나 품질 승격 완료가 아니다. DVC 도구·비공개 Dataset·독립 평가 후보 20개를 준비했고, 10-04에 ejchoi의 사람 판정 20건(ok 10·fix 10)을 정답으로 봉인했다([감사관 독립 평가](../개발환경/감사관-독립-평가.md#2026-10-04-판정-수령과-봉인)). 다음은 319행 전체 학습과, 같은 추론 계약으로 기본 모델과 학습 어댑터를 이 정답셋에서 비교하는 일이다. 지금 어댑터는 8행 smoke라 비교 의미가 작다. 팀원 2명 재현·GCS 게시·운영 게시도 남았다.
+10-02 기록과 manifest에 실제 T4의 optimizer update 2→4회·체크포인트 재개가 있다. 기존 합성 리스크 노트북과 별도 감사관 학습 경로이며, 전체 학습이나 품질 승격 완료가 아니다. DVC 도구·비공개 Dataset·독립 평가 후보 20개를 준비했고, 10-04에 ejchoi의 사람 판정 20건(ok 10·fix 10)을 정답으로 봉인했다([감사관 독립 평가](../../개발환경/감사관-독립-평가.md#2026-10-04-판정-수령과-봉인)). 다음은 319행 전체 학습과, 같은 추론 계약으로 기본 모델과 학습 어댑터를 이 정답셋에서 비교하는 일이다. 지금 어댑터는 8행 smoke라 비교 의미가 작다. 팀원 2명 재현·GCS 게시·운영 게시도 남았다.
 
-근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](archive/구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 목적
 
@@ -112,7 +112,7 @@ Kaggle은 무료 GPU를 **주간 할당량으로 공개**하고 남은 시간을
 | 대기 | 붐빌 때는 GPU를 기다릴 수 있다 |
 | 모델 | Kaggle Models에 Gemma 4 12B·12B IT가 있다(`kagglehub`). 리스크 노트북은 서버와 같은 조건을 위해 Ollama `gemma4:12b`를 받는다 |
 
-10-01 조사에서는 T4/P100의 bf16 제약 때문에 학습 가능성을 미확인으로 뒀다. 이후 실제 T4 시험에서 FP16 gradient NaN을 확인했고, **에뮬레이션을 포함한 BF16 경로와 정답 위치 logits 계산으로 짧은 학습·재개를 검증**했다. 현재 구현과 제약은 [Kaggle 감사관 학습](../개발환경/Kaggle-감사관-학습.md) 및 Plan 17 실행 기록을 따른다. 이 결과를 P100 검증이나 전체 학습 완료로 확대하지 않는다.
+10-01 조사에서는 T4/P100의 bf16 제약 때문에 학습 가능성을 미확인으로 뒀다. 이후 실제 T4 시험에서 FP16 gradient NaN을 확인했고, **에뮬레이션을 포함한 BF16 경로와 정답 위치 logits 계산으로 짧은 학습·재개를 검증**했다. 현재 구현과 제약은 [Kaggle 감사관 학습](../../개발환경/Kaggle-감사관-학습.md) 및 Plan 17 실행 기록을 따른다. 이 결과를 P100 검증이나 전체 학습 완료로 확대하지 않는다.
 
 출처: [Kaggle 무료 등급 정리](https://agentdeals.dev/vendor/kaggle), [Colab 대안 비교(2026-09)](https://www.thundercompute.com/blog/colab-alternatives-for-cheap-deep-learning-in-2025), [무료 클라우드 GPU 조건](https://aimultiple.com/free-cloud-gpu), [휴대폰 인증 안내](https://neuroai.neuromatch.io/tutorial-kaggle), [T4의 bf16 문제](https://discuss.vllm.ai/t/gemma3-on-a-t4-gpu/643), [Kaggle의 Gemma 4 12B IT](https://www.llmreference.com/provider/kaggle/gemma-4-12b-it).
 
@@ -206,7 +206,7 @@ GPU 종류는 `machine_shape`(`kaggle kernels push --accelerator`)로 정하며 
 
 현재 Ollama 리스크 노트북은 `ollama.chat()`으로 답만 생성하므로 학습이 일어나지 않는다. 학습에는 정답이 붙은 입력·출력 쌍, 학습 프레임워크, 손실 계산·역전파, 체크포인트 저장 코드가 필요하다. Google의 [Gemma 텍스트 QLoRA 가이드](https://ai.google.dev/gemma/docs/core/huggingface_text_finetune_qlora)는 기본 모델을 4비트로 읽고 작은 **LoRA 어댑터 가중치**만 학습하는 예를 제공한다.
 
-**12B QLoRA는 이미 학습 서버에서 돌았다.** `models/lora/audit_qlora.py`는 학습 서버의 RTX 4090 한 장에서 사전 감사관을 약 9분, 최대 9.8 GiB로 학습했다([Plan 16](archive/16-wiki-meme-catalog-and-tendency.md)). 실행 환경은 `models/lora/pyproject.toml`과 `uv.lock`이다. 이 실행은 기준선으로 보존하고, Plan 17에 따라 팀원별 Kaggle에서 같은 입력과 설정으로 재현하는 경로를 구축한다. 기존 스크립트의 `save_strategy="no"`를 중간 체크포인트 저장과 `resume_from_checkpoint`로 보완해야 한다.
+**12B QLoRA는 이미 학습 서버에서 돌았다.** `models/lora/audit_qlora.py`는 학습 서버의 RTX 4090 한 장에서 사전 감사관을 약 9분, 최대 9.8 GiB로 학습했다([Plan 16](16-wiki-meme-catalog-and-tendency.md)). 실행 환경은 `models/lora/pyproject.toml`과 `uv.lock`이다. 이 실행은 기준선으로 보존하고, Plan 17에 따라 팀원별 Kaggle에서 같은 입력과 설정으로 재현하는 경로를 구축한다. 기존 스크립트의 `save_strategy="no"`를 중간 체크포인트 저장과 `resume_from_checkpoint`로 보완해야 한다.
 
 1. 먼저 한 작업을 고른다. 사람이 판정·수정한 입력과 정답을 모으고 용어·출처 단위로 학습/검증/최종 평가 세트를 분리한다. 모델이 만든 기존 분류를 정답으로 그대로 재사용하거나 같은 문장의 변형을 학습과 평가 양쪽에 넣지 않는다. 학습 데이터(`audit_sft.jsonl` 등)는 비공개 Dataset으로 올리고 Git에는 넣지 않는다.
 2. Kaggle T4에서는 `bf16` 대신 `fp16`으로 바꿔 **20~50 학습 단계만** 먼저 돌린다. 손실이 정상으로 줄어드는지, 최대 GPU 메모리, 단계당 시간, 설치·다운로드·저장 시간을 잰다. 손실이 `nan`이 되거나 빈 답을 내면 T4 학습을 멈추고 bf16을 지원하는 TPU v3-8(JAX/Keras 경로), 더 작은 모델, 또는 학습 서버를 쓴다. 이 단계는 실행 가능성 점검이며 품질 개선의 증거가 아니다.
@@ -235,7 +235,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 4. **검수와 운영 게시.** 스키마·근거·언어별 뜻 보존을 검사하고 사람이 승인한 결과만 별도 게시 도구로 Plan 05의 Cloud SQL에 반영한다. 게시 도구는 Plan 17의 Cloud Run 게시 Job으로 구현하고 관리되는 개발 환경에서 검증하며 Kaggle에는 운영 DB 자격증명을 주지 않는다. 배치 ID와 뜻 버전으로 중복·오래된 결과의 덮어쓰기를 막고, 실패 시 마지막 정상 게시본을 유지한다. Cloud SQL Auth Proxy를 쓰더라도 private IP에는 별도 네트워크 경로가 필요하다. 자격증명·사용자 원문·생성 결과 전문은 운영 로그나 Git에 기록하지 않는다.
    현재 `/meta`와 유지보수 작업은 `pipeline_runs`의 `board`·`dashboard` 성공 행으로 게시 시각을 판단한다(`ds.PUBLISH_STAGES`). Plan 17에서는 게시 트랜잭션의 활성 `publication_id`와 성공 시각을 기준으로 바꾸고, 두 소비자를 함께 수정한다. 전환 전 검증에서는 현행 신호를 유지하며, 완료되지 않은 게시를 성공 행으로 꾸미지 않는다.
 5. **서비스 분리와 보존·감시.** Cloud Run 웹·API는 PC와 Kaggle이 꺼져도 게시 자료를 읽어야 한다. 운영에서 PC의 localhost 모델 폴백을 제거한다. 일반 생성은 Vertex AI Gemini·규칙으로 처리하고, 승인된 특화 작업만 Plan 17의 GCE 내부 gateway로 호출한다. 감사관 어댑터를 리스크·번역 등 다른 작업에 품질 검증 없이 적용하지 않는다. 해석 캐시 7일·미해결 질문 30일 삭제, 마지막 정상 게시 시각과 오래된 자료 경보는 Plan 05의 독립 예약 작업으로 운영한다.
-   2026-09-29 코드 구현: `scripts/maintenance.py`, `/meta`의 `last_run`(마지막 정상 게시)·`stale`. 예약 실행과 경보 연결은 남았다([Plan 05 구현 기록](archive/05-trend-cloud-run-deployment.md#구현-기록)).
+   2026-09-29 코드 구현: `scripts/maintenance.py`, `/meta`의 `last_run`(마지막 정상 게시)·`stale`. 예약 실행과 경보 연결은 남았다([Plan 05 구현 기록](05-trend-cloud-run-deployment.md#구현-기록)).
    `stale`은 게시가 멈춘 것만 뜻한다. 지도·대시보드는 저장된 행으로 다시 만들어 수집원이 모두 실패해도 성공하므로, 수집원 실패는 관리 화면 '수집 현황'과 `health_check.py`가 본다.
 6. **품질 평가와 시연.** 같은 원자료의 Gemma 초안, 근거 검사, 사람 수정, 게시본을 추적한다. 언어별 뜻 보존·국가별 차이·출처에 없는 주장·처리 시간을 측정해 Plan 09에 넣는다. 미세조정 모델을 실제 채택한 경우에만 해당 어댑터와 전후 평가 결과를 제출 근거로 사용한다.
 
@@ -252,7 +252,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 ## 과거 상태와 당시 남은 일 (2026-09-29 실측)
 
-아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-03 실측 점검](archive/구현-완료도-실측-점검-2026-10-03.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달을 선택하는 실행 지시로 사용하지 않는다. 수집 서버 PostgreSQL 전환의 현재 계획은 Plan 01을 따른다.
+아래는 당시 구현 상태의 기록이다. 현재 진척도는 [10-03 실측 점검](구현-완료도-실측-점검-2026-10-03.md), 최신 실행 순서와 게시 경계는 Plan 17을 따른다. 초안 공개·사용자 원문 전달을 선택하는 실행 지시로 사용하지 않는다. 수집 서버 PostgreSQL 전환의 현재 계획은 Plan 01을 따른다.
 
 **지금 실제로 도는 Gemma 편집은 클라우드 노트북이 아니라 원작자 PC 다.** 원작자 서버 파이프라인(cron 9·14·19·23시 :15)이 로컬 Ollama 의 `gemma4:e4b`(그 서버 `.env` 의 `GEMMA_LOCAL_MODEL`; 코드 기본값은 `gemma4:12b`, 공유 Ollama 에는 12b 가 설치돼 있지 않다)로 번역·국가별 해석·추천 낱말·근거 라벨을 만든다. 09-29 기준 번역 표에는 `gemma-local` 276행과 `team` 96행이 있고 주제별 국가 해설(`topic_notes`)은 88건이 `local:gem…` 로 표시돼 있다. 6건은 `local:gpt-oss` 가 만들었다.
 
@@ -260,10 +260,10 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 | --- | --- | --- |
 | Gemma 초안을 만들고 모델 ID·시각·근거·검수 상태 추적 | 일부 | 위 PC 파이프라인이 만들지만, 번역에 모델 ID 를 `local:{GEMMA_LOCAL_MODEL}` 로 남기지 않고 실행마다 모델도 기록하지 않는다 |
 | 검증 안 된 초안은 공개 API 에 안 나가고 재실행에도 안전 | **팀 결정 대기** | `GET /terms/{id}` 는 제외되지 않은 모든 용어를 돌려주고(`api/app.py`) `needs_review` 도 200 이다. `/explain` 도 그렇다. 게시 경계(직접 쓰기 또는 단계 게시)와 표시된 `needs_review` 초안을 이용자에게 보일지 정해야 한다 |
-| PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](archive/05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
+| PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
 | 실시간 기능이 PC·Gemma 없이 작동, 원문은 PC 로 안 감 | 미충족 | `/ask`·`/ask/stream` 의 도구 호출 루프는 로컬 모델(`local_chat.chat_with_tools`)로만 돈다. 로컬 모델이 없으면 규칙 폴백뿐이다 |
 | 정리·건강 점검이 PC 배치와 독립 | 미충족 | Plan 05 의 같은 항목(정리는 `collect.retention` 안에만, `health_check.py` 는 출력만) |
-| Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |
+| Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](../09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |
 
 남은 일:
 
@@ -274,7 +274,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 5. **팀 결정 대기:** 답하지 못한 질문이 원문 없이 PC 로 가는 방법(클라우드에서 표현 이름만 뽑아 넘기거나, 원문 전달을 받아들이고 문서화).
 6. 원작자 서버의 예약 파이프라인(SQLite, Gemini 키)을 팀 코드·PostgreSQL 로 옮기고 Cloud SQL 에 Auth Proxy 로 최소 권한 연결한다. `migrate_sqlite_to_postgres.py` 는 삽입만 하므로(`ON CONFLICT DO NOTHING`) 갱신이 안 전파된다 – 주기적 게시·동기화를 따로 만든다.
 7. `local:gpt-oss` 가 만든 주제 해설 6건을 Gemma 로 다시 만들거나 뺀다(이용자에게 보이고 추천의 `local_note` 로 나올 수 있다).
-8. 대표 사례의 자동 지표(뜻 표기 보존·근거 ID 존재·처리 시간)와 사람 판정(뉘앙스·나라별 정확도)을 [Plan 09](09-generation-quality-evaluation.md) 로 잰다.
+8. 대표 사례의 자동 지표(뜻 표기 보존·근거 ID 존재·처리 시간)와 사람 판정(뉘앙스·나라별 정확도)을 [Plan 09](../09-generation-quality-evaluation.md) 로 잰다.
 
 ## 제외한 계획
 
@@ -303,7 +303,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 ### 완료 기준 6 – 편집 품질 규칙 지표 (2026-09-29)
 
 `apps/trend-api/scripts/eval_editing.py`가 저장된 편집 결과를 모델 없이 산출물·모델별로 잰다(표제어 원문 보존·현지 밈 앵커·근거 id·건당 처리 시간·사람 수정률).
-결과 표와 읽는 법은 [평가표](../트렌드/평가.md)의 '로컬 Gemma 편집 품질'. 원작자 서버 사본(09-29 23:58) 기준 요약:
+결과 표와 읽는 법은 [평가표](../../트렌드/평가.md)의 '로컬 Gemma 편집 품질'. 원작자 서버 사본(09-29 23:58) 기준 요약:
 
 | 산출물 (e4b) | 규칙 지표 |
 | --- | --- |
@@ -317,8 +317,8 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 
 ## 10-07 승인 배치 게시·웹 검수 연결
 
-불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../개발환경/승인-배치-게시.md)을 따른다.
+불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../../개발환경/승인-배치-게시.md)을 따른다.
 
 ## 10-07 번역 생산자 승인 배치 연결
 
-읽기 전용으로 원래 뜻 판·내용 해시를 고정한 번역 입력을 내보내고, Kaggle 결과의 원문·판·입력/모델/코드 해시를 대조해 영어 번역 승인 배치를 만드는 도구를 추가했다. 포장은 DB/모델 접속 없이 수행하며 실제 승인은 기존 검수 경로를 거친다. 기존 69건의 판/행별 계보 없는 시험 결과를 현재 뜻에 임의로 붙이지 않는다. 실제 버전 입력의 모델 재실행·사람 품질 검수·운영 게시, 다른 생산자 출력의 연결·전용 DB 역할·게시 Job은 남는다. [명령과 계약](../개발환경/승인-배치-게시.md#버전이-고정된-영어-번역-입력결과-포장-10-07)을 따른다.
+읽기 전용으로 원래 뜻 판·내용 해시를 고정한 번역 입력을 내보내고, Kaggle 결과의 원문·판·입력/모델/코드 해시를 대조해 영어 번역 승인 배치를 만드는 도구를 추가했다. 포장은 DB/모델 접속 없이 수행하며 실제 승인은 기존 검수 경로를 거친다. 기존 69건의 판/행별 계보 없는 시험 결과를 현재 뜻에 임의로 붙이지 않는다. 실제 버전 입력의 모델 재실행·사람 품질 검수·운영 게시, 다른 생산자 출력의 연결·전용 DB 역할·게시 Job은 남는다. [명령과 계약](../../개발환경/승인-배치-게시.md#버전이-고정된-영어-번역-입력결과-포장-10-07)을 따른다.

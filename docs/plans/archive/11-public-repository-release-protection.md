@@ -1,22 +1,22 @@
 # Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **공개·보호 설정 대기 – 전체 이력 재검사 완료(10-06, 오탐 3건). 개인정보 처리 결정(10-06). WIF 배포 계정 분리 코드 준비(10-06, 미적용)·실제 계정 검증 남음** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
+작성일 **2026-09-23** · 상태 **[Plan 11 제출 전후 운영](../11-submission-operations.md)에 합침(10-09). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 선행 [Plan 09](../09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
-[현재 계획](README.md) · [GitHub Actions](../../.github/workflows/)
+[현재 계획](../README.md) · [GitHub Actions](../../../.github/workflows)
 
 ## 2026-10-08 WIF 변경 병합 준비
 
-`origin/security/wif-environment`(`925948c`)와 현행 `develop`은 `git merge-tree --write-tree`에서 충돌 없이 합쳐진다. 다만 [적용 순서](../운영/WIF-배포-계정-분리.md#적용-순서)는 GCP IAM 적용·GitHub 변수 등록을 코드 병합보다 먼저 요구한다. 저장소 규칙상 GCP 변경에는 사용자 확인이 필요하며, WIF 변경은 아직 적용하지 않았다. 이번에는 병합·`release/gcp` push·공개 전환을 실행하지 않는다.
+`origin/security/wif-environment`(`925948c`)와 현행 `develop`은 `git merge-tree --write-tree`에서 충돌 없이 합쳐진다. 다만 [적용 순서](../../운영/WIF-배포-계정-분리.md#적용-순서)는 GCP IAM 적용·GitHub 변수 등록을 코드 병합보다 먼저 요구한다. 저장소 규칙상 GCP 변경에는 사용자 확인이 필요하며, WIF 변경은 아직 적용하지 않았다. 이번에는 병합·`release/gcp` push·공개 전환을 실행하지 않는다.
 
 ## 2026-10-06 WIF 배포 계정 분리 (코드 준비, 미적용)
 
-배포 계정을 environment 없는 job(`trend_images`)도 쓸 수 있던 경계를 좁히는 변경을 브랜치 `security/wif-environment`에 준비했다. 배포 계정은 `gcp` environment job만, 이미지 push는 새 전용 계정으로 나눈다. 문제·바꾼 파일·적용 순서·확인·되돌리기는 [WIF 배포 계정 분리](../운영/WIF-배포-계정-분리.md)에 있다. GCP 적용(`terraform apply`)과 변수 등록은 아직 하지 않았다.
+배포 계정을 environment 없는 job(`trend_images`)도 쓸 수 있던 경계를 좁히는 변경을 브랜치 `security/wif-environment`에 준비했다. 배포 계정은 `gcp` environment job만, 이미지 push는 새 전용 계정으로 나눈다. 문제·바꾼 파일·적용 순서·확인·되돌리기는 [WIF 배포 계정 분리](../../운영/WIF-배포-계정-분리.md)에 있다. GCP 적용(`terraform apply`)과 변수 등록은 아직 하지 않았다.
 
 ## 2026-10-06 전체 이력 재검사
 
 공개 전 전체 이력 비밀 검사를 다시 했다(로컬의 모든 ref, `gitleaks 8.30.1 --log-opts=--all --redact=100`). 값은 터미널·문서에 남기지 않고 건수와 판별만 적는다.
 
-**검사가 절반만 돌던 것을 먼저 고쳤다.** 이 저장소의 로컬 `.git/config`는 노트북 diff를 개발 PC의 `models/lora/.venv/bin/python -m nbstripout`으로 돌린다(`diff.ipynb.textconv`). 컨테이너 안에는 그 경로가 없어 `git log -p`가 노트북이 든 오래된 커밋에서 실패하고, gitleaks는 오류 없이 앞 185개 커밋만 검사하고 끝났다. 검사할 때만 `GIT_CONFIG_COUNT`로 `diff.ipynb.textconv`·`filter.nbstripout.clean`을 `cat`으로 바꿔 368개 커밋(줄이 더해진 커밋 전부)을 검사했다. 저장소 설정은 바꾸지 않았다. 명령은 [공개 전 보안 점검](../운영/공개-전-보안-점검.md)에 적었다.
+**검사가 절반만 돌던 것을 먼저 고쳤다.** 이 저장소의 로컬 `.git/config`는 노트북 diff를 개발 PC의 `models/lora/.venv/bin/python -m nbstripout`으로 돌린다(`diff.ipynb.textconv`). 컨테이너 안에는 그 경로가 없어 `git log -p`가 노트북이 든 오래된 커밋에서 실패하고, gitleaks는 오류 없이 앞 185개 커밋만 검사하고 끝났다. 검사할 때만 `GIT_CONFIG_COUNT`로 `diff.ipynb.textconv`·`filter.nbstripout.clean`을 `cat`으로 바꿔 368개 커밋(줄이 더해진 커밋 전부)을 검사했다. 저장소 설정은 바꾸지 않았다. 명령은 [공개 전 보안 점검](../../운영/공개-전-보안-점검.md)에 적었다.
 
 | 발견 | 판별 |
 | --- | --- |
@@ -32,7 +32,7 @@
 
 로컬 Terraform의 WIF 조건에 gcp environment 제약이 없음을 확인했다. GitHub 공개 여부·reviewer·브랜치 설정은 이번에 재조회하지 않았으므로 과거 원격 확인 날짜를 유지한다. 최초 의존성 검사는 실패했으나 후속 13건 수정·개발 도구 1건 기한부 예외 후 재검사에서 통과했다. 공개·설정 변경·외부 계정 검증은 실행하지 않았다.
 
-근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](archive/구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
+근거·검증 범위와 구현 적절성은 [10-03 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)를 따른다. 아래 날짜별 결과는 당시 기록으로 보존한다.
 
 ## 목적
 
@@ -60,7 +60,7 @@
 
 Git 전체 이력에 `.env`, API key, 서비스 계정 키, 사용자 원문, 모델 출력이 포함되지 않았는지 검사합니다. 현재 파일만 지우는 것으로는 과거 커밋의 비밀정보가 제거되지 않으므로 이력 검사 결과를 공개 전 확인해야 합니다.
 
-2026-09-26에 [사전 보안 점검](../운영/공개-전-보안-점검.md)을 수행했습니다. 당시 알려진 경고 2건은 오탐으로 판별됐습니다. 저장소 공개 직전에 그 이후 commit까지 포함해 이력 검사를 다시 실행합니다.
+2026-09-26에 [사전 보안 점검](../../운영/공개-전-보안-점검.md)을 수행했습니다. 당시 알려진 경고 2건은 오탐으로 판별됐습니다. 저장소 공개 직전에 그 이후 commit까지 포함해 이력 검사를 다시 실행합니다.
 
 Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어 있으므로 이 계획의 실행 항목에서 제외합니다.
 
@@ -158,4 +158,4 @@ Repository collaborator 목록은 현재 팀원 기준으로 이미 정리되어
 4. 공개 전 개인정보 검토: 문서 세 곳에 개인 이메일 주소가 있고(`docs/트렌드/인수인계-2026-09-15.md`, `docs/트렌드/조사/05-카테고리-트렌드-소스.md`, `docs/트렌드/키-계정-정리.md`), `docs/운영/GCP-운영.md` 의 콘솔 주소에 결제 계정 ID 가 들어 있다. 파일에서 지우는 것과 이력에서 지우는 것(이력 재작성)은 별개이므로 **사용자 결정 대기**다. 값은 이 문서에 적지 않는다.
 5. 제출 당일 절차의 `/api/health` 는 Trend 웹에 없다(`apps/trend-web/app/api` 는 auth·chat·explain·generate·prefs·recommend·review 뿐). 웹 주소 확인과 배포 검사로 대신하거나 health 경로를 더한다.
 6. **사용자 실행:** 공개 전환 직후 GitHub 설정 – 필수 검토자, 자기 승인 방지, 배포 브랜치 `release/gcp`, 관리자 우회 끄기, 저장소 기본 `GITHUB_TOKEN` 읽기 전용(이미 read), fork PR 워크플로 승인. 그리고 WIF plan/apply.
-7. **사용자 실행:** 검증 – 외부·collaborator 계정, 승인을 기다리는 배포(중계기 재배포 또는 [Plan 05](archive/05-trend-cloud-run-deployment.md) 의 Trend 앱 job), environment 없는 job 이 WIF 토큰 교환에서 거부되는 것.
+7. **사용자 실행:** 검증 – 외부·collaborator 계정, 승인을 기다리는 배포(중계기 재배포 또는 [Plan 05](05-trend-cloud-run-deployment.md) 의 Trend 앱 job), environment 없는 job 이 WIF 토큰 교환에서 거부되는 것.

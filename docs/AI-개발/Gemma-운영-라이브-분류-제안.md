@@ -1,6 +1,6 @@
 # 제안: 운영에 Gemma 4를 올려 두고 '라이브 분류' 버튼으로만 실행
 
-상태 **제안 초안 (팀 검토 전)** · 작성일 **2026-09-29** · 제안 최은지 · 관련 [Gemma 로컬 편집 결정](Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](../plans/archive/03-term-risk.md) · [Plan 05 배포](../plans/archive/05-trend-cloud-run-deployment.md) · [Plan 06 로컬 편집](../plans/06-gemma-on-cloud-run-gpu.md)
+상태 **제안 초안 (팀 검토 전)** · 작성일 **2026-09-29** · 제안 최은지 · 관련 [Gemma 로컬 편집 결정](Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](../plans/archive/03-term-risk.md) · [Plan 05 배포](../plans/archive/05-trend-cloud-run-deployment.md) · [Plan 06 로컬 편집](../plans/archive/06-gemma-on-cloud-run-gpu.md)
 
 ## 요약
 
@@ -15,7 +15,7 @@
 
 | 현재 결정 | 이 제안에서 |
 | --- | --- |
-| Gemma 실험·편집은 팀원별 Kaggle 노트북 GPU, 수집과 대체 추론은 수집 서버(PC)의 배치에서 돈다([Plan 06](../plans/06-gemma-on-cloud-run-gpu.md), 2026-10-01 Colab에서 변경). 운영 웹·API는 `USE_LOCAL_GEMMA=0` | 유지. 배치·실험 위치는 그대로다 |
+| Gemma 실험·편집은 팀원별 Kaggle 노트북 GPU, 수집과 대체 추론은 수집 서버(PC)의 배치에서 돈다([Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md), 2026-10-01 Colab에서 변경). 운영 웹·API는 `USE_LOCAL_GEMMA=0` | 유지. 배치·실험 위치는 그대로다 |
 | 운영에 파이프라인 Job·Scheduler를 두지 않는다 | 유지. 자동 실행은 없다 |
 | Cloud Run GPU Gemma를 배포하지 않는다 | **변경.** 버튼으로만 켜지는 GPU 서비스 하나를 둔다 |
 | 운영 DB에는 검증·검수된 결과만 게시한다 | 유지. 버튼 결과는 공개 사전에 쓰지 않는다 |

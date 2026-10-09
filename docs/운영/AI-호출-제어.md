@@ -21,7 +21,7 @@ Trend API(`apps/trend-api`)는 환경변수 두 개가 **모두** 켜져야 Gemi
 계속 진행합니다. ADK 에이전트 팀(`agents/team.py`)은 예산 가드에서 같은 조건을 확인해 모델을 부르기 전에
 짧은 응답으로 대체합니다. 로컬 Gemma 호출은 이 제어와 무관하게 `LOCAL_LLM_BASE_URL`·Ollama 준비 여부로 결정됩니다.
 Cloud Run 서비스에서 `USE_LOCAL_GEMMA=1`을 켜도 개발자 PC의 Ollama에 연결되지는 않습니다. 운영 요청의 신규 서술은
-[Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)에 따라 게시된 데이터·규칙 또는 Gemini 경로로 구현·검증해야 합니다.
+[Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md)에 따라 게시된 데이터·규칙 또는 Gemini 경로로 구현·검증해야 합니다.
 
 ### 호출 기록
 

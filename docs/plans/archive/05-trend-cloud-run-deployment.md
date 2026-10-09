@@ -4,9 +4,9 @@
 
 작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **보관(10-09) – 완료 기준 8개 중 5개 충족. Job 이미지 갱신·Gemini 0회 확인은 Plan 17, 체험 종료 결정은 Plan 13으로 넘김** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
-[계획 목록](../README.md) · [Plan 13: Cloud SQL 유료 전환](../13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../../운영/시스템-아키텍처.md) · [AI 호출 제어](../../운영/AI-호출-제어.md) · [GCP 운영](../../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)
+[계획 목록](../README.md) · [Plan 13: Cloud SQL 유료 전환](13-cloud-sql-trial-to-paid-transition.md) · [아키텍처](../../운영/시스템-아키텍처.md) · [AI 호출 제어](../../운영/AI-호출-제어.md) · [GCP 운영](../../운영/GCP-운영.md) · [Gemma 로컬 편집 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)
 
-> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](../06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
+> **변경 결정:** Cloud Run에는 웹·API와 PC 독립 운영에 필요한 작은 유지보수 작업만 두고, 영속 DB는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 이전하는 계획은 철회했다. Gemma 4 기반 사전·국가별 해석 편집은 [Plan 06](06-gemma-on-cloud-run-gpu.md)에 따라 Kaggle 노트북 GPU에서 오프라인 배치로 실행하고, 검수 후 별도 게시 도구로 반영한다.
 
 ## 2026-10-09 완료 기준 재확인과 보관
 
@@ -23,7 +23,7 @@
 | migration 적용·JSON 로그 | 충족 | 새 revision이 018~021 적용(10-09), Cloud Logging에 `jsonPayload` 기록 |
 | `MODEL_REQUESTS_ENABLED=false`에서 호출 0회 | 미충족 | `gemini_call` 이벤트는 로그에 남지만 로그 지표가 없고, 끈 상태 재배포 확인을 하지 않았다 |
 
-웹·API 배포라는 이 계획의 몫은 끝났다고 보고 archive로 옮긴다. 남은 두 가지(Job 이미지가 release를 따라가게 하기, 끈 상태 0회 확인)는 [Plan 17](../17-hybrid-infrastructure.md#2026-10-09-plan-05에서-넘겨받은-일)이, 체험 종료 결정은 [Plan 13](../13-cloud-sql-trial-to-paid-transition.md)이 맡는다.
+웹·API 배포라는 이 계획의 몫은 끝났다고 보고 archive로 옮긴다. 남은 두 가지(Job 이미지가 release를 따라가게 하기, 끈 상태 0회 확인)는 [Plan 17](../17-hybrid-infrastructure.md#2026-10-09-plan-05에서-넘겨받은-일)이, 체험 종료 결정은 [Plan 13](13-cloud-sql-trial-to-paid-transition.md)이 맡는다.
 
 ## 2026-10-09 배포 네 번과 운영 확인
 
@@ -72,7 +72,7 @@ API 로그를 보니 둘 다 Gemini를 요청 중에 기다리고 있었다.
 
 첫 실행에서 CI가 세 번 실패했다. 설치기 테스트가 runner 디스크 여유에 의존했고, E2E가 개발 서버의 첫 컴파일 시간 때문에 시간을 넘겼고, 웹 이미지가 추적 파일 없는 `public` 폴더를 요구했다. 각각 고친 뒤 `b0e1826`이 API `trend-production-api-00002-kob`, 웹 `trend-production-web-00002-miz`로 배포됐고 이미지 digest가 release 커밋 빌드와 일치했다.
 
-production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](../19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 예약 유지보수 Job은 10-05에 매일 04:00 KST 실행으로 연결했다([유지보수 Job](../../운영/GCP-운영.md#유지보수-job)). 승인 배치 게시(4)는 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업)).
+production DB는 체험 인스턴스의 `trend_app` 소유 DB다. 10-05부터 snapshot `20261005T124512-e56b90d`로 갱신한 `trend_20261005`를 쓴다([Plan 19](19-production-data-refresh.md)). 처음 DB는 `trend`(다른 DB 접속 거부 확인)이고 Plan 13 일정(10/26)에 새 인스턴스로 옮긴다. 확인 뒤 `builder-cup` 서비스·데모 키 secret·전용 런타임 계정을 삭제하고, uptime check와 경보를 Trend로 옮겼다(구현 순서 6·7). 예약 유지보수 Job은 10-05에 매일 04:00 KST 실행으로 연결했다([유지보수 Job](../../운영/GCP-운영.md#유지보수-job)). 승인 배치 게시(4)는 남았다. 운영 백업(9)은 10-04에 예약 백업과 복원 검증까지 마쳤다([운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업)).
 
 ## 2026-10-03 점검
 
@@ -217,7 +217,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 남은 일(구현 순서 1~9 와 같은 순서, 아래는 실측으로 보탠 구체 항목):
 
-1. Cloud SQL Terraform(인스턴스·DB, 명시한 에디션·사양, 백업·PITR, `deletion_protection`), `sqladmin.googleapis.com` 활성화, 서비스 계정 `roles/cloudsql.client`. 지금 인스턴스는 콘솔에서 만든 것이라 Terraform 과 어긋난다([Plan 13](../13-cloud-sql-trial-to-paid-transition.md)).
+1. Cloud SQL Terraform(인스턴스·DB, 명시한 에디션·사양, 백업·PITR, `deletion_protection`), `sqladmin.googleapis.com` 활성화, 서비스 계정 `roles/cloudsql.client`. 지금 인스턴스는 콘솔에서 만든 것이라 Terraform 과 어긋난다([Plan 13](13-cloud-sql-trial-to-paid-transition.md)).
 2. Trend 서비스 계정(웹·API·유지보수)과 secret 메타데이터(`trend-database-url`·`trend-frontend-api-token`·`trend-session-secret`·`trend-accounts`), 서비스 계정별 `secretAccessor`. secret 값은 Terraform 상태에 넣지 않고 부트스트랩이 만든다.
 3. 웹 서버 전용 헬퍼 하나로 메타데이터 서버에서 Cloud Run ID 토큰을 받아(audience = `TREND_API_URL`, 약 55분 캐시, Cloud Run 밖에서는 아무것도 안 함) fetch 14곳에 붙인다.
 4. `scripts/deploy-trend.sh`: 후보 revision `--no-traffic --tag=candidate`, API `--no-allow-unauthenticated`·`--concurrency` 와 `DB_POOL_SIZE` 를 한 변수로·`--max-instances 2`·`--add-cloudsql-instances`. `release-gcp.yml` 에 application job 추가, `release_recovery.py` 를 Trend 서비스용으로 일반화.

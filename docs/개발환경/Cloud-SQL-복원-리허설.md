@@ -1,6 +1,6 @@
 # Cloud SQL staging 인수와 복원 리허설
 
-Plan 17 3단계와 [Plan 13](../plans/13-cloud-sql-trial-to-paid-transition.md)의 선행 검증이다. 고정 snapshot을 PostgreSQL에 이관하고, `pg_dump`로 만든 사본을 빈 DB에 복원해 원본과 같은지 확인한다. 개발 DB와 Cloud SQL에는 쓰지 않는다.
+Plan 17 3단계와 [Plan 13](../plans/archive/13-cloud-sql-trial-to-paid-transition.md)의 선행 검증이다. 고정 snapshot을 PostgreSQL에 이관하고, `pg_dump`로 만든 사본을 빈 DB에 복원해 원본과 같은지 확인한다. 개발 DB와 Cloud SQL에는 쓰지 않는다.
 
 ## 실행
 

@@ -1,12 +1,12 @@
 # Plan 19. 운영 DB 데이터 갱신 경로
 
-작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **첫 전환 완료(10-05) – 다음 갱신 10-10·10-16** · 연계 [Plan 01](archive/01-import-latest-trend-data.md), [Plan 05](archive/05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
+작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **[Plan 11 제출 전후 운영](../11-submission-operations.md)에 합침(10-09). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](../17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
 
-[계획 목록](README.md) · [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)
+[계획 목록](../README.md) · [운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../../개발환경/Cloud-SQL-복원-리허설.md)
 
 ## 2026-10-07 승인 배치 게시 기반 구현
 
-불변 배치·항목 해시, 검수자 계정 승인, 뜻 판·사람 결정 충돌 검사, 뜻과 파생 출력·캐시의 원자적 게시, 활성 `publication_id`를 로컬 구현했다. Plan 19 overlay는 성공 게시된 항목과 게시 기록을 보존하고 새 표가 없는 이전 DB도 받는다. 웹 배치 목록·비교·승인/거절도 연결했다. Cloud Run Job·전용 DB 역할·운영 migration/게시·API 모드 실제 흐름·복구 검증은 남는다. 이 기록으로 Plan 17의 최종 승인 게시 기준을 완료 처리하지 않는다. [도구와 검증 범위](../개발환경/승인-배치-게시.md)를 따른다.
+불변 배치·항목 해시, 검수자 계정 승인, 뜻 판·사람 결정 충돌 검사, 뜻과 파생 출력·캐시의 원자적 게시, 활성 `publication_id`를 로컬 구현했다. Plan 19 overlay는 성공 게시된 항목과 게시 기록을 보존하고 새 표가 없는 이전 DB도 받는다. 웹 배치 목록·비교·승인/거절도 연결했다. Cloud Run Job·전용 DB 역할·운영 migration/게시·API 모드 실제 흐름·복구 검증은 남는다. 이 기록으로 Plan 17의 최종 승인 게시 기준을 완료 처리하지 않는다. [도구와 검증 범위](../../개발환경/승인-배치-게시.md)를 따른다.
 
 ## 1. 문제
 
@@ -28,7 +28,7 @@
 
 - **사람의 결정은 운영 DB가 원본이다.** 수집 서버는 자동 자료(후보·근거·언급·생애주기·자동 뜻)의 원본이다. 겹치면 사람의 결정이 이긴다. 이는 앱의 기존 규칙(`verified_human`은 자동 조사가 덮지 않는다, 자동 저장은 리스크·제외 결정을 저장된 쪽에서 가져온다)과 같다.
 - **운영 DB에 직접 덮어쓰지 않는다.** 새 DB를 옆에 만들고 검증한 뒤 연결을 바꾼다. 실패하면 연결만 되돌린다.
-- 갱신 전에는 반드시 [운영 DB 백업](../운영/GCP-운영.md#운영-db-백업)을 수동으로 한 번 실행하고 성공을 확인한다.
+- 갱신 전에는 반드시 [운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업)을 수동으로 한 번 실행하고 성공을 확인한다.
 
 ## 3. 선택지
 
@@ -40,7 +40,7 @@
 
 ## 4. 권장안 A의 절차
 
-도구는 `scripts/refresh-production-db.sh`(단계별 하위 명령)와 `scripts/refresh_production.py`(덮어 얹기·재계산·대조)다. 단계마다 건수만 담은 보고서를 남기고 행 내용·접속 정보는 남기지 않는다. 실행 명령은 [운영 DB 갱신](../운영/GCP-운영.md#운영-db-갱신)에 있다.
+도구는 `scripts/refresh-production-db.sh`(단계별 하위 명령)와 `scripts/refresh_production.py`(덮어 얹기·재계산·대조)다. 단계마다 건수만 담은 보고서를 남기고 행 내용·접속 정보는 남기지 않는다. 실행 명령은 [운영 DB 갱신](../../운영/GCP-운영.md#운영-db-갱신)에 있다.
 
 **10-05 변경:** 생애주기 재계산(track)은 표제어마다 뉴스 전체를 읽어 수집 PC에서도 7,500개에 37분이 걸린다. Cloud SQL proxy 너머로는 몇 시간이 걸려 리허설 중 멈췄다. 그래서 3~4단계와 재계산을 로컬 임시 PostgreSQL에서 끝낸 뒤 덤프를 새 Cloud SQL DB에 올린다(`build` → `create` → `upload`). 전환 직전 덮어 얹기만 Cloud SQL에서 다시 실행한다.
 
@@ -52,7 +52,7 @@
    - 대상 표제어의 `terms`·`meanings`(모든 판)·`review_queue`는 운영 값으로 **바꾼다.** 새 snapshot의 같은 표제어 자동 뜻은 버린다. 근거(`evidences`)는 합친다(운영에만 있는 행 추가).
    - `review_history`·`gemini_calls`·`reader_prefs`·`lookups`·`explain_cache`는 운영 행을 그대로 옮긴다. `gemini_calls`는 운영 값이 이긴다.
    - `terms` 행을 통째로 바꾸면 그 행의 자동 리스크 판정도 운영의 옛 값이 된다. 그래서 덮어 얹기는 끝에서 대상 표제어의 리스크만 규칙으로 다시 판정한다(`rejudge_risk`, 모델 없음, 사람이 정한 `risk_human`은 그대로). 전환 직전 덮어 얹기에도 같이 적용된다.
-   - 끝나면 `track`·`risk`·`board`·`dashboard` 단계를 새 DB에서 다시 계산한다. 수집 PC의 판정이 끝나지 않은 채 snapshot이 만들어지면 생애주기·리스크가 빠진 표제어가 생긴다(10-01 사본에서 746개, [Plan 02](archive/02-lifecycle-stages.md) 10-05 진단).
+   - 끝나면 `track`·`risk`·`board`·`dashboard` 단계를 새 DB에서 다시 계산한다. 수집 PC의 판정이 끝나지 않은 채 snapshot이 만들어지면 생애주기·리스크가 빠진 표제어가 생긴다(10-01 사본에서 746개, [Plan 02](02-lifecycle-stages.md) 10-05 진단).
 5. **검증.** 새 DB에서 사람 결정 건수(`review_history`, `verified_human` 뜻, 사람 리스크)가 운영과 같고, `gemini_calls`의 이번 달 `usd:` 값이 같은지 확인한다. 로컬 웹·API를 새 DB의 복원 사본에 붙여 사전·지도·검수 화면을 확인한다.
 6. **전환.** 검수자에게 알리고 검수 쓰기를 멈춘다(아래 결정 2). 4단계의 덮어 얹기를 한 번 더 실행해 그 사이 결정을 반영한다. 새 DB를 가리키는 secret version을 만들고 `production.tfvars.json`의 `database_secret_version`을 바꿔 API를 새 revision으로 배포한다. 백업 Job도 같은 secret을 쓰므로 함께 바뀐다.
 7. **확인과 정리.** 운영 URL의 사전·지도·해석, 검수 한 건, `/meta`의 갱신 시각을 확인한다. 이전 DB는 다음 갱신까지 남겨 두고(되돌리기 대상), 그다음 갱신 때 지운다.

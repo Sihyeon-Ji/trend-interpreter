@@ -2,9 +2,9 @@
 
 > **2026-10-01 최신 결정:** [Plan 17](../plans/17-hybrid-infrastructure.md)에서 Kaggle·DVC/GCS 학습과 GCE GPU Gemma 서빙, Cloud Run 웹/API·Cloud SQL 구조를 채택했다. 아래는 09-28 결정과 당시 비교 기록이다. 현재 인프라 구축에는 Plan 17을 적용한다.
 
-결정일 **2026-09-28** · 상태 **아키텍처 결정, 운영 구현 전** · 관련 [Plan 05](../plans/archive/05-trend-cloud-run-deployment.md) · [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)
+결정일 **2026-09-28** · 상태 **아키텍처 결정, 운영 구현 전** · 관련 [Plan 05](../plans/archive/05-trend-cloud-run-deployment.md) · [Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md)
 
-> **2026-09-29 변경:** 아래는 9월 28일 결정의 기록이다. 최신 실행 계획은 [Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)을 따른다. Gemma 실험·편집은 Colab GPU 중심으로 옮겼다가, 무료 Colab에서 GPU를 받을 수 없어 2026-10-01에 Kaggle 노트북으로 다시 옮겼다. 입력은 비공개 Kaggle Dataset, 결과는 노트북 버전 Output에 둔다. PC는 수집과 GPU 미배정 시 대체 추론 경로로 유지한다. 공개 서비스와 배치를 분리하고 승인 결과만 게시하는 원칙은 유지한다.
+> **2026-09-29 변경:** 아래는 9월 28일 결정의 기록이다. 최신 실행 계획은 [Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md)을 따른다. Gemma 실험·편집은 Colab GPU 중심으로 옮겼다가, 무료 Colab에서 GPU를 받을 수 없어 2026-10-01에 Kaggle 노트북으로 다시 옮겼다. 입력은 비공개 Kaggle Dataset, 결과는 노트북 버전 Output에 둔다. PC는 수집과 GPU 미배정 시 대체 추론 경로로 유지한다. 공개 서비스와 배치를 분리하고 승인 결과만 게시하는 원칙은 유지한다.
 
 ## 결론
 

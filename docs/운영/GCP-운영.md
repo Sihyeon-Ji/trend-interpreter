@@ -234,7 +234,7 @@ storage는 남습니다.
 도쿄(`asia-northeast1`) 저장 요금은 GiB당 월 **Standard US$0.023**, Nearline US$0.016, Coldline US$0.006, Archive US$0.0025, Rapid Cache US$0.120012입니다([Cloud Storage 가격](https://cloud.google.com/storage/pricing), 2026-10-01 화면). 요청 횟수와 리전 밖 데이터 전송은 별도로 과금됩니다.
 Terraform state는 KB 단위 JSON이라 버전 관리로 이전 판이 쌓여도 저장 비용은 사실상 0입니다.
 
-**Cloud Storage는 위 서비스별 지출 한도에 포함되지 않습니다.** 사용량이 늘어도 자동으로 멈추지 않습니다. Kaggle Gemma 실험은 GCS·BigQuery 등 이 프로젝트의 GCP에 연결하지 않고 Kaggle 저장 공간만 씁니다([Plan 06](../plans/06-gemma-on-cloud-run-gpu.md)). 새 버킷을 만들거나 모델·데이터를 GCS에 둘 계획이 생기면, 그 전에 Cloud Storage 지출 한도를 걸고 이 표를 갱신합니다.
+**Cloud Storage는 위 서비스별 지출 한도에 포함되지 않습니다.** 사용량이 늘어도 자동으로 멈추지 않습니다. Kaggle Gemma 실험은 GCS·BigQuery 등 이 프로젝트의 GCP에 연결하지 않고 Kaggle 저장 공간만 씁니다([Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md)). 새 버킷을 만들거나 모델·데이터를 GCS에 둘 계획이 생기면, 그 전에 Cloud Storage 지출 한도를 걸고 이 표를 갱신합니다.
 
 ## Gemini 사용량과 비용 확인
 
@@ -497,7 +497,7 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 
 ## 운영 DB 백업
 
-운영 Cloud SQL의 `trend` DB는 매일 03:00 KST에 논리 백업한다. 체험 인스턴스는 관리형 백업·PITR을 지원하지 않으므로 이 백업이 유일한 복구 수단이다([Plan 13](../plans/13-cloud-sql-trial-to-paid-transition.md)). 리소스는 `infra/gcp/hybrid/backup.tf`에 있다.
+운영 Cloud SQL의 `trend` DB는 매일 03:00 KST에 논리 백업한다. 체험 인스턴스는 관리형 백업·PITR을 지원하지 않으므로 이 백업이 유일한 복구 수단이다([Plan 13](../plans/archive/13-cloud-sql-trial-to-paid-transition.md)). 리소스는 `infra/gcp/hybrid/backup.tf`에 있다.
 
 | 항목 | 값 |
 | --- | --- |
@@ -556,7 +556,7 @@ scripts/terraform-vars.sh restore   # 없는 파일만 되살린다. 내용이 �
 
 ## 운영 DB 갱신
 
-수집 PC의 새 snapshot을 운영에 반영하는 절차다. 설계와 결정은 [Plan 19](../plans/19-production-data-refresh.md)에 있다. 운영 DB에 직접 덮어쓰지 않고, 새 DB를 만들어 운영의 사람 결정(검수 기록·사람 승인 뜻·사람 리스크·제외)과 Gemini 장부·사용자 표를 덮어 얹은 뒤 API 연결만 바꾼다. 도구는 `scripts/refresh-production-db.sh`다.
+수집 PC의 새 snapshot을 운영에 반영하는 절차다. 설계와 결정은 [Plan 19](../plans/archive/19-production-data-refresh.md)에 있다. 운영 DB에 직접 덮어쓰지 않고, 새 DB를 만들어 운영의 사람 결정(검수 기록·사람 승인 뜻·사람 리스크·제외)과 Gemini 장부·사용자 표를 덮어 얹은 뒤 API 연결만 바꾼다. 도구는 `scripts/refresh-production-db.sh`다.
 
 ### 준비 – 서비스에 영향 없음
 
@@ -596,7 +596,7 @@ terraform plan -var-file=production.tfvars.json \
 terraform apply switch.tfplan
 ```
 
-   10-09부터 API는 배포 스크립트가 revision 이름을 정해 Terraform이 409로 실패한다. 그때는 백업 Job만 Terraform으로 맞추고, API는 **서비스 정의를 막 다시 읽어** Cloud Run v2 API로 template의 DB secret 버전과 새 revision 이름만 바꾼다(트래픽은 그대로, [Plan 19 10-09 기록](../plans/19-production-data-refresh.md#2026-10-09-두-번째-전환)). 덮어 얹기(4)는 반드시 secret(5) 전에 끝낸다.
+   10-09부터 API는 배포 스크립트가 revision 이름을 정해 Terraform이 409로 실패한다. 그때는 백업 Job만 Terraform으로 맞추고, API는 **서비스 정의를 막 다시 읽어** Cloud Run v2 API로 template의 DB secret 버전과 새 revision 이름만 바꾼다(트래픽은 그대로, [Plan 19 10-09 기록](../plans/archive/19-production-data-refresh.md#2026-10-09-두-번째-전환)). 덮어 얹기(4)는 반드시 secret(5) 전에 끝낸다.
 
    게시 Job도 새 DB로 옮긴다. 새 DB에 `GRANT CONNECT … TO trend_publisher`와 `configure_publisher_role.py --role trend_publisher`를 실행하고, 새 DB 이름으로 `trend-production-publisher-database` version을 추가해 `publisher.database_secret_version`을 바꾼다([승인 배치 게시](../개발환경/승인-배치-게시.md)).
 
