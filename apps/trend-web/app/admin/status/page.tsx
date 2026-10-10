@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
+import { GemmaRerun } from "@/components/gemma-rerun";
 import { ModelCallsTable, ModelUsageTable } from "@/components/model-usage-table";
-import { getModelUsage, getPipelineStages } from "@/lib/data";
+import { getModelUsage, getPipelineStages, loadTermRecords } from "@/lib/data";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { fmtDateTime, fmtInt } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
@@ -62,7 +63,8 @@ function Note({ s, run, locale }: { s: PipelineStage; run: Run | null; locale: L
 }
 
 export default async function AdminStatusPage() {
-  const [locale, stages, usage] = await Promise.all([getLocale(), getPipelineStages(), getModelUsage()]);
+  const [locale, stages, usage, dictionary] = await Promise.all([getLocale(), getPipelineStages(), getModelUsage(), loadTermRecords(true)]);
+  const terms = dictionary.records.map((r) => ({ term_id: r.term.term_id, canonical: r.term.canonical }));
   const finished = stages.map((s) => s.last_finished_at).filter((x): x is string => !!x).sort().at(-1) ?? null;
   // 한 번의 실행에는 번호가 없다 — 가장 늦게 끝난 시각 3시간 안에 시작한 단계들 가운데 가장 이른 시작을 그 실행의 시작으로 본다
   const started = finished
@@ -172,6 +174,7 @@ export default async function AdminStatusPage() {
           <ModelCallsTable calls={usage.calls_24h ?? []} locale={locale} />
         </section>
       )}
+      <GemmaRerun terms={terms} locale={locale} />
     </section>
   );
 }

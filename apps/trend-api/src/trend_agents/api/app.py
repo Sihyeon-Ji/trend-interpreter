@@ -493,6 +493,16 @@ def term_live_risk(term_id: str):
     return live_risk.run(_con, t)
 
 
+@app.post("/terms/{term_id}/risk-rerun", response_model=live_risk.RiskRerun, dependencies=[Depends(_review_access)])
+def term_risk_rerun(term_id: str):
+    """검수자만 – 관리 화면 '수동 실행'. 배치 리스크 단계를 이 용어의 저장된 쓰임 문장에 지금 GPU 의 Gemma 로 다시 돌려 이전 값과의 차이를
+    보인다. 미리보기라 저장하지 않는다(ejchoi 계획 2단계)."""
+    t = ds.get_term(_con, term_id)
+    if not t:
+        raise HTTPException(404, "not found")
+    return live_risk.rerun(_con, t)
+
+
 @app.get("/terms/{term_id}/topic", response_model=Topic | None)
 def term_topic(term_id: str):
     """용어가 든 주제 하나 — 사전 항목이 관련 표현을 찾으려고 보드 전체(1.5MB)를 받지 않게. 없으면 null."""

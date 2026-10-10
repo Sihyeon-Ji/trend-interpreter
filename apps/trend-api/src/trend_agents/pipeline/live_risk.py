@@ -60,10 +60,11 @@ class LiveRisk(BaseModel):
     cached: bool = False
 
 
-def _log(con: Connection, out: LiveRisk) -> None:
-    con.execute("INSERT OR IGNORE INTO live_risk_runs VALUES (?,?,?,?,?,?,?)",
+def _log(con: Connection, out: "LiveRisk | RiskRerun", kind: str = "live") -> None:
+    level = out.level if isinstance(out, LiveRisk) else out.after_level
+    con.execute("INSERT OR IGNORE INTO live_risk_runs (run_at, term_id, status, sentences, seconds, level, model, kind) VALUES (?,?,?,?,?,?,?,?)",
                 ((out.checked_at or datetime.now(timezone.utc)).isoformat(), out.term_id, out.status, len(out.sentences),
-                 out.seconds, out.level, out.model))
+                 out.seconds, level, out.model, kind))
     con.commit()
 
 
@@ -139,4 +140,91 @@ def _run(con: Connection, term) -> LiveRisk:
     out = base.model_copy(update={"status": "ok", "level": level, "reasons": reasons, "same_as_batch": level == term.risk_level,
                                   "sentences": sentences, "found": len(keep), "seconds": round(time.monotonic() - started, 1)})
     _log(con, out)
+    return out
+
+
+# ── 2단계: 관리자 수동 실행(/admin/status) ─────────────────────────────────────────────
+# 배치 리스크 단계(risk.classify)를 고른 용어 하나에 지금 GPU 에서 다시 돌려 본다. 대상은 운영 DB 에 이미 있는 쓰임 문장(risk._usage)이라
+# 수집 키가 필요 없다. 첫 판은 미리보기(10-10 결정) – 이전 분류·판정과 새 분류·판정의 차이를 화면에만 보이고 저장하지 않는다.
+
+
+class RerunSentence(BaseModel):
+    text: str | None = None               # 인용할 수 있는 근거(기사·쇼츠·문서)만. 커뮤니티·SNS 글은 비운다(ADR 0003)
+    source: str | None = None
+    kind: str
+    before_polarity: str | None = None    # 배치가 붙인 분류. 아직 분류 전이면 None
+    before_risk: str | None = None
+    polarity: str                         # 지금 분류 – positive · neutral · negative · offtopic
+    risk: str
+    changed: bool
+
+
+class RiskRerun(BaseModel):
+    status: Literal["ok", "not_ready", "busy", "too_few", "failed"]
+    term_id: str
+    stage: Literal["risk"] = "risk"
+    public_level: str | None = None       # 공개 사전의 수준(검수자 결정이 있으면 그것)
+    before_level: str | None = None       # 저장된 분류로 매긴 규칙 판정
+    before_reasons: list[str] = []
+    after_level: str | None = None        # 지금 분류로 매긴 규칙 판정
+    after_reasons: list[str] = []
+    changed: int = 0                      # 분류가 달라진 문장 수
+    sentences: list[RerunSentence] = []
+    model: str | None = None
+    seconds: float | None = None
+    checked_at: datetime | None = None
+
+
+def rerun(con: Connection, term) -> RiskRerun:
+    if not _run_lock.acquire(blocking=False):          # 실시간 분류와 같은 GPU – 한 번에 하나
+        return RiskRerun(status="busy", term_id=term.term_id)
+    try:
+        return _rerun(con, term)
+    finally:
+        _run_lock.release()
+
+
+def _rerun(con: Connection, term) -> RiskRerun:
+    started = time.monotonic()
+    model = config.GPU_GATEWAY_MODEL or None
+    before_level, before_reasons = risk.judge(con, term)
+    base = RiskRerun(status="not_ready", term_id=term.term_id, public_level=term.risk_level, before_level=before_level,
+                     before_reasons=before_reasons, model=model, checked_at=datetime.now(timezone.utc))
+    if not gpu_gateway.configured() or not model or not gpu_gateway.available(model, timeout=READY_WAIT_S):
+        return base
+    evs = risk._usage(con, term)
+    if not evs:
+        out = base.model_copy(update={"status": "too_few", "seconds": round(time.monotonic() - started, 1)})
+        _log(con, out, "rerun")
+        return out
+    m = ds.current_meaning(con, term.term_id)
+    prompt = risk.PROMPT.format(term=term.canonical, definition=(m.definition if m else "")[:160],
+                                items="\n".join(f"{i}. {(e.excerpt or e.title)[:220]}" for i, e in enumerate(evs)))
+    try:
+        parsed = local_chat.structured(prompt, list[EvidenceLabel], model=model)
+    except Exception:                                 # 장애·형식 실패 – 원문은 남기지 않는다
+        out = base.model_copy(update={"status": "failed", "seconds": round(time.monotonic() - started, 1)})
+        _log(con, out, "rerun")
+        return out
+    labels = {p.i: p for p in (parsed or []) if 0 <= p.i < len(evs)}
+    stored = ds.evidence_labels(con, term.term_id)
+    sentences, labeled, offtopic = [], [], 0
+    for i, e in enumerate(evs):
+        p = labels.get(i)
+        polarity = "neutral" if p is None else (p.polarity if p.on_topic else "offtopic")
+        kind = "none" if p is None or not p.on_topic else p.risk
+        bp, br = stored.get(e.evidence_id, (None, None))
+        quotable = risk._quotable(e)
+        sentences.append(RerunSentence(text=(e.excerpt or e.title).strip()[:220] if quotable else None,
+                                       source=e.source_domain if quotable else None, kind=e.kind,
+                                       before_polarity=bp, before_risk=br, polarity=polarity, risk=kind,
+                                       changed=bp is not None and (bp, br) != (polarity, kind)))
+        if polarity == "offtopic":
+            offtopic += 1
+        elif p is not None:
+            labeled.append((e, polarity, kind))
+    level, reasons = risk.judge_labeled(con, term, labeled, offtopic)
+    out = base.model_copy(update={"status": "ok", "after_level": level, "after_reasons": reasons, "sentences": sentences,
+                                  "changed": sum(s.changed for s in sentences), "seconds": round(time.monotonic() - started, 1)})
+    _log(con, out, "rerun")
     return out
