@@ -24,7 +24,7 @@ from ..pipeline import ask as ask_stage, board as board_stage
 from ..pipeline import content_agent
 from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
-from ..pipeline import briefing as briefing_stage, copycheck, poster as poster_stage
+from ..pipeline import briefing as briefing_stage, copycheck, live_risk, poster as poster_stage
 from ..schemas import CampaignTone, FitCategory, ProductBrief, RiskLevel, Topic, TrendBoard
 from ..auth import check_account, frontend_token_ok
 from ..logging_setup import configure as configure_logging
@@ -481,6 +481,16 @@ def explain(body: ExplainIn):
 @app.get("/trends/board", response_model=TrendBoard)
 def trends_board():
     return board_stage.cached(_con) or board_stage.build(_con)
+
+
+@app.post("/terms/{term_id}/live-risk", response_model=live_risk.LiveRisk, dependencies=[Depends(_review_access)])
+def term_live_risk(term_id: str):
+    """검수자만 – 최신 기사 문장을 GPU 의 Gemma 로 지금 다시 분류해 배치 판정과 나란히 보인다. 공개 사전에는 쓰지 않는다.
+    GPU 가 꺼져 있으면 기다리지 않고 status='not_ready'(ejchoi 계획 1단계)."""
+    t = ds.get_term(_con, term_id)
+    if not t:
+        raise HTTPException(404, "not found")
+    return live_risk.run(_con, t)
 
 
 @app.get("/terms/{term_id}/topic", response_model=Topic | None)

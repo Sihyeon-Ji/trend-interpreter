@@ -53,12 +53,14 @@ def client():
     )
 
 
-def call(path, body=None):
+def call(path, body=None, timeout=None):
+    """timeout 을 주면 그 요청만 짧게 기다린다(readiness 확인 – 모델 적재 중인 GPU 를 30초씩 기다리지 않게)."""
     if not config.GPU_GATEWAY_REQUESTS_ENABLED:
         raise GatewayUnavailable("GPU gateway requests disabled")
     try:
+        extra = {} if timeout is None else {"timeout": httpx.Timeout(timeout)}
         with client().stream(
-            "GET" if body is None else "POST", path, json=body
+            "GET" if body is None else "POST", path, json=body, **extra
         ) as response:
             if response.status_code != 200:
                 raise GatewayUnavailable(f"GPU gateway status {response.status_code}")
@@ -80,11 +82,11 @@ def call(path, body=None):
         raise GatewayUnavailable("GPU gateway transport unavailable") from None
 
 
-def available(model):
+def available(model, timeout=None):
     if model != config.GPU_GATEWAY_MODEL:
         return False
     try:
-        return call("/ready").get("ready") is True
+        return call("/ready", timeout=timeout).get("ready") is True
     except GatewayUnavailable:
         return False
 

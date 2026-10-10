@@ -46,7 +46,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | --- | --- | --- | --- | --- | --- |
 | [ktwoo-copy-flow-and-japanese-ui](ktwoo-copy-flow-and-japanese-ui.md) | ktwoo | 문구 흐름 남은 일(승인 기록·재검사)과 일본어 화면(Plan 20) | 시작 전 | 승인 기록 서버 저장, 日本語 전환 | 10-14 |
 | [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | ktwoo | 밈 추천 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
-| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 시작 전 | GPU 준비·504 수정, 버튼 실행 한 번과 청구 확인 | 10-14 |
+| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 진행 중 – 1단계 로컬 구현 | 운영 GPU VM(지시현 확인), 버튼 실행 한 번과 청구 확인 | 10-14 |
 | [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
 | [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |
 

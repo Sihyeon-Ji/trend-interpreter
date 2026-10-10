@@ -151,6 +151,11 @@ def judge(con: Connection, term) -> tuple[str | None, list[str]]:
     evs = {e.evidence_id: e for e in _usage(con, term)}
     labeled = [(evs[k], p, r) for k, (p, r) in labels.items() if k in evs and p != "offtopic"]
     offtopic = sum(1 for k, (p, _) in labels.items() if k in evs and p == "offtopic")
+    return judge_labeled(con, term, labeled, offtopic)
+
+
+def judge_labeled(con: Connection, term, labeled: list[tuple[Evidence, str, str]], offtopic: int) -> tuple[str | None, list[str]]:
+    """judge 의 규칙 본체 – 분류된 문장(근거, 뉘앙스, 위험 유형)과 딴 이야기 수로 수준을 매긴다. 실시간 분류(live_risk)도 같은 규칙을 쓴다."""
     risky = [(e, r) for e, _, r in labeled if r != "none"]
     negative = [e for e, p, _ in labeled if p == "negative"]
 

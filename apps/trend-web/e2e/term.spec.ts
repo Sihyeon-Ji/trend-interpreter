@@ -13,6 +13,12 @@ test("entry answers 'can I use it' first and leads to making a draft", async ({ 
   await expect(page.getByRole("link", { name: /^(이 말로 초안 만들기|Draft with this word)$/ })).toHaveAttribute("href", "/?term=t_luckyvicky");
 });
 
+test("the Gemma live classify panel is only for reviewers", async ({ page }) => {
+  await page.goto("/dictionary/t_luckyvicky");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("럭키비키");
+  await expect(page.getByRole("button", { name: /Gemma로 분류하기|Classify with Gemma/ })).toHaveCount(0);
+});
+
 test("an entry under review is absent from the public dictionary", async ({ page }) => {
   await page.goto("/dictionary/t_galau");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/이 말은 사전에 없어요|isn't in the dictionary/);

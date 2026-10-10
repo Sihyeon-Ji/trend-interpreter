@@ -49,6 +49,13 @@ test.describe("admin", () => {
     await context.addCookies([{ name: "admin_session", value: reviewerCookie(secret!), url: baseURL ?? "http://localhost:3000" }]);
   });
 
+  test("a reviewer can ask Gemma to classify an entry again and is told when the GPU is off", async ({ page }) => {
+    await page.goto("/dictionary/t_luckyvicky");
+    const panel = page.getByRole("region", { name: /지금 다시 분류해 보기|Classify again now/ });
+    await panel.getByRole("button", { name: /Gemma로 분류하기|Classify with Gemma/ }).click();
+    await expect(panel.getByRole("status")).toContainText(/GPU가 꺼져 있거나|The GPU is off/);   // 기다리지 않고 바로 안내
+  });
+
   test("review shows evidence before a decision and the decision can be undone", async ({ page }) => {
     await page.goto("/admin");
     await expect(page.getByText(/결정은 e2e 이름으로 기록됩니다|Decisions are recorded as e2e/)).toBeVisible();

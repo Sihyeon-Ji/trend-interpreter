@@ -15,6 +15,8 @@ import { t, type Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { L, regionLabel, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
+import { getViewer } from "@/lib/reader-server";
+import { LiveRiskPanel } from "@/components/stage/live-risk";
 import { cleanSource } from "@/lib/sources";
 import type { Evidence, Meaning } from "@/lib/types";
 
@@ -43,10 +45,11 @@ export default async function TermPage({ params, searchParams }: Props) {
   const [{ termId }, sp, locale] = await Promise.all([params, searchParams, getLocale()]);
   const asked = [sp.m ?? sp.regions].flat()[0]?.split(",")[0]?.toUpperCase();
   const market: Market | null = isMarket(asked) ? asked : null;
-  const [record, related, signals] = await Promise.all([
+  const [record, related, signals, viewer] = await Promise.all([
     getTermRecord(termId),
     getTermRelated(termId),
     getTermSignals(termId, market ? [market] : []),
+    getViewer(),
   ]);
   if (!record) notFound();
 
@@ -211,6 +214,7 @@ export default async function TermPage({ params, searchParams }: Props) {
             ) : null}
             <p className="rs-block-foot rs-quiet">{tx(locale, "tm_refs_note")}</p>
           </section>
+          {viewer?.reviewer ? <LiveRiskPanel termId={termId} locale={locale} /> : null}
           <section className="rs-block" aria-labelledby="rs-b-how">
             <h2 id="rs-b-how">{tx(locale, "tm_how")}</h2>
             <ol className="rs-how">
