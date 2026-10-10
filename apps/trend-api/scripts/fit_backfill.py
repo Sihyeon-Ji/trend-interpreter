@@ -5,6 +5,8 @@
   USE_LOCAL_GEMMA=1 uv run scripts/fit_backfill.py --max 80   # 시험
   uv run scripts/fit_backfill.py --gemini gemini-3.5-flash --batch 12 --max 200
       # Gemini 로(로컬 e4b 가 audience·kind 를 가르지 못할 때, 10-09). 이용자 요청의 모델 차례(GEMINI_MODELS)에 없는 모델을 골라야 그날 요청 몫을 쓰지 않는다
+  uv run scripts/fit_backfill.py --gemini gemini-3.5-flash --batch 12 --relabel-local
+      # 추천 후보 가운데 로컬 모델이 붙인 것도 다시 붙인다(운영 갱신 뒤, 10-10). 사람·Gemini 가 붙인 값은 건드리지 않는다
 """
 from __future__ import annotations
 
@@ -29,7 +31,10 @@ def main() -> None:
     a.add_argument("--gemini", nargs="?", const=GEMINI_MODEL, help=f"Gemini 로 붙인다(비용이 든다 — 묶음 8개에 호출 한 번). 모델을 비우면 {GEMINI_MODEL}")
     # Flash 계열은 모델마다 하루 20회(config.GEMINI_LIMITS) — 묶음을 키워 호출 수를 줄인다
     a.add_argument("--batch", type=int, default=fit.BATCH, help="한 호출에 붙일 표제어 수")
+    a.add_argument("--relabel-local", action="store_true", help="추천 후보 가운데 로컬 모델이 붙인 값도 다시 붙인다(--gemini 와 함께)")
     args = a.parse_args()
+    if args.relabel_local and not args.gemini:
+        sys.exit("--relabel-local 은 --gemini 와 함께 쓴다 — 로컬 값을 로컬 모델로 다시 붙이면 같은 값이 나온다")
     if args.gemini and not configured():
         sys.exit("Gemini 가 설정돼 있지 않다 — MODEL_PROVIDER=vertex·MODEL_REQUESTS_ENABLED=true·GCP_PROJECT_ID 를 확인하라")
     if not args.gemini and not local_ok():
@@ -37,7 +42,13 @@ def main() -> None:
     con = db.connect()
     log = lambda m: print(f"[{datetime.now():%H:%M:%S}] {m}", flush=True)  # noqa: E731
     cards = {c.term_id for c in dashboard.cards(con, ["KR", "JP", "GLOBAL"])}   # 만들기 화면의 시장
-    todo = sorted(fit.todo(con), key=lambda x: x[0].term_id not in cards)[:args.max]
+    pending = fit.todo(con)
+    if args.relabel_local:
+        queued = {t.term_id for t, _ in pending}
+        relabel = [x for x in fit.local_labeled(con, cards) if x[0].term_id not in queued]
+        log(f"로컬 모델이 붙인 추천 후보 {len(relabel)}개도 다시 붙인다")
+        pending += relabel
+    todo = sorted(pending, key=lambda x: x[0].term_id not in cards)[:args.max]
     log(f"붙일 표제어 {len(todo)}개 (추천 후보 {sum(1 for t, _ in todo if t.term_id in cards)}개 먼저)")
     done = 0
     lock = open("/tmp/trend-pipeline.lock", "w")

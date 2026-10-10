@@ -52,6 +52,17 @@ def todo(con: Connection) -> list[tuple]:
     return [(t, m) for t, m, _ in out]
 
 
+def local_labeled(con: Connection, term_ids: set[str]) -> list[tuple]:
+    """(표제어, 현재 뜻) — term_ids 가운데 로컬 모델이 붙인 것. 칸이 다 차 있어 todo 에는 나오지 않지만 로컬 e4b 값은 사용층·종류를
+    거의 가르지 못했다(10-09). 운영 갱신 때 새로 추천 후보가 된 말을 Gemini 로 다시 붙이려고 고른다(fit_backfill --relabel-local)."""
+    rows = con.execute("SELECT term_id FROM term_fit WHERE model LIKE 'local:%'").fetchall()
+    out = []
+    for (tid,) in rows:
+        if tid in term_ids and (t := ds.get_term(con, tid)) and t.status == "verified" and (m := ds.current_meaning(con, tid)):
+            out.append((t, m))
+    return sorted(out, key=lambda x: x[0].term_id)
+
+
 def label(con: Connection, batch: list[tuple], *, gemini: str | None = None) -> int:
     """gemini 는 Gemini 모델 이름 — 밀린 것을 몰아 붙일 때만(fit_backfill --gemini). 로컬 e4b 가 audience·kind 를 거의 가르지 못했다(10-09, 210개 중 niche 1개)."""
     lines = []

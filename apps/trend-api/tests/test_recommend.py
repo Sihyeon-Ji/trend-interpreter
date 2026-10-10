@@ -253,6 +253,19 @@ def test_fit_stage_retags_fits_made_before_audience(monkeypatch):
     assert [t.term_id for t, _ in fit.todo(con)] == ["ok"]
 
 
+def test_local_labeled_picks_only_local_fits_of_given_terms():
+    """로컬 모델이 붙인 값만 고른다 — 사람·Gemini 가 붙인 값은 다시 붙이지 않는다(10-10)."""
+    from trend_agents.pipeline import fit
+
+    con = _con()
+    f = MemeFit(feelings=["joy"], uses=["reaction"], voice="wholesome", audience="online", kind="expr")
+    for tid, model in (("good", "local:gemma4:e4b"), ("ok", "human:지시현")):
+        ds.set_fit(con, tid, ds.current_meaning(con, tid).meaning_id, f, model)
+    assert fit.todo(con) == [] or all(t.term_id not in ("good", "ok") for t, _ in fit.todo(con))
+    assert [t.term_id for t, _ in fit.local_labeled(con, {"good", "ok"})] == ["good"]
+    assert fit.local_labeled(con, {"ok"}) == []
+
+
 def test_topics_are_not_recommended():
     """밈의 소재(인물·작품·노래)는 추천하지 않고, 일반 낱말(word)은 그 분야 제품에만 권한다(10-09 판정)."""
     con = db.connect(":memory:")
