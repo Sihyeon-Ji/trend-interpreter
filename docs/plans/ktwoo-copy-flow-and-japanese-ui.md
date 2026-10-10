@@ -2,7 +2,7 @@
 
 작성일 **2026-10-10** · 담당 **ktwoo(김태우)** · 상태 **시작 전** · 코드 동결 **10-14** · 제출 **10-18**
 
-[계획 목록](README.md) · 이어받은 계획 [Plan 20](archive/20-copy-check-localization-flow.md)(방향·흐름·화면 원칙, §5 일본어) · 데모 [데모 영상](sng_j-demo-video.md)(sng_j) · 수집 서버 [마지막 갱신 전 준비](ktwoo-collection-server-before-final-refresh.md)
+[계획 목록](README.md) · 이어받은 계획 [Plan 20](archive/20-copy-check-localization-flow.md)(방향·흐름·화면 원칙, §5 일본어) · 데모 [데모 영상](sng_j-demo-video.md)(sng_j) · 수집 서버 [마지막 갱신 전 준비](2026-10-15-collection-server-snapshot.md)
 
 두 일을 한 문서로 둔다. 같은 사람이 같은 파일(`components/stage/`, `lib/i18n.ts`)을 고치고 마감도 같다. 순서는 **A의 1·2(승인 기록, 재검사) → B(일본어) → A의 나머지**다. 화면 문구를 먼저 정해 두고 일본어로 옮기면 새 문구까지 한 번에 번역된다.
 

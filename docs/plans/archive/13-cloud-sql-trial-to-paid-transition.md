@@ -1,6 +1,6 @@
 # Plan 13. Cloud SQL 무료 체험 종료 전 유료 전환
 
-작성일 **2026-09-29** · 상태 **[Plan 11 제출 전후 운영](../shji-submission-operations.md)에 합침(10-09). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 연계 [Plan 05](05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
+작성일 **2026-09-29** · 상태 **제출 전후 운영 계획에 합쳤다가(10-09) 날짜별 문서로 나눔(10-10). 남은 일은 [10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md)에서 관리한다. 아래는 경위·절차 기록** · 연계 [Plan 05](05-trend-cloud-run-deployment.md) · 체험 종료 예상 **2026-10-29경**
 
 [계획 목록](../README.md) · [Trend 앱 배포](05-trend-cloud-run-deployment.md) · [GCP 운영](../../운영/GCP-운영.md)
 

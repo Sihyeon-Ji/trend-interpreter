@@ -17,7 +17,7 @@
 | 리스크 사람 판정 | 추천 후보 36개(avoid 5 · caution 14 · none 17), 지시현 10-10 | Plan 09, 표는 `artifacts/risk_review/candidates-20261010.csv`(커밋하지 않음) |
 | 판정과 생성의 역할 | 판정은 규칙, 문장은 모델(Gemini), 사람이 승인. 만들기 결과물은 규칙으로 다시 검사(밈이 들어갔나·욕설·X 글자 수·피할 표현·밈 소개·언어 섞임)하고 걸리면 한 번 다시 만든다 | `pipeline/generate.py`, [Plan 08](archive/08-content-generation.md) |
 | Gemma | 배치 단계(분류·리스크·쓰임 낱말·번역·문서 대조)에서 쓰고, 모델 기록이 `/admin/status`·사전 항목에 보인다 | [Plan 14](archive/14-gemma-visible-in-deployment.md) |
-| 운영 | Cloud Run 웹·API, Cloud SQL, 승인 배치 게시(영어 뜻 60개), release 되돌리기 훈련(10-10) | [Plan 17](archive/17-hybrid-infrastructure.md), [제출 전후 운영](shji-submission-operations.md) |
+| 운영 | Cloud Run 웹·API, Cloud SQL, 승인 배치 게시(영어 뜻 60개), release 되돌리기 훈련(10-10) | [Plan 17](archive/17-hybrid-infrastructure.md), [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) |
 
 ## 3. 지키는 것
 
