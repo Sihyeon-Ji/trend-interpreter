@@ -18,7 +18,7 @@ Gemma는 사전을 만드는 배치 단계(분류·리스크·쓰임 낱말·번
 | 운영 GPU VM | 없음 |
 | GPU 시험(staging) | L4 1장, 기본 `gemma4:12b`. 추론 3/3, VRAM 7.9GB/23GB, 무인증·잘못된 token 401 확인. 첫 모델 적재가 gateway deadline 30초를 넘어 `/ready`가 4번 504였다 – 설치기가 gateway를 띄우기 전에 모델을 GPU에 올리고 긴 프롬프트로 예열하도록 고쳤다(`a3cb2bd`, 예열 한도 600초). 운영 VM에서 다시 확인해야 한다. 시험 뒤 VM·디스크·IP 삭제([실행 기록](archive/17-hybrid-infrastructure-실행기록.md)) |
 | GPU 할당량 | 도쿄 `NVIDIA_L4_GPUS` 1, 프로젝트 `GPUS_ALL_REGIONS` 1(승인됨) |
-| 인프라 코드 | `infra/gcp`에 GPU VM·내부 IP·예약 종료 정의, 설치기·TLS gateway([GPU gateway 인프라 기반](../개발환경/GPU-gateway-인프라-기반.md)) |
+| 인프라 코드 | `infra/gcp/hybrid/gpu.tf`에 GPU VM(`g2-standard-8`·L4)·모델 디스크·내부 IP, 설치기·TLS gateway([GPU gateway 인프라 기반](../개발환경/GPU-gateway-인프라-기반.md)). **예약 종료는 정의돼 있지 않다**(10-10 확인) |
 
 ## 3. 할 일
 
@@ -65,6 +65,7 @@ GCP 자원 생성과 비용이 드는 실행은 사용자(지시현) 확인 뒤�
 | 원문 | 화면에는 기사·쇼츠·문서 문장만 보인다. 커뮤니티·SNS 글은 '커뮤니티 글'로만 적는다(ADR 0003). 실행 기록에는 원문 없음 |
 | 기록 | `live_risk_runs`에 `kind='rerun'`(migration `023`이 `kind` 칸을 더함 – 비어 있으면 1단계 버튼) |
 | 한도 | 1단계와 같은 잠금 – GPU에서 한 번에 하나. 화면은 고른 용어(5개까지)를 한 개씩 차례로 부른다 |
+| GPU 표시 | `GET /gpu/status`(검수자만) – gateway 설정 여부와 준비 여부만 3초 안에 본다. 모델을 부르지 않는다. 데모 전 예열 확인용 |
 | 웹 | `/admin/status` 맨 아래 'Gemma 수동 실행' – 용어 고르기(사전 목록), 실행, 용어마다 저장된 판정·지금 판정·공개 수준, 달라진 문장 수, 문장 표, 걸린 시간·모델 |
 | 시험 | `tests/test_live_risk.py`에 3개 추가(미리보기가 아무것도 저장하지 않음·커뮤니티 글 비공개·기록 `kind`, GPU 꺼짐·동시 실행, 검수자 전용), e2e 1개(없는 용어 안내 → 고르기 → 실행 → GPU 꺼짐 안내) |
 
@@ -79,10 +80,21 @@ Plan 14 설계는 수동 실행을 Cloud Run Job으로 돌리게 했지만, 첫 
 | 운영 GPU VM 띄우기 | 지시현 확인 → ejchoi | `infra/gcp/hybrid/gpu.tf`·`services.tf`가 `var.gpu`를 주면 VM·내부 IP·gateway 토큰 secret과 API의 `GPU_GATEWAY_*` 환경변수를 함께 만든다. 운영 tfvars에 `gpu`(boot image·모델 release·TLS secret·token version)를 채워야 한다. 평소에는 꺼 두고 데모·녹화 때만 켠다(10-10 결정) |
 | 첫 적재 504 | ejchoi | staging의 504는 설치기 예열(`a3cb2bd`)로 고쳤다 – gateway는 모델이 올라간 뒤에 뜬다. 운영 VM을 켠 뒤 `/ready`가 200이 되기까지 걸리는 시간을 재서 데모 전 몇 분 앞에 켤지 정한다. 그 사이 버튼은 3초만 기다리고 `not_ready`로 답한다 |
 | 분류 한 번의 시간 | 실측 필요 | gateway는 요청당 deadline 30초, API가 요청하는 출력은 512토큰(gateway 최대), 프롬프트는 12,000자까지다. 제목 12건 분류가 L4에서 30초 안에 끝나는지, 출력이 512토큰 안에 드는지 실제로 재야 한다. 넘으면 문장 수를 줄인다 |
-| 지출 상한 $30 | 지시현 확인 | 예산 알림과 VM 예약 종료를 설정한다. 알림은 자동 차단이 아니다 |
+| 지출 상한 $30 | 지시현 확인 | 예산 알림을 설정한다(자동 차단이 아니다). Terraform에 예약 종료가 없어 아래 절차대로 손으로 끈다 – 예약 종료(instance schedule)를 더하려면 Compute 서비스 에이전트 권한도 필요하다 |
+| 디스크 상시 요금 | 지시현 확인 | VM을 만들면 모델 디스크 200GB·부트 디스크 50GB(`pd-balanced`)가 생기고, 둘 다 삭제 보호라 VM을 꺼도 요금이 나간다. `pd-balanced`는 GB·월 약 $0.1 수준이라(도쿄 실제 단가 확인 필요) 250GB면 한 달 $25 안팎 – $30 상한의 대부분이다. 데모·녹화 직전에 만들고 제출·심사 뒤 지울 날짜를 정해야 한다 |
 | 배포 시점 | ejchoi | migration `022`(새 표 하나)가 API 시작 때 운영 DB에 적용된다. 운영 데이터 작업(게시·갱신)이 끝난 뒤 배포한다 |
 | 완료 확인 | ejchoi | 실제 버튼 실행 한 번과 그 청구를 확인해야 완료다. 헬스 체크만으로 완료로 보지 않는다 |
 | 2단계 범위 | ejchoi | 첫 판은 `risk` 하나만 미리보기로 만들었다. `fit`·`translate`·`crosscheck`과 검수 큐 연결은 10-14 코드 동결 전에 할지, 하지 않을지 정한다(지금 판단: 하지 않는다 – GPU 시연은 `risk`로 충분) |
+
+## 4-3. 데모·녹화 때 GPU 켜고 끄기
+
+운영 Terraform에 `gpu`가 들어가 VM이 만들어진 뒤의 절차다(VM 이름 `trend-production-gpu`, zone은 운영 tfvars의 `gpu.zone`). 켜고 끄는 일은 운영자가 한다 – 버튼은 VM을 켜지 않는다.
+
+1. 켠다: `gcloud compute instances start trend-production-gpu --zone <zone> --project stunning-crane-508614-c1`
+2. 기다린다: 관리 화면 `/admin/status` 맨 아래 'Gemma 수동 실행'의 **GPU** 표시가 '준비됨 · gemma4:12b'가 될 때까지 '다시 확인'을 누른다. 설치기가 모델을 올리고 예열한 뒤 gateway를 띄우므로(예열 한도 600초) 그 전까지는 '꺼져 있거나 모델을 올리는 중'이다. 켠 시각과 준비된 시각을 이 문서에 적는다.
+3. 잰다(처음 한 번): 사전 항목 '지금 다시 분류해 보기' 한 번, 수동 실행 한 용어 한 번. 화면의 걸린 시간과 결과를 적는다. 30초 deadline에 걸려 '모델이 답하지 못했어요'가 나오면 한 번에 분류하는 문장 수(지금은 배치와 같은 `risk.PER_TERM` 12건)를 줄이는 코드 수정이 필요하다.
+4. 끈다: `gcloud compute instances stop trend-production-gpu --zone <zone> --project stunning-crane-508614-c1`, 그다음 `gcloud compute instances describe trend-production-gpu --zone <zone> --project stunning-crane-508614-c1 --format 'value(status)'`가 `TERMINATED`인지 본다. GPU 표시가 다시 '꺼져 있거나…'가 되는지도 본다.
+5. 청구: 다음 날 Billing 보고서에서 GPU·VM·디스크 SKU를 확인해 적는다([10-27 청구 확인](2026-10-27-billing-check.md)과 별도로).
 
 ## 5. 완료 기준
 

@@ -163,3 +163,23 @@ def test_rerun_endpoint_is_for_reviewers_only(con, monkeypatch):
     assert c.post("/terms/t_lv/risk-rerun").status_code == 401
     assert c.post("/terms/t_none/risk-rerun", headers={"x-frontend-token": "tok"}).status_code == 404
     assert c.post("/terms/t_lv/risk-rerun", headers={"x-frontend-token": "tok"}).json()["status"] == "not_ready"
+
+
+def test_gpu_status_tells_off_loading_and_ready_apart_without_calling_the_model(con, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from trend_agents.api import app as api
+
+    monkeypatch.setattr(api, "_con", con)
+    monkeypatch.setenv("FRONTEND_API_TOKEN", "tok")
+    monkeypatch.setattr(live_risk.local_chat, "structured", lambda *a, **k: pytest.fail("상태 확인은 모델을 부르지 않는다"))
+    c = TestClient(api.app)
+    assert c.get("/gpu/status").status_code == 401
+    seen = []
+    monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: seen.append(timeout) or False)
+    assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json() == {"configured": True, "ready": False, "model": "gemma4:12b"}
+    assert seen == [live_risk.READY_WAIT_S]
+    monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: True)
+    assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json()["ready"] is True
+    monkeypatch.setattr(live_risk.gpu_gateway, "configured", lambda: False)
+    assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json()["configured"] is False

@@ -493,6 +493,12 @@ def term_live_risk(term_id: str):
     return live_risk.run(_con, t)
 
 
+@app.get("/gpu/status", response_model=live_risk.GpuStatus, dependencies=[Depends(_review_access)])
+def gpu_status():
+    """검수자만 – GPU gateway 가 설정됐는지·모델이 올라가 준비됐는지. 데모 전 예열 확인용, 모델은 부르지 않는다."""
+    return live_risk.gpu_status()
+
+
 @app.post("/terms/{term_id}/risk-rerun", response_model=live_risk.RiskRerun, dependencies=[Depends(_review_access)])
 def term_risk_rerun(term_id: str):
     """검수자만 – 관리 화면 '수동 실행'. 배치 리스크 단계를 이 용어의 저장된 쓰임 문장에 지금 GPU 의 Gemma 로 다시 돌려 이전 값과의 차이를

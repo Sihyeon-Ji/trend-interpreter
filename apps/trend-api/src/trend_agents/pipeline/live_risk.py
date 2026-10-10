@@ -60,6 +60,20 @@ class LiveRisk(BaseModel):
     cached: bool = False
 
 
+class GpuStatus(BaseModel):
+    configured: bool                      # 이 API 에 GPU gateway 가 설정됐나(운영 Terraform 의 gpu 변수)
+    ready: bool                           # 모델이 올라가 답할 수 있나 – 꺼져 있거나 적재 중이면 false
+    model: str | None = None
+
+
+def gpu_status() -> GpuStatus:
+    """데모 전에 GPU 를 켠 뒤 준비됐는지 관리 화면에서 본다. 3초만 기다린다 – 모델을 부르지 않는다."""
+    model = config.GPU_GATEWAY_MODEL or None
+    if not gpu_gateway.configured() or not model:
+        return GpuStatus(configured=False, ready=False, model=model)
+    return GpuStatus(configured=True, ready=gpu_gateway.available(model, timeout=READY_WAIT_S), model=model)
+
+
 def _log(con: Connection, out: "LiveRisk | RiskRerun", kind: str = "live") -> None:
     level = out.level if isinstance(out, LiveRisk) else out.after_level
     con.execute("INSERT OR IGNORE INTO live_risk_runs (run_at, term_id, status, sentences, seconds, level, model, kind) VALUES (?,?,?,?,?,?,?,?)",

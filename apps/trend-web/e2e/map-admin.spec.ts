@@ -59,6 +59,7 @@ test.describe("admin", () => {
   test("a reviewer can rerun Gemma's risk step on chosen entries and is told when the GPU is off", async ({ page }) => {
     await page.goto("/admin/status");
     const panel = page.getByRole("region", { name: /Gemma 수동 실행|Run Gemma by hand/ });
+    await expect(panel.getByRole("status")).toContainText(/GPU가 연결되어 있지 않아요|No GPU is connected/);   // 예시 모드에는 GPU 가 없다
     await panel.getByRole("combobox", { name: /^용어$|^Entry$/ }).fill("없는말");
     await panel.getByRole("button", { name: /^추가$|^Add$/ }).click();
     await expect(panel.getByRole("alert")).toContainText(/사전에 없는 용어|isn't in the dictionary/);
@@ -66,7 +67,7 @@ test.describe("admin", () => {
     await panel.getByRole("button", { name: /^추가$|^Add$/ }).click();
     await expect(panel.getByRole("button", { name: /럭키비키 빼기|Remove 럭키비키/ })).toBeVisible();
     await panel.getByRole("button", { name: /Gemma로 다시 분류|Classify again with Gemma/ }).click();
-    await expect(panel.getByRole("status")).toContainText(/GPU가 꺼져 있거나|The GPU is off/);   // 기다리지 않고 바로 안내
+    await expect(panel.getByRole("log")).toContainText(/GPU가 꺼져 있거나|The GPU is off/);   // 기다리지 않고 바로 안내
   });
 
   test("review shows evidence before a decision and the decision can be undone", async ({ page }) => {

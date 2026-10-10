@@ -2,7 +2,7 @@
 /* 관리 화면 '수동 실행'(Gemma 실시간 분류 2단계, 10-10 결정: 첫 판은 미리보기).
    검수자가 용어를 5개까지 고르면 배치의 리스크 분류 단계를 한 용어씩 차례로 GPU 의 Gemma 로 다시 돌리고,
    저장된 분류·판정과 지금 분류·판정을 나란히 보인다. 아무것도 저장하지 않는다. GPU 가 꺼져 있으면 기다리지 않고 바로 알린다. */
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge, type Tone } from "@/components/status-badge";
@@ -16,6 +16,7 @@ type Rerun = {
   public_level: Level | null; before_level: Level | null; after_level: Level | null; after_reasons: string[];
   changed: number; sentences: Sentence[]; model: string | null; seconds: number | null;
 };
+type Gpu = { configured: boolean; ready: boolean; model: string | null };
 type Row = { term_id: string; canonical: string; state: "idle" | "waiting" | "running" | "error"; result?: Rerun };
 
 const MAX = 5;
@@ -37,6 +38,17 @@ export function GemmaRerun({ terms, locale }: { terms: { term_id: string; canoni
   const [note, setNote] = useState<StringKey | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const running = rows.some((r) => r.state === "running" || r.state === "waiting");
+  const [gpu, setGpu] = useState<Gpu | "checking" | "error">("checking");
+
+  const [round, setRound] = useState(0);              // '다시 확인' 을 누를 때마다 하나씩
+  useEffect(() => {                                     // 데모 전 예열 확인 – 모델은 부르지 않는다
+    let live = true;
+    fetch("/api/gpu-status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((g: Gpu) => { if (live) setGpu(g); }, () => { if (live) setGpu("error"); });
+    return () => { live = false; };
+  }, [round]);
+  const check = () => { setGpu("checking"); setRound((n) => n + 1); };
 
   function add() {
     const q = query.trim();
@@ -70,6 +82,18 @@ export function GemmaRerun({ terms, locale }: { terms: { term_id: string; canoni
       <h2 id="st-rerun" className="text-[16px] font-semibold text-ink">{t(locale, "adm_rerun_title")}</h2>
       <p className="text-[13px] text-steel">{t(locale, "adm_rerun_note")}</p>
       <p className="text-[13px] text-charcoal">{t(locale, "adm_rerun_stage")}</p>
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <span className="text-steel">{t(locale, "adm_gpu_label")}</span>
+        <span role="status" aria-live="polite" data-gpu={typeof gpu === "string" ? gpu : gpu.ready ? "ready" : gpu.configured ? "off" : "none"}>
+          {gpu === "checking" ? <span className="text-steel">{t(locale, "adm_gpu_checking")}</span>
+            : gpu === "error" ? <StatusBadge tone="muted">{t(locale, "adm_gpu_error")}</StatusBadge>
+            : gpu.ready ? <StatusBadge tone="good">{fill(t(locale, "adm_gpu_ready"), { model: gpu.model ?? "–" })}</StatusBadge>
+            : <StatusBadge tone="muted">{t(locale, gpu.configured ? "adm_gpu_off" : "adm_gpu_none")}</StatusBadge>}
+        </span>
+        <button type="button" className="text-steel underline underline-offset-2 hover:text-ink disabled:opacity-40" onClick={check} disabled={gpu === "checking"}>
+          {t(locale, "adm_gpu_recheck")}
+        </button>
+      </div>
       <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
         <label className="space-y-1 text-[13px] text-steel" htmlFor={`${id}-q`}>
           <span className="block">{t(locale, "adm_rerun_pick")}</span>
@@ -97,7 +121,7 @@ export function GemmaRerun({ terms, locale }: { terms: { term_id: string; canoni
           <Button type="button" className="h-9 rounded-md px-4" onClick={run} disabled={running} aria-busy={running}>
             {t(locale, running ? "adm_rerun_running" : "adm_rerun_run")}
           </Button>
-          <div className="space-y-4" role="status" aria-live="polite">
+          <div className="space-y-4" role="log" aria-live="polite" aria-label={t(locale, "adm_rerun_title")}>
             {rows.filter((r) => r.state !== "idle" || r.result).map((r) => (
               <RerunResult key={r.term_id} row={r} locale={locale} />
             ))}
