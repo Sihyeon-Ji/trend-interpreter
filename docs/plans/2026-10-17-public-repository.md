@@ -6,8 +6,9 @@
 
 ## 미리 할 일 (10-17 전)
 
-- 1의 WIF 배포 계정 분리는 GCP IAM 적용·GitHub 변수 등록이 먼저라 미리 해 둘 수 있다.
-- 거부·승인 경로 확인에 쓸 외부 계정과 collaborator 계정을 준비한다.
+- **이력 재검사(10-10 실행).** `gitleaks 8.30.1 git --log-opts=--all --redact=100`(노트북 diff는 `cat`으로, [공개 전 보안 점검](../운영/공개-전-보안-점검.md)). 473개 커밋 중 줄이 더해진 457개를 검사, 3건 – 10-06에 오탐으로 판별한 것과 같은 파일·커밋(이미지 digest, 빈 `.env.example` 값, 공개 프로젝트 ID)이다. 공개 당일에는 10-10 뒤 커밋만 다시 본다.
+- **WIF 배포 계정 분리 준비(10-10).** `security/wif-environment`(925948c)는 지금 develop과 충돌 없이 합쳐진다. `infra/gcp` plan은 문서대로 4개 추가·1개 교체에, develop에 이미 있던 경보 정책 변경 1개(게시 Job 실패도 경보)가 더해진다. 적용은 ① Terraform apply → ② 저장소 변수 `GCP_IMAGE_SERVICE_ACCOUNT` 등록 → ③ 병합·`release/gcp` 배포를 한 번에, 팀에 알리고 한다. ①과 ③ 사이에 누가 `release/gcp`에 push하면 이미지 job이 인증에 실패한다. 이 PC에 `gh`가 없어 ②는 GitHub 웹(Settings → Secrets and variables → Actions → Variables)에서 사용자가 한다.
+- **검사용 계정.** 외부 GitHub 계정 하나(저장소 권한 없음)와 collaborator 계정 하나(예: ktwoo)가 필요하다. 외부 계정으로 직접 push 거부·fork PR에 secret이 없음을, collaborator 계정으로 develop push와 `release/gcp` 배포가 승인을 기다리는 것을 확인한다.
 
 ## 절차
 
