@@ -8,31 +8,34 @@
 
 ## 지금 상태 (10-10)
 
-운영 웹·API·Cloud SQL·예약 백업·유지보수·게시 Job이 돈다. 10-10에 Plan 07·09·14·17·20을 마무리해 보관하고, 남은 일을 담당자별 계획으로 나눴다. 계획 문서 이름은 번호 대신 담당자 접두어(`shji-`·`ejchoi-`·`ktwoo-`, 미정은 `unassigned-`)로 시작한다. 지시현(shji)은 [제출 전후 운영](shji-submission-operations.md)을 맡는다.
+운영 웹·API·Cloud SQL·예약 백업·유지보수·게시 Job이 돈다. 10-10에 Plan 07·09·14·17·20을 마무리해 보관하고, 남은 일을 담당자별 계획으로 나눴다. 계획 문서 이름은 번호 대신 담당자 접두어(`shji-`·`ejchoi-`·`ktwoo-`·`sng_j-`)로 시작한다.
 
 - **품질:** 같은 12사례 9차 측정(사람 검토) – 어울리는 추천 91%, 위험한데 '없음' 0, 카피 즉시 사용성 2.50/3([Plan 09](archive/09-generation-quality-evaluation.md)). AI 초안을 지시현이 검토한 값이라 독립된 사람 판정으로 세지 않는다.
 - **운영 데이터(10-10):** 추천 후보 36개 리스크 사람 판정, 드림코어·Meme coin·草·The cake is a lie 쓰임 낱말 고정, 草·도도독 뜻 수정.
 - **배포(10-10):** 해시태그 중복 수정, 만들기 결과물의 언어 섞임 차단, 되돌리기 점검의 secret 별칭 수정. release 되돌리기 훈련 실행.
-- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md)).
+- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)).
 
 ## 다음 순서
 
-1. 코드 동결 10-14까지 – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름 남은 일](unassigned-copy-flow-remaining.md)(담당 미정), [일본어 화면](ktwoo-japanese-ui.md)·[밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)(ktwoo).
-2. 10-16 마지막 운영 DB 갱신, 10-17 공개 전환, 10-26까지 Cloud SQL 유료 전환([제출 전후 운영](shji-submission-operations.md)).
-3. 10-14~10-17 녹화·발표 자료([제출 데모·영상·발표 자료](unassigned-submission-demo-and-deck.md), 다른 팀원).
+1. **10-14 코드 동결까지** – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)(ktwoo).
+2. **10-15 밤** – 수집 서버 스냅숏 올리기([마지막 갱신 전 수집 서버 준비](ktwoo-collection-server-before-final-refresh.md), ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
+3. **10-16** – 마지막 운영 DB 갱신([제출 전후 운영](shji-submission-operations.md), shji).
+4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi). 10-17 저장소 공개 전환(shji).
+5. **10-20 ~ 10-28** – Cloud SQL 유료 전환과 청구 확인(shji).
 
 GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확인 뒤에 한다(`apps/trend-api/AGENTS.md`). 로컬 검사 통과는 운영 반영이나 AI 품질의 근거가 아니다.
 
 ## 현재 계획
 
-| 계획 | 작업 | 담당 | 상태 | 다음 완료 증거 | 목표일 |
+| 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 목표일 |
 | --- | --- | --- | --- | --- | --- |
-| [shji-submission-operations](shji-submission-operations.md) | 제출 전후 운영 – 마지막 갱신·공개 전환·Cloud SQL 전환(옛 11·13·19 합침) | 지시현 | 운영 DB 두 번째 전환(10-09), release 되돌리기 훈련(10-10) | 10-16 갱신과 이전 DB로 되돌리기 기록, 10-17 공개·보호 설정, 10-26 유료 전환 | 10-16·10-17·10-26 |
-| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | ejchoi | 시작 전 | GPU 준비·504 수정, 버튼 실행 한 번과 청구 확인 | 10-14 |
-| [unassigned-copy-flow-remaining](unassigned-copy-flow-remaining.md) | 문구 검사·현지화 흐름의 남은 일(Plan 20) | 지정 필요 | 시작 전 | 승인 기록 서버 저장, 모든 카피 재검사 | 10-14 |
-| [ktwoo-japanese-ui](ktwoo-japanese-ui.md) | 일본어 화면(Plan 20 §5) | ktwoo | 시작 전 | 日本語 전환, 데모 말 일본어 뜻 게시 | 10-14 |
-| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | 밈 추천의 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | ktwoo | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
-| [unassigned-submission-demo-and-deck](unassigned-submission-demo-and-deck.md) | 제출 데모 – 시나리오·영상·발표 자료 | 다른 팀원 | 시나리오 초안 v3 | 영상·발표 자료 제출 | 10-17 |
+| [shji-submission-operations](shji-submission-operations.md) | shji | 제출 전후 운영 – 마지막 갱신·공개 전환·Cloud SQL 전환 | 운영 DB 두 번째 전환(10-09), release 되돌리기 훈련(10-10) | 10-16 갱신과 이전 DB로 되돌리기 기록, 10-17 공개·보호 설정, 10-26 유료 전환 | 10-16·10-17·10-26 |
+| [ktwoo-collection-server-before-final-refresh](ktwoo-collection-server-before-final-refresh.md) | ktwoo | 마지막 갱신 전 수집 서버 준비 – fit 단계 빼기, 일본 보강, 스냅숏 | 시작 전 | `db/latest` 업로드 시각 | 10-15 |
+| [ktwoo-copy-flow-and-japanese-ui](ktwoo-copy-flow-and-japanese-ui.md) | ktwoo | 문구 흐름 남은 일(승인 기록·재검사)과 일본어 화면(Plan 20) | 시작 전 | 승인 기록 서버 저장, 日本語 전환 | 10-14 |
+| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | ktwoo | 밈 추천 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
+| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 시작 전 | GPU 준비·504 수정, 버튼 실행 한 번과 청구 확인 | 10-14 |
+| [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
+| [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |
 
 ## 완료 계획
 
@@ -41,10 +44,10 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | ID | 완료 작업 |
 | --- | --- |
 | [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) |
-| [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [제출 데모](unassigned-submission-demo-and-deck.md) |
+| [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [데모 영상](sng_j-demo-video.md) |
 | [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) |
 | [Plan 17](archive/17-hybrid-infrastructure.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10) |
-| [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름 남은 일](unassigned-copy-flow-remaining.md)·[일본어 화면](ktwoo-japanese-ui.md) |
+| [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md)·[문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md) |
 | [Archive 01](archive/01-environment-reproducibility.md) | 개발환경 재현성과 진단 |
 | [Plan 02](archive/02-lifecycle-stages.md) | 쓰임 근거 있는 검증 용어의 생애주기·확산 판정과 화면 표시(10-06) |
 | [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) | 목표 지역 선택·키워드 대시보드, 10개국 검색어 수집 확인(10-08) |

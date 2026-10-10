@@ -1,6 +1,6 @@
 # 제출 전후 운영 – 마지막 갱신·공개 전환·Cloud SQL 전환
 
-작성일 **2026-10-09** · 상태 **진행 – 운영 DB 두 번째 전환(10-09) 완료, 마지막 갱신·공개 전환·유료 전환 남음** · 제출 **2026-10-18**
+작성일 **2026-10-09** · 담당 **shji(지시현)** · 상태 **진행 – 운영 DB 두 번째 전환(10-09) 완료, 마지막 갱신·공개 전환·유료 전환 남음** · 제출 **2026-10-18**
 
 [계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · [WIF 배포 계정 분리](../운영/WIF-배포-계정-분리.md)
 
@@ -28,6 +28,14 @@
 - 백업·유지보수 Job도 새 secret version으로 옮긴다. 10-09에는 유지보수 Job을 빠뜨렸다.
 - 게시 역할을 새 DB로 옮긴다. `GRANT CONNECT … TO trend_publisher`, `configure_publisher_role.py --role trend_publisher`를 실행하고, 새 DB 이름으로 `trend-production-publisher-database` version을 추가한다.
 - 덮어 얹기(overlay)는 secret 추가 전에 끝낸다. 운영 DB에 일괄 갱신이 도는 동안 승인 배치를 준비하지 않는다.
+
+10-16 갱신에 더할 일(10-10)
+
+- **스냅숏:** ktwoo가 10-15 밤까지 `db/latest`를 올린다([수집 서버 준비](ktwoo-collection-server-before-final-refresh.md)). 받은 업로드 시각의 스냅숏으로 capture한다.
+- **쓰임 낱말:** 사람(`human:`)·Gemini(`gemini-`) 값은 `carry_fits`가 운영에서 이어 받는다. 새로 추천 후보가 된 말 가운데 쓰임 낱말이 없거나 로컬 모델(`local:`) 값인 것은 Gemini로 다시 붙인다. 지금 `fit_backfill.py`는 칸이 찬 로컬 값을 건너뛰므로, 추천 후보의 `local:` 값을 다시 붙이는 옵션을 갱신 전에 더한다.
+- **리스크:** 새로 추천 후보가 된 말 가운데 리스크가 비어 있는 것은 표로 내 사람 판정을 받는다(10-10의 36개와 같은 방법).
+- **재측정:** 갱신본으로 같은 12사례를 다시 잰다([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)의 완료 기준).
+- **이전 DB로 되돌리기:** 위 완료 기준의 되돌리기 명령을 이번 전환 때 한 번 실행해 기록한다(release 되돌리기는 10-10에 실행했다).
 
 완료 기준(옛 Plan 19)
 

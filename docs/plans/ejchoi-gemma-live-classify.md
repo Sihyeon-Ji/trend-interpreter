@@ -27,7 +27,7 @@ Gemma는 사전을 만드는 배치 단계(분류·리스크·쓰임 낱말·번
 1. **GPU 준비.** 운영 GPU VM을 Terraform으로 띄울 수 있게 하고(평소에는 꺼 둠), cold start 504를 고친다(gateway deadline 늘리기 또는 적재 끝난 뒤 ready). 데모 전에 켜서 예열하고 끝나면 끈다.
 2. **1단계 – `POST /terms/{term_id}/live-risk`.** 최신 기사 문장을 모아 `pipeline/risk.py`와 같은 프롬프트·규칙으로 분류하고, 배치 결과와 나란히 보인다. 공개 사전에는 쓰지 않는다. GPU가 준비되지 않았으면 '준비 안 됨'으로 알리고 기다리게 하지 않는다. 실행 기록에는 시각·용어 ID·문장 수·시간·결과 수준만 남긴다.
 3. **2단계 – `/admin/status` 수동 실행.** 검수자만, 용어 1~5개에 `risk`(먼저)·`fit`·`translate`·`crosscheck` 중 하나. 첫 판은 결과를 화면에만 보이는 미리보기로 하고, 검수 큐 연결은 여유가 있을 때 한다.
-4. **데모·README.** 결과에 맞춰 영상 장면과 README의 Gemma 설명을 고친다([제출 데모·영상·발표 자료(담당 미정)](unassigned-submission-demo-and-deck.md)와 맞춘다).
+4. **데모·README.** 결과에 맞춰 영상 장면과 README의 Gemma 설명을 고친다([데모 영상(sng_j)](sng_j-demo-video.md)와 맞춘다).
 
 ## 4. 정할 것 (시작 전에)
 

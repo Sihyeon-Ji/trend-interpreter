@@ -1,8 +1,8 @@
 # Plan 09. 추천·생성 품질 평가와 제출 데모 준비
 
-작성일 **2026-09-28** · 상태 **완료 – 9차 측정·사람 검토(어울림 91% · 위험 누락 0 · 사용성 2.50/3), 데모는 제출 데모·영상·발표 자료(담당 미정)로 넘김(10-10)** · 근거 [ADR 0002 결과와 후속 작업](../../adr/0002-고도화-방안.md) · 목표일 **2026-10-15** · 선행 [Plan 07](07-meme-recommendation.md), [Plan 08](08-content-generation.md)
+작성일 **2026-09-28** · 상태 **완료 – 9차 측정·사람 검토(어울림 91% · 위험 누락 0 · 사용성 2.50/3), 데모·발표 자료는 sng_j·ejchoi로 넘김(10-10)** · 근거 [ADR 0002 결과와 후속 작업](../../adr/0002-고도화-방안.md) · 목표일 **2026-10-15** · 선행 [Plan 07](07-meme-recommendation.md), [Plan 08](08-content-generation.md)
 
-> **2026-10-10 마무리.** 같은 12사례로 9차까지 재고 사람 검토로 확정했다. 실사진 평가는 [밈 추천 남은 일(ktwoo)](../ktwoo-meme-recommendation-remaining.md), 데모 시나리오·영상·발표 자료는 [제출 데모·영상·발표 자료(담당 미정)](../unassigned-submission-demo-and-deck.md)(다른 팀원)가 이어받는다.
+> **2026-10-10 마무리.** 같은 12사례로 9차까지 재고 사람 검토로 확정했다. 실사진 평가는 [밈 추천 남은 일(ktwoo)](../ktwoo-meme-recommendation-remaining.md), 데모 시나리오·영상은 [sng_j](../sng_j-demo-video.md), 발표 자료는 [ejchoi](../ejchoi-submission-deck.md)가 맡는다.
 
 2026-10-08: [Plan 04](04-target-regions-and-keyword-dashboard.md)의 10-05 고정 snapshot에서는 SG의 공개 목록이 0건, MY는 2건이다. 데모 지역 선택·빈 지역 안내는 현재 자료와 사람 평가를 확인한 뒤 결정한다. 검색어 수집량을 추천 가능한 밈 수로 대신하지 않는다.
 

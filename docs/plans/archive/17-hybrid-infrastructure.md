@@ -2,7 +2,7 @@
 
 작성일 **2026-10-01** · 상태 **마무리(10-10) – 운영 웹/API·Cloud SQL·승인 게시·거부 경로·Gemini 0회·Job 이미지·release 되돌리기 확인. GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB로 되돌리기는 Plan 11로 넘김** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
 
-> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [제출 전후 운영(shji)](../shji-submission-operations.md), ⑨ 데모는 [제출 데모·영상·발표 자료(담당 미정)](../unassigned-submission-demo-and-deck.md)로 넘겼다.
+> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Gemma 실시간 분류](../ejchoi-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [제출 전후 운영(shji)](../shji-submission-operations.md), ⑨ 데모는 [sng_j](../sng_j-demo-video.md)·[ejchoi](../ejchoi-submission-deck.md)로 넘겼다.
 
 [계획 목록](../README.md) · [10-02 실행 기록](17-hybrid-infrastructure-실행기록.md) · [확정한 아키텍처 제안서](../../AI-개발/Gemma-Gemini%20하이브리드%20아키텍처%20제안서.md) · [현재 구현 점검](구현-완료도-실측-점검-2026-10-03.md)
 
