@@ -114,7 +114,7 @@ def _baseline(con: Connection, term_id: str) -> str:
         "meaning": m.model_dump(mode="json") if m else None,
         "translations": con.execute("SELECT lang, json, model FROM translations WHERE term_id=? ORDER BY lang", (term_id,)).fetchall(),
         "notes": con.execute("SELECT region, json, model FROM topic_notes WHERE term_id=? ORDER BY region", (term_id,)).fetchall(),
-        "fit": con.execute("SELECT meaning_id, json, model FROM term_fit WHERE term_id=?", (term_id,)).fetchall(),
+        "fit": con.execute("SELECT meaning_id, json, model FROM term_fit WHERE term_id=? ORDER BY meaning_id", (term_id,)).fetchall(),
         "evidence": con.execute("SELECT evidence_id, json FROM evidences WHERE term_id=? ORDER BY evidence_id", (term_id,)).fetchall(),
     }
     return digest(rows)
