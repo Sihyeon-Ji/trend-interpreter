@@ -42,9 +42,10 @@ recommendation ranking are deterministic code; a model never sets a status.
 - **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): researches new terms with
   grounding, reads trending short videos, turns a product photo or copy into a product brief, writes campaign
   copy, summarises the briefing and judges whether copy uses a meme in the right sense.
-- **Gemma 4** (local or on a GPU VM): drafts dictionary translations, classifies evidence sentences for risk and
-  audits dictionary meanings against their sources. The auditor is being fine-tuned with QLoRA on Kaggle and is
-  compared with the base model on a sealed human-labelled set before use.
+- **Gemma 4** (local, Kaggle or an on-demand GPU VM): drafts dictionary translations, classifies evidence
+  sentences for risk and audits dictionary meanings against their sources. A QLoRA fine-tune of the auditor
+  learned the verdict format but did not show better judgement, so the base model is used
+  ([EVALUATION.md](EVALUATION.md)).
 - Every model output is checked by rules before it is shown: a meaning needs a matching reference document,
   generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
   held back.
@@ -57,6 +58,9 @@ Where this shows in the deployed app:
   each do. Model names stay off the other user-facing screens.
 - The reviewer status page shows, per pipeline step, how many published results each model produced and the
   model calls and time spent in the last 24 hours.
+- Reviewers can ask Gemma on the GPU VM to classify a term's latest news headlines again, or re-run the batch risk
+  step on up to five chosen terms, and see the result next to the published verdict. Nothing is saved, the same
+  rules grade both, and the page says so at once when the GPU is off.
 
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
@@ -67,7 +71,7 @@ What we measured, with numbers and limits, and what is still open: [EVALUATION.m
 | Cloud Run | Web app, private API and alert relay; new revisions are tested before traffic moves |
 | Cloud SQL for PostgreSQL | Published dictionary, evidence and dashboard data |
 | Vertex AI (Gemini) | Request-time research, generation and summaries |
-| Compute Engine GPU (L4) | Gemma auditor gateway, started only when needed |
+| Compute Engine GPU (L4) | Gemma gateway for the reviewer tools above, defined in Terraform and started only when needed |
 | Cloud Storage | Fixed data snapshots handed from the collection server |
 | Cloud Logging, Monitoring, Pub/Sub | Alerts relayed to the team's Discord channel |
 | Secret Manager | Runtime secrets |

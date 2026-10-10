@@ -13,8 +13,8 @@ behind the deployed service.
 | Human review | 107 review decisions and 121 human-approved meanings in production | Reviews cover about 1.6% of verified meanings |
 | List filtering | Korea "in use now" list 2,564 → 712 after rules that drop non-meme catalogue entries | Precision and recall: 230-item labelled sample prepared, labels not yet done |
 | Risk verdicts | Every verified term judged by rules; 51 avoid, 823 caution, 73 no issue | 6,708 terms lack enough classified evidence to judge |
-| Recommendation and copy | 20-case run: 12/20 complete for Korea, Japan and Taiwan | Fit and meaning accuracy judged by people; Thailand and Indonesia return nothing |
-| Auditor (Gemma 4 QLoRA) | Fine-tuned on Kaggle; the JSON verdict format goes from 0/32 to 32/32 | Separation of "fix" from "ok" is not established (AUC interval includes 0.5) |
+| Recommendation and copy | Same 12 cases measured nine times (10-10): fitting picks 40% → 91%, no risky pick shown as safe, copy usability 2.50/3 | 4 of 12 cases get no pick; one reviewer, AI-drafted judgments |
+| Auditor (Gemma 4 QLoRA) | Fine-tuned on Kaggle; the JSON verdict format goes from 0/32 to 32/32 | Stopped 10-09: separation of "fix" from "ok" was not established, so the adapter is not used |
 
 ## 1. Dictionary pipeline
 
@@ -68,21 +68,37 @@ review of 20 sampled verdicts agreed 16/20 (80%) before the September 29 rule ch
 
 ## 5. Recommendation and copy generation
 
-`apps/trend-api/scripts/eval_recommend.py`: 5 markets × 4 products = 20 cases, local model, run 2026-09-30.
+`apps/trend-api/scripts/eval_recommend.py` with request-time Gemini on Vertex AI, run on a read-only copy of the
+production database so the evaluation does not use production's daily call ledger. Cases: Korea, Japan and an
+English-language group × cosmetics, a drink, running shoes and a budgeting app = 12. Each round fixes something the
+previous round's judgments pointed to, then measures the same 12 cases again.
 
-| | Round 2 | Round 3 |
+| | Round 4 (10-09) | Round 9 (10-10) |
 | --- | --- | --- |
-| Cases completed end to end | 5 / 20 | 12 / 20 (Korea, Japan, Taiwan) |
-| Memes recommended | 21 | 60 |
+| Cases completed end to end | 7 / 12 | 8 / 12 |
+| Picks that fit the product | 6 / 15 (40%) | **10 / 11 (91%)** |
+| Risky picks shown as "no issue" | 0 | **0** |
+| Copy uses the meme in its meaning | 4 / 7 | 7 / 8 |
+| Copy usability (1 unusable – 3 ready) | 2.0 | **2.50** |
+| Copy ready to post as is | 2 / 7 | 4 / 8 |
 
-Thailand and Indonesia returned no recommendations. Of the 60 recommendations, 48 had an unknown lifecycle and 51
-an undecided risk, so "use it now?" could not be judged for most of them. Generated copy is re-checked by rules
-(the chosen meme is present, no profanity, X length, the brief's "avoid" list); in ten runs of the same Japan case
-one failed. **Fit and meaning accuracy have not been judged by people.**
+What changed between rounds: copy no longer introduces the meme by name ("like …") and is re-checked for that;
+non-meme entries (site names, generic words) were removed by reviewer decision; a person fixed the usage words
+that rank candidates for 56 of 170 candidates; 36 candidates with no risk verdict got a human
+one; mixed-language copy is now rejected and regenerated. Round 8 dropped to 67% after the 10-09 data refresh
+brought new, unjudged candidates, which is why round 9 follows the human risk decisions.
 
-## 6. Auditor: Gemma 4 QLoRA
+Latency in round 4: recommend p50 6.6 s (max 14.1 s), create p50 16.3 s (max 27.9 s).
 
-A second model audits each published meaning against its cited sources and answers `ok` or `fix`.
+**Limits.** Judgments are AI drafts reviewed by one team member, not an independent panel. Four cases return no
+pick (Korean cosmetics and three Japanese products): most Japanese cards are fading memes or entertainment-only.
+Using a meme image such as Wojak in an ad needs a rights check that the tool does not do.
+
+## 6. Auditor: Gemma 4 QLoRA (stopped 10-09)
+
+A second model audits each published meaning against its cited sources and answers `ok` or `fix`. We stopped this
+experiment on 10-09: the results below did not justify the team-wide reproduction and sealed-set comparison, and
+the base model stays in use.
 
 - Training: Gemma 4 12B-it, 4-bit QLoRA (r=16), 319 labelled rows (fix 160, ok 159), 160 steps on a Kaggle T4.
 - Labels for training and for the 32-row test split are Claude judgments, not human ones.
@@ -99,7 +115,7 @@ A second model audits each published meaning against its cited sources and answe
 
 Fine-tuning reliably taught the verdict format. Whether it separates "fix" from "ok" is not established: every
 interval includes 0.5, and the second epoch did worse than the first. A sealed set of 20 human verdicts (ok 10,
-fix 10) is the independent test; the comparison on it is pending. The adapter is not used in production.
+fix 10) was prepared as the independent test; the comparison was not run. The adapter is not used.
 
 ## 7. Operations
 
@@ -111,7 +127,7 @@ fix 10) is the independent test; the comparison on it is pending. The adapter is
 
 ## What we have not shown
 
-- People judging recommendation fit, generated copy and meaning accuracy at scale.
-- Precision and recall of the list filters (labels pending).
-- That the fine-tuned auditor is better than the base model with examples.
-- Coverage outside Korea, Japan and Taiwan; English meanings exist for 121 terms.
+- Recommendation fit and copy quality judged by more than one person, or beyond the 12 cases.
+- Meaning accuracy at scale, and precision and recall of the list filters (labels pending).
+- That a fine-tuned auditor beats the base model (experiment stopped).
+- Recommendations for every market and product: Japan returns no pick for three of four products.

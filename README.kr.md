@@ -39,8 +39,8 @@
 
 - **Vertex AI의 Gemini** (런타임 service account, API key 없음, 월 금액 상한): 새 말의 grounding 조사, 인기 쇼츠 해석,
   제품 사진·문구의 제품 설명, 캠페인 카피 생성, 브리핑 요약, 카피가 밈을 뜻에 맞게 썼는지 의견.
-- **Gemma 4** (로컬 또는 GPU VM): 사전 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
-  감사관은 Kaggle에서 QLoRA로 파인튜닝하고, 봉인한 사람 판정 세트로 기본 모델과 비교한 뒤에 쓴다.
+- **Gemma 4** (로컬·Kaggle 또는 필요할 때 켜는 GPU VM): 사전 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
+  감사관 QLoRA 파인튜닝은 판정 형식은 배웠지만 판단이 나아졌다는 근거가 없어 기본 모델을 씁니다([EVALUATION.md](EVALUATION.md)).
 - 모델 결과는 화면에 나가기 전에 규칙이 검사합니다. 뜻은 맞는 참고 문서가 있어야 하고, 생성한 카피는 고른 밈·욕설·길이를
   다시 확인하며, 비었거나 메모 같은 뜻은 내보내지 않습니다.
 
@@ -51,6 +51,8 @@
 - [`/about`](apps/trend-web/app/about/page.tsx)은 Gemini·Gemma·규칙·사람이 각각 무엇을 하는지 쉬운 말로 설명합니다.
   다른 이용자 화면에는 모델 이름을 두지 않습니다.
 - 검수자용 상태 화면은 파이프라인 단계마다 모델별 공개 결과 수와, 최근 24시간의 모델 호출 수·걸린 시간을 보입니다.
+- 검수자는 GPU VM의 Gemma에게 용어의 최신 기사 제목을 지금 다시 분류하게 하거나, 고른 용어(5개까지)에 배치 리스크 단계를 다시 돌려
+  공개 판정과 나란히 볼 수 있습니다. 아무것도 저장하지 않고 같은 규칙으로 매기며, GPU가 꺼져 있으면 바로 알립니다.
 
 무엇을 어떻게 쟀는지, 수치와 한계, 남은 과제는 [EVALUATION.md](EVALUATION.md)(영어)에 있습니다.
 
@@ -61,7 +63,7 @@
 | Cloud Run | 웹·비공개 API·알림 중계기. 새 revision을 검사한 뒤 트래픽을 옮긴다 |
 | Cloud SQL for PostgreSQL | 게시된 사전·근거·대시보드 데이터 |
 | Vertex AI (Gemini) | 요청 때 조사·생성·요약 |
-| Compute Engine GPU (L4) | Gemma 감사관 gateway, 필요할 때만 켠다 |
+| Compute Engine GPU (L4) | 위 검수자 기능의 Gemma gateway. Terraform에 정의돼 있고 필요할 때만 켠다 |
 | Cloud Storage | 수집 서버가 넘기는 고정 데이터 스냅숏 |
 | Cloud Logging·Monitoring·Pub/Sub | 팀 Discord 채널로 가는 운영 알림 |
 | Secret Manager | 런타임 비밀값 |
