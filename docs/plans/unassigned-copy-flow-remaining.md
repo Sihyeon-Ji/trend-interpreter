@@ -1,8 +1,8 @@
-# Plan 22. 문구 검사·현지화 흐름의 남은 일
+# 문구 검사·현지화 흐름의 남은 일
 
 작성일 **2026-10-10** · 담당 **팀원(지정 필요)** · 상태 **시작 전** · 코드 동결 **10-14** · 제출 **10-18**
 
-[계획 목록](README.md) · 이어받은 계획 [Plan 20](archive/20-copy-check-localization-flow.md)(방향·흐름·화면 원칙) · 일본어 화면은 [Plan 23](23-japanese-ui.md) · 데모는 [Plan 25](25-submission-demo-and-deck.md)
+[계획 목록](README.md) · 이어받은 계획 [Plan 20](archive/20-copy-check-localization-flow.md)(방향·흐름·화면 원칙) · 일본어 화면은 [일본어 화면(ktwoo)](ktwoo-japanese-ui.md) · 데모는 [제출 데모·영상·발표 자료(담당 미정)](unassigned-submission-demo-and-deck.md)
 
 ## 1. 방향 (Plan 20에서 정한 것)
 
@@ -29,7 +29,7 @@
 
 ## 3. 우선순위 (10-14까지)
 
-데모 영상([Plan 25](25-submission-demo-and-deck.md))이 쓰는 장면부터 한다.
+데모 영상([제출 데모·영상·발표 자료(담당 미정)](unassigned-submission-demo-and-deck.md))이 쓰는 장면부터 한다.
 
 1. **⑤ 승인 기록 서버 저장.** 영상의 '사람이 승인해야 나간다' 장면이 실제 기록이 되게 한다. 로그인한 검수자만 승인, 승인한 문구·시장·밈·시각·검수자를 저장, `/admin`에 목록. 공유 링크는 여유가 있으면.
 2. **④ 재검사 범위.** 모든 카피를 다시 검사하고, 걸린 카피는 승인 버튼을 막거나 고쳐 쓰기를 제안한다.

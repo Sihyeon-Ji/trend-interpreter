@@ -2,9 +2,9 @@
 
 > **2026-10-01 인프라 결정:** Gemma 운영 서빙 위치는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU로 확정했다. 운영 기반은 아래 GCE runtime·내부 gateway·비동기 작업 설계를 따른다. 사용자 화면과 관리자 실행 UX는 계속 팀 검토 대상으로 두며 품질·로그·장애 시 조회 유지 조건은 적용한다.
 
-작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계에서 마무리(10-10) – 기록 표시는 운영에 있음, 실시간 분류·관리자 실행은 Plan 21로 넘김** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
+작성일 **2026-09-30** · 변경일 **2026-10-06** · 상태 **0단계에서 마무리(10-10) – 기록 표시는 운영에 있음, 실시간 분류·관리자 실행은 Gemma 실시간 분류(ejchoi)로 넘김** · 선행 [Plan 05](05-trend-cloud-run-deployment.md)의 운영 배포와 [Plan 06](06-gemma-on-cloud-run-gpu.md)의 모델 조건 확정 · 목표일 **2026-10-12** (0단계는 10-07)
 
-> **2026-10-10 마무리.** 사용자 결정으로 이 계획은 0단계(기록 표시)에서 멈춘다. 10-10에 운영 `/about`(200)과 Gemma 설명을 확인했다. 1단계 실시간 분류 버튼과 2단계 관리자 수동 실행은 [Plan 21](../21-gemma-live-classify.md)(ejchoi)이 이어받는다.
+> **2026-10-10 마무리.** 사용자 결정으로 이 계획은 0단계(기록 표시)에서 멈춘다. 10-10에 운영 `/about`(200)과 Gemma 설명을 확인했다. 1단계 실시간 분류 버튼과 2단계 관리자 수동 실행은 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md)(ejchoi)이 이어받는다.
 
 [계획 목록](../README.md) · [Gemma 운영 라이브 분류 제안](../../AI-개발/Gemma-운영-라이브-분류-제안.md) · [Gemma 로컬 편집 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md) · [Plan 03 리스크](03-term-risk.md) · [Plan 12 문서 대조](12-dictionary-crosscheck.md)
 

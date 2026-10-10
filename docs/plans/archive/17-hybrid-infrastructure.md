@@ -1,8 +1,8 @@
 # Plan 17. Gemma·Gemini 하이브리드 인프라 구축
 
-작성일 **2026-10-01** · 상태 **마무리(10-10) – 운영 웹/API·Cloud SQL·승인 게시·거부 경로·Gemini 0회·Job 이미지·release 되돌리기 확인. GCE 추론은 Plan 21, 이전 DB로 되돌리기는 Plan 11로 넘김** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
+작성일 **2026-10-01** · 상태 **마무리(10-10) – 운영 웹/API·Cloud SQL·승인 게시·거부 경로·Gemini 0회·Job 이미지·release 되돌리기 확인. GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB로 되돌리기는 Plan 11로 넘김** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
 
-> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Plan 21](../21-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [Plan 11](../11-submission-operations.md), ⑨ 데모는 [Plan 25](../25-submission-demo-and-deck.md)로 넘겼다.
+> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [제출 전후 운영(shji)](../shji-submission-operations.md), ⑨ 데모는 [제출 데모·영상·발표 자료(담당 미정)](../unassigned-submission-demo-and-deck.md)로 넘겼다.
 
 [계획 목록](../README.md) · [10-02 실행 기록](17-hybrid-infrastructure-실행기록.md) · [확정한 아키텍처 제안서](../../AI-개발/Gemma-Gemini%20하이브리드%20아키텍처%20제안서.md) · [현재 구현 점검](구현-완료도-실측-점검-2026-10-03.md)
 
@@ -18,13 +18,13 @@
 | --- | --- | --- |
 | ① 팀원 두 명의 Kaggle 재현 | 하지 않음 | 사용자 결정 10-10, Plan 06 중단과 같은 이유 |
 | ② 모델 계보·승격 | 하지 않음 | 사용자 결정 10-10 |
-| ③ GCE 실제 추론 | Plan 21로 넘김 | Plan 14는 0단계에서 멈춤(사용자 결정 10-10) |
+| ③ GCE 실제 추론 | Gemma 실시간 분류(ejchoi)로 넘김 | Plan 14는 0단계에서 멈춤(사용자 결정 10-10) |
 | ④ 웹 실데이터 흐름·Vertex 호출 | 완료 | 운영 revision의 `gemini_call` 로그, [Plan 05](05-trend-cloud-run-deployment.md) 재확인 |
 | ⑤ 거부 경로 | 완료 | 아래 10-10 확인 |
 | ⑥ 승인 배치 게시 | 완료 | 10-09 운영 게시와 Job 재실행, [승인 배치 게시](../../개발환경/승인-배치-게시.md) |
-| ⑦ GPU·PC 중단 | Plan 21로 넘김 | 운영에 GPU가 없다 |
-| ⑧ 백업·복원·이전 release 복구 | 일부 | release 되돌리기 10-10 실행. 이전 DB로 되돌리기는 [Plan 11](../11-submission-operations.md) |
-| ⑨ 품질·데모 | 품질은 Plan 09 완료, 데모는 Plan 25 | 데모는 다른 팀원 |
+| ⑦ GPU·PC 중단 | Gemma 실시간 분류(ejchoi)로 넘김 | 운영에 GPU가 없다 |
+| ⑧ 백업·복원·이전 release 복구 | 일부 | release 되돌리기 10-10 실행. 이전 DB로 되돌리기는 [제출 전후 운영(shji)](../shji-submission-operations.md) |
+| ⑨ 품질·데모 | 품질은 Plan 09 완료, 데모는 제출 데모·영상·발표 자료(담당 미정) | 데모는 다른 팀원 |
 
 **거부 경로(10-10).** staging 서비스 계정은 운영 API invoker와 운영 secret 6개 어디에도 권한이 없다. 로그인 없이, 또는 위조 쿠키로 검수·리스크·게시 쓰기를 보내면 401이고, API에 직접 보내면 403이다. 운영에 GPU VM은 없다.
 

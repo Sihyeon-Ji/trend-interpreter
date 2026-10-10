@@ -4,35 +4,35 @@
 
 [운영 명령](../개발환경/개발-명령어.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · [결정 기록](../adr/README.md) · [완료 계획과 지난 점검](archive/README.md)
 
-인프라는 [Plan 17](archive/17-hybrid-infrastructure.md)의 구성(웹·API는 Cloud Run, DB는 Cloud SQL)으로 운영 중이다. Gemma는 수집 서버·Kaggle의 배치 단계에서 쓰고, 배포본에서 도는 모습은 [Plan 21](21-gemma-live-classify.md)에서 다룬다. Gemma 실행 위치가 바뀐 경위는 [Plan 06](archive/06-gemma-on-cloud-run-gpu.md)과 [Gemma 로컬 편집 엔진 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에 남아 있다.
+인프라는 [Plan 17](archive/17-hybrid-infrastructure.md)의 구성(웹·API는 Cloud Run, DB는 Cloud SQL)으로 운영 중이다. Gemma는 수집 서버·Kaggle의 배치 단계에서 쓰고, 배포본에서 도는 모습은 [Gemma 실시간 분류(ejchoi)](ejchoi-gemma-live-classify.md)에서 다룬다. Gemma 실행 위치가 바뀐 경위는 [Plan 06](archive/06-gemma-on-cloud-run-gpu.md)과 [Gemma 로컬 편집 엔진 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에 남아 있다.
 
 ## 지금 상태 (10-10)
 
-운영 웹·API·Cloud SQL·예약 백업·유지보수·게시 Job이 돈다. 10-10에 Plan 07·09·14·17·20을 마무리해 보관하고, 남은 일을 담당자별 계획(21~25)으로 나눴다. 지시현이 맡는 것은 제출 전후 운영([Plan 11](11-submission-operations.md))이다.
+운영 웹·API·Cloud SQL·예약 백업·유지보수·게시 Job이 돈다. 10-10에 Plan 07·09·14·17·20을 마무리해 보관하고, 남은 일을 담당자별 계획으로 나눴다. 계획 문서 이름은 번호 대신 담당자 접두어(`shji-`·`ejchoi-`·`ktwoo-`, 미정은 `unassigned-`)로 시작한다. 지시현(shji)은 [제출 전후 운영](shji-submission-operations.md)을 맡는다.
 
 - **품질:** 같은 12사례 9차 측정(사람 검토) – 어울리는 추천 91%, 위험한데 '없음' 0, 카피 즉시 사용성 2.50/3([Plan 09](archive/09-generation-quality-evaluation.md)). AI 초안을 지시현이 검토한 값이라 독립된 사람 판정으로 세지 않는다.
 - **운영 데이터(10-10):** 추천 후보 36개 리스크 사람 판정, 드림코어·Meme coin·草·The cake is a lie 쓰임 낱말 고정, 草·도도독 뜻 수정.
 - **배포(10-10):** 해시태그 중복 수정, 만들기 결과물의 언어 섞임 차단, 되돌리기 점검의 secret 별칭 수정. release 되돌리기 훈련 실행.
-- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([Plan 24](24-meme-recommendation-remaining.md)).
+- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md)).
 
 ## 다음 순서
 
-1. 코드 동결 10-14까지 – Plan 21(Gemma 버튼, ejchoi), 22(문구 흐름 남은 일), 23(일본어 화면, ktwoo), 24(밈 추천 남은 일, ktwoo).
-2. 10-16 마지막 운영 DB 갱신, 10-17 공개 전환, 10-26까지 Cloud SQL 유료 전환([Plan 11](11-submission-operations.md)).
-3. 10-14~10-17 녹화·발표 자료([Plan 25](25-submission-demo-and-deck.md), 다른 팀원).
+1. 코드 동결 10-14까지 – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름 남은 일](unassigned-copy-flow-remaining.md)(담당 미정), [일본어 화면](ktwoo-japanese-ui.md)·[밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)(ktwoo).
+2. 10-16 마지막 운영 DB 갱신, 10-17 공개 전환, 10-26까지 Cloud SQL 유료 전환([제출 전후 운영](shji-submission-operations.md)).
+3. 10-14~10-17 녹화·발표 자료([제출 데모·영상·발표 자료](unassigned-submission-demo-and-deck.md), 다른 팀원).
 
 GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확인 뒤에 한다(`apps/trend-api/AGENTS.md`). 로컬 검사 통과는 운영 반영이나 AI 품질의 근거가 아니다.
 
 ## 현재 계획
 
-| ID | 작업 | 담당 | 상태 | 다음 완료 증거 | 목표일 |
+| 계획 | 작업 | 담당 | 상태 | 다음 완료 증거 | 목표일 |
 | --- | --- | --- | --- | --- | --- |
-| [11](11-submission-operations.md) | 제출 전후 운영 – 마지막 갱신·공개 전환·Cloud SQL 전환(옛 11·13·19 합침) | 지시현 | 운영 DB 두 번째 전환(10-09), release 되돌리기 훈련(10-10) | 10-16 갱신과 이전 DB로 되돌리기 기록, 10-17 공개·보호 설정, 10-26 유료 전환 | 10-16·10-17·10-26 |
-| [21](21-gemma-live-classify.md) | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | ejchoi | 시작 전 | GPU 준비·504 수정, 버튼 실행 한 번과 청구 확인 | 10-14 |
-| [22](22-copy-flow-remaining.md) | 문구 검사·현지화 흐름의 남은 일(Plan 20) | 지정 필요 | 시작 전 | 승인 기록 서버 저장, 모든 카피 재검사 | 10-14 |
-| [23](23-japanese-ui.md) | 일본어 화면(Plan 20 §5) | ktwoo | 시작 전 | 日本語 전환, 데모 말 일본어 뜻 게시 | 10-14 |
-| [24](24-meme-recommendation-remaining.md) | 밈 추천의 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | ktwoo | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
-| [25](25-submission-demo-and-deck.md) | 제출 데모 – 시나리오·영상·발표 자료 | 다른 팀원 | 시나리오 초안 v3 | 영상·발표 자료 제출 | 10-17 |
+| [shji-submission-operations](shji-submission-operations.md) | 제출 전후 운영 – 마지막 갱신·공개 전환·Cloud SQL 전환(옛 11·13·19 합침) | 지시현 | 운영 DB 두 번째 전환(10-09), release 되돌리기 훈련(10-10) | 10-16 갱신과 이전 DB로 되돌리기 기록, 10-17 공개·보호 설정, 10-26 유료 전환 | 10-16·10-17·10-26 |
+| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | ejchoi | 시작 전 | GPU 준비·504 수정, 버튼 실행 한 번과 청구 확인 | 10-14 |
+| [unassigned-copy-flow-remaining](unassigned-copy-flow-remaining.md) | 문구 검사·현지화 흐름의 남은 일(Plan 20) | 지정 필요 | 시작 전 | 승인 기록 서버 저장, 모든 카피 재검사 | 10-14 |
+| [ktwoo-japanese-ui](ktwoo-japanese-ui.md) | 일본어 화면(Plan 20 §5) | ktwoo | 시작 전 | 日本語 전환, 데모 말 일본어 뜻 게시 | 10-14 |
+| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | 밈 추천의 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | ktwoo | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
+| [unassigned-submission-demo-and-deck](unassigned-submission-demo-and-deck.md) | 제출 데모 – 시나리오·영상·발표 자료 | 다른 팀원 | 시나리오 초안 v3 | 영상·발표 자료 제출 | 10-17 |
 
 ## 완료 계획
 
@@ -40,6 +40,11 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
+| [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) |
+| [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [제출 데모](unassigned-submission-demo-and-deck.md) |
+| [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) |
+| [Plan 17](archive/17-hybrid-infrastructure.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10) |
+| [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름 남은 일](unassigned-copy-flow-remaining.md)·[일본어 화면](ktwoo-japanese-ui.md) |
 | [Archive 01](archive/01-environment-reproducibility.md) | 개발환경 재현성과 진단 |
 | [Plan 02](archive/02-lifecycle-stages.md) | 쓰임 근거 있는 검증 용어의 생애주기·확산 판정과 화면 표시(10-06) |
 | [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) | 목표 지역 선택·키워드 대시보드, 10개국 검색어 수집 확인(10-08) |
@@ -48,7 +53,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | [Plan 12](archive/12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조와 '문서 대조' 단계(10-09). 확대 사전 대조는 제출 뒤 |
 | [Plan 15](archive/15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별과 검색 관심 분리(10-09). 계정 기반 2·3단계는 제출 뒤 |
 | [Plan 06](archive/06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – **중단**(10-09). 전체 QLoRA·사람 정답 봉인·영어 뜻 첫 승인 게시까지. 팀 재현·모델 비교는 하지 않음 |
-| [옛 Plan 11·13·19](archive/19-production-data-refresh.md) | 공개 저장소·Cloud SQL 유료 전환·운영 DB 갱신 – 새 [Plan 11](11-submission-operations.md)에 합침(10-09) |
+| [옛 Plan 11·13·19](archive/19-production-data-refresh.md) | 공개 저장소·Cloud SQL 유료 전환·운영 DB 갱신 – 새 [제출 전후 운영(shji)](shji-submission-operations.md)에 합침(10-09) |
 | [Plan 05](archive/05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09 보관, 완료 기준 8개 중 5개). Job 이미지·Gemini 0회 확인은 Plan 17, 체험 결정은 Plan 13 |
 | [Plan 01](archive/01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09 보관). 운영 이관·갱신은 Plan 19, 게시는 승인 게시가 이어받음. 수집 서버 PostgreSQL 전환은 수집 서버 담당 |
 | [Plan 16](archive/16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재와 성향 분석 – 뜬 해 있는 용어 3,006개까지 하고 **보류**(10-09). 재시도·뜻 품질 검수는 제출 뒤 |

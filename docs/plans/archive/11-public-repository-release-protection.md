@@ -1,6 +1,6 @@
 # Plan 11. 공개 저장소와 GCP 배포 승인
 
-작성일 **2026-09-23** · 상태 **[Plan 11 제출 전후 운영](../11-submission-operations.md)에 합침(10-09). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
+작성일 **2026-09-23** · 상태 **[Plan 11 제출 전후 운영](../shji-submission-operations.md)에 합침(10-09). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 선행 [Plan 09](09-generation-quality-evaluation.md) · 목표일 **2026-10-17**(제출 1~3일 전, 마지막 단계)
 
 [현재 계획](../README.md) · [GitHub Actions](../../../.github/workflows)
 

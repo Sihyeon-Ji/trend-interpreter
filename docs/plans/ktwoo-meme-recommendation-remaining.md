@@ -1,8 +1,8 @@
-# Plan 24. 밈 추천의 남은 일 – 빈 시장, 실사진, 분야 구분
+# 밈 추천의 남은 일 – 빈 시장, 실사진, 분야 구분
 
 작성일 **2026-10-10** · 담당 **ktwoo(김태우)** · 상태 **시작 전** · 목표 **10-14**(데이터 보강은 10-16 운영 DB 갱신에 맞춤) · 제출 **10-18**
 
-[계획 목록](README.md) · 이어받은 계획 [Plan 07](archive/07-meme-recommendation.md)(추천 규칙·쓰임 낱말) · 품질 측정 [Plan 09](archive/09-generation-quality-evaluation.md) · 운영 DB 갱신 [Plan 11](11-submission-operations.md)
+[계획 목록](README.md) · 이어받은 계획 [Plan 07](archive/07-meme-recommendation.md)(추천 규칙·쓰임 낱말) · 품질 측정 [Plan 09](archive/09-generation-quality-evaluation.md) · 운영 DB 갱신 [제출 전후 운영(shji)](shji-submission-operations.md)
 
 ## 1. 지금 상태 (10-10)
 
@@ -20,7 +20,7 @@
 - 한국 화장품은 드림코어를 뺀 뒤(사람 판정) 남는 말이 없다.
 
 할 일:
-1. 일본 수집 보강 – 일본 뉴스·pixiv 백과·위키백과 분류에서 화장품·패션·금융·생활 분야 말을 더 모은다. 수집 서버(PC) 쪽 작업이고, 10-16 마지막 운영 DB 갱신([Plan 11](11-submission-operations.md))에 들어가야 운영에 반영된다.
+1. 일본 수집 보강 – 일본 뉴스·pixiv 백과·위키백과 분류에서 화장품·패션·금융·생활 분야 말을 더 모은다. 수집 서버(PC) 쪽 작업이고, 10-16 마지막 운영 DB 갱신([제출 전후 운영(shji)](shji-submission-operations.md))에 들어가야 운영에 반영된다.
 2. 새로 들어온 추천 후보는 `fit_backfill.py --gemini`로 쓰임 낱말을 붙이고, 리스크가 비어 있으면 사람이 판정한다(10-10에 36개를 이 방법으로 판정했다 – 표 형식은 `artifacts/risk_review/candidates-20261010.csv`).
 3. 식어 가는 말을 일본에서만 허용하는 방법은 쓰지 않는다. 7차 때 철 지난 말(저메추)이 라떼에 추천된 문제가 다시 생긴다.
 4. 보강해도 0이면 화면의 '이 시장·분야는 지금 쓸 말이 적다' 안내(이미 있음)로 둔다.

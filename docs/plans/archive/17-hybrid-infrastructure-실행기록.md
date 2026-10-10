@@ -2,7 +2,7 @@
 
 작성일 **2026-10-02** · 브랜치 **develop** · 최종 점검 **2026-10-06** · 상태 **기록 보관(10-10) – Plan 17과 함께 archive**
 
-> 10-10에 Plan 17과 함께 보관했다. GPU 시험 기록은 [Plan 21](../21-gemma-live-classify.md)이 참고한다.
+> 10-10에 Plan 17과 함께 보관했다. GPU 시험 기록은 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md)이 참고한다.
 
 [계획](17-hybrid-infrastructure.md) · [인수·DVC 명령](../../개발환경/데이터-스냅숏-DVC.md)
 
