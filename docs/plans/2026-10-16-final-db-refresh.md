@@ -23,7 +23,7 @@
 
 ## 미리 할 일 (10-16 전)
 
-- ~~`fit_backfill.py`에 추천 후보의 로컬 모델(`local:`) 쓰임 낱말을 Gemini로 다시 붙이는 옵션을 더한다.~~ 10-10에 더했다: `fit_backfill.py --gemini gemini-3.5-flash --batch 12 --relabel-local`(620878b). 10-10 운영 사본에서 로컬 값인 추천 후보는 0개다.
+- ~~`fit_backfill.py`에 추천 후보의 로컬 모델(`local:`) 쓰임 낱말을 Gemini로 다시 붙이는 옵션을 더한다.~~ 10-10에 더했다: `fit_backfill.py --gemini gemini-3.5-flash --batch 12 --relabel-local`(2897066). 10-10 운영 사본에서 로컬 값인 추천 후보는 0개다.
 
 ## 전환 전 확인 (새 DB, API를 바꾸기 전)
 

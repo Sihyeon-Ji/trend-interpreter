@@ -30,7 +30,7 @@
 
 **Gemini 0회(10-10).** `MODEL_REQUESTS_ENABLED=false`인 revision을 트래픽 0%로 띄워 `/recommend` 2건을 보냈다. 응답은 200, 제품 이해는 규칙 기반(`brief_source=sample`)이었고 그 revision의 `gemini_call` 로그는 0건이었다. 같은 시간 운영 revision에는 `gemini_call`이 있다. 로그 기반 지표는 만들지 않았고 근거는 로그 조회다. 시험 뒤 서비스 정의를 되돌리고 시험 revision을 지웠다.
 
-**Job 이미지(10-10).** `scripts/deploy-trend.sh`가 API를 승격한 뒤 유지보수·게시 Job의 이미지도 같은 digest로 바꾼다. Terraform은 두 Job의 이미지를 무시하고, 배포 계정에 두 Job 서비스 계정의 actAs를 주었다. 711770c 배포에서 두 Job이 새 이미지로 옮겨진 것을 확인했다. Job은 여러 플랫폼 묶음(index)의 digest를, 서비스 revision은 풀린 플랫폼 digest를 보이므로 두 값이 달라 보여도 같은 이미지다.
+**Job 이미지(10-10).** `scripts/deploy-trend.sh`가 API를 승격한 뒤 유지보수·게시 Job의 이미지도 같은 digest로 바꾼다. Terraform은 두 Job의 이미지를 무시하고, 배포 계정에 두 Job 서비스 계정의 actAs를 주었다. 2ce5399 배포에서 두 Job이 새 이미지로 옮겨진 것을 확인했다. Job은 여러 플랫폼 묶음(index)의 digest를, 서비스 revision은 풀린 플랫폼 digest를 보이므로 두 값이 달라 보여도 같은 이미지다.
 
 **release 되돌리기(10-10).** `scripts/rollback-gcp.sh`로 API를 `trend-production-api-db20261009-r2`, 웹을 `trend-production-web-00050-muj`로 옮겨 health·첫 화면·사전·지도 200을 확인하고 새 revision으로 돌아왔다. 처음에는 점검이 실패했다 – Cloud Run이 secret을 별칭(`secret-alias-1`)과 annotation으로 보고하는데 도구가 별칭을 풀지 않았다. `release_recovery.secret_name`이 annotation으로 풀게 고쳤다.
 
