@@ -1,6 +1,6 @@
 # Gemma 4 로컬 편집 엔진 결정과 비용 비교
 
-> **2026-10-01 최신 결정:** [Plan 17](../plans/17-hybrid-infrastructure.md)에서 Kaggle·DVC/GCS 학습과 GCE GPU Gemma 서빙, Cloud Run 웹/API·Cloud SQL 구조를 채택했다. 아래는 09-28 결정과 당시 비교 기록이다. 현재 인프라 구축에는 Plan 17을 적용한다.
+> **2026-10-01 최신 결정:** [Plan 17](../plans/archive/17-hybrid-infrastructure.md)에서 Kaggle·DVC/GCS 학습과 GCE GPU Gemma 서빙, Cloud Run 웹/API·Cloud SQL 구조를 채택했다. 아래는 09-28 결정과 당시 비교 기록이다. 현재 인프라 구축에는 Plan 17을 적용한다.
 
 결정일 **2026-09-28** · 상태 **아키텍처 결정, 운영 구현 전** · 관련 [Plan 05](../plans/archive/05-trend-cloud-run-deployment.md) · [Plan 06](../plans/archive/06-gemma-on-cloud-run-gpu.md)
 
@@ -10,7 +10,7 @@
 
 - Trend Interpreter는 웹 SaaS다. 사용자의 기기에 모델 설치를 요구하지 않는다.
 - 개발자 PC의 Gemma 4는 공개 트렌드 자료를 분류하고, 검증된 사전의 언어별 풀이와 국가별 해석을 **미리 만드는 편집 엔진**으로 쓴다. 결과는 검증·검수 후 Cloud SQL PostgreSQL에 게시한다.
-- 웹·API는 Cloud Run, 데이터는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 옮기는 종전 Plan 05 결정과, Gemma 전용 Cloud Run GPU·vLLM을 배포하는 종전 Plan 06 결정은 철회한다. 운영에 Gemma 서비스를 다시 둘지는 [Plan 14](../plans/14-gemma-visible-in-deployment.md)에서 협의 중이다(미정).
+- 웹·API는 Cloud Run, 데이터는 Cloud SQL에 둔다. 전체 수집·해석 파이프라인을 Cloud Run Job과 Scheduler로 옮기는 종전 Plan 05 결정과, Gemma 전용 Cloud Run GPU·vLLM을 배포하는 종전 Plan 06 결정은 철회한다. 운영에 Gemma 서비스를 다시 둘지는 [Plan 14](../plans/archive/14-gemma-visible-in-deployment.md)에서 협의 중이다(미정).
 - 사용자 요청 시 새로운 사진·문구를 이해하거나 카피를 생성해야 하는 부분은 Vertex AI Gemini를 사용한다. 사전 조회, 생애주기·리스크 판정, 금칙·근거 대조는 저장된 데이터와 규칙 코드가 담당한다.
 - 개발자 PC가 멈추면 새 자료의 갱신은 늦어지지만, 게시된 자료의 열람과 실시간 SaaS 기능은 계속 가능해야 한다. 사용자 입력 보존 기간 정리와 운영 건강 점검은 PC 가동 여부와 분리한다.
 

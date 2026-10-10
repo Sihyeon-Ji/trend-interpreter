@@ -1,10 +1,10 @@
 # Plan 06. Kaggle Gemma 4 편집·미세조정 실험과 운영 데이터 게시
 
-> **2026-10-01 통합 계획:** [Plan 17](../17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
+> **2026-10-01 통합 계획:** [Plan 17](17-hybrid-infrastructure.md)에서 Kaggle QLoRA·DVC/GCS 버전 관리·승인 게시·GCE GPU 운영 서빙을 연결한다. 기존의 '운영 Gemma 위치 미정'은 이 결정으로 갱신된다. 아래 실험 기록과 품질·게시 조건은 입력 근거로 유지한다.
 
 작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **중단(10-09) – 하지 않기로 함. DVC·Kaggle 짧은 학습/재개·전체 QLoRA·사람 정답 20건 봉인·번역 시험과 영어 뜻 60개 첫 승인 게시까지 했다. 팀 재현·봉인 정답 모델 비교는 하지 않는다** · 선행 실험은 [Plan 01](01-import-latest-trend-data.md)의 고정 데이터, 운영 게시만 [Plan 05](05-trend-cloud-run-deployment.md)의 Cloud SQL 필요 · 목표일 **2026-10-10**
 
-> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](../17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
+> 파일 경로는 기존 링크를 위해 유지한다. 2026-09-29에 [개발자 PC Gemma 결정](../../AI-개발/Gemma-로컬-편집-엔진-결정.md)을 바꿔 실험 위치를 Colab GPU로 옮겼고, **2026-10-01에 다시 Kaggle 노트북으로 옮겼다**(아래 'Colab에서 Kaggle로 옮긴 까닭'). 사용자 요청을 무료 노트북 런타임에 연결하지 않는 경계는 유지한다. 운영 Gemma는 [Plan 17](17-hybrid-infrastructure.md)의 GCE GPU에 둔다. Kaggle GPU를 쓸 수 없거나 할당이 떨어지면 로컬 PC의 Ollama가 오프라인 배치 편집의 대체 경로다.
 
 [계획 목록](../README.md) · [Plan 01 데이터 이관](01-import-latest-trend-data.md) · [Plan 05 배포](05-trend-cloud-run-deployment.md) · [Gemma 리스크 실험 노트북](../../../models/kaggle/gemma_risk_labeling.ipynb) · [파이프라인 기록](../../트렌드/파이프라인.md)
 
@@ -20,7 +20,7 @@
 
 ## 2026-10-09 데모 화면 영어 뜻 번역 – 첫 운영 승인 배치 준비
 
-영어 화면에서 운영 둘러보기 세 시장 첫 쪽의 93개가 'English explanation not available yet'이었다([대상](../../대회/제출/데모-영어뜻-대상.csv), [Plan 09](../09-generation-quality-evaluation.md)). 10-06 시험과 달리 이번에는 판 ID·해시가 고정된 입력으로 돌려 승인 배치까지 이었다.
+영어 화면에서 운영 둘러보기 세 시장 첫 쪽의 93개가 'English explanation not available yet'이었다([대상](../../대회/제출/데모-영어뜻-대상.csv), [Plan 09](09-generation-quality-evaluation.md)). 10-06 시험과 달리 이번에는 판 ID·해시가 고정된 입력으로 돌려 승인 배치까지 이었다.
 
 | 단계 | 결과 |
 | --- | --- |
@@ -263,7 +263,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 | PC 가 꺼져도 지도·사전·게시본이 열리고 갱신 시각이 정확 | 미충족 | 클라우드에 배포된 것이 없다([Plan 05](05-trend-cloud-run-deployment.md)). `/meta` 의 마지막 실행 시각은 어느 단계든 끝난 시각(`dictionary_store.py`)이라 수집기만 돌았어도 신선해 보인다 |
 | 실시간 기능이 PC·Gemma 없이 작동, 원문은 PC 로 안 감 | 미충족 | `/ask`·`/ask/stream` 의 도구 호출 루프는 로컬 모델(`local_chat.chat_with_tools`)로만 돈다. 로컬 모델이 없으면 규칙 폴백뿐이다 |
 | 정리·건강 점검이 PC 배치와 독립 | 미충족 | Plan 05 의 같은 항목(정리는 `collect.retention` 안에만, `health_check.py` 는 출력만) |
-| Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](../09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |
+| Gemma 사용의 품질 평가 | 미충족 | `docs/트렌드/평가.md`(09-15 자동 생성)에 Gemma 초안 대 게시본 비교가 없다. [Plan 09](09-generation-quality-evaluation.md) 는 '1차 측정 · 사람 판정 전' |
 
 남은 일:
 
@@ -274,7 +274,7 @@ Save Version은 중간에 사람이 값을 바꿀 수 없으므로, 설정 셀�
 5. **팀 결정 대기:** 답하지 못한 질문이 원문 없이 PC 로 가는 방법(클라우드에서 표현 이름만 뽑아 넘기거나, 원문 전달을 받아들이고 문서화).
 6. 원작자 서버의 예약 파이프라인(SQLite, Gemini 키)을 팀 코드·PostgreSQL 로 옮기고 Cloud SQL 에 Auth Proxy 로 최소 권한 연결한다. `migrate_sqlite_to_postgres.py` 는 삽입만 하므로(`ON CONFLICT DO NOTHING`) 갱신이 안 전파된다 – 주기적 게시·동기화를 따로 만든다.
 7. `local:gpt-oss` 가 만든 주제 해설 6건을 Gemma 로 다시 만들거나 뺀다(이용자에게 보이고 추천의 `local_note` 로 나올 수 있다).
-8. 대표 사례의 자동 지표(뜻 표기 보존·근거 ID 존재·처리 시간)와 사람 판정(뉘앙스·나라별 정확도)을 [Plan 09](../09-generation-quality-evaluation.md) 로 잰다.
+8. 대표 사례의 자동 지표(뜻 표기 보존·근거 ID 존재·처리 시간)와 사람 판정(뉘앙스·나라별 정확도)을 [Plan 09](09-generation-quality-evaluation.md) 로 잰다.
 
 ## 제외한 계획
 

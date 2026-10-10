@@ -1,16 +1,18 @@
 # Plan 17 실행 기록
 
-작성일 **2026-10-02** · 브랜치 **develop** · 최종 점검 **2026-10-06** · 상태 **실제 운영 웹/API·Cloud SQL·GCE 시험·예약 운영 기록, 승인 게시·독립 품질·최종 데모 미완료**
+작성일 **2026-10-02** · 브랜치 **develop** · 최종 점검 **2026-10-06** · 상태 **기록 보관(10-10) – Plan 17과 함께 archive**
 
-[계획](17-hybrid-infrastructure.md) · [인수·DVC 명령](../개발환경/데이터-스냅숏-DVC.md)
+> 10-10에 Plan 17과 함께 보관했다. GPU 시험 기록은 [Plan 21](../21-gemma-live-classify.md)이 참고한다.
+
+[계획](17-hybrid-infrastructure.md) · [인수·DVC 명령](../../개발환경/데이터-스냅숏-DVC.md)
 
 ## 10-06 후속 재점검
 
-문서 앞부분의 10-03 최초 판정 뒤에 staging·production·GCE 실제 시험 기록이 추가돼 있다. 현재 통합 진척도는 [10-06 재점검](archive/구현-완료도-실측-점검-2026-10-06.md)을 따른다. 승인 게시·독립 품질·최종 데모 완료로 해석하지 않는다.
+문서 앞부분의 10-03 최초 판정 뒤에 staging·production·GCE 실제 시험 기록이 추가돼 있다. 현재 통합 진척도는 [10-06 재점검](구현-완료도-실측-점검-2026-10-06.md)을 따른다. 승인 게시·독립 품질·최종 데모 완료로 해석하지 않는다.
 
 ## 10-03 전체 진척도 점검
 
-[전체 점검 보고서](archive/구현-완료도-실측-점검-2026-10-03.md)에서 현재 계획 17개·과거 계획 9개와 고정 사본을 대조했다. 아래 단계 표의 날짜별 완료는 그 범위에서 유지한다. 최초 점검의 미커밋 GPU 코드는 후속 `4e237db`에서 커밋됐으며 실제 자원 구축과 구분한다. 동시 작업의 후속 실행 기록은 이 절 뒤에 보존한다.
+[전체 점검 보고서](구현-완료도-실측-점검-2026-10-03.md)에서 현재 계획 17개·과거 계획 9개와 고정 사본을 대조했다. 아래 단계 표의 날짜별 완료는 그 범위에서 유지한다. 최초 점검의 미커밋 GPU 코드는 후속 `4e237db`에서 커밋됐으며 실제 자원 구축과 구분한다. 동시 작업의 후속 실행 기록은 이 절 뒤에 보존한다.
 
 | 단계 | 10-03 판정 | 남은 확인 |
 | --- | --- | --- |
@@ -144,7 +146,7 @@ NAT 계산은 [공식 가격표](https://cloud.google.com/nat/pricing) 기준이
 
 진단 결과는 Python 3.12.13, 설치된 PyTorch `2.10.0+cpu`, CUDA 비활성이며 `files.pythonhosted.org`·`pypi.org`·`huggingface.co`·`google.com` 모두 DNS `gaierror`였다. API로 읽은 설정은 GPU·Internet 모두 true지만 실제 실행 환경을 보증하지 않는다. CPU PyTorch만으로 물리 GPU가 없다고 단정하지는 않는다. 사용자에게 계정 전화번호 인증과 Notebook Settings의 GPU T4·Internet 사용 가능 상태를 확인하도록 요청했다. 같은 차단 상태에서 학습을 반복 실행하지 않는다.
 
-현재 학습 코드·수정한 Notebook 패키지는 `artifacts/kaggle/audit-v4/`, 계약/실측 정보는 `manifests/gemma-audit-training-profile.json`, 절차는 [Kaggle 감사관 학습](../개발환경/Kaggle-감사관-학습.md)에 있다. 기본 모델은 현재 확인한 revision을 고정한 새 기준선이며 과거 어댑터 계보를 소급 확정하지 않았다. 모든 실험은 `promotion_eligible=false`다. 최종 코드에서 `check`와 별도 `audit-check`는 통과했으며 기존 E2E 36개·Terraform 통과 기록은 앞 단계와 같다.
+현재 학습 코드·수정한 Notebook 패키지는 `artifacts/kaggle/audit-v4/`, 계약/실측 정보는 `manifests/gemma-audit-training-profile.json`, 절차는 [Kaggle 감사관 학습](../../개발환경/Kaggle-감사관-학습.md)에 있다. 기본 모델은 현재 확인한 revision을 고정한 새 기준선이며 과거 어댑터 계보를 소급 확정하지 않았다. 모든 실험은 `promotion_eligible=false`다. 최종 코드에서 `check`와 별도 `audit-check`는 통과했으며 기존 E2E 36개·Terraform 통과 기록은 앞 단계와 같다.
 
 ### Codex 재시작 후 연결 재확인
 
@@ -187,7 +189,7 @@ smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-au
 
 ### 독립 사람 평가 후보·비교 도구 준비
 
-[검토 절차](../개발환경/감사관-독립-평가.md)와 `scripts/prepare_audit_review.py`·`models/kaggle/audit/quality.py`를 추가했다. 실제 인수 DB에서 후보 20건·11개 언어·발췌 24개를 추출했다. 기존 자료의 표제어 328개·별칭·관련 출처 2,792개와 후보 간 중복을 제외했으며 원본 입력 해시와 SQLite 무결성을 검증했다. 자동 정답은 넣지 않았다. 상세 입력은 Git 제외 로컬에 있고, 추적 가능한 집계는 `manifests/audit-human-review-preparation.json`에 있다.
+[검토 절차](../../개발환경/감사관-독립-평가.md)와 `scripts/prepare_audit_review.py`·`models/kaggle/audit/quality.py`를 추가했다. 실제 인수 DB에서 후보 20건·11개 언어·발췌 24개를 추출했다. 기존 자료의 표제어 328개·별칭·관련 출처 2,792개와 후보 간 중복을 제외했으며 원본 입력 해시와 SQLite 무결성을 검증했다. 자동 정답은 넣지 않았다. 상세 입력은 Git 제외 로컬에 있고, 추적 가능한 집계는 `manifests/audit-human-review-preparation.json`에 있다.
 
 출처 목록은 과거 학습 자료의 모든 실제 출처를 자동 증명하지 못하므로 담당자의 명시적 확인이 필요하다. 사람 판정·이유·검토자·시각이 있고, 두 클래스가 모두 있는 확정 판정 20건 이상이어야 봉인한다. 이후 동일 모델 계보·평가셋·추론 계약으로 기본 모델과 어댑터를 비교한다. JSON 형식 실패도 평가 분모와 미탐에 포함하며, 개선 결과는 승인 후보로만 추천한다. `promotion_eligible=false`를 유지한다.
 
@@ -200,7 +202,7 @@ smoke 9판과 [재개 Notebook 1판](https://www.kaggle.com/code/jseanj/trend-au
 
 데이터 출처 확인 책임자는 아직 미지정이다. 기존 SFT 생성 또는 원본 출처 이력을 확인할 수 있는 팀원이 이 확인을 맡아야 하며 GCS 경로명·Kaggle Notebook 소유자만으로 담당자를 확정하지 않는다. 사람 정답 판정·출처 확인은 대기 상태로 유지한다.
 
-그와 독립적으로 5단계의 웹 서버 인증 연결을 구현했다. 읽기·로그인·설정·검수·사진 업로드·생성·질문 스트리밍을 공통 API fetch로 모았다. Google 모드에서 고정 메타데이터 서버의 ID token을 만료 전에 갱신·공유하고, 기존 사용자 권한 헤더·본문·Next 캐시 옵션·취소 신호를 유지한다. 설정 오류·발급 실패·외부 origin·redirect에서는 인증 없는 호출을 거부한다. 상세 설정은 [Cloud Run 웹 API 인증](../개발환경/Cloud-Run-웹-API-인증.md)에 있다.
+그와 독립적으로 5단계의 웹 서버 인증 연결을 구현했다. 읽기·로그인·설정·검수·사진 업로드·생성·질문 스트리밍을 공통 API fetch로 모았다. Google 모드에서 고정 메타데이터 서버의 ID token을 만료 전에 갱신·공유하고, 기존 사용자 권한 헤더·본문·Next 캐시 옵션·취소 신호를 유지한다. 설정 오류·발급 실패·외부 origin·redirect에서는 인증 없는 호출을 거부한다. 상세 설정은 [Cloud Run 웹 API 인증](../../개발환경/Cloud-Run-웹-API-인증.md)에 있다.
 
 Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하지 않았다. 실제 Cloud Run 토큰·API 권한·staging 분리·GPU 연결은 아직 검증되지 않았으며 5단계 전체 완료로 표시하지 않는다.
 
@@ -211,7 +213,7 @@ Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하�
 
 `infra/gcp/hybrid`에 기존 운영 state와 분리된 VPC·API/GPU 서브넷·환경별 SA·8443/IAP ingress·gateway secret metadata·최소 역할을 정의했다. 기본값은 비활성으로 자원을 만들지 않는다. default/staging/production의 mock plan으로 비활성·접근 범위·환경 분리를 검증한다. 실제 자원 생성·IAM 변경은 하지 않았다. 일반 provider plan은 로컬 ADC가 없어 실행되지 않았으며 mock plan 검증과 구분한다.
 
-`models/serving`의 독립 lockfile·TLS image·gateway는 고정 Ollama 모델만 받는다. 실제 짧은 추론과 resident manifest digest·양수 VRAM을 준비 조건으로 사용하고, bearer 인증·입출력 한도·한 슬롯·deadline·연결 중단·재검증 격리·중복 프로세스 잠금을 구현했다. 모델 관리 API는 노출하지 않는다. 상세 조건은 [GPU gateway·인프라 기반](../개발환경/GPU-gateway-인프라-기반.md)에 있다.
+`models/serving`의 독립 lockfile·TLS image·gateway는 고정 Ollama 모델만 받는다. 실제 짧은 추론과 resident manifest digest·양수 VRAM을 준비 조건으로 사용하고, bearer 인증·입출력 한도·한 슬롯·deadline·연결 중단·재검증 격리·중복 프로세스 잠금을 구현했다. 모델 관리 API는 노출하지 않는다. 상세 조건은 [GPU gateway·인프라 기반](../../개발환경/GPU-gateway-인프라-기반.md)에 있다.
 
 이 단계는 네트워크/IAM 기반과 제한된 추론 경로의 코드·로컬 검증이다. GCE VM/디스크·모델 release·설치/자동 종료·API adapter·Cloud Run 서비스·기존 Cloud SQL 보호·운영 egress/TLS/IAM 연결은 아직 남았다. 실제 GPU readiness·모델 품질·운영 인증 성공을 합성 테스트로 주장하지 않는다.
 
@@ -222,7 +224,7 @@ Terraform apply·IAM 변경·서비스 생성·release/gcp 배포는 실행하�
 
 선택 GPU 입력이 있을 때만 L4 1장·별도 모델 디스크·예약 내부 IP·GCE 2시간 STOP을 정의했다. 고정 boot image의 설치기는 승인 release와 객체 generation/해시·GGUF·Modelfile을 검사하고, 준비된 image에서 loopback Ollama·TLS gateway를 시작한다. 새 빈 디스크 초기화는 명시한 옵션이 있어야 하며 기존 데이터 signature를 덮어쓰지 않는다. 비밀값은 metadata/state·명령에 넣지 않는다.
 
-API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가하고 기존 텍스트/구조화 호출과 감사관 준비 검사에 연결했다. Gateway가 선택된 경우 미지원 기능과 실패를 직접 Ollama로 우회하지 않는다. 동기 worker 호출의 즉시 취소·vision/tool/stream 경로는 아직 지원하지 않는다. 상세 조건은 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다.
+API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가하고 기존 텍스트/구조화 호출과 감사관 준비 검사에 연결했다. Gateway가 선택된 경우 미지원 기능과 실패를 직접 Ollama로 우회하지 않는다. 동기 worker 호출의 즉시 취소·vision/tool/stream 경로는 아직 지원하지 않는다. 상세 조건은 [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)에 있다.
 
 실제 image 제작·GCP 등록·모델 승인·TLS/secret version 준비·quota/비용 승인·VM 생성·종료·Cloud Run 연결은 실행하지 않았다. 기존 전체 보안 검사 실패도 배포 차단 항목으로 유지한다.
 
@@ -233,7 +235,7 @@ API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가�
 
 `scripts/restore-rehearsal.sh`·`scripts/restore_rehearsal.py`를 추가했다. 별도 Compose 프로젝트의 임시 PostgreSQL 18.6에 snapshot을 `--fresh --skip-user-data`로 이관하고, `pg_dump` custom 형식 사본을 빈 DB에 복원해 표·행 수·내용 checksum·컬럼·제약·색인·sequence를 비교한다. 실제 snapshot에서 41개 표 이관 일치(`news` 6행 정책 제외), 사용자 표 3개 0행, 복원본 48개 표·659,707행·스키마 일치를 확인했다. dump 52.9MB, 이관 15초, dump+복원 8초다. 보고서는 `manifests/restore-rehearsal-20261001T224511-e56b90d.json`이며 행 내용과 접속 정보는 담지 않는다.
 
-유료 전환 직후의 백업·PITR·삭제 보호 변경안, 환경별 DB·사용자·Secret Manager 연결 문자열 기반 staging 연결안은 [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)에 정리했다. Cloud SQL 설정 변경·DB/사용자 생성·적재는 실행하지 않았다. Cloud SQL 관리형 백업 복원·실제 소켓 접속·권한 분리 검증이 남았다.
+유료 전환 직후의 백업·PITR·삭제 보호 변경안, 환경별 DB·사용자·Secret Manager 연결 문자열 기반 staging 연결안은 [Cloud SQL 복원 리허설](../../개발환경/Cloud-SQL-복원-리허설.md)에 정리했다. Cloud SQL 설정 변경·DB/사용자 생성·적재는 실행하지 않았다. Cloud SQL 관리형 백업 복원·실제 소켓 접속·권한 분리 검증이 남았다.
 
 검증은 새 지문 비교 테스트 2개를 포함한 `check` 통과(데이터 20개·API 331개·배포/검토/리허설 15개·알림 10개·웹 transport 13개, 웹 lint/build)와 실제 snapshot 리허설 통과다. UI·Terraform은 바꾸지 않아 E2E·infra-check는 다시 실행하지 않았다.
 
@@ -242,16 +244,16 @@ API에는 별도 허용 flag·CA·token·고정 모델/digest 검증을 추가�
 
 사용자가 다음을 결정했다. Cloud SQL 새 인스턴스는 공유 코어 소형·월 상한 약 $30으로 하고 Plan 13 일정(10-24 확정, 10-26 실행)을 따른다. staging은 지금 체험 인스턴스에 적재한다. 최초 GPU 검증은 L4 최대 2시간·$10 상한으로 승인했다. 사람 평가와 학습 출처 확인은 팀원 ejchoi에게 요청한다. 백업·PITR은 지금 켜지 않고 10-24 운영 인스턴스 확정 때 다시 판단한다. GPU 검증은 사람 평가를 기다리지 않고 기본 Gemma로 인프라 동작부터 확인한다.
 
-체험 인스턴스에 `trend_staging` DB와 `trend_staging_app` 사용자를 만들고, 연결 문자열을 Secret Manager `trend-staging-database-url`에만 저장했다. 첫 version은 셸 변수 확장 오류로 연결 이름이 잘못 저장돼 폐기하고 비밀번호를 다시 발급해 version 2로 교체했다. `scripts/load-cloud-sql.sh`로 Cloud SQL Auth Proxy를 거쳐 snapshot을 적재했고 41개 표 건수 일치·사용자 표 0행을 확인했다(115초). 보고서는 `manifests/cloud-sql-load-staging-20261001T224511-e56b90d.json`, 절차는 [Cloud SQL 복원 리허설](../개발환경/Cloud-SQL-복원-리허설.md)에 있다.
+체험 인스턴스에 `trend_staging` DB와 `trend_staging_app` 사용자를 만들고, 연결 문자열을 Secret Manager `trend-staging-database-url`에만 저장했다. 첫 version은 셸 변수 확장 오류로 연결 이름이 잘못 저장돼 폐기하고 비밀번호를 다시 발급해 version 2로 교체했다. `scripts/load-cloud-sql.sh`로 Cloud SQL Auth Proxy를 거쳐 snapshot을 적재했고 41개 표 건수 일치·사용자 표 0행을 확인했다(115초). 보고서는 `manifests/cloud-sql-load-staging-20261001T224511-e56b90d.json`, 절차는 [Cloud SQL 복원 리허설](../../개발환경/Cloud-SQL-복원-리허설.md)에 있다.
 
-GPU 검증은 승인됐지만 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)상 승인 release·준비된 boot image·TLS/token secret version이 먼저 필요하다. 이후 사용자 승인으로 Compute API를 활성화했다. 조직 정책이 없어 자동 생성된 `default` 네트워크와 SSH·RDP·ICMP를 `0.0.0.0/0`에 연 기본 방화벽 규칙 4개는 VM이 없는 상태에서 바로 삭제했다. 현재 프로젝트에 VPC·방화벽 규칙·VM은 없다.
+GPU 검증은 승인됐지만 [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)상 승인 release·준비된 boot image·TLS/token secret version이 먼저 필요하다. 이후 사용자 승인으로 Compute API를 활성화했다. 조직 정책이 없어 자동 생성된 `default` 네트워크와 SSH·RDP·ICMP를 `0.0.0.0/0`에 연 기본 방화벽 규칙 4개는 VM이 없는 상태에서 바로 삭제했다. 현재 프로젝트에 VPC·방화벽 규칙·VM은 없다.
 
 도쿄 `asia-northeast1-a/b/c` 모두 L4를 제공하고 지역 할당량 `NVIDIA_L4_GPUS`는 1이다. 그러나 프로젝트 전체 `GPUS_ALL_REGIONS`가 **0**이라 할당량 증가 승인 전에는 GPU VM을 만들 수 없다. 사용자 승인으로 Cloud Quotas API를 켜고 `GPUS-ALL-REGIONS-per-project`를 1로 요청했으며 즉시 승인돼 현재 값은 1이다. 남은 선행 조건은 준비된 boot image·기본 Gemma 검증용 release·TLS/token secret version이다.
 
 
 ### 10-03 실제 GPU 인프라 검증
 
-기본 Gemma(`gemma4:12b` 텍스트 GGUF)로 boot image·release·TLS/token secret을 만들고 L4 1장의 GPU VM을 Terraform으로 적용했다. 설치 완료, staging CA TLS 검증, 무인증·잘못된 token 401, 모델·digest 일치, 추론 3/3(이후 0.35초), VRAM 7.9GB/23GB를 확인했다. cold start 모델 적재가 gateway deadline 30초를 넘어 첫 `/ready`가 4회 504였고, 이 문제는 운영 전에 고친다. 검증 후 VM·디스크·내부 IP를 삭제했다(GPU 약 8분). 세부 절차와 결과는 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다. 이 release는 인프라 확인용이며 운영 승인 모델이 아니다.
+기본 Gemma(`gemma4:12b` 텍스트 GGUF)로 boot image·release·TLS/token secret을 만들고 L4 1장의 GPU VM을 Terraform으로 적용했다. 설치 완료, staging CA TLS 검증, 무인증·잘못된 token 401, 모델·digest 일치, 추론 3/3(이후 0.35초), VRAM 7.9GB/23GB를 확인했다. cold start 모델 적재가 gateway deadline 30초를 넘어 첫 `/ready`가 4회 504였고, 이 문제는 운영 전에 고친다. 검증 후 VM·디스크·내부 IP를 삭제했다(GPU 약 8분). 세부 절차와 결과는 [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)에 있다. 이 release는 인프라 확인용이며 운영 승인 모델이 아니다.
 
 boot image 빌드는 다섯 번째 실행에서 성공했다. 첫 실행은 실행 중인 스크립트를 수정해 중단됐고, 이후 두 번은 builder 권한을 prefix로 좁히면서 생긴 목록 조회 권한 문제, 한 번은 조건 인자 형식 문제였다. 각 실패 뒤 builder VM·네트워크·권한이 정리된 것을 확인했다.
 
@@ -259,11 +261,11 @@ boot image 빌드는 다섯 번째 실행에서 성공했다. 첫 실행은 실�
 
 첫 검증에서 찾은 cold start 문제를 고쳤다. 설치기가 gateway와 같은 요청 옵션으로 모델을 미리 적재한 뒤 gateway를 시작한다. boot image r2로 다시 확인한 결과 `/ready`는 첫 시도 0.42초, 첫 추론은 0.38초였다(수정 전 504 4회·25초).
 
-같은 VM에 대해 trend-api 이미지를 임시 Cloud Run Job으로 실행했다. API SA와 API 서브넷의 Direct VPC egress로 실제 감사관 `local_chat` 경로를 호출해 준비 확인과 `AuditCheck` 구조화 호출 3/3(각 약 2.1초)이 통과했다. 무인증·잘못된 token은 401이었다. 검증 뒤 VM·디스크·내부 IP·Job·임시 권한을 삭제했고 r1 image와 모델 파일도 지웠다(GPU r2 약 10분). 상세는 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다. 남은 일은 운영 release(사람 평가 후)와 웹·API Cloud Run 서비스 배포다.
+같은 VM에 대해 trend-api 이미지를 임시 Cloud Run Job으로 실행했다. API SA와 API 서브넷의 Direct VPC egress로 실제 감사관 `local_chat` 경로를 호출해 준비 확인과 `AuditCheck` 구조화 호출 3/3(각 약 2.1초)이 통과했다. 무인증·잘못된 token은 401이었다. 검증 뒤 VM·디스크·내부 IP·Job·임시 권한을 삭제했고 r1 image와 모델 파일도 지웠다(GPU r2 약 10분). 상세는 [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)에 있다. 남은 일은 운영 release(사람 평가 후)와 웹·API Cloud Run 서비스 배포다.
 
 ### 10-03 TLS 갱신 체계와 staging 웹·API 배포
 
-GPU gateway TLS를 갱신할 수 있게 CA 개인키를 런타임이 읽지 못하는 secret에 보관하고 `scripts/rotate-gpu-tls.sh`를 추가했다. 서버 인증서 재발급까지 실제로 확인했다. 사용자 결정에 따라 staging 웹·API만 Terraform으로 직접 배포했다(GPU 미연결, API mock). 웹은 주소를 아는 사람에게 공개하고 검수는 로그인으로 보호하며, 검수 계정은 사용자 1명이다. API 익명 403, 웹→API→DB 실데이터 표시, `/admin` 로그인 이동을 확인했다. `/dictionary`는 API `/terms`의 N+1 조회가 Cloud SQL 지연과 겹쳐 90초를 넘겨 504이며 다음 수정 대상이다. 상세는 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)와 [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)에 있다.
+GPU gateway TLS를 갱신할 수 있게 CA 개인키를 런타임이 읽지 못하는 secret에 보관하고 `scripts/rotate-gpu-tls.sh`를 추가했다. 서버 인증서 재발급까지 실제로 확인했다. 사용자 결정에 따라 staging 웹·API만 Terraform으로 직접 배포했다(GPU 미연결, API mock). 웹은 주소를 아는 사람에게 공개하고 검수는 로그인으로 보호하며, 검수 계정은 사용자 1명이다. API 익명 403, 웹→API→DB 실데이터 표시, `/admin` 로그인 이동을 확인했다. `/dictionary`는 API `/terms`의 N+1 조회가 Cloud SQL 지연과 겹쳐 90초를 넘겨 504이며 다음 수정 대상이다. 상세는 [Cloud Run 서비스 준비](../../개발환경/Cloud-Run-서비스-준비.md)와 [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)에 있다.
 
 ### 10-03 staging 목록 응답 시간 수정
 
@@ -271,17 +273,17 @@ staging에서 사전 화면 504와 검수 목록 멈춤을 고쳤다. 목록을 
 
 ### 10-03 staging 실제 Gemini 연결
 
-사용자 결정에 따라 staging API에서 Vertex AI Gemini를 월 $20 상한으로 켰다. 앱이 실제 토큰 사용량과 공식 단가로 월 금액을 세고 상한 전에 호출을 멈추며, 모든 호출에 출력 상한을 둔다. 데모 흐름(사전에 묻기 3종·밈 추천·카피 생성·카피 검사)이 실제 Gemini로 동작했고 시험 비용은 약 $0.017이었다. 챗봇 도구의 표제어별 조회도 일괄 읽기로 고쳤다. Billing 예산 알림 금액 조정은 API가 거부해 콘솔 작업으로 남았다. 상세는 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
+사용자 결정에 따라 staging API에서 Vertex AI Gemini를 월 $20 상한으로 켰다. 앱이 실제 토큰 사용량과 공식 단가로 월 금액을 세고 상한 전에 호출을 멈추며, 모든 호출에 출력 상한을 둔다. 데모 흐름(사전에 묻기 3종·밈 추천·카피 생성·카피 검사)이 실제 Gemini로 동작했고 시험 비용은 약 $0.017이었다. 챗봇 도구의 표제어별 조회도 일괄 읽기로 고쳤다. Billing 예산 알림 금액 조정은 API가 거부해 콘솔 작업으로 남았다. 상세는 [Cloud Run 서비스 준비](../../개발환경/Cloud-Run-서비스-준비.md)에 있다.
 
 ### 10-04 production 배포와 이전 서비스 정리
 
-사용자 결정(운영 DB는 체험 인스턴스의 분리 DB, Gemini production $15·staging $5, 확인 뒤 `builder-cup` 삭제)에 따라 production 기반·DB·secret·웹/API를 만들고, `release/gcp` 배포 경로를 구현해 실제 push로 배포했다. 후보 검사와 트래픽 전환까지 성공했고 이미지 digest가 release 커밋 빌드와 일치했다. CI가 세 번 실패해(설치기 테스트의 디스크 의존, E2E 첫 컴파일 시간, 웹 `public` 폴더) 각각 고쳤다. 이후 uptime check와 오류 경보를 Trend로 옮기고 `builder-cup` 서비스와 데모 키·전용 계정을 삭제했다. 상세는 [Plan 05](archive/05-trend-cloud-run-deployment.md)와 [Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)에 있다.
+사용자 결정(운영 DB는 체험 인스턴스의 분리 DB, Gemini production $15·staging $5, 확인 뒤 `builder-cup` 삭제)에 따라 production 기반·DB·secret·웹/API를 만들고, `release/gcp` 배포 경로를 구현해 실제 push로 배포했다. 후보 검사와 트래픽 전환까지 성공했고 이미지 digest가 release 커밋 빌드와 일치했다. CI가 세 번 실패해(설치기 테스트의 디스크 의존, E2E 첫 컴파일 시간, 웹 `public` 폴더) 각각 고쳤다. 이후 uptime check와 오류 경보를 Trend로 옮기고 `builder-cup` 서비스와 데모 키·전용 계정을 삭제했다. 상세는 [Plan 05](05-trend-cloud-run-deployment.md)와 [Cloud Run 서비스 준비](../../개발환경/Cloud-Run-서비스-준비.md)에 있다.
 
 ### 10-04 staging 정리와 사람 판정 수령
 
-공모전 범위에서는 staging이 필요하지 않다는 사용자 판단에 따라 staging 웹·API·DB·앱 secret을 삭제하고 GPU 시험용 기반만 남겼다([Cloud Run 서비스 준비](../개발환경/Cloud-Run-서비스-준비.md)). ejchoi의 사람 판정 20건(ok 10·fix 10)을 받아 입력 변경 없음·필수 값·시간대를 확인했다. 봉인에 필요한 학습 출처 확인은 응답 해석을 확인하는 중이다.
+공모전 범위에서는 staging이 필요하지 않다는 사용자 판단에 따라 staging 웹·API·DB·앱 secret을 삭제하고 GPU 시험용 기반만 남겼다([Cloud Run 서비스 준비](../../개발환경/Cloud-Run-서비스-준비.md)). ejchoi의 사람 판정 20건(ok 10·fix 10)을 받아 입력 변경 없음·필수 값·시간대를 확인했다. 봉인에 필요한 학습 출처 확인은 응답 해석을 확인하는 중이다.
 
 
 ## 10-07 승인 배치 게시·웹 검수 연결
 
-불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../개발환경/승인-배치-게시.md)을 따른다.
+불변 배치·항목 해시, 실제 검수 계정과 정확한 내용 해시의 승인, 뜻 판/사람 결정 보호, 뜻·파생 출력·캐시의 원자적 게시, 활성 게시 ID·신선도 전환을 로컬 구현했다. 관리자 목록·현재/제안 비교·승인/거절도 연결했다. 별도 임시 PostgreSQL 스키마와 production 이미지의 API 모드에서 비교→승인→별도 게시→공개 조회를 확인했다. Cloud Run Job·전용 DB 역할·생산자 배치 포장·운영 migration/게시·운영 복구 검증은 남으며, 이 기록으로 계획 전체를 완료 처리하지 않는다. [명령·검증·제한](../../개발환경/승인-배치-게시.md)을 따른다.

@@ -6,7 +6,7 @@
 
 지역을 바꾸면 API의 목록·건수가 바뀌고, 예시 모드 E2E는 지역 선택·항목 열기를 통과했다. 10-05 고정 실데이터의 API 모드 브라우저에서도 일본 항목 열기·지역 유지·빈 싱가포르 안내를 확인했다. 같은 snapshot의 `trend_queries`에 목표 10개국 모두 10-05 행이 있다. 이 세 가지가 아래 명시된 완료 기준이다.
 
-이 판정은 현재 운영 배포나 밈 품질의 완료를 뜻하지 않는다. SG 0건·MY 2건의 공급과 데모 지역은 [Plan 15](15-overseas-generation-signals.md)·[Plan 09](../09-generation-quality-evaluation.md), 실제 YouTube 사용량은 [Plan 17](../17-hybrid-infrastructure.md), 첫 화면 방향은 팀 확인 전인 [Plan 20](../20-copy-check-localization-flow.md)에서 추적한다. 아래 과거 실행 시점의 미완료 기록은 그대로 둔다.
+이 판정은 현재 운영 배포나 밈 품질의 완료를 뜻하지 않는다. SG 0건·MY 2건의 공급과 데모 지역은 [Plan 15](15-overseas-generation-signals.md)·[Plan 09](09-generation-quality-evaluation.md), 실제 YouTube 사용량은 [Plan 17](17-hybrid-infrastructure.md), 첫 화면 방향은 팀 확인 전인 [Plan 20](20-copy-check-localization-flow.md)에서 추적한다. 아래 과거 실행 시점의 미완료 기록은 그대로 둔다.
 
 ## 2026-10-08 고정 실데이터 API 모드 재검증
 

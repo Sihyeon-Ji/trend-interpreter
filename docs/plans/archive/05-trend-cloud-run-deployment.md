@@ -1,6 +1,6 @@
 # Plan 05. Trend 앱 Cloud Run 배포
 
-> **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](../17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
+> **2026-10-01 통합 계획:** 구축 순서는 [Plan 17](17-hybrid-infrastructure.md)을 따른다. 웹·API는 별도 Cloud Run 서비스로 유지하고, Kaggle·DVC/GCS 학습과 GCE GPU 서빙을 연결한다. 아래 내구성·비공개 API·유지보수·복구 조건은 계속 적용한다.
 
 작성일 **2026-09-28** · 변경일 **2026-10-09** · 상태 **보관(10-09) – 완료 기준 8개 중 5개 충족. Job 이미지 갱신·Gemini 0회 확인은 Plan 17, 체험 종료 결정은 Plan 13으로 넘김** · 선행 [Plan 04](04-target-regions-and-keyword-dashboard.md) · 목표일 **2026-10-09** · 인프라 작업은 Plan 02부터 병행 가능
 
@@ -23,7 +23,7 @@
 | migration 적용·JSON 로그 | 충족 | 새 revision이 018~021 적용(10-09), Cloud Logging에 `jsonPayload` 기록 |
 | `MODEL_REQUESTS_ENABLED=false`에서 호출 0회 | 미충족 | `gemini_call` 이벤트는 로그에 남지만 로그 지표가 없고, 끈 상태 재배포 확인을 하지 않았다 |
 
-웹·API 배포라는 이 계획의 몫은 끝났다고 보고 archive로 옮긴다. 남은 두 가지(Job 이미지가 release를 따라가게 하기, 끈 상태 0회 확인)는 [Plan 17](../17-hybrid-infrastructure.md#2026-10-09-plan-05에서-넘겨받은-일)이, 체험 종료 결정은 [Plan 13](13-cloud-sql-trial-to-paid-transition.md)이 맡는다.
+웹·API 배포라는 이 계획의 몫은 끝났다고 보고 archive로 옮긴다. 남은 두 가지(Job 이미지가 release를 따라가게 하기, 끈 상태 0회 확인)는 [Plan 17](17-hybrid-infrastructure.md#2026-10-09-plan-05에서-넘겨받은-일)이, 체험 종료 결정은 [Plan 13](13-cloud-sql-trial-to-paid-transition.md)이 맡는다.
 
 ## 2026-10-09 배포 네 번과 운영 확인
 
@@ -163,7 +163,7 @@ Gemini는 secret이 필요 없습니다. Reddit·Bluesky 키는 수집기를 쓰
 
 | 항목 | 결정 | 상태 |
 | --- | --- | --- |
-| Gemma 4 사용 | Kaggle 학습·편집 실험, GCS/DVC 버전 관리·GCE GPU 운영 특화 추론 | [Plan 17](../17-hybrid-infrastructure.md)로 확정. GPU 추론·품질·gateway와 [Plan 14](../14-gemma-visible-in-deployment.md)의 화면 연결은 구현·검증 필요 |
+| Gemma 4 사용 | Kaggle 학습·편집 실험, GCS/DVC 버전 관리·GCE GPU 운영 특화 추론 | [Plan 17](17-hybrid-infrastructure.md)로 확정. GPU 추론·품질·gateway와 [Plan 14](14-gemma-visible-in-deployment.md)의 화면 연결은 구현·검증 필요 |
 | 계정 관리 | 현행 `ACCOUNTS` 해시 유지. 비밀번호를 파일에 남기지 않음 | 완료. `set_account.py`는 비밀번호를 출력에 한 번만 보여 주고 `data/accounts.txt`는 삭제 |
 | 사용자 입력 문장 | 해석 캐시 **7일**, 미해결 질문 **30일** 뒤 삭제 | `scripts/maintenance.py`를 Cloud Run Job `trend-production-maintenance`가 매일 04:00 KST 실행(2026-10-05) |
 | 스키마 변경 | 번호가 붙은 SQL 파일 + `schema_migrations` 적용 기록 표 | 완료. `storage/migrations/NNN_설명.sql`, 적용된 파일이 바뀌면 시작을 거부 |

@@ -28,6 +28,11 @@
 | [현행 Plan 15](15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별(10-09) |
 | [현행 Plan 06](06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – 하지 않기로 하고 중단(10-09). 완료가 아니다 |
 | [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 새 [Plan 11](../11-submission-operations.md)에 합침(10-09). 남은 일은 그쪽에서 관리 |
+| [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [Plan 24](../24-meme-recommendation-remaining.md) |
+| [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모는 [Plan 25](../25-submission-demo-and-deck.md) |
+| [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Plan 21](../21-gemma-live-classify.md) |
+| [현행 Plan 17](17-hybrid-infrastructure.md)·[실행 기록](17-hybrid-infrastructure-실행기록.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10). GCE 추론은 Plan 21, 이전 DB 되돌리기는 [Plan 11](../11-submission-operations.md) |
+| [현행 Plan 20](20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [Plan 22](../22-copy-flow-remaining.md), 일본어는 [Plan 23](../23-japanese-ui.md) |
 | [현행 Plan 05](05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09). 남은 두 가지는 Plan 17로 넘김 |
 | [현행 Plan 01](01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09). 수집 서버 PostgreSQL 전환은 그 담당자에게 넘김 |
 | [현행 Plan 16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재 – 용어 3,006개까지 하고 보류(10-09). 완료가 아니다 |
