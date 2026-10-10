@@ -334,6 +334,7 @@ const ko = {
   gen_drop_x_too_long: "X 글자 수 초과 (한글·가나·한자는 2자로 셈)",
   gen_drop_avoid_word: "제품 설명이 피하라고 한 표현이 들어 있음",
   gen_drop_meta_meme: "밈을 쓰지 않고 '○○처럼' 소개함",
+  gen_drop_mixed_language: "목표 언어가 아닌 글자가 섞임",
 
   why_first_signal: "첫 신호",
   why_actors: "관련 인물·기관",
@@ -1441,6 +1442,7 @@ const en = {
   gen_drop_x_too_long: "over X's length limit (Korean, Japanese and Chinese characters count as 2)",
   gen_drop_avoid_word: "uses a phrase the product brief said to avoid",
   gen_drop_meta_meme: "talks about the meme ('like …') instead of using it",
+  gen_drop_mixed_language: "mixes in another language",
 
   why_first_signal: "First signal",
   why_actors: "People & organizations",

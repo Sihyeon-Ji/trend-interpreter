@@ -81,7 +81,14 @@ def test_failed_items_are_regenerated_once_then_dropped(monkeypatch):
 
 def test_second_draft_fixes_are_kept(monkeypatch):
     con = _con()
-    _fake(monkeypatch, [_draft("밈 없는 카피"), _draft("今日もラッキービッキー!")])
+    def ja(copy_text: str) -> ContentDraft:            # 목표 언어(일본어)로 쓴 초안 — 한국어가 섞이면 mixed_language 로 빠진다
+        return ContentDraft(
+            copies=[SocialCopy(platform="instagram", text=copy_text), SocialCopy(platform="instagram", text="ラッキービッキーな一杯"),
+                    SocialCopy(platform="x", text="ラッキービッキーな午後"), SocialCopy(platform="x", text="今日もラッキービッキー")],
+            script=ShortScript(title="ラッキービッキー", duration_s=15, scenes=[ScriptScene(start_s=0, end_s=15, visual="ラテ", caption="ラッキービッキー")]),
+            thumbnail=ThumbnailPlan(headline="ラッキービッキー", layout="왼쪽 제품", colors=["갈색"]))
+
+    _fake(monkeypatch, [ja("ミームのないコピー"), ja("今日もラッキービッキー!")])
     res = generate.run(con, ["lv"], BRIEF, "JP", "witty")
     assert not res.dropped and res.copies[0].text == "今日もラッキービッキー!" and res.language == "ja"
 
@@ -105,6 +112,24 @@ def test_rules():
     assert {k: v[0] for k, v in got.items()} == {"copy0": "unsafe", "copy1": "no_meme", "copy2": "x_too_long", "copy3": "avoid_word"}
     with pytest.raises(ValueError):
         generate.run(con, ["bad"], BRIEF, "KR", "friendly")                    # 사용 자제 밈으로는 만들지 않는다
+
+
+def test_rules_catch_mixed_languages():
+    """목표 언어가 아닌 글자가 섞이면 뺀다 — 일본어 대본에 'ア이스黒糖ラテ'와 한국어 장면 설명이 섞였다(9차 판정). 밈 이름·인용·라틴 글자는 둔다."""
+    con = _con()
+    lv = [ds.get_term(con, "lv")]
+    scene = ScriptScene(start_s=0, end_s=5, visual="얼음과 흑당 시럽 제품 풀샷", caption="夏限定", line="럭키비키な一杯")
+    got = generate.check({"copy0": SocialCopy(platform="x", text="夏限定のア이스黒糖ラテ、럭키비키！"),
+                          "copy1": SocialCopy(platform="x", text="夏限定の黒糖ラテで럭키비키！SALE中"),
+                          "copy2": SocialCopy(platform="x", text="「인정」って言いたくなる黒糖ラテ、럭키비키"),
+                          "script": ShortScript(title="夏の一杯", duration_s=5, scenes=[scene]),
+                          "thumbnail": ThumbnailPlan(headline="럭키비키な夏", layout="가운데 제품", subject="라떼 잔")}, lv, BRIEF, lang="ja")
+    assert {k: v[0] for k, v in got.items()} == {"copy0": "mixed_language", "script": "mixed_language"}
+    assert "ア이스黒糖ラテ" in got["copy0"][1]
+    en = generate.check({"copy0": SocialCopy(platform="x", text="럭키비키 latte, so 맛있다"),
+                         "copy1": SocialCopy(platform="x", text="Iced latte = 럭키비키 ☀️", hashtags=["SummerLatte"])}, lv, BRIEF, lang="en")
+    assert {k: v[0] for k, v in en.items()} == {"copy0": "mixed_language"}
+    assert generate.check({"copy0": SocialCopy(platform="x", text="ア이스")}, lv, BRIEF) == {"copy0": ("no_meme", "고른 밈이 글에 없음")}
 
 
 def test_rules_catch_copy_that_talks_about_the_meme():

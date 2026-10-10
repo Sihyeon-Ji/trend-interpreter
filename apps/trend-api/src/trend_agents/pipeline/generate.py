@@ -92,6 +92,9 @@ def _meme_lines(con: Connection, terms, names: set[str] = frozenset()) -> str:
 # 그 말로 쓴 글에 넣을 수 있는 표기 — 로마자 표기는 어디서나, 그 밖에는 그 말의 글자로 쓴 표기만
 _SCRIPT = {"ko": r"[가-힣]", "ja": r"[぀-ヿ一-鿿]", "zh-Hant": r"[一-鿿]", "th": r"[฀-๿]"}
 _NON_LATIN = re.compile(r"[^\x00-\x7fÀ-ɏḀ-ỿ]")
+# 목표 언어 결과물에 들어가면 안 되는 글자 — 일본어 대본에 'ア이스黒糖ラテ'·한국어 장면 설명이 섞였다(9차 판정). 라틴 글자는 어느 말에서나 상품명·약어로 쓰여 세지 않는다
+_LATIN_LANG_FOREIGN = r"[가-힣ㄱ-ㆎ぀-ヿ一-鿿฀-๿]"
+_FOREIGN = {"ko": r"[぀-ヿ฀-๿]", "ja": r"[가-힣ㄱ-ㆎ฀-๿]", "zh-Hant": r"[가-힣ㄱ-ㆎ฀-๿]", "th": r"[가-힣ㄱ-ㆎ぀-ヿ一-鿿]"}
 
 
 def writable(t, region: str, regions) -> bool:
@@ -133,6 +136,33 @@ def _text(item) -> str:
     return str(item)
 
 
+def _target_text(item) -> str:
+    """목표 언어로 써야 하는 칸만 — 썸네일의 배치·대상·색은 화면 언어로 쓰는 설명이다."""
+    if isinstance(item, SocialCopy):
+        return " ".join([item.text, *item.hashtags])
+    if isinstance(item, ThumbnailPlan):
+        return item.headline
+    return _text(item)
+
+
+def mixed_script(text: str, lang: str, terms) -> str:
+    """목표 언어가 아닌 글자가 든 낱말. 밈 이름·별칭과 따옴표 안(인용)은 뺀다. 없으면 빈 문자열."""
+    for t in terms:
+        for n in sorted((t.canonical, *t.aliases), key=len, reverse=True):
+            if n:
+                text = text.replace(n, " ")
+    text = re.sub(r"'[^']*'|\"[^\"]*\"|‘[^’]*’|“[^”]*”|「[^」]*」|『[^』]*』", " ", text)
+    m = re.search(_FOREIGN.get(lang, _LATIN_LANG_FOREIGN), text)
+    if not m:
+        return ""
+    start, end = m.start(), m.end()
+    while start > 0 and not text[start - 1].isspace():
+        start -= 1
+    while end < len(text) and not text[end].isspace():
+        end += 1
+    return text[start:end][:20]
+
+
 def x_length(text: str) -> int:
     """X 가 세는 글자 수(twitter-text v3 가중치): U+0000–U+10FF 와 일부 문장부호는 1, 그 밖(한글·가나·한자·이모지·베트남어 합성 글자)은 2.
     이모지 조합(ZWJ 연결)은 조금 더 세게 잡힌다 — 넘치지 않는 쪽으로 틀린다."""
@@ -156,8 +186,10 @@ def meta_mention(text: str, terms) -> str:
     return next((n for t in terms for n in (t.canonical, *t.aliases) if n and _meta_pattern(n).search(text)), "")
 
 
-def check(items: dict[str, object], terms, brief: ProductBrief, names: set[str] = frozenset()) -> dict[str, tuple[str, str]]:
-    """규칙 검사 — {id: (코드, 한국어 설명)}. 모델을 부르지 않는다. names 는 짤·형식 이름인 밈 — 카피 대신 썸네일에 있어야 한다."""
+def check(items: dict[str, object], terms, brief: ProductBrief, names: set[str] = frozenset(),
+          lang: str | None = None) -> dict[str, tuple[str, str]]:
+    """규칙 검사 — {id: (코드, 한국어 설명)}. 모델을 부르지 않는다. names 는 짤·형식 이름인 밈 — 카피 대신 썸네일에 있어야 한다.
+    lang 은 결과물의 목표 언어 — 주면 다른 언어 글자가 섞인 것을 뺀다."""
     out: dict[str, tuple[str, str]] = {}
     in_copy = [t for t in terms if t.term_id not in names] or None
     avoid = [a for a in brief.avoid if len(a) >= 2]
@@ -176,6 +208,8 @@ def check(items: dict[str, object], terms, brief: ProductBrief, names: set[str] 
             out[k] = ("avoid_word", f"제품 설명이 피하라고 한 표현이 들어 있음: {hit}")
         elif isinstance(item, SocialCopy) and (meta := meta_mention(item.text, terms)):
             out[k] = ("meta_meme", f"밈을 문장 속 말로 쓰지 않고 소개함: {meta}")
+        elif lang and (word := mixed_script(_target_text(item), lang, terms)):
+            out[k] = ("mixed_language", f"{LANG_NAME.get(lang, lang)}가 아닌 글자가 섞임: {word}")
     return out
 
 
@@ -243,7 +277,7 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     names = name_memes(con, terms)
     first, source = _generate(con, terms, brief, region, tone, "", ui, names)
     calls = 1
-    problems = check(_items(first), terms, brief, names)
+    problems = check(_items(first), terms, brief, names, lang)
     kept = {k: v for k, v in _items(first).items() if k not in problems}
     dropped: list[Dropped] = []
     if problems:
@@ -251,7 +285,7 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
         calls += 1
         try:
             second, _ = _generate(con, terms, brief, region, tone, feedback, ui, names)
-            again, redo = check(_items(second), terms, brief, names), _items(second)
+            again, redo = check(_items(second), terms, brief, names, lang), _items(second)
         except Unavailable:
             # 다시 만들기가 실패해도(예산·장애·형식 오류) 첫 안에서 통과한 것은 돌려준다 — 통째로 503 이 났다(검토 3차)
             again, redo = {}, {}
