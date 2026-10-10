@@ -1,8 +1,21 @@
 # WIF 배포 계정 분리: 배포 계정은 gcp environment job만
 
-작성일 **2026-10-06** · 상태 **코드 준비 완료, GCP 미적용 – 브랜치 `security/wif-environment`(`2b8f474`)** · 관련 [Plan 11 공개 저장소와 GCP 배포 승인](../plans/archive/11-public-repository-release-protection.md) · [GCP 운영](GCP-운영.md)
+작성일 **2026-10-06** · 상태 **적용(10-10) – 바인딩을 subject 대신 토큰 속성으로** · 관련 [Plan 11 공개 저장소와 GCP 배포 승인](../plans/archive/11-public-repository-release-protection.md) · [GCP 운영](GCP-운영.md)
 
 저장소를 공개하기 전에 GitHub Actions가 GCP 권한을 받는 경계를 좁힌다. 이 문서는 문제, 바꾼 것, 적용 순서, 확인과 되돌리기를 한곳에 적는다.
+
+## 2026-10-10 적용과 바꾼 점
+
+브랜치를 develop에 합치고(a8eddb9) Terraform을 적용했지만, 이미지 job이 `iam.serviceAccounts.getAccessToken` 403으로 두 번 실패했다(다시 실행해도 같음, IAM 반영 지연이 아님). 이미지 계정 바인딩은 문서의 subject `repo:Sihyeon-Ji/2026-google-ai-builder-cup:ref:refs/heads/release/gcp`와 정확히 같았으므로 이 저장소 토큰의 실제 subject가 그 형식이 아니다. 거부된 호출은 감사 로그에 subject가 남지 않아 실제 값은 확인하지 못했다.
+
+그래서 subject에 기대지 않게 바꿨다.
+
+| 계정 | 바인딩 |
+| --- | --- |
+| `builder-cup-deploy` | `principalSet://…/attribute.environment/gcp` – provider에 `attribute.environment`(environment 없는 job은 `'none'`)를 더했다 |
+| `builder-cup-image-push` | `principalSet://…/attribute.repository_id/1369991299` – provider 조건이 이미 이 저장소의 `release/gcp` push만 받는다 |
+
+environment가 없는 job은 `attribute.environment`가 `'none'`이라 배포 계정을 쓸 수 없다는 처음 목적은 그대로다. 이미지 계정은 `gcp` environment job도 쓸 수 있지만 이미지 쓰기 권한뿐이다.
 
 ## 문제
 

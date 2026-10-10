@@ -177,24 +177,27 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "google.subject"          = "assertion.sub"
     "attribute.repository_id" = "assertion.repository_id"
     "attribute.repository"    = "assertion.repository"
+    # Jobs without an environment have no environment claim; a missing claim would fail the token exchange.
+    "attribute.environment" = "has(assertion.environment) ? assertion.environment : 'none'"
   }
   attribute_condition = "assertion.repository_id == '${var.github_repository_id}' && assertion.repository_owner_id == '${var.github_owner_id}' && assertion.ref == 'refs/heads/release/gcp' && assertion.event_name == 'push'"
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
 
-# GitHub sets the OIDC subject to repo:<owner>/<repo>:environment:<name> for a job with an environment and to
-# repo:<owner>/<repo>:ref:<ref> otherwise. Only jobs in the gcp environment (approval once the repository is public)
-# can act as the deployer; the release branch's other jobs can only push images (Plan 11).
+# Only jobs in the gcp environment (approval once the repository is public) can act as the deployer; the release
+# branch's other jobs can only push images (Plan 11). The bindings use token attributes, not the subject: a binding on
+# the documented subject repo:<owner>/<repo>:ref:<ref> was denied for the image job (2026-10-10), so this repository's
+# subject format is not relied on. The provider condition already limits every token to a push to release/gcp.
 resource "google_service_account_iam_member" "github" {
   service_account_id = google_service_account.deploy.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:environment:gcp"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.environment/gcp"
 }
 
 resource "google_service_account_iam_member" "github_image_push" {
   service_account_id = google_service_account.image_push.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${var.github_repository}:ref:refs/heads/release/gcp"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
 }
 
 resource "terraform_data" "dashboard_definition" {
