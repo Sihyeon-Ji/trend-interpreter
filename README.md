@@ -55,13 +55,13 @@ A marketer needs the meaning, where it lives, whether it is fading and where it 
 
 ### Screens
 
-| Explore: memes in use, fading or needing care per market | Dictionary entry: can I use it, meaning and sources |
+| Explore: memes in use, fading or needing care, here for English markets | Dictionary entry: can I use it, meaning and sources (“cooked”) |
 | --- | --- |
-| ![Explore](docs/images/explore.png) | ![Dictionary entry](docs/images/entry.png) |
+| ![Explore](docs/images/explore-en.png) | ![Dictionary entry](docs/images/entry-en.png) |
 | **Trend briefing: a one-page market report** | **World map: memes per market and across borders** |
 | ![Trend briefing](docs/images/briefing.png) | ![World map](docs/images/map.png) |
 
-Screens of the deployed service on data collected on 9 October 2026.
+Screens of the deployed service in English, on data collected on 9 October 2026. Memes stay in their own script; explanations follow the interface language.
 
 ## How AI is used
 
@@ -95,9 +95,9 @@ What we measured, with numbers and limits, and what is still open: [EVALUATION.m
 
 ## Architecture
 
-![Architecture: building the dictionary in the batch, then rules pick, Gemini writes, rules check and a person approves at request time](docs/images/architecture.svg)
+![Architecture: building the dictionary in the batch, then rules pick, Gemini writes, rules check and a person approves at request time](docs/images/architecture.png)
 
-Rules decide (grey boxes), models write and classify (dashed boxes), people approve (black boxes).
+Solid boxes are code and rules, dashed boxes are models, and the blue icon marks where a person approves.
 
 ## Google Cloud services
 

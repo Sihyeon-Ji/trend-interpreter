@@ -50,9 +50,9 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 ### 화면
 
-| 둘러보기: 시장별로 쓰이는 말·식어 가는 말·조심할 말 | 사전 항목: 써도 되나, 뜻과 출처 |
+| 둘러보기: 쓰이는 말·식어 가는 말·조심할 말(영어권 시장) | 사전 항목: 써도 되나, 뜻과 출처(“cooked”) |
 | --- | --- |
-| ![둘러보기](docs/images/explore.png) | ![사전 항목](docs/images/entry.png) |
+| ![둘러보기](docs/images/explore-en.png) | ![사전 항목](docs/images/entry-en.png) |
 | **트렌드 브리핑: 시장 보고서 한 장** | **세계 지도: 시장별·나라를 건넌 밈** |
 | ![트렌드 브리핑](docs/images/briefing.png) | ![세계 지도](docs/images/map.png) |
 
@@ -84,9 +84,9 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 ## 구조
 
-![구조: 배치에서 사전을 만들고, 요청 때는 규칙이 고르고 Gemini가 쓰고 규칙이 검사하고 사람이 승인한다](docs/images/architecture.svg)
+![구조: 배치에서 사전을 만들고, 요청 때는 규칙이 고르고 Gemini가 쓰고 규칙이 검사하고 사람이 승인한다](docs/images/architecture.png)
 
-회색 칸은 규칙, 점선 칸은 모델, 검은 칸은 사람입니다.
+실선 칸은 코드·규칙, 점선 칸은 모델이고, 파란 아이콘은 사람이 승인하는 곳입니다.
 
 ## Google Cloud 사용
 
