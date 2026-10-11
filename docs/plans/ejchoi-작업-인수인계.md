@@ -4,13 +4,13 @@
 
 [계획 목록](README.md) · [ejchoi 확인 요청](ejchoi-확인-요청.md) · [발표 자료](ejchoi-submission-deck.md) · [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) · [제출 양식 문안](../대회/제출/제출-양식-문안.md) · [데모 영상(sng_j)](sng_j-demo-video.md)
 
-10-12부터 제출까지 ejchoi 몫으로 생기는 일을 sng_j가 이어서 한다. 코드·문서는 10-11에 끝났고(`0d4e38a`까지 develop), 남은 것은 결과를 채워 넣는 일과 운영 작업이다. GCP 자원·운영 비밀값·배포는 지시현 확인이 필요하다(표의 '확인').
+10-12부터 제출까지 ejchoi 몫으로 생기는 일을 sng_j가 이어서 한다. 코드·문서는 10-11에 끝났고 운영 배포까지 마쳤다(`34d3ea7`). 남은 것은 결과를 채워 넣는 일과 운영 작업이다. GCP 자원·운영 비밀값·배포는 지시현 확인이 필요하다(표의 '확인').
 
 ## 한눈에
 
 | 언제 | 할 일 | 누가 | 절 |
 | --- | --- | --- | --- |
-| 10-14 코드 동결 전 | 배포: 심사용 계정·Gemma 실행 기록 코드(`f5393fa`, migration 024) | sng_j, 확인 지시현 | [1](#1-배포) |
+| ~~10-14 코드 동결 전~~ | ~~배포: 심사용 계정·Gemma 실행 기록 코드~~ – **10-11 ejchoi가 배포·확인 완료** | – | [1](#1-배포) |
 | 10-15 | 운영 GPU VM 만들기 | 지시현 | [2](#2-gpu와-gemma-실행-기록) |
 | 10-16 갱신 뒤 | 사람 결정 누락 확인(Know Your Meme·relatable) | 지시현·sng_j | [3](#3-10-16-갱신-뒤-확인) |
 | 10-16 갱신 뒤 | GPU 켜서 Gemma 실행 기록 남기고 끄기 | sng_j | [2](#2-gpu와-gemma-실행-기록) |
@@ -21,7 +21,9 @@
 
 ## 1. 배포
 
-develop에는 있지만 운영에 없는 것: 심사용 읽기 전용 계정, Gemma 마지막 실행 기록, `/admin/status`의 '기록된 Gemma 실행'. 운영 데이터 작업(게시·갱신)이 없을 때 배포한다.
+**10-11 완료(ejchoi).** `34d3ea7`을 `release/gcp`로 배포했다(Release GCP 성공, 운영 API `trend-production-api-00072-fey`·웹 `trend-production-web-00066-xop`, 10:48Z). 공개 화면 200, 관리 화면은 로그인으로 넘어가고, 새 주소(`/api/live-risk`·`/api/risk-rerun`·`/api/gpu-status`)는 로그인 없이 401, API 오류 로그 없음. migration 024(실행 기록 표)도 운영 DB에 적용됐다.
+
+이후 코드가 바뀌어 다시 배포할 때의 절차는 아래와 같다. 운영 데이터 작업(게시·갱신)이 없을 때 배포한다.
 
 ```bash
 docker compose run --rm --build check
