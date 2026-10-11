@@ -18,8 +18,13 @@ and their reaction was split, 42% liking it and 32% not
 ([Morning Consult, 2024-12-09](https://intel.morningconsult.com/mc-content/analysis/brands-social-media-trends)).
 Getting the meaning or the origin wrong is public: in October 2023 the Korean e-commerce platform Wemakeprice sent a
 sale message in the speech style of a convicted fraudster that had become a meme, and was criticised for making
-light of the crime ([eToday, 2023-10-30](https://www.etoday.co.kr/news/view/2297322)). Across markets the same
-gesture or phrase can read differently; Swatch withdrew a campaign image in China in 2025 after a gesture in it was
+light of the crime ([eToday, 2023-10-30](https://www.etoday.co.kr/news/view/2297322)).
+In May 2026 Starbucks Korea ran a "Tank Day" tumbler promotion on the anniversary of the 1980 Gwangju Democratic Uprising, whose crackdown used tanks; it was pulled within
+hours, the CEO was fired and shares of its parent Emart fell 6% the next day
+([The Korea Herald, 2026-05-19](https://www.koreaherald.com/article/10741050)). Slang itself carries a cost: a 2025
+Journal of Marketing Research study found shoppers tend to read brand slang as inauthentic, younger ones about as
+negatively as older ones ([BakeryandSnacks, 2026-08-21](https://www.bakeryandsnacks.com/Article/2026/08/21/why-internet-slang-can-damage-food-and-drink-brands/)).
+Across markets the same gesture or phrase can read differently; Swatch withdrew a campaign image in China in 2025 after a gesture in it was
 seen as derogatory ([PBS NewsHour](https://www.pbs.org/newshour/amp/world/swatch-apologizes-for-ad-showing-gesture-seen-as-derogatory-and-racist)).
 A marketer needs the meaning, where it lives, whether it is fading and where it came from, before posting.
 

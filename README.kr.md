@@ -17,6 +17,10 @@
 ([Morning Consult, 2024-12-09](https://intel.morningconsult.com/mc-content/analysis/brands-social-media-trends)).
 뜻이나 기원을 잘못 알면 공개적으로 문제가 됩니다. 2023년 10월 위메프는 사기 전과자의 말투에서 나온 밈으로 특가 알림을
 보냈다가 범죄를 희화화한다는 비판을 받았습니다([이투데이, 2023-10-30](https://www.etoday.co.kr/news/view/2297322)).
+2026년 5월 스타벅스 코리아는 5·18 기념일에 '탱크데이' 텀블러 행사를 열었다가 몇 시간 만에 중단했고, 대표가 경질됐으며 모회사 이마트
+주가는 다음 날 6% 떨어졌습니다([The Korea Herald, 2026-05-19](https://www.koreaherald.com/article/10741050)).
+신조어 자체에도 비용이 있습니다. 2025년 Journal of Marketing Research 연구는 소비자가 브랜드의 신조어를 진정성 없게 보고, 젊은 층도
+나이 든 층만큼 부정적이었다고 보고했습니다([BakeryandSnacks, 2026-08-21](https://www.bakeryandsnacks.com/Article/2026/08/21/why-internet-slang-can-damage-food-and-drink-brands/)).
 같은 몸짓이나 말도 시장마다 다르게 읽힙니다. 스와치는 2025년 중국에서 광고 사진 속 몸짓이 비하로 읽혀 사진을 내렸습니다
 ([PBS NewsHour](https://www.pbs.org/newshour/amp/world/swatch-apologizes-for-ad-showing-gesture-seen-as-derogatory-and-racist)).
 마케터는 올리기 전에 뜻, 쓰이는 곳, 식고 있는지, 어디서 왔는지를 알아야 합니다.
