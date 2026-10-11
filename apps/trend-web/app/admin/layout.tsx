@@ -35,6 +35,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             { id: "/admin/status", href: "/admin/status", label: t(locale, "adm_tab_status") },
           ]} />
         </PageHeader>
+        {session?.readOnly && (
+          <p role="note" className="rounded-md border border-hairline-strong px-4 py-3 text-[14px] text-charcoal">{t(locale, "adm_readonly")}</p>
+        )}
         {children}
       </div>
     </PageShell>

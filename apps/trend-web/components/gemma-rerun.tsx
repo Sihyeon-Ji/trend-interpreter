@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge, type Tone } from "@/components/status-badge";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
+import { fmtDateTime } from "@/lib/labels";
 
 type Level = "none" | "caution" | "avoid";
 type Sentence = { text: string | null; source: string | null; kind: string; before_polarity: string | null; before_risk: string | null;
@@ -14,9 +15,11 @@ type Sentence = { text: string | null; source: string | null; kind: string; befo
 type Rerun = {
   status: "ok" | "not_ready" | "busy" | "too_few" | "failed";
   public_level: Level | null; before_level: Level | null; after_level: Level | null; after_reasons: string[];
-  changed: number; sentences: Sentence[]; model: string | null; seconds: number | null;
+  changed: number; sentences: Sentence[]; model: string | null; seconds: number | null; checked_at?: string | null;
+  last?: Rerun | null;   // GPU 가 꺼져 있을 때 – 마지막 실제 실행 기록
 };
-type Gpu = { configured: boolean; ready: boolean; model: string | null };
+type Recorded = { term_id: string; canonical: string; kind: "live" | "rerun"; run_at: string; level: Level | null; model: string | null };
+type Gpu = { configured: boolean; ready: boolean; model: string | null; recorded?: Recorded[] };
 type Row = { term_id: string; canonical: string; state: "idle" | "waiting" | "running" | "error"; result?: Rerun };
 
 const MAX = 5;
@@ -94,6 +97,24 @@ export function GemmaRerun({ terms, locale }: { terms: { term_id: string; canoni
           {t(locale, "adm_gpu_recheck")}
         </button>
       </div>
+      {typeof gpu !== "string" && (
+        <div className="space-y-1.5 rounded-md bg-surface px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-ink">{t(locale, "adm_recorded_title")}</p>
+          <p className="text-[12px] text-steel">{t(locale, "adm_recorded_note")}</p>
+          {gpu.recorded && gpu.recorded.length > 0 ? (
+            <ul className="space-y-1 text-[13px]" aria-label={t(locale, "adm_recorded_title")}>
+              {gpu.recorded.map((x) => (
+                <li key={`${x.term_id}-${x.kind}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <a href={`/dictionary/${encodeURIComponent(x.term_id)}`} className="font-medium text-ink underline underline-offset-2">{x.canonical}</a>
+                  <span className="text-steel">{t(locale, x.kind === "live" ? "adm_recorded_live" : "adm_recorded_rerun")}</span>
+                  <LevelBadge level={x.level} locale={locale} />
+                  <span className="tabular-nums text-steel">{fmtDateTime(x.run_at, locale)} · {x.model ?? "–"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-[13px] text-charcoal">{t(locale, "adm_recorded_none")}</p>}
+        </div>
+      )}
       <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
         <label className="space-y-1 text-[13px] text-steel" htmlFor={`${id}-q`}>
           <span className="block">{t(locale, "adm_rerun_pick")}</span>
@@ -141,7 +162,19 @@ function RerunResult({ row, locale }: { row: Row; locale: Locale }) {
       {row.state === "running" && <p className="text-[13px] text-steel">{t(locale, "adm_rerun_running")}</p>}
       {row.state === "error" && <p className="text-[13px] text-avoid">{t(locale, "adm_rerun_error")}</p>}
       {row.state === "idle" && r && r.status !== "ok" && <p className="text-[13px] text-charcoal">{t(locale, MESSAGE[r.status])}</p>}
-      {row.state === "idle" && r && r.status === "ok" && (
+      {row.state === "idle" && r && r.status !== "ok" && r.last && (
+        <>
+          <p className="text-[13px] font-medium text-ink">{fill(t(locale, "adm_rerun_last"), { date: r.last.checked_at ? fmtDateTime(r.last.checked_at, locale) : "–" })}</p>
+          <RerunBody r={r.last} locale={locale} />
+        </>
+      )}
+      {row.state === "idle" && r && r.status === "ok" && <RerunBody r={r} locale={locale} />}
+    </article>
+  );
+}
+
+function RerunBody({ r, locale }: { r: Rerun; locale: Locale }) {
+  return (
         <>
           <dl className="flex flex-wrap gap-x-6 gap-y-2 text-[13px]">
             <div className="space-y-1"><dt className="text-steel">{t(locale, "adm_rerun_before")}</dt><dd><LevelBadge level={r.before_level} locale={locale} /></dd></div>
@@ -175,7 +208,5 @@ function RerunResult({ row, locale }: { row: Row; locale: Locale }) {
           </div>
           <p className="text-[13px] text-steel">{fill(t(locale, "adm_rerun_meta"), { s: r.seconds ?? "–", model: r.model ?? "–" })}</p>
         </>
-      )}
-    </article>
   );
 }

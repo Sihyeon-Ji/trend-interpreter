@@ -58,20 +58,57 @@ class LiveRisk(BaseModel):
     seconds: float | None = None
     checked_at: datetime | None = None
     cached: bool = False
+    last: "LiveRisk | None" = None        # GPU 가 꺼져 있을 때 – 이 용어의 마지막 실제 실행 결과(기록)
+
+
+class RecordedRun(BaseModel):
+    term_id: str
+    canonical: str
+    kind: Literal["live", "rerun"]
+    run_at: datetime
+    level: str | None = None
+    model: str | None = None
 
 
 class GpuStatus(BaseModel):
     configured: bool                      # 이 API 에 GPU gateway 가 설정됐나(운영 Terraform 의 gpu 변수)
     ready: bool                           # 모델이 올라가 답할 수 있나 – 꺼져 있거나 적재 중이면 false
     model: str | None = None
+    recorded: list[RecordedRun] = []      # 마지막 실제 실행 기록이 있는 용어(최근 순) – GPU 가 꺼져 있어도 확인할 수 있다
 
 
-def gpu_status() -> GpuStatus:
+def _save_snapshot(con: Connection, out: "LiveRisk | RiskRerun", kind: str) -> None:
+    con.execute("DELETE FROM live_risk_snapshots WHERE term_id=? AND kind=?", (out.term_id, kind))
+    con.execute("INSERT INTO live_risk_snapshots VALUES (?,?,?,?)",
+                (out.term_id, kind, (out.checked_at or datetime.now(timezone.utc)).isoformat(), out.model_dump_json(exclude={"last"})))
+    con.commit()
+
+
+def _last(con: Connection, term_id: str, kind: str, model):
+    row = con.execute("SELECT payload FROM live_risk_snapshots WHERE term_id=? AND kind=?", (term_id, kind)).fetchone()
+    return model.model_validate_json(row[0]) if row else None
+
+
+def recorded(con: Connection, limit: int = 12) -> list[RecordedRun]:
+    out = []
+    for term_id, kind, run_at, payload in con.execute(
+            "SELECT term_id, kind, run_at, payload FROM live_risk_snapshots ORDER BY run_at DESC LIMIT ?", (limit,)).fetchall():
+        t = ds.get_term(con, term_id)
+        if not t:
+            continue
+        data = (LiveRisk if kind == "live" else RiskRerun).model_validate_json(payload)
+        out.append(RecordedRun(term_id=term_id, canonical=t.canonical, kind=kind, run_at=run_at,
+                               level=data.level if kind == "live" else data.after_level, model=data.model))
+    return out
+
+
+def gpu_status(con: Connection | None = None) -> GpuStatus:
     """데모 전에 GPU 를 켠 뒤 준비됐는지 관리 화면에서 본다. 3초만 기다린다 – 모델을 부르지 않는다."""
     model = config.GPU_GATEWAY_MODEL or None
+    rec = recorded(con) if con is not None else []
     if not gpu_gateway.configured() or not model:
-        return GpuStatus(configured=False, ready=False, model=model)
-    return GpuStatus(configured=True, ready=gpu_gateway.available(model, timeout=READY_WAIT_S), model=model)
+        return GpuStatus(configured=False, ready=False, model=model, recorded=rec)
+    return GpuStatus(configured=True, ready=gpu_gateway.available(model, timeout=READY_WAIT_S), model=model, recorded=rec)
 
 
 def _log(con: Connection, out: "LiveRisk | RiskRerun", kind: str = "live") -> None:
@@ -95,7 +132,7 @@ def run(con: Connection, term) -> LiveRisk:
     if hit and now - hit[0] < CACHE_S:
         return hit[1].model_copy(update={"cached": True})
     if not _run_lock.acquire(blocking=False):
-        return LiveRisk(status="busy", term_id=term.term_id)
+        return LiveRisk(status="busy", term_id=term.term_id, last=_last(con, term.term_id, "live", LiveRisk))
     try:
         out = _run(con, term)
     finally:
@@ -103,6 +140,9 @@ def run(con: Connection, term) -> LiveRisk:
     if out.status == "ok":
         with _cache_lock:
             _cache[term.term_id] = (time.monotonic(), out)
+        _save_snapshot(con, out, "live")
+    else:
+        out = out.model_copy(update={"last": _last(con, term.term_id, "live", LiveRisk)})
     return out
 
 
@@ -187,15 +227,20 @@ class RiskRerun(BaseModel):
     model: str | None = None
     seconds: float | None = None
     checked_at: datetime | None = None
+    last: "RiskRerun | None" = None       # GPU 가 꺼져 있을 때 – 마지막 실제 실행 결과(기록)
 
 
 def rerun(con: Connection, term) -> RiskRerun:
     if not _run_lock.acquire(blocking=False):          # 실시간 분류와 같은 GPU – 한 번에 하나
-        return RiskRerun(status="busy", term_id=term.term_id)
+        return RiskRerun(status="busy", term_id=term.term_id, last=_last(con, term.term_id, "rerun", RiskRerun))
     try:
-        return _rerun(con, term)
+        out = _rerun(con, term)
     finally:
         _run_lock.release()
+    if out.status == "ok":
+        _save_snapshot(con, out, "rerun")
+        return out
+    return out.model_copy(update={"last": _last(con, term.term_id, "rerun", RiskRerun)})
 
 
 def _rerun(con: Connection, term) -> RiskRerun:
@@ -242,3 +287,7 @@ def _rerun(con: Connection, term) -> RiskRerun:
                                   "changed": sum(s.changed for s in sentences), "seconds": round(time.monotonic() - started, 1)})
     _log(con, out, "rerun")
     return out
+
+
+LiveRisk.model_rebuild()
+RiskRerun.model_rebuild()

@@ -12,6 +12,7 @@ export function createBatchDecisionHandler(
     const account = await viewer();
     if (!account) return Response.json({ error: "authentication_required" }, { status: 401, headers });
     if (!account.reviewer) return Response.json({ error: "reviewer_required" }, { status: 403, headers });
+    if (account.readOnly) return Response.json({ error: "readonly_account" }, { status: 403, headers });
     // Production proxies can give Next.js an internal URL while preserving the public Host.
     const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host;
     let sameOrigin = false;

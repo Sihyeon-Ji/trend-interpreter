@@ -1,6 +1,7 @@
 """계정을 만든다/바꾼다. 비밀번호는 해시만 .env 에 남고, 평문은 이 명령의 출력에 한 번만 보여 준다(파일에 쓰지 않는다).
 
   uv run scripts/set_account.py --user admin --reviewer   # 검수자 (사전 승인·제외 가능)
+  uv run scripts/set_account.py --user judge --readonly   # 심사용: 관리 화면을 보고 미리보기만, 승인·결정 불가
   uv run scripts/set_account.py --user demo               # 일반 이용자 (설정만)
   uv run scripts/set_account.py --user demo --password …  # 비밀번호 직접 지정
   uv run scripts/set_account.py --list
@@ -37,6 +38,7 @@ def main() -> None:
     ap.add_argument("--user", default="")
     ap.add_argument("--password", default="")
     ap.add_argument("--reviewer", action="store_true", help="사전 승인·제외 권한 (/admin 접근)")
+    ap.add_argument("--readonly", action="store_true", help="심사용 읽기 전용 검수자 (관리 화면 보기·미리보기만)")
     ap.add_argument("--remove", action="store_true")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args()
@@ -51,7 +53,7 @@ def main() -> None:
     if a.list or not a.user:
         print("계정:")
         for r in accounts:
-            print(f"  {r['user']:12} {'검수자' if r.get('reviewer') else '이용자'}")
+            print(f"  {r['user']:12} {'심사용(읽기 전용)' if r.get('readonly') else '검수자' if r.get('reviewer') else '이용자'}")
         if not accounts:
             print("  (없음)")
         return
@@ -64,7 +66,8 @@ def main() -> None:
         return
 
     password = a.password or secrets.token_urlsafe(12)
-    accounts.append({"user": a.user, "hash": hash_password(password), **({"reviewer": True} if a.reviewer else {})})
+    role = {"reviewer": True, "readonly": True} if a.readonly else ({"reviewer": True} if a.reviewer else {})
+    accounts.append({"user": a.user, "hash": hash_password(password), **role})
     env = put(env, "ACCOUNTS", json.dumps(accounts, ensure_ascii=False))
     if not read(env, "FRONTEND_API_TOKEN"):
         env = put(env, "FRONTEND_API_TOKEN", secrets.token_urlsafe(32))
@@ -77,7 +80,7 @@ def main() -> None:
         we = put(we, "SESSION_SECRET", secrets.token_urlsafe(32))
     web_env.write_text(we, encoding="utf-8")
 
-    print(f"계정 '{a.user}' ({'검수자' if a.reviewer else '이용자'}) 설정 완료")
+    print(f"계정 '{a.user}' ({'심사용(읽기 전용)' if a.readonly else '검수자' if a.reviewer else '이용자'}) 설정 완료")
     print(f"  비밀번호: {password}   ← 지금 안전한 경로로 전달하고 이 출력은 남기지 않는다 (.env 에는 해시만)")
     print("  프론트를 다시 시작해야 토큰이 반영된다")
 

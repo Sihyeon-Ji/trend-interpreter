@@ -29,7 +29,7 @@ export async function getReader(): Promise<Reader> {
 }
 
 /** 로그인한 사람인지, 검수자인지 — 내비게이션과 설정 화면이 쓴다. */
-export async function getViewer(): Promise<{ user: string; reviewer: boolean } | null> {
+export async function getViewer(): Promise<{ user: string; reviewer: boolean; readOnly: boolean } | null> {
   const s = await readSession((await cookies()).get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET ?? "");
-  return s ? { user: s.user, reviewer: s.reviewer } : null;
+  return s ? { user: s.user, reviewer: s.reviewer, readOnly: s.readOnly } : null;
 }

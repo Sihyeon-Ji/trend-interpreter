@@ -6,7 +6,7 @@
 export const SESSION_COOKIE = "admin_session";
 export const SESSION_HOURS = 12;
 
-export type Session = { user: string; reviewer: boolean; exp: number };
+export type Session = { user: string; reviewer: boolean; readOnly: boolean; exp: number };
 
 const enc = new TextEncoder();
 
@@ -28,8 +28,9 @@ async function key(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
-export async function signSession(user: string, reviewer: boolean, secret: string, hours = SESSION_HOURS): Promise<string> {
-  const payload = b64url(enc.encode(JSON.stringify({ u: user, r: reviewer, exp: Math.floor(Date.now() / 1000) + hours * 3600 })));
+/** readOnly(ro): 심사용 계정 – 관리 화면을 보고 미리보기는 하지만 승인·결정은 못 한다. */
+export async function signSession(user: string, reviewer: boolean, secret: string, hours = SESSION_HOURS, readOnly = false): Promise<string> {
+  const payload = b64url(enc.encode(JSON.stringify({ u: user, r: reviewer, ...(readOnly ? { ro: true } : {}), exp: Math.floor(Date.now() / 1000) + hours * 3600 })));
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await key(secret), enc.encode(payload)));
   return `${payload}.${b64url(sig)}`;
 }
@@ -47,9 +48,9 @@ export async function readSession(token: string | undefined, secret: string): Pr
   }
   if (!ok) return null;
   try {
-    const { u, r, exp } = JSON.parse(new TextDecoder().decode(unb64url(payload)));
+    const { u, r, ro, exp } = JSON.parse(new TextDecoder().decode(unb64url(payload)));
     if (typeof u !== "string" || typeof exp !== "number" || exp < Date.now() / 1000) return null;
-    return { user: u, reviewer: r === true, exp };
+    return { user: u, reviewer: r === true, readOnly: ro === true, exp };
   } catch {
     return null;
   }

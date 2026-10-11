@@ -177,9 +177,59 @@ def test_gpu_status_tells_off_loading_and_ready_apart_without_calling_the_model(
     assert c.get("/gpu/status").status_code == 401
     seen = []
     monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: seen.append(timeout) or False)
-    assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json() == {"configured": True, "ready": False, "model": "gemma4:12b"}
+    assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json() == {"configured": True, "ready": False, "model": "gemma4:12b", "recorded": []}
     assert seen == [live_risk.READY_WAIT_S]
     monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: True)
     assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json()["ready"] is True
     monkeypatch.setattr(live_risk.gpu_gateway, "configured", lambda: False)
     assert c.get("/gpu/status", headers={"x-frontend-token": "tok"}).json()["configured"] is False
+
+
+# ── 심사용: 마지막 실제 실행 기록 ──────────────────────────────────────────────────
+
+def test_a_real_run_is_kept_and_shown_when_the_gpu_is_off_later(con, monkeypatch):
+    monkeypatch.setattr(live_risk.news_rss, "fetch_news", lambda *a, **k: news(6))
+    monkeypatch.setattr(live_risk.local_chat, "structured",
+                        lambda *a, **k: [EvidenceLabel(i=i, polarity="positive", risk="none") for i in range(6)])
+    first = live_risk.run(con, ds.get_term(con, "t_lv"))
+    assert first.status == "ok" and first.last is None
+    live_risk._cache.clear()
+    monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: False)
+    later = live_risk.run(con, ds.get_term(con, "t_lv"))
+    assert later.status == "not_ready" and later.last is not None
+    assert later.last.status == "ok" and len(later.last.sentences) == 6 and later.last.model == "gemma4:12b"
+    rec = live_risk.gpu_status(con).recorded
+    assert [(r.term_id, r.kind, r.canonical) for r in rec] == [("t_lv", "live", "럭키비키")]
+
+
+def test_rerun_keeps_its_last_real_result_too(con, monkeypatch):
+    evs = _usage(con)
+    monkeypatch.setattr(live_risk.local_chat, "structured",
+                        lambda *a, **k: [EvidenceLabel(i=i, polarity="negative", risk="politics") for i in range(len(evs))])
+    assert live_risk.rerun(con, ds.get_term(con, "t_lv")).status == "ok"
+    monkeypatch.setattr(live_risk.gpu_gateway, "available", lambda model, timeout=None: False)
+    off = live_risk.rerun(con, ds.get_term(con, "t_lv"))
+    assert off.status == "not_ready" and off.last is not None and off.last.after_level == off.last.after_level
+    assert off.last.changed == 6
+    assert ds.evidence_labels(con, "t_lv") == {e.evidence_id: ("positive", "none") for e in evs}   # 여전히 저장하지 않는다
+
+
+def test_readonly_accounts_can_sign_in_but_cannot_decide(con, monkeypatch):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from trend_agents import auth
+    from trend_agents.api import app as api
+
+    monkeypatch.setattr(api, "_con", con)
+    monkeypatch.setenv("FRONTEND_API_TOKEN", "tok")
+    monkeypatch.setenv("ACCOUNTS", json.dumps([{"user": "judge", "hash": auth.hash_password("pw"), "reviewer": True, "readonly": True}]))
+    c = TestClient(api.app)
+    body = c.post("/auth/login", json={"user": "judge", "password": "pw"}).json()
+    assert body["reviewer"] is True and body["readonly"] is True
+    h = {"x-frontend-token": "tok"}
+    assert c.post("/review/t_lv/risk", json={"level": "avoid", "by": "judge"}, headers=h).status_code == 403
+    assert c.post("/review/t_lv", json={"decision": "approve", "by": "judge"}, headers=h).status_code == 403
+    assert c.post("/review/batches/b1/decision", json={"payload_sha256": "a" * 64, "decision": "approve", "by": "judge"}, headers=h).status_code == 403
+    assert ds.get_term(con, "t_lv").risk_level == "none"

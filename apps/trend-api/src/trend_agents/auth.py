@@ -2,6 +2,7 @@
 
 계정은 .env 의 ACCOUNTS 하나에 JSON 으로 둔다 — 비밀번호는 PBKDF2-SHA256 해시만 저장한다.
   ACCOUNTS=[{"user":"admin","hash":"pbkdf2$...","reviewer":true},{"user":"demo","hash":"pbkdf2$..."}]
+심사용 계정은 "readonly":true 를 더한다 – 관리 화면을 보고 미리보기(Gemma 다시 분류)는 하지만 승인·결정은 못 한다.
 나중에 Firebase Auth 로 갈 때는 `check_account` 만 ID 토큰 검증으로 바꾸고, 검수자 여부는 계정 목록 대신
 Firebase 커스텀 클레임에서 읽으면 된다. 세션·미들웨어·저장 구조는 그대로다.
 """
@@ -21,6 +22,7 @@ ITERATIONS = 200_000
 class Account:
     user: str
     reviewer: bool = False
+    readonly: bool = False
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:
@@ -59,12 +61,17 @@ def check_account(user: str, password: str) -> Account | None:
     """맞으면 계정, 아니면 None. 계정이 하나도 설정돼 있지 않으면 누구도 통과하지 못한다."""
     for row in _accounts():
         if _same(user.strip(), str(row["user"])) and verify_password(password, str(row["hash"])):
-            return Account(user=str(row["user"]), reviewer=bool(row.get("reviewer")))
+            return Account(user=str(row["user"]), reviewer=bool(row.get("reviewer")), readonly=bool(row.get("readonly")))
     return None
 
 
 def is_reviewer(user: str) -> bool:
     return any(str(r["user"]) == user and r.get("reviewer") for r in _accounts())
+
+
+def is_readonly(user: str) -> bool:
+    """심사용 읽기 전용 계정인가 – 결정 API 가 프론트의 검사와 별개로 한 번 더 막는다."""
+    return any(str(r["user"]) == user and r.get("readonly") for r in _accounts())
 
 
 def frontend_token_ok(sent: str | None) -> bool:

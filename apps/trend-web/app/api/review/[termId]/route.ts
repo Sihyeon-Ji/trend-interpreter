@@ -12,6 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ termId:
   if (!session) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
 
   if (!session.reviewer) return NextResponse.json({ error: "이 계정에는 사전 검수 권한이 없습니다." }, { status: 403 });
+  if (session.readOnly) return NextResponse.json({ error: "읽기 전용 계정은 결정할 수 없습니다.", code: "readonly" }, { status: 403 });
 
   const token = process.env.FRONTEND_API_TOKEN;
   if (!token) return NextResponse.json({ error: "서버 설정이 빠졌습니다. 관리자에게 알려 주세요." }, { status: 500 });

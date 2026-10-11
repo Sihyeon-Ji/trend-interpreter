@@ -26,7 +26,7 @@ from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
 from ..pipeline import briefing as briefing_stage, copycheck, live_risk, poster as poster_stage
 from ..schemas import CampaignTone, FitCategory, ProductBrief, RiskLevel, Topic, TrendBoard
-from ..auth import check_account, frontend_token_ok
+from ..auth import check_account, frontend_token_ok, is_readonly
 from ..logging_setup import configure as configure_logging
 from ..storage import db
 from ..storage import dictionary_store as ds
@@ -173,6 +173,12 @@ def _review_access(response: Response, x_frontend_token: str = Header(default=""
     response.headers["Cache-Control"] = "private, no-store"
 
 
+def _writer(user: str) -> None:
+    """심사용 읽기 전용 계정은 결정하지 못한다 – 웹 라우트가 먼저 막고, 여기서 한 번 더."""
+    if is_readonly(user):
+        raise HTTPException(403, "readonly_account")
+
+
 def _public_term(term_id: str):
     t = ds.get_term(_con, term_id)
     if not is_public_entry(t, ds.current_meaning(_con, term_id) if t else None):
@@ -254,6 +260,7 @@ class BatchReviewIn(BaseModel):
 @app.post("/review/batches/{batch_id}/decision", dependencies=[Depends(_review_access)])
 def review_batch_decision(batch_id: str, body: BatchReviewIn):
     # Only the authenticated web server supplies the reviewer identity.
+    _writer(body.by)
     try:
         return publications.review(_con, batch_id, body.payload_sha256, body.by,
                                    approve=body.decision == "approve", allow_gate_exceptions=body.allow_gate_exceptions)
@@ -273,7 +280,7 @@ def login(body: LoginIn):
     acct = check_account(body.user, body.password)
     if not acct:
         raise HTTPException(401, "아이디 또는 비밀번호가 맞지 않습니다")
-    return {"ok": True, "name": acct.user, "reviewer": acct.reviewer}
+    return {"ok": True, "name": acct.user, "reviewer": acct.reviewer, "readonly": acct.readonly}
 
 
 class PrefsIn(BaseModel):
@@ -301,6 +308,7 @@ def decide(term_id: str, body: ReviewIn, x_frontend_token: str = Header(default=
     # 사전의 승인·제외는 프론트의 로그인한 검수자만 거쳐 온다. 토큰이 설정돼 있지 않으면 쓰기 자체가 잠긴다.
     if not frontend_token_ok(x_frontend_token):
         raise HTTPException(401, "검수 권한이 필요합니다")
+    _writer(body.by)
     t = ds.get_term(_con, term_id)
     m = ds.current_meaning(_con, term_id)
     q = ds.pending_review(_con, term_id)
@@ -392,6 +400,7 @@ def decide_risk(term_id: str, body: RiskIn, x_frontend_token: str = Header(defau
     # 리스크 수준도 검수자가 덮어쓸 수 있다(Plan 03). 사람의 결정이 규칙보다 우선한다.
     if not frontend_token_ok(x_frontend_token):
         raise HTTPException(401, "검수 권한이 필요합니다")
+    _writer(body.by)
     t = ds.get_term(_con, term_id)
     if not t:
         raise HTTPException(404, "not found")
@@ -496,7 +505,7 @@ def term_live_risk(term_id: str):
 @app.get("/gpu/status", response_model=live_risk.GpuStatus, dependencies=[Depends(_review_access)])
 def gpu_status():
     """검수자만 – GPU gateway 가 설정됐는지·모델이 올라가 준비됐는지. 데모 전 예열 확인용, 모델은 부르지 않는다."""
-    return live_risk.gpu_status()
+    return live_risk.gpu_status(_con)
 
 
 @app.post("/terms/{term_id}/risk-rerun", response_model=live_risk.RiskRerun, dependencies=[Depends(_review_access)])

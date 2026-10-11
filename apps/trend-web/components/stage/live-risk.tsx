@@ -20,6 +20,7 @@ type LiveRisk = {
   seconds: number | null;
   checked_at: string | null;
   cached: boolean;
+  last?: LiveRisk | null;   // GPU 가 꺼져 있을 때 – 마지막 실제 실행 기록
 };
 
 const MESSAGE = { not_ready: "lr_not_ready", busy: "lr_busy", source_unavailable: "lr_source", failed: "lr_failed" } as const;
@@ -55,29 +56,39 @@ export function LiveRiskPanel({ termId, locale }: { termId: string; locale: Loca
         {r && r.status !== "ok" ? (
           <p>{r.status === "too_few" ? tx(locale, "lr_too_few", { n: r.found }) : tx(locale, MESSAGE[r.status])}</p>
         ) : null}
-        {r && r.status === "ok" ? (
-          <div className="space-y-2">
-            <dl className="rs-term-now">
-              <div><dt>{tx(locale, "lr_now")}</dt><dd><Verdict kind={verdictOf({ risk_level: r.level, risk_checked_at: r.checked_at })} locale={locale} size="s" /></dd></div>
-              <div><dt>{tx(locale, "lr_public")}</dt><dd><Verdict kind={verdictOf({ risk_level: r.batch_level, risk_checked_at: r.checked_at })} locale={locale} size="s" /></dd></div>
-            </dl>
-            <p>{tx(locale, r.same_as_batch ? "lr_same" : "lr_diff")}</p>
-            {r.reasons.length ? <ul lang="ko">{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul> : null}
-            <ul className="rs-quiet">
-              {r.sentences.map((x, i) => (
-                <li key={i}>
-                  <a href={x.url} target="_blank" rel="noreferrer">{x.title}</a> · {x.source} ·{" "}
-                  {x.polarity === "offtopic" ? tx(locale, "lr_offtopic") : `${x.polarity}${x.risk !== "none" ? ` · ${x.risk}` : ""}`}
-                </li>
-              ))}
-            </ul>
-            <p className="rs-quiet">
-              {tx(locale, "lr_meta", { n: r.found, s: r.seconds ?? "–", model: r.model ?? "–" })}
-              {r.cached ? ` · ${tx(locale, "lr_cached")}` : ""}
-            </p>
-          </div>
+        {r && r.status !== "ok" && r.last ? (
+          <>
+            <p><strong>{tx(locale, "lr_last", { date: r.last.checked_at ? new Date(r.last.checked_at).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "–" })}</strong></p>
+            <Result r={r.last} locale={locale} />
+          </>
         ) : null}
+        {r && r.status === "ok" ? <Result r={r} locale={locale} /> : null}
       </div>
     </section>
+  );
+}
+
+function Result({ r, locale }: { r: LiveRisk; locale: Locale }) {
+  return (
+    <div className="space-y-2">
+      <dl className="rs-term-now">
+        <div><dt>{tx(locale, "lr_now")}</dt><dd><Verdict kind={verdictOf({ risk_level: r.level, risk_checked_at: r.checked_at })} locale={locale} size="s" /></dd></div>
+        <div><dt>{tx(locale, "lr_public")}</dt><dd><Verdict kind={verdictOf({ risk_level: r.batch_level, risk_checked_at: r.checked_at })} locale={locale} size="s" /></dd></div>
+      </dl>
+      <p>{tx(locale, r.same_as_batch ? "lr_same" : "lr_diff")}</p>
+      {r.reasons.length ? <ul lang="ko">{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul> : null}
+      <ul className="rs-quiet">
+        {r.sentences.map((x, i) => (
+          <li key={i}>
+            <a href={x.url} target="_blank" rel="noreferrer">{x.title}</a> · {x.source} ·{" "}
+            {x.polarity === "offtopic" ? tx(locale, "lr_offtopic") : `${x.polarity}${x.risk !== "none" ? ` · ${x.risk}` : ""}`}
+          </li>
+        ))}
+      </ul>
+      <p className="rs-quiet">
+        {tx(locale, "lr_meta", { n: r.found, s: r.seconds ?? "–", model: r.model ?? "–" })}
+        {r.cached ? ` · ${tx(locale, "lr_cached")}` : ""}
+      </p>
+    </div>
   );
 }

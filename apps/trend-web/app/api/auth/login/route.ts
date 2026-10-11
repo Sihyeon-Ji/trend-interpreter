@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     return fail("failed", 502);
   }
 
-  const { name, reviewer } = (await res.json()) as { name: string; reviewer?: boolean };
+  const { name, reviewer, readonly } = (await res.json()) as { name: string; reviewer?: boolean; readonly?: boolean };
   const out = isForm
     ? new NextResponse(null, { status: 303, headers: { location: afterLogin(next, !!reviewer) } })
     : NextResponse.json({ ok: true, name, reviewer: !!reviewer });
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   // 브라우저가 쿠키를 아예 저장하지 않아 "로그인은 되는데 로그인 상태가 안 남는" 증상이 된다(2026-09-16 실사고).
   // Cloud Run 은 TLS 를 앞단에서 끊고 x-forwarded-proto 를 붙여 주므로 배포판에서는 그대로 Secure 가 된다.
   const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim() ?? new URL(req.url).protocol.replace(":", "");
-  out.cookies.set(SESSION_COOKIE, await signSession(name, !!reviewer, secret), {
+  out.cookies.set(SESSION_COOKIE, await signSession(name, !!reviewer, secret, SESSION_HOURS, !!readonly), {
     httpOnly: true,
     sameSite: "lax",
     secure: proto === "https",

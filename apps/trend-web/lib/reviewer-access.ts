@@ -1,6 +1,6 @@
 import type { ApiRequestInit } from "./api-transport";
 
-export type Viewer = { user: string; reviewer: boolean };
+export type Viewer = { user: string; reviewer: boolean; readOnly?: boolean };
 
 export class ReviewerAccessError extends Error {
   constructor(readonly status: number, message: string) {

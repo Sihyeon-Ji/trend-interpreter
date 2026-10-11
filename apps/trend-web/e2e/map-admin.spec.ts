@@ -38,8 +38,8 @@ test("world map does not scroll sideways on a phone", async ({ page }) => {
 /* 관리 화면은 검수자 세션이 있어야 열린다. 개발 서버와 같은 SESSION_SECRET 을 PLAYWRIGHT_SESSION_SECRET 으로 주면 돈다. */
 const secret = process.env.PLAYWRIGHT_SESSION_SECRET;
 const b64 = (b: Buffer | string) => Buffer.from(b).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-function reviewerCookie(s: string) {
-  const payload = b64(JSON.stringify({ u: "e2e", r: true, exp: Math.floor(Date.now() / 1000) + 3600 }));
+function reviewerCookie(s: string, readOnly = false) {
+  const payload = b64(JSON.stringify({ u: "e2e", r: true, ...(readOnly ? { ro: true } : {}), exp: Math.floor(Date.now() / 1000) + 3600 }));
   return `${payload}.${b64(createHmac("sha256", s).update(payload).digest())}`;
 }
 
@@ -68,6 +68,16 @@ test.describe("admin", () => {
     await expect(panel.getByRole("button", { name: /럭키비키 빼기|Remove 럭키비키/ })).toBeVisible();
     await panel.getByRole("button", { name: /Gemma로 다시 분류|Classify again with Gemma/ }).click();
     await expect(panel.getByRole("log")).toContainText(/GPU가 꺼져 있거나|The GPU is off/);   // 기다리지 않고 바로 안내
+  });
+
+  test("a read-only judge account sees the admin pages, is told it cannot decide, and the risk decision is refused", async ({ page, context, baseURL }) => {
+    await context.clearCookies();
+    await context.addCookies([{ name: "admin_session", value: reviewerCookie(secret!, true), url: baseURL ?? "http://localhost:3000" }]);
+    await page.goto("/admin/status");
+    await expect(page.getByRole("note")).toContainText(/읽기 전용 계정|Read-only account/);
+    await expect(page.getByRole("region", { name: /Gemma 수동 실행|Run Gemma by hand/ })).toBeVisible();
+    const res = await page.request.post("/api/review/t_luckyvicky/risk", { data: { level: "avoid" }, headers: { origin: baseURL ?? "http://localhost:3000" } });
+    expect(res.status()).toBe(403);
   });
 
   test("review shows evidence before a decision and the decision can be undone", async ({ page }) => {
