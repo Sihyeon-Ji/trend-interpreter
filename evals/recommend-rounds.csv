@@ -1,0 +1,7 @@
+round,date,data,cases_completed,cases,fitting_picks,picks,risky_shown_as_no_issue,copy_as_meant,copies,copy_usability_1to3,copy_ready,change_before_this_round
+4,2026-10-09,production copy 20261005,7,12,6,15,0,4,7,2.00,2,first run with request-time Gemini on the 12 cases
+5,2026-10-09,production copy 20261005,7,12,4,7,0,5,7,2.60,4,copy may not introduce the meme by name; non-meme entries removed by reviewers
+6,2026-10-09,production copy 20261005,8,12,10,16,0,5,8,1.90,2,people and works (topics) no longer recommended; usage words relabelled
+7,2026-10-09,production copy 20261005,8,12,11,13,0,8,8,2.75,6,usage words fixed by people for 56 of 170 candidates; generic words only for matching categories
+8,2026-10-10,production copy 20261009,9,12,10,15,2,6,9,2.22,3,data refreshed on 10-09 brought new candidates without a risk verdict
+9,2026-10-10,production copy 20261009,8,12,10,11,0,7,8,2.50,4,human risk decisions for 36 candidates; usage words fixed for 4 more; hashtag duplication fixed

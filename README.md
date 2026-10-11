@@ -2,10 +2,24 @@
 
 English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/개발환경/처음-설치.md)
 
-**Trend Interpreter**: a cross-generation, cross-culture trend interpretation service for the
-AI Builder Cup 2026. The repository holds the Next.js web app, the FastAPI API with its collection
-and dictionary pipeline, the Discord alert relay, and the GCP infrastructure.
-Other candidate projects under `prototype/` are kept for reference only.
+**Trend Interpreter** turns one product into local copy for Korea, Japan and English-language markets, using
+memes that are in use there now and safe for a brand – with a source behind every claim and a person approving
+before anything goes out.
+
+Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Experiences** · Team **COPYBARA**
+
+| | |
+| --- | --- |
+| Live prototype | Added at submission (Cloud Run) |
+| Demo video (under 3 minutes) | Added at submission |
+| Evaluation | [EVALUATION.md](EVALUATION.md) · per-round totals in [`evals/`](evals/recommend-rounds.csv) |
+| Architecture | [Diagram](#architecture) · [architecture document](docs/운영/시스템-아키텍처.md) (Korean) |
+
+![Create: for each market, rules pick a meme that is safe to use now, AI writes the copy, rules check it again and a person approves](docs/images/create.png)
+
+The repository holds the Next.js web app, the FastAPI API with its collection and dictionary pipeline, the
+Discord alert relay, and the GCP infrastructure. Other candidate projects under `prototype/` are kept for
+reference only.
 
 ## What it does
 
@@ -39,6 +53,16 @@ A marketer needs the meaning, where it lives, whether it is fading and where it 
 | World map and recent changes | Where a meme is used and what changed lately |
 | Reviewer console | Human approval queue for new meanings, corrections and risk decisions |
 
+### Screens
+
+| Explore: memes in use, fading or needing care per market | Dictionary entry: can I use it, meaning and sources |
+| --- | --- |
+| ![Explore](docs/images/explore.png) | ![Dictionary entry](docs/images/entry.png) |
+| **Trend briefing: a one-page market report** | **World map: memes per market and across borders** |
+| ![Trend briefing](docs/images/briefing.png) | ![World map](docs/images/map.png) |
+
+Screens of the deployed service on data collected on 9 October 2026.
+
 ## How AI is used
 
 Rules decide, models write. Listing, lifecycle, verification status, risk level, list filtering and
@@ -68,6 +92,12 @@ Where this shows in the deployed app:
   rules grade both, and the page says so at once when the GPU is off.
 
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
+
+## Architecture
+
+![Architecture: building the dictionary in the batch, then rules pick, Gemini writes, rules check and a person approves at request time](docs/images/architecture.svg)
+
+Rules decide (grey boxes), models write and classify (dashed boxes), people approve (black boxes).
 
 ## Google Cloud services
 

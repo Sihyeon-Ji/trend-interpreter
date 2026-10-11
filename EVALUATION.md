@@ -90,6 +90,19 @@ brought new, unjudged candidates, which is why round 9 follows the human risk de
 
 Latency in round 4: recommend p50 6.6 s (max 14.1 s), create p50 16.3 s (max 27.9 s).
 
+Per-round totals are in [`evals/recommend-rounds.csv`](evals/recommend-rounds.csv). To run the cases again
+against a database (a read-only copy of production, so the evaluation does not use production's daily call
+ledger), from `apps/trend-api`:
+
+```bash
+uv run scripts/eval_recommend.py                          # request-time Gemini, 12 cases
+uv run scripts/eval_recommend.py --briefs <earlier run>   # reuse that run's product briefs to compare rules only
+```
+
+The script measures what rules can (latency, picks, dropped lines by code, risk and lifecycle of picks) and
+writes a table for people to fill in: fit, risky picks shown as safe, meaning and usability. Generated copy and
+the filled tables stay outside the repository.
+
 **Limits.** Judgments are AI drafts reviewed by one team member, not an independent panel. Four cases return no
 pick (Korean cosmetics and three Japanese products): most Japanese cards are fading memes or entertainment-only.
 Using a meme image such as Wojak in an ad needs a rights check that the tool does not do.
