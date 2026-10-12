@@ -128,7 +128,7 @@ function MemeRow({ m, locale, where, region }: { m: CopyMeme; locale: Locale; wh
           <ul className="space-y-1 text-[14px] leading-[1.55] text-ink">
             {m.issues.map((i) => (
               <li key={i.code} className="flex gap-2">
-                <span aria-hidden className={i.code === "avoid" ? "text-avoid" : "text-caution"}>•</span>
+                <span aria-hidden className={i.code === "avoid" || i.code === "crude" ? "text-avoid" : "text-caution"}>•</span>
                 <span>
                   {fill(t(locale, `issue_${i.code}` as StringKey), { region: where })}
                   {i.code === "caution" && locale === "ko" && i.note && <span className="mt-0.5 block text-[13px] text-steel">{i.note}</span>}

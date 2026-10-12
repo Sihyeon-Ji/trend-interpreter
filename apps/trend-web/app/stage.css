@@ -427,6 +427,22 @@
 .r-stage .rs-approve-btn { height: 52px; padding: 0 26px; font-size: 16px; }
 .r-stage .rs-approve-flag { font-size: 14px; font-weight: 600; color: var(--rs-caution); }
 .r-stage .rs-approve-wait { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--rs-slate); }
+/* 막힘 — 쓰지 말라고 한 말이 든 문구. 판정 색은 글씨에만(칠하거나 띠를 두르지 않는다) */
+.r-stage .rs-approve-block { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.r-stage .rs-approve-block > p { font-weight: 600; color: var(--rs-avoid); }
+.r-stage .rs-approve-block ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--rs-ink-2); }
+.r-stage .rs-approve-block b { font-weight: 600; margin-right: 6px; }
+.r-stage .rs-approve-login { font-size: 14px; color: var(--rs-ink-2); }
+.r-stage .rs-approve-login .rs-link { font-weight: 600; }
+.r-stage .rs-rights { font-size: 13px; }
+/* 검수 요청을 보낸 뒤 — 기다림·반려 */
+.r-stage .rs-asked { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.r-stage .rs-asked > p:first-child { display: flex; flex-direction: column; gap: 2px; }
+.r-stage .rs-asked > p:first-child b { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; color: var(--rs-blue); }
+.r-stage .rs-asked[data-state="rejected"] > p:first-child b { color: var(--rs-ink); }
+.r-stage .rs-asked > p:first-child span { font-size: 13px; color: var(--rs-slate); }
+.r-stage .rs-memo { font-size: 14px; color: var(--rs-ink-2); }
+.r-stage .rs-memo span { font-weight: 600; margin-right: 8px; color: var(--rs-slate); }
 .r-stage .rs-signed { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .r-stage .rs-signed p { display: flex; flex-direction: column; }
 .r-stage .rs-signed p b { font-size: 16px; color: var(--rs-blue); }
@@ -451,6 +467,8 @@
 .r-stage .rs-rail li[data-state="flag"] .rs-rail-bar { background: var(--rs-caution); }
 .r-stage .rs-rail li[data-state="flag"] .rs-rail-label { color: var(--rs-caution); }
 .r-stage .rs-rail li[data-state="fail"] .rs-rail-bar { background: var(--rs-avoid); }
+.r-stage .rs-rail li[data-state="block"] .rs-rail-bar { background: var(--rs-avoid); }
+.r-stage .rs-rail li[data-state="block"] .rs-rail-label { color: var(--rs-avoid); }
 .r-stage .rs-rail li[data-state="skip"] .rs-rail-bar { background: repeating-linear-gradient(90deg, var(--rs-line) 0 4px, transparent 4px 8px); }
 .r-stage .rs-rail li[data-who="human"][data-state="done"] .rs-rail-bar { background: var(--rs-blue); }
 .r-stage .rs-rail li[data-who="human"][data-state="done"] .rs-rail-label { color: var(--rs-blue); }

@@ -71,7 +71,7 @@ export function Frame({ locale, font, signedIn, nick, reviewer, review, sample, 
     { href: "/trends", label: tx(locale, "nav_explore"), on: path.startsWith("/trends") || path.startsWith("/dictionary/") },
     ...TOOLS.map((i) => ({ href: i.href, label: t(locale, i.key), on: on(path, i.href) })),
   ];
-  const signed = run?.cols.filter((c) => c.sign).length ?? 0;
+  const signed = run?.cols.filter((c) => c.approval?.status === "approved").length ?? 0;
   // 로그인하면 보던 화면으로 돌아온다. next 는 로그인 화면이 safeNext 로 거른다
   const account = {
     href: signedIn ? "/me" : path === "/" || path.startsWith("/login") ? "/login" : `/login?next=${encodeURIComponent(path)}`,

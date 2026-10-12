@@ -2,19 +2,20 @@
 
 import { ArrowUpRight, Copy as CopyIcon, ListChecks, RotateCw, Sparkles, Stamp } from "lucide-react";
 import Link from "next/link";
-import { ViewTransition, useState } from "react";
+import { ViewTransition, useEffect, useState } from "react";
+import { isBlocking } from "@/lib/approval";
 import { glossFor } from "@/lib/gloss";
 import { koOrEn, type Locale } from "@/lib/i18n";
 import { L, gap, sep, sourceLabel, sourceName } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
-import type { CopyIssue, ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
+import type { ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
 import { ActorTag, MemeWord, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
 import { Count } from "./count";
 import { LANG_NAME, MARKET_LANG, diffusionWord, marketName, tx, type CopyKey, type Market } from "./copy";
 import { MiniGlobe } from "./globe";
 import { useElapsed, useFirstPlay, useHydrated } from "./play";
-import { StepRail, flaggedCount, issuesFor, stepsOf } from "./rail";
-import { focusMarket, redo, restart, sign, unsign, useStage, type Column, type Run } from "./store";
+import { StepRail, blockedAt, flaggedCount, issuesAt, stepsOf } from "./rail";
+import { focusMarket, opinionOf, redo, refreshApprovals, restart, submitApproval, useStage, type Column, type Run } from "./store";
 
 /* 시장별 초안 — 같은 무대에서 세 시장이 차례로 조립된다. 고른 말이 셋 나란히 선 한 박자 뒤, 일하는 시장이 앞(가운데 넓은 칸)으로 나오고
    나머지 둘은 옆으로 비켜서서 진행만 보인다. 사람이 시장을 누르면 그 시장을 앞으로 부르고, 그 뒤로는 자동으로 따라가지 않는다. */
@@ -25,10 +26,18 @@ const KIND_NOUN: Record<Locale, Record<string, string>> = {
   ja: { wiki: "記事", web: "ページ", news: "記事", short: "動画" },
 };
 
+/** 초안을 보는 사람 — 익명(null)·로그인한 계정·검수자·읽기 전용(심사용). 승인은 검수자만, 요청은 로그인한 계정만 */
+export type DraftViewer = { reviewer: boolean; readOnly: boolean } | null;
+
+const approved = (col: Column) => col.approval?.status === "approved";
+
 function statusText(col: Column, run: Run, locale: Locale): string {
   if (run.phase === "reading") return tx(locale, "s_reading");
   if (run.phase === "error") return tx(locale, "s_stopped");
-  if (col.sign) return tx(locale, "s_signed", { who: col.sign.by });
+  const a = col.approval;
+  if (a?.status === "approved") return tx(locale, "s_signed", { who: a.decided_by ?? a.requested_by });
+  if (a?.status === "pending") return tx(locale, "s_pending");
+  if (a?.status === "rejected") return tx(locale, "s_rejected", { who: a.decided_by ?? "" });
   const key: Record<Column["status"], CopyKey> = { wait: "s_wait", writing: "s_writing", checking: "s_checking", poster: "s_poster", done: "s_done", failed: "s_failed", none: "s_none", stopped: "s_stopped" };
   return tx(locale, key[col.status]);
 }
@@ -40,23 +49,24 @@ function Marked({ text, word, play }: { text: string; word?: string; play: boole
   return <>{text.slice(0, at)}<mark className="rs-mark" data-play={play}>{text.slice(at, at + word.length)}</mark>{text.slice(at + word.length)}</>;
 }
 
-function issueLabel(i: CopyIssue, locale: Locale) {
-  return tx(locale, `cp_issue_${i.code}` as CopyKey);
-}
+/** 규칙 코드 하나의 짧은 말(cp_issue_*) — 문구마다의 다시 검사와 막힌 이유에 */
+const codeLabel = (code: string, locale: Locale) => tx(locale, `cp_issue_${code}` as CopyKey);
 
-/** 규칙의 다시 보기 결과 — 결과가 오면 위에서부터 차례로 찍힌다(처음 한 번) */
-function Checks({ c, i, n, col, run, locale }: { c: SocialCopy; i: number; n: number; col: Column; run: Run; locale: Locale }) {
+/** 규칙의 다시 보기 결과 — 문구마다 따로 검사한다. 결과가 오면 위에서부터 차례로 찍힌다(처음 한 번) */
+function Checks({ i, col, run, locale }: { i: number; col: Column; run: Run; locale: Locale }) {
   const play = useFirstPlay(`${run.id}-${col.market}-${col.rev}-check-${i}`);
-  const issues = issuesFor(c.text, col.check);
-  // 뜻 검사(AI 의견)는 다시 검사한 첫 Instagram 문구에만 있다
-  const fit = col.check && c.platform === "instagram" && n === 1 ? col.check.memes.find((m) => m.fit) : undefined;
+  const issues = issuesAt(col, i);
+  // 뜻 검사(AI 의견)는 시장마다 한 번 — 의견을 받은 문구에만 있다
+  const fit = i === col.opinion ? opinionOf(col) : null;
   return (
     <div className="rs-copy-checks" data-play={play}>
-      <span className="rs-check" data-state={issues.length ? "flag" : "ok"} data-avoid={issues.some((x) => x.code === "avoid")}>
-        <ListChecks aria-hidden="true" size={14} />
-        <span className="rs-sr">{tx(locale, "cp_rule")}: </span>
-        {issues.length ? [...new Set(issues.map((x) => issueLabel(x, locale)))].join(sep(locale)) : col.checkFailed && i === 0 ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
-      </span>
+      {col.checkFailed && i > 0 ? null : (
+        <span className="rs-check" data-state={issues.length ? "flag" : "ok"} data-avoid={issues.some(isBlocking)}>
+          <ListChecks aria-hidden="true" size={14} />
+          <span className="rs-sr">{tx(locale, "cp_rule")}: </span>
+          {issues.length ? [...new Set(issues.map((x) => codeLabel(x, locale)))].join(sep(locale)) : col.checkFailed ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
+        </span>
+      )}
       {fit?.fit ? (
         <span className="rs-check" data-who="ai" data-state={fit.fit === "ok" ? "ok" : "flag"}>
           <Sparkles aria-hidden="true" size={14} />
@@ -72,8 +82,8 @@ function CopyItem({ c, n, i, lang, word, col, run, locale, onCopy }: {
   c: SocialCopy; n: number; i: number; lang: string; word?: string; col: Column; run: Run; locale: Locale; onCopy: (text: string) => void;
 }) {
   const fill = useFirstPlay(`${run.id}-${col.market}-${col.rev}-fill-${i}`);
-  const checked = !!col.check || col.checkFailed || col.status === "poster" || col.status === "done";
-  const flagged = issuesFor(c.text, col.check).length > 0;
+  const checked = !!col.checks || col.checkFailed || col.status === "poster" || col.status === "done";
+  const flagged = issuesAt(col, i).length > 0;
   const text = c.text + (c.hashtags?.length ? ` ${c.hashtags.map((h) => `#${h}`).join(" ")}` : "");
   return (
     <li className="rs-copy" style={{ "--i": i } as React.CSSProperties} data-play={fill} data-flag={flagged}>
@@ -81,10 +91,10 @@ function CopyItem({ c, n, i, lang, word, col, run, locale, onCopy }: {
       <p className="rs-copy-t" lang={lang}><Marked text={c.text} word={word} play={fill} /></p>
       {c.hashtags?.length ? <p className="rs-copy-tags" lang={lang}>{c.hashtags.map((h) => <span key={h}>#{h}</span>)}</p> : null}
       {c.note_ko ? <p className="rs-copy-note"><span>{tx(locale, "cp_note")}</span>{c.note_ko}</p> : null}
-      {checked ? <Checks c={c} i={i} n={n} col={col} run={run} locale={locale} /> : (
+      {checked ? <Checks i={i} col={col} run={run} locale={locale} /> : (
         <div className="rs-copy-checks"><span className="rs-check" data-state="pending"><ListChecks aria-hidden="true" size={14} />{tx(locale, "s_checking")}</span></div>
       )}
-      {col.sign ? (
+      {approved(col) ? (
         <button type="button" className="rs-btn" data-kind="ghost" data-size="s" onClick={() => onCopy(text)}><CopyIcon aria-hidden="true" size={14} />{tx(locale, "cp_copy")}</button>
       ) : null}
     </li>
@@ -148,8 +158,92 @@ function Excluded({ items, market, locale, play }: { items: ExcludedItem[]; mark
   );
 }
 
+/** 사람의 승인 — 검수자는 바로 승인, 로그인한 계정은 검수 요청, 익명은 로그인 안내만(익명 문구는 서버에 쌓지 않는다).
+ *  쓰지 말라고 한 말이 든 문구가 있으면 단추를 막고 다시 쓰기를 권한다. 표시만 된 문구는 읽은 뒤 승인할 수 있다.
+ *  요청·승인은 서버에 남고(대기·승인·반려), 승인되면 문구 복사가 열린다 */
+function Approval({ col, run, locale, viewer, name, nums, onCopyAll }: {
+  col: Column; run: Run; locale: Locale; viewer: DraftViewer; name: string; nums: number[]; onCopyAll: () => void;
+}) {
+  const m = col.market;
+  const a = col.approval;
+  const copies = col.gen?.copies ?? [];
+  const blocked = blockedAt(col);
+  const flagged = flaggedCount(col);
+  const why = `rs-why-${m}`;
+  const redoBtn = (kind: "ghost" | "quiet") => (
+    <button type="button" className="rs-btn" data-kind={kind} data-size={kind === "ghost" ? "s" : undefined} disabled={col.sending} onClick={() => void redo(m)}>
+      <RotateCw aria-hidden="true" size={14} />{tx(locale, "ap_redo")}
+    </button>
+  );
+  if (a?.status === "approved") {
+    const at = a.decided_at ?? a.requested_at;
+    return (
+      <div className="rs-signed">
+        <Seal key={at} playKey={`${run.id}-${m}-seal-${a.approval_id}`} />
+        <p><b>{tx(locale, "s_signed", { who: a.decided_by ?? a.requested_by })}</b><span>{fmtStamp(at, locale)}</span></p>
+        <div className="rs-btns">
+          <button type="button" className="rs-btn" data-kind="primary" data-size="s" onClick={onCopyAll}>
+            <CopyIcon aria-hidden="true" size={15} />{tx(locale, "cp_copy_all")}
+          </button>
+        </div>
+        <p className="rs-quiet">{tx(locale, a.sample ? "ap_sample" : "ap_saved")}</p>
+      </div>
+    );
+  }
+  if (col.status === "failed" || col.status === "stopped") {
+    return <button type="button" className="rs-btn" data-kind="quiet" onClick={() => void redo(m)}><RotateCw aria-hidden="true" size={15} />{tx(locale, "ap_retry")}</button>;
+  }
+  if (col.status !== "done") return <p className="rs-approve-wait"><Stamp aria-hidden="true" size={15} />{tx(locale, "ap_wait")}</p>;
+  if (!copies.length) return redoBtn("quiet");     // 규칙 검사에서 문구가 모두 빠졌다 — 승인할 것이 없다
+  if (a?.status === "pending") {
+    return (
+      <div className="rs-asked" role="status">
+        <p><b><Stamp aria-hidden="true" size={15} />{tx(locale, "ap_pending")}</b><span>{tx(locale, "ap_requested", { date: fmtStamp(a.requested_at, locale) })}</span></p>
+        <p className="rs-quiet">{tx(locale, a.sample ? "ap_sample" : "ap_pending_saved")}</p>
+        {redoBtn("ghost")}
+      </div>
+    );
+  }
+  if (a?.status === "rejected") {
+    return (
+      <div className="rs-asked" data-state="rejected" role="status">
+        <p><b>{tx(locale, "ap_rejected", { who: a.decided_by ?? "" })}</b><span>{fmtStamp(a.decided_at, locale)}</span></p>
+        {a.memo ? <p className="rs-memo"><span>{tx(locale, "ap_memo")}</span>{a.memo}</p> : null}
+        <p className="rs-quiet">{tx(locale, "ap_rejected_note")}</p>
+        {redoBtn("quiet")}
+      </div>
+    );
+  }
+  const label = (i: number) => `${copies[i]?.platform === "x" ? "X" : "Instagram"} ${nums[i]}`;
+  return (
+    <>
+      {blocked.length ? (
+        <div className="rs-approve-block" id={why}>
+          <p>{tx(locale, "ap_blocked")}</p>
+          <ul>{blocked.map((i) => <li key={i}><b>{label(i)}</b> {issuesAt(col, i).filter(isBlocking).map((c) => codeLabel(c, locale)).join(sep(locale))}</li>)}</ul>
+        </div>
+      ) : flagged ? <p className="rs-approve-flag">{tx(locale, "ap_flag", { n: flagged })}</p> : null}
+      {!viewer ? (
+        <p className="rs-approve-login">{tx(locale, "ap_login")} <Link href="/login?next=/drafts" className="rs-link">{tx(locale, "ap_login_go")}</Link></p>
+      ) : viewer.readOnly ? (
+        <p className="rs-approve-wait">{tx(locale, "ap_readonly")}</p>
+      ) : (
+        <>
+          <button type="button" className="rs-btn rs-approve-btn" data-kind="primary" disabled={blocked.length > 0 || col.sending}
+            aria-describedby={blocked.length ? why : undefined} onClick={() => void submitApproval(m, viewer.reviewer)}>
+            <Stamp aria-hidden="true" size={17} />{col.sending ? tx(locale, "ap_sending") : tx(locale, viewer.reviewer ? "ap_btn" : "ap_request", { market: name })}
+          </button>
+          {col.sendError ? <p className="rs-error" role="alert">{tx(locale, `ap_err_${col.sendError}` as CopyKey)}</p> : null}
+          {blocked.length ? null : <p className="rs-quiet">{tx(locale, viewer.reviewer ? "ap_note" : "ap_request_note")}</p>}
+        </>
+      )}
+      {redoBtn(blocked.length ? "quiet" : "ghost")}
+    </>
+  );
+}
+
 /** 무대 앞 — 고른 말, 문구와 확인, 포스터와 승인 */
-function FullView({ col, run, locale, reviewer }: { col: Column; run: Run; locale: Locale; reviewer: string | null }) {
+function FullView({ col, run, locale, viewer }: { col: Column; run: Run; locale: Locale; viewer: DraftViewer }) {
   const rec = run.rec;
   const m = col.market;
   const name = marketName(locale, m);
@@ -161,7 +255,6 @@ function FullView({ col, run, locale, reviewer }: { col: Column; run: Run; local
   const considered = rec?.considered_by_region?.[m] ?? rec?.items.filter((i) => i.write_regions.includes(m)).length ?? 0;
   const excluded = (rec?.excluded ?? []).filter((e) => e.regions.includes(m)).slice(0, 4);
   const outPlay = useFirstPlay(`${run.id}-${m}-out`);
-  const flagged = flaggedCount(col.gen, col.check);
   const busy = ["wait", "writing", "checking", "poster"].includes(col.status);
   const headline = col.gen?.thumbnail?.headline ?? copies[0]?.text.split(/[.!?。！？\n]/)[0] ?? "";
   const image = col.poster?.images[0] ?? run.photoUrl;
@@ -308,32 +401,11 @@ function FullView({ col, run, locale, reviewer }: { col: Column; run: Run; local
             </figure>
 
             <div className="rs-approve">
-              {col.sign ? (
-                <div className="rs-signed">
-                  <Seal key={col.sign.at} playKey={`${run.id}-${m}-seal-${col.sign.at}`} />
-                  <p><b>{tx(locale, "s_signed", { who: col.sign.by })}</b><span>{fmtStamp(col.sign.at, locale)}</span></p>
-                  <div className="rs-btns">
-                    <button type="button" className="rs-btn" data-kind="primary" data-size="s" onClick={() => void copy(copies.map((c) => `[${c.platform === "x" ? "X" : "Instagram"}] ${c.text}`).join("\n\n"))}>
-                      <CopyIcon aria-hidden="true" size={15} />{tx(locale, "cp_copy_all")}
-                    </button>
-                    <button type="button" className="rs-btn" data-kind="ghost" data-size="s" onClick={() => unsign(m)}>{tx(locale, "ap_unsign")}</button>
-                  </div>
-                  <p className="rs-quiet">{tx(locale, "ap_local")}</p>
-                </div>
-              ) : col.status === "done" ? (
-                <>
-                  {flagged ? <p className="rs-approve-flag">{tx(locale, "ap_flag", { n: flagged })}</p> : null}
-                  <button type="button" className="rs-btn rs-approve-btn" data-kind="primary" onClick={() => sign(m, reviewer ?? tx(locale, "ap_reviewer"))}>
-                    <Stamp aria-hidden="true" size={17} />{tx(locale, "ap_btn", { market: name })}
-                  </button>
-                  <p className="rs-quiet">{tx(locale, "ap_note")}</p>
-                  <button type="button" className="rs-btn" data-kind="ghost" data-size="s" onClick={() => void redo(m)}><RotateCw aria-hidden="true" size={14} />{tx(locale, "ap_redo")}</button>
-                </>
-              ) : col.status === "failed" || col.status === "stopped" ? (
-                <button type="button" className="rs-btn" data-kind="quiet" onClick={() => void redo(m)}><RotateCw aria-hidden="true" size={15} />{tx(locale, "ap_retry")}</button>
-              ) : (
-                <p className="rs-approve-wait"><Stamp aria-hidden="true" size={15} />{tx(locale, "ap_wait")}</p>
-              )}
+              {col.pick && col.gen?.image_memes?.includes(col.pick.term_id) ? (
+                <p className="rs-rights"><ActorTag who="rule" locale={locale}>{tx(locale, "ap_rights")}</ActorTag></p>
+              ) : null}
+              <Approval col={col} run={run} locale={locale} viewer={viewer} name={name} nums={nums}
+                onCopyAll={() => void copy(copies.map((c) => `[${c.platform === "x" ? "X" : "Instagram"}] ${c.text}`).join("\n\n"))} />
               <p className="rs-toast" role="status">{toast}</p>
             </div>
           </section>
@@ -349,7 +421,7 @@ function WingView({ col, run, locale }: { col: Column; run: Run; locale: Locale 
   const name = marketName(locale, m);
   const status = statusText(col, run, locale);
   return (
-    <div className="rs-wing" data-status={col.status} data-signed={!!col.sign}>
+    <div className="rs-wing" data-status={col.status} data-signed={approved(col)}>
       <div className="rs-wing-head">
         <MiniGlobe market={m} size={28} tone="ink" />
         <b>{name}</b>
@@ -358,7 +430,7 @@ function WingView({ col, run, locale }: { col: Column; run: Run; locale: Locale 
       <div className="rs-wing-word">
         {col.pick ? <MemeWord text={col.pick.canonical} lang={col.pick.lang} max={36} min={17} /> : <span className="rs-quiet">{tx(locale, "s_none")}</span>}
       </div>
-      <p className="rs-wing-status" data-who={col.sign ? "human" : col.status === "writing" ? "ai" : "rule"}>{status}</p>
+      <p className="rs-wing-status" data-who={col.approval ? "human" : col.status === "writing" ? "ai" : "rule"}>{status}</p>
       {col.gen?.copies[0] ? <p className="rs-wing-peek" lang={langTag(col.gen.language)}>{col.gen.copies[0].text}</p> : null}
       <button type="button" className="rs-wing-hit" aria-label={`${tx(locale, "dr_open", { market: name })}. ${status}`} onClick={() => focusMarket(m)} />
     </div>
@@ -417,7 +489,7 @@ function BriefBar({ run, locale }: { run: Run; locale: Locale }) {
   const waited = useElapsed(run.at, run.phase === "reading");
   const rec = run.rec;
   const product = rec?.brief?.product ?? run.input.text.trim();
-  const signed = run.cols.filter((c) => c.sign).length;
+  const signed = run.cols.filter(approved).length;
   return (
     <ViewTransition name="rs-brief" share="rs-morph" default="none">
       <div className="rs-brief" data-phase={run.phase}>
@@ -449,9 +521,17 @@ function BriefBar({ run, locale }: { run: Run; locale: Locale }) {
   );
 }
 
-export function DraftsStage({ locale, reviewer }: { locale: Locale; reviewer: string | null }) {
+export function DraftsStage({ locale, viewer }: { locale: Locale; viewer: DraftViewer }) {
   const { run } = useStage();
   const hydrated = useHydrated();
+  // 기다리는 검수 요청의 결과를 다시 읽는다 — 열 때, 다시 볼 때, 보고 있는 동안 20초마다(검수자가 관리 화면에서 정한 것)
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === "visible") void refreshApprovals(); };
+    again();
+    document.addEventListener("visibilitychange", again);
+    const id = setInterval(again, 20_000);
+    return () => { document.removeEventListener("visibilitychange", again); clearInterval(id); };
+  }, []);
   if (!hydrated) return <section className="rs-stage" data-scene="drafts" aria-busy="true" />;
   if (!run) {
     return (
@@ -481,7 +561,7 @@ export function DraftsStage({ locale, reviewer }: { locale: Locale; reviewer: st
             return (
               <ViewTransition key={col.market} name={`rs-col-${col.market}`} share="rs-morph" default="none">
                 <div className="rs-panel" data-role={role} data-market={col.market}>
-                  {role === "full" ? <FullView col={col} run={run} locale={locale} reviewer={reviewer} />
+                  {role === "full" ? <FullView col={col} run={run} locale={locale} viewer={viewer} />
                     : role === "wing" ? <WingView col={col} run={run} locale={locale} />
                       : <EqualView col={col} run={run} locale={locale} />}
                 </div>

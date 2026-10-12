@@ -7,7 +7,8 @@ import { apiFetch } from "@/lib/api-fetch";
 import { SAMPLE_BOARD } from "./sample/trend-board";
 import type { GenerationCurve, Meta, Topic, TrendBoard, TrendWhy, UpdateFeed, UpdateItem } from "./trends/types";
 import { SAMPLE_GRAPH, SAMPLE_GRAPH_CONTENTS } from "./sample/graph";
-import type { Briefing, GemmaUsage, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord, TermRelated } from "./types";
+import type { ApprovalList, Briefing, GemmaUsage, GraphContent, GraphContentSummary, KeywordBoard, KeywordCard, PipelineStage, ReviewItem, TermRecord, TermRelated } from "./types";
+import { sampleApprovals } from "./sample/approvals";
 import { sampleBriefing } from "./sample/briefing";
 import { loadBriefing } from "./briefing-fetch";
 import { koOrEn, type Locale } from "./i18n";
@@ -142,6 +143,13 @@ function sampleQueue(): ReviewItem[] {
 export async function getReviewQueue(): Promise<ReviewItem[]> {
   await requireReviewer();
   return isSampleMode ? sampleQueue() : apiNoStore<ReviewItem[]>("/review/queue");
+}
+
+/** 관리 '문구 승인' 탭 — 초안 화면에서 온 검수 요청과 지난 기록(Plan 20 ⑤). 이용자 문구가 있어 검수자·읽기 전용 계정만 읽고,
+ *  백엔드도 그 계정인지 다시 본다(viewer). 예시 데이터로 내려가지 않고 캐시하지 않는다 — 실패하면 error.tsx. */
+export async function getApprovals(): Promise<ApprovalList> {
+  const viewer = await requireReviewer();
+  return isSampleMode ? sampleApprovals() : apiNoStore<ApprovalList>(`/review/approvals?viewer=${encodeURIComponent(viewer.user)}`);
 }
 
 /** 관리 '리스크' 탭 — 사전에 오른 말 전부. 예시로 내려가지 않고 캐시하지 않는다(결정 뒤 바로 보여야 한다). */

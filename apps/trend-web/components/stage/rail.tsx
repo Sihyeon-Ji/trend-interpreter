@@ -1,30 +1,37 @@
 /* 초안 한 시장의 네 단계 — 규칙이 고르고, AI가 쓰고, 규칙이 다시 보고, 사람이 승인한다.
    막대마다 '누가' 의 움직임이 다르다: 규칙은 일정한 속도로 훑고(기계), AI는 숨 쉬듯 밝아졌다 어두워지고, 사람은 도장처럼 채운다. */
 import { ListChecks, Sparkles, Stamp } from "lucide-react";
+import { copyIssues, isBlocking } from "@/lib/approval";
 import type { Locale } from "@/lib/i18n";
-import type { CopyCheck, GenerationResult } from "@/lib/types";
 import { tx } from "./copy";
 import type { Column, Run } from "./store";
 
-export type StepState = "idle" | "working" | "done" | "flag" | "fail" | "skip" | "ready";
+export type StepState = "idle" | "working" | "done" | "flag" | "block" | "fail" | "skip" | "ready";
 export interface Steps { pick: StepState; write: StepState; check: StepState; sign: StepState }
 
-/** 같은 밈이 든 문구마다 판정을 붙인다(첫 문구로 다시 검사하고, 같은 밈의 쓰임 판정은 그 밈이 든 문구 모두에) — make-flow 와 같은 규칙 */
-export function issuesFor(text: string, check: CopyCheck | null) {
-  const memes = check?.memes.filter((m) => m.matched && text.includes(m.matched)) ?? [];
-  return memes.flatMap((m) => m.issues);
+/** 문구 하나의 규칙 코드(문구마다 따로 다시 검사한 결과) — lib/approval.ts copyIssues */
+export const issuesAt = (col: Column, i: number) => copyIssues(col.checks?.[i]);
+
+/** 규칙이 표시한 문구 수 */
+export function flaggedCount(col: Column) {
+  return (col.gen?.copies ?? []).filter((_, i) => issuesAt(col, i).length > 0).length;
 }
 
-export function flaggedCount(gen: GenerationResult | null, check: CopyCheck | null) {
-  return (gen?.copies ?? []).filter((c) => issuesFor(c.text, check).length > 0).length;
+/** 쓰지 말라고 한 말(사용 자제·저속한 말투)이나 욕설·선정 표현이 든 문구의 번호 — 하나라도 있으면 승인·요청을 막는다 */
+export function blockedAt(col: Column): number[] {
+  return (col.gen?.copies ?? []).flatMap((_, i) => (issuesAt(col, i).some(isBlocking) ? [i] : []));
 }
 
 export function stepsOf(col: Column, run: Run): Steps {
   const pick: StepState = run.phase === "reading" ? "working" : run.phase === "error" ? "fail" : col.status === "none" ? "skip" : col.pick ? "done" : "idle";
   const write: StepState = col.status === "none" ? "skip" : col.status === "writing" ? "working" : col.gen ? "done" : col.status === "failed" || col.status === "stopped" ? "fail" : "idle";
-  const checked = !!col.check || col.checkFailed || col.status === "poster" || col.status === "done";
-  const check: StepState = col.status === "none" ? "skip" : col.status === "checking" ? "working" : checked ? (flaggedCount(col.gen, col.check) > 0 ? "flag" : "done") : col.status === "stopped" && col.gen ? "fail" : "idle";
-  const sign: StepState = col.sign ? "done" : col.status === "done" ? "ready" : col.status === "none" ? "skip" : "idle";
+  const checked = !!col.checks || col.checkFailed || col.status === "poster" || col.status === "done";
+  const blocked = blockedAt(col).length > 0;
+  const check: StepState = col.status === "none" ? "skip" : col.status === "checking" ? "working"
+    : checked ? (blocked ? "block" : flaggedCount(col) > 0 ? "flag" : "done") : col.status === "stopped" && col.gen ? "fail" : "idle";
+  const a = col.approval?.status;
+  const sign: StepState = a === "approved" ? "done" : a === "rejected" ? "fail" : col.status === "none" ? "skip"
+    : col.status === "done" ? (blocked && !a ? "block" : "ready") : "idle";
   return { pick, write, check, sign };
 }
 
@@ -37,7 +44,7 @@ const ITEMS = [
 
 /** 네 칸 막대. size l 은 낱말까지, s 는 막대만(이름은 화면 읽기용) */
 export function StepRail({ steps, locale, size = "l", label }: { steps: Steps; locale: Locale; size?: "l" | "s"; label: string }) {
-  const word = (s: StepState) => ({ idle: "", working: "…", done: "", flag: "!", fail: "×", skip: "–", ready: "" })[s];
+  const word = (s: StepState) => ({ idle: "", working: "…", done: "", flag: "!", block: "×", fail: "×", skip: "–", ready: "" })[s];
   return (
     <ol className="rs-rail" data-size={size} aria-label={label}>
       {ITEMS.map((it) => {
@@ -60,8 +67,8 @@ export function StepRail({ steps, locale, size = "l", label }: { steps: Steps; l
 }
 
 function stateWord(s: StepState, locale: Locale): string {
-  const ko = { idle: "대기", working: "진행 중", done: "완료", flag: "표시 있음", fail: "멈춤", skip: "건너뜀", ready: "승인 대기" };
-  const en = { idle: "waiting", working: "in progress", done: "done", flag: "flagged", fail: "stopped", skip: "skipped", ready: "awaiting approval" };
-  const ja = { idle: "待機中", working: "進行中", done: "完了", flag: "マークあり", fail: "停止", skip: "スキップ", ready: "承認待ち" };
+  const ko = { idle: "대기", working: "진행 중", done: "완료", flag: "표시 있음", block: "막힘", fail: "멈춤", skip: "건너뜀", ready: "승인 대기" };
+  const en = { idle: "waiting", working: "in progress", done: "done", flag: "flagged", block: "blocked", fail: "stopped", skip: "skipped", ready: "awaiting approval" };
+  const ja = { idle: "待機中", working: "進行中", done: "完了", flag: "マークあり", block: "使用NG", fail: "停止", skip: "スキップ", ready: "承認待ち" };
   return { ko, en, ja }[locale][s];
 }

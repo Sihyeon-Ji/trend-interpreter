@@ -7,7 +7,7 @@ export function sampleGenerate(termIds: string[], region: string, tone: Campaign
   const name = names[0] ?? "럭키비키";
   return {
     // 예시 글은 한국어다 — 목표 지역의 말이라고 적지 않는다(백엔드 generate.sample 과 같다)
-    region, language: "ko", tone, memes: names.length ? names : [name], model_calls: 0, source: "sample", dropped: [],
+    region, language: "ko", tone, memes: names.length ? names : [name], model_calls: 0, source: "sample", dropped: [], image_memes: [],
     copies: [
       { platform: "instagram", text: `더운 오후엔 ${name}! 여름 한정 아이스 흑당 라떼로 기분 전환해요 ☕`, hashtags: ["여름한정", "흑당라떼", name.replace(/[\s\-]/g, "")], note_ko: `'${name}' 을 제품의 기분 전환 순간에 붙였다` },
       { platform: "instagram", text: `오늘의 ${name}은 시원한 한 잔. 여름에만 만나요`, hashtags: ["아이스라떼", "여름메뉴"], note_ko: "한정판을 강조" },

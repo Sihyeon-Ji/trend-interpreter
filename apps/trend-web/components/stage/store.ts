@@ -2,12 +2,14 @@
 
 /* 만들기 상태 — 입력과 초안 실행을 한 곳에 둔다(React 밖의 작은 저장소, useSyncExternalStore 로 읽는다).
    만들기 → 초안 → 사전 항목 → 다시 초안으로 오가도 실행이 이어지고, 새로 고침하면 sessionStorage 에서 결과를 되살린다
-   (사진 파일은 메모리에만, 저장하지 않는다). 부르는 순서는 components/make-flow.tsx 와 같다:
-   /api/recommend → 시장마다 차례로 /api/generate → /api/copy-check → /api/poster. 백엔드는 모델 요청을 둘까지만 받으므로 시장은 차례로. */
+   (사진 파일은 메모리에만, 저장하지 않는다). 부르는 순서:
+   /api/recommend → 시장마다 차례로 /api/generate → /api/copy-check/all(문구 모두 규칙으로, AI 의견은 한 문구에만) → /api/poster.
+   백엔드는 모델 요청을 둘까지만 받으므로 시장은 차례로. 승인·검수 요청은 /api/approvals 가 서버에 적는다(로그인한 사람만). */
 
 import { useSyncExternalStore } from "react";
 import type { Locale } from "@/lib/i18n";
-import type { CampaignTone, CopyCheck, FitCategory, GenerationResult, PosterResult, RecommendItem, RecommendResult } from "@/lib/types";
+import { fullText } from "@/lib/approval";
+import type { ApprovalState, CampaignTone, CopyCheck, CopyChecks, FitCategory, GenerationResult, PosterResult, RecommendItem, RecommendResult } from "@/lib/types";
 import type { VerdictKind } from "./bits";
 import { MARKETS, type Market } from "./copy";
 
@@ -18,13 +20,17 @@ export interface Column {
   pick: RecommendItem | null;
   alts: RecommendItem[];
   gen: GenerationResult | null;
-  check: CopyCheck | null;
+  checks: CopyCheck[] | null;      // 문구마다 규칙으로 다시 본 결과(gen.copies 와 같은 순서)
+  opinion: number | null;          // AI 의견을 받은 문구의 번호 — 시장마다 한 번
   checkFailed: boolean;
   poster: PosterResult | null;
-  sign: { by: string; at: string } | null;
+  approval: ApprovalState | null;  // 서버에 적은 검수 요청·승인(예시 모드면 sample, 적지 않음)
+  sending: boolean;                // 요청·승인을 보내는 중
+  sendError: SendError | null;
   rev: number;                     // 다시 쓸 때마다 올라간다 — 문구 등장 움직임을 다시 틀기 위해
   since?: string | null;           // 지금 단계를 시작한 때 — '몇 초째' 표시
 }
+export type SendError = "blocked" | "signed_out" | "forbidden" | "busy" | "failed";
 export interface LiveWord { id: string; word: string; lang: string; gloss: string; verdict: VerdictKind }
 export interface MarketLive { market: Market; count: number; words: LiveWord[]; failed?: boolean; at?: string | null }
 export interface Pin { id: string; word: string; lang: string }
@@ -47,7 +53,7 @@ export interface Run {
 interface Photo { file: File; url: string }
 interface State { input: Input; photo: Photo | null; run: Run | null }
 
-const KEY = "stage-run-v1";
+const KEY = "stage-run-v2";        // v2: 문구마다의 검사(checks)와 서버 승인 기록(approval)
 const DEFAULT_INPUT: Input = { text: "", category: "", tone: "friendly", markets: [...MARKETS], pin: null };
 const SERVER: State = { input: DEFAULT_INPUT, photo: null, run: null };
 const MAX_IMAGE = 5 * 1024 * 1024;
@@ -93,7 +99,7 @@ function restore() {
     if (!run || !Array.isArray(run.cols)) return;
     const busy: Status[] = ["wait", "writing", "checking", "poster"];
     // 새로 고침으로 끊긴 요청은 이어 갈 수 없다 — 멈춘 곳을 알리고 다시 만들기 단추를 낸다
-    const cols = run.cols.map((c) => (busy.includes(c.status) ? { ...c, status: "stopped" as Status } : c));
+    const cols = run.cols.map((c) => ({ ...(busy.includes(c.status) ? { ...c, status: "stopped" as Status } : c), sending: false }));
     const phase = run.phase === "reading" ? "error" : run.phase;
     state = { ...state, input: run.input ?? DEFAULT_INPUT, run: { ...run, cols, phase, error: run.phase === "reading" ? "stopped" : run.error, photoUrl: null } };
   } catch {
@@ -170,7 +176,8 @@ async function draft(runId: number, market: Market, item: RecommendItem, signal:
   if (!run || run.id !== runId || !run.rec) return;
   const r = run.rec;
   const rev = (run.cols.find((c) => c.market === market)?.rev ?? 0) + 1;
-  patchCol(runId, market, { status: "writing", gen: null, check: null, checkFailed: false, poster: null, sign: null, rev, since: new Date().toISOString() });
+  patchCol(runId, market, { status: "writing", gen: null, checks: null, opinion: null, checkFailed: false, poster: null, approval: null, sending: false,
+    sendError: null, rev, since: new Date().toISOString() });
   // 일하는 시장을 무대 앞으로 — 한 박자 동안은 셋이 나란히, 앞 시장이 막 끝났으면 잠깐 머문 뒤에
   const wait = Math.max(beatUntil - Date.now(), doneAt + DWELL_MS - Date.now(), 0);
   const bring = () => { const r = state.run; if (r && r.id === runId && r.follow && r.cols.find((c) => c.market === market)?.status !== "wait") patchRun(runId, { active: market }); };
@@ -184,17 +191,19 @@ async function draft(runId: number, market: Market, item: RecommendItem, signal:
   }
   if (!live(runId)) return;
   patchCol(runId, market, { gen, status: "checking", since: new Date().toISOString() });
-  const first = gen.copies.find((c) => c.platform === "instagram") ?? gen.copies[0];
-  let check: CopyCheck | null = null;
-  if (first) {
+  // 문구 모두를 규칙으로 다시 본다. AI 의견은 첫 Instagram 문구 하나에만 — 시장마다 모델 한 번
+  const ask = Math.max(0, gen.copies.findIndex((c) => c.platform === "instagram"));
+  let got: CopyChecks | null = null;
+  if (gen.copies.length) {
     try {
-      check = await post<CopyCheck>("/api/copy-check", { text: first.text, region: market, lang: run.locale }, signal);
+      got = await post<CopyChecks>("/api/copy-check/all", { texts: gen.copies.map(fullText), region: market, lang: run.locale, opinion: ask }, signal);
     } catch {
-      check = null;
+      got = null;
     }
   }
   if (!live(runId)) return;
-  patchCol(runId, market, { check, checkFailed: !!first && !check, status: "poster" });
+  const checks = got && got.items.length === gen.copies.length ? got.items : null;
+  patchCol(runId, market, { checks, opinion: checks ? got!.opinion : null, checkFailed: gen.copies.length > 0 && !checks, status: "poster" });
   const poster = await post<PosterResult>("/api/poster", { market, brief: r.brief, term_ids: [item.term_id] }, signal).catch(() => null);
   if (!live(runId)) return;
   patchCol(runId, market, { poster, status: "done" });
@@ -211,7 +220,8 @@ export function startRun(opts: { locale: Locale; live: MarketLive[] }): "need_in
   abort = ctrl;
   const id = (state.run?.id ?? 0) + 1;
   const markets = MARKETS.filter((m) => input.markets.includes(m));
-  const cols: Column[] = markets.map((m) => ({ market: m, status: "wait", pick: null, alts: [], gen: null, check: null, checkFailed: false, poster: null, sign: null, rev: 0 }));
+  const cols: Column[] = markets.map((m) => ({ market: m, status: "wait", pick: null, alts: [], gen: null, checks: null, opinion: null, checkFailed: false,
+    poster: null, approval: null, sending: false, sendError: null, rev: 0 }));
   set({
     run: {
       id, input: { ...input, markets }, phase: "reading", rec: null, cols, at: new Date().toISOString(), locale: opts.locale,
@@ -299,14 +309,64 @@ export function focusMarket(m: Market | null) {
   set({ run: { ...run, active: m, follow: false } });
 }
 
-export function sign(market: Market, by: string) {
-  const run = state.run;
-  if (run) patchCol(run.id, market, { sign: { by, at: new Date().toISOString() } });
+/** AI 의견(시장마다 한 번) — 의견을 받은 문구에서 고른 밈의 것, 없으면 그 문구의 첫 의견 */
+export function opinionOf(col: Column) {
+  const check = col.opinion != null ? col.checks?.[col.opinion] : undefined;
+  const memes = check?.memes ?? [];
+  return memes.find((m) => m.fit && m.term_id === col.pick?.term_id) ?? memes.find((m) => m.fit) ?? null;
 }
 
-export function unsign(market: Market) {
+/** 검수 요청(로그인한 계정) 또는 검수자의 바로 승인. 서버가 세션·권한을 다시 보고 규칙 검사도 다시 한다 —
+ *  보내는 것은 시장·고른 밈·제품 한 줄·문구들·AI 의견뿐이고, 요청한 사람의 이름은 서버가 세션에서 넣는다 */
+export async function submitApproval(market: Market, approve: boolean) {
   const run = state.run;
-  if (run) patchCol(run.id, market, { sign: null });
+  const col = run?.cols.find((c) => c.market === market);
+  if (!run || !col?.gen || !col.pick || col.sending) return;
+  const fit = opinionOf(col);
+  const rev = col.rev;
+  // 그사이 다시 쓴 초안에 옛 문구의 결과를 붙이지 않는다(같은 실행 안에서 다시 쓰면 rev 가 오른다)
+  const same = () => state.run?.id === run.id && state.run.cols.find((c) => c.market === market)?.rev === rev;
+  patchCol(run.id, market, { sending: true, sendError: null });
+  let res: Response;
+  try {
+    res = await fetch("/api/approvals", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        market, term_id: col.pick.term_id, product: (run.rec?.brief?.product ?? run.input.text).trim().slice(0, 200),
+        copies: col.gen.copies.map((c) => ({ platform: c.platform, text: c.text, hashtags: c.hashtags ?? [] })),
+        fit: fit?.fit ?? null, fit_note: fit?.fit_note ?? null, fit_copy: fit ? col.opinion : null, decision: approve ? "approve" : null,
+      }),
+    });
+  } catch {
+    if (same()) patchCol(run.id, market, { sending: false, sendError: "failed" });
+    return;
+  }
+  const json = (await res.json().catch(() => ({}))) as ApprovalState & { error?: string };
+  if (!same()) return;
+  if (res.ok) { patchCol(run.id, market, { sending: false, approval: json }); return; }
+  const err: SendError = json.error === "blocked" ? "blocked" : res.status === 401 ? "signed_out" : res.status === 403 ? "forbidden" : res.status === 429 ? "busy" : "failed";
+  patchCol(run.id, market, { sending: false, sendError: err });
+}
+
+/** 기다리는 요청의 상태를 다시 읽는다(초안 화면을 열 때·다시 볼 때) — 검수자가 관리 화면에서 정한 결과가 여기로 온다 */
+export async function refreshApprovals() {
+  const run = state.run;
+  if (!run) return;
+  for (const col of run.cols) {
+    const a = col.approval;
+    if (!a || a.sample || a.status !== "pending") continue;
+    try {
+      const res = await fetch(`/api/approvals/${encodeURIComponent(a.approval_id)}`, { cache: "no-store" });
+      if (!res.ok) continue;
+      const next = (await res.json()) as ApprovalState;
+      // 기다리는 사이 다시 썼으면(요청이 지워졌으면) 옛 요청의 결과를 새 초안에 붙이지 않는다
+      if (state.run?.id === run.id && state.run.cols.find((c) => c.market === col.market)?.approval?.approval_id === a.approval_id) {
+        patchCol(run.id, col.market, { approval: next });
+      }
+    } catch {
+      /* 다음에 다시 본다 */
+    }
+  }
 }
 
 /** 지금 실행을 멈추고 버린다(입력은 남긴다) */

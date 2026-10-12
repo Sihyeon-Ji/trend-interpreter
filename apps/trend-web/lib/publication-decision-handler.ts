@@ -1,6 +1,7 @@
 import type { ApiRequestInit } from "./api-transport";
 import type { Viewer } from "./reviewer-access";
 import { batchDecision } from "./publication-review";
+import { isSameOrigin } from "./same-origin";
 
 export function createBatchDecisionHandler(
   viewer: () => Promise<Viewer | null>,
@@ -14,13 +15,7 @@ export function createBatchDecisionHandler(
     if (!account.reviewer) return Response.json({ error: "reviewer_required" }, { status: 403, headers });
     if (account.readOnly) return Response.json({ error: "readonly_account" }, { status: 403, headers });
     // Production proxies can give Next.js an internal URL while preserving the public Host.
-    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host;
-    let sameOrigin = false;
-    try {
-      const origin = new URL(req.headers.get("origin") ?? "");
-      sameOrigin = ["https:", "http:"].includes(origin.protocol) && origin.host === host;
-    } catch { /* Missing or malformed origins fail closed. */ }
-    if (!sameOrigin) {
+    if (!isSameOrigin(req)) {
       return Response.json({ error: "same_origin_required" }, { status: 403, headers });
     }
     const token = tokenValue();

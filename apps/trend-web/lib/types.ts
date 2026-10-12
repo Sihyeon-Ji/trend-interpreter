@@ -257,6 +257,7 @@ export interface GenerationResult {
   dropped: Dropped[];             // 두 번 다 규칙 검사에 걸려 뺀 안과 이유
   model_calls: number;            // 생성 1, 다시 만들면 2
   source: "gemini" | "local" | "sample";
+  image_memes?: string[];         // 고른 밈 가운데 짤·형식의 이름(쓰임 낱말 kind=meme_name)인 것의 term_id — 화면이 그림 권리 안내를 붙인다
 }
 
 /* 시장별 포스터 시안 (Plan 20) — 백엔드 pipeline/views.py 의 PosterPlan·PosterResult 와 1:1. 그림에는 글자가 없고 검사한 문구는 화면이 얹는다. */
@@ -292,7 +293,8 @@ export interface Briefing {
 }
 
 /* 카피 검사 — 백엔드 pipeline/views.py 의 CopyCheck 와 1:1. 판정은 규칙, fit(뜻에 맞게 썼나)만 모델 의견. 문구는 저장하지 않는다. */
-export type CopyIssueCode = "avoid" | "caution" | "undecided" | "fading" | "not_in_region" | "no_script";
+// crude 저속한 말투, sensitive 리스크를 아직 보지 않은 민감한 소재 — 추천이 후보에서 빼는 기준(recommend.blocked)과 같다
+export type CopyIssueCode = "avoid" | "crude" | "caution" | "sensitive" | "undecided" | "fading" | "not_in_region" | "no_script";
 export interface CopyIssue { code: CopyIssueCode; note: string }   // note: caution 일 때 '쓸 때 조심' 안내(한국어)
 export interface CopyMeme {
   term_id: string;
@@ -321,6 +323,40 @@ export interface CopyCheck {
   x_length: number;               // X 가 세는 글자 수
   fit_source: "gemini" | "local" | "none" | "busy" | "failed";
 }
+/** 초안 한 시장의 문구 모두를 규칙으로 다시 본 결과(POST /copy-check/all). AI 의견은 opinion 번째 문구 하나에만 */
+export interface CopyChecks { region: string; items: CopyCheck[]; opinion: number | null }
+
+/* 문구 승인 기록 (Plan 20 ⑤) — 백엔드 pipeline/views.py 의 ApprovalItem·ApprovalState·ApprovalList 와 1:1.
+   묶음은 규칙 검사 결과로만 정한다(막힘·읽어 볼 것·깨끗함). 본문은 30일 뒤 지워져 null 이 된다. */
+export type ApprovalGroup = "blocked" | "read" | "clean";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+export interface ApprovalCopy { platform: "instagram" | "x"; text: string | null; hashtags: string[]; issues: string[] }
+export interface ApprovalState {
+  approval_id: string;
+  market: string;
+  status: ApprovalStatus;
+  group: ApprovalGroup;
+  reasons: string[];              // 묶음을 정한 규칙 코드(막는 것 먼저)
+  image_meme?: boolean;
+  requested_by: string;
+  requested_at: string;
+  decided_by?: string | null;
+  decided_at?: string | null;
+  memo?: string | null;
+  sample?: boolean;               // 예시 모드 — 서버에 적지 않았다
+}
+export interface ApprovalItem extends ApprovalState {
+  term_id: string;
+  canonical: string;
+  lang: string;
+  product: string | null;
+  copies: ApprovalCopy[];
+  fit: "ok" | "off" | "unsure" | null;
+  fit_copy: number | null;
+  fit_note: string | null;
+  expired: boolean;
+}
+export interface ApprovalList { pending: ApprovalItem[]; history: ApprovalItem[] }
 
 
 /* 콘텐츠 → 나라마다 파생된 밈 (백엔드 GET /graph/contents, /graph/content/{key} — pipeline/content_agent.py 의 contents·view).

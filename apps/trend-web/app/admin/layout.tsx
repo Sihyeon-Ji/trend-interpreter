@@ -9,7 +9,7 @@ import { fmtDateTime } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { SESSION_COOKIE, readSession } from "@/lib/session";
 
-/* 관리 머리 — 세 탭 공통. 로그아웃은 내 설정(/me)에 있다. 숫자를 못 읽어도 머리와 탭은 그린다(목록 실패는 error.tsx 가 알린다). */
+/* 관리 머리 — 탭 공통. 로그아웃은 내 설정(/me)에 있다. 숫자를 못 읽어도 머리와 탭은 그린다(목록 실패는 error.tsx 가 알린다). */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   // 여기까지 왔다는 건 미들웨어를 통과했다는 뜻이다. 이름은 누가 결정을 남기는지 보여 주려고 읽는다.
@@ -30,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           }>
           <AdminNav label={t(locale, "adm_tabs_label")} items={[
             { id: "/admin", href: "/admin", label: t(locale, "adm_tab_review"), count: stats ? stats.needs_review + (stats.proposals ?? 0) : undefined },
+            { id: "/admin/approvals", href: "/admin/approvals", label: t(locale, "adm_tab_approvals") },
             { id: "/admin/risk", href: "/admin/risk", label: t(locale, "adm_tab_risk") },
             { id: "/admin/batches", href: "/admin/batches", label: t(locale, "adm_tab_batches") },
             { id: "/admin/status", href: "/admin/status", label: t(locale, "adm_tab_status") },
