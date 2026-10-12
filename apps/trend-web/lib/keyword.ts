@@ -3,11 +3,12 @@ import { t, type Locale } from "@/lib/i18n";
 import { L, regionLabel } from "@/lib/labels";
 import type { GenPeak, KeywordCard, SearchHit } from "@/lib/types";
 
-/** "대만 인기 검색어 3위 · “傻眼貓咪 意思” · 2만+" / "#3 trending search in Taiwan · …" */
+/** "대만 인기 검색어 3위 · “傻眼貓咪 意思” · 2만+" / "#3 trending search in Taiwan · …" / "台湾の人気検索ワード3位 · …" */
 export function searchLine(locale: Locale, h: SearchHit): string {
   const where = regionLabel(locale, h.region);
   const tail = `${h.query ? ` · “${h.query}”` : ""}${h.traffic ? ` · ${h.traffic}` : ""}`;
   if (locale === "ko") return `${where} 인기 검색어${h.rank ? ` ${h.rank}위` : ""}${tail}`;
+  if (locale === "ja") return `${where}の人気検索ワード${h.rank ? `${h.rank}位` : ""}${tail}`;
   return `${h.rank ? `#${h.rank} ` : ""}trending search in ${where}${tail}`;
 }
 

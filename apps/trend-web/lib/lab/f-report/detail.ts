@@ -1,6 +1,6 @@
 /* 미리보기·지켜보기가 나중에 받는 항목 요약 — /terms/{id}(수십 KB, 커뮤니티 근거 포함)를 화면에 필요한 것만 추려 브라우저로 보낸다.
    커뮤니티 근거는 여기서 걸러져 브라우저에 아예 가지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { TermRecord } from "@/lib/types";
 import { riskNotes, type RiskNote, type SourceRef, thumbUrl, visibleEvidence, youtubeId } from "./index";
 

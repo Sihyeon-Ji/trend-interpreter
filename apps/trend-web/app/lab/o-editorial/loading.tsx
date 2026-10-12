@@ -1,5 +1,5 @@
 import { copy } from "@/lib/lab/o-editorial";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 호를 펴는 동안 — 빈 뼈대를 채우지 않고, 커버 자리를 먼저 깐다(바뀌어도 화면이 튀지 않게). */
 export default async function Loading() {

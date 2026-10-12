@@ -4,7 +4,7 @@
    리포트·사전은 이 초안 안에, 밈 추천만 앱의 기존 흐름으로 간다(다시 만들지 않는다). */
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report/copy";
 import { TARGET_REGIONS } from "@/lib/reader";
 

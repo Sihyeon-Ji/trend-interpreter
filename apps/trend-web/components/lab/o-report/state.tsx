@@ -2,7 +2,7 @@
 
 /* 불러오기 실패·기다림 화면. 오류 경계는 클라이언트라 쿠키를 읽지 못한다 — 루트 레이아웃이 <html lang> 에 넣은 화면 언어를 따른다. */
 import { useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report/copy";
 
 const noop = () => () => {};

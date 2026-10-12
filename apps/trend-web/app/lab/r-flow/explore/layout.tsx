@@ -1,7 +1,7 @@
 import { tr } from "@/components/lab/r-flow/copy";
 import { MakeForMarket, MarketSwitch } from "@/components/lab/r-flow/market-switch";
 import { getMarketCounts } from "@/components/lab/r-flow/server";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 둘러보기의 머리와 시장 고르기는 시장을 바꿔도 남는다(레이아웃) — 고른 표시가 옮겨 가는 움직임이 이어지게. 표는 page.tsx */
 export default async function ExploreLayout({ children }: { children: React.ReactNode }) {

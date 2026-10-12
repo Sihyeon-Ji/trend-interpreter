@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, use } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { c, riskLabel, stageLabel } from "@/lib/lab/f-report/copy";
 import { fitClass, fmtDay, type Row } from "@/lib/lab/f-report";

@@ -4,7 +4,7 @@ import { ArrowUpRight, Copy as CopyIcon, ListChecks, RotateCw, Sparkles, Stamp }
 import Link from "next/link";
 import { ViewTransition, useState } from "react";
 import { glossFor } from "@/lib/gloss";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { L, sourceName } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { CopyIssue, ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";

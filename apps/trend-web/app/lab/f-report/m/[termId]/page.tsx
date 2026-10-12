@@ -8,7 +8,7 @@ import { langTag, scriptLang } from "@/lib/lang";
 import { c, categoryLabel, diffusionLabel, regionName, riskLabel, stageLabel } from "@/lib/lab/f-report/copy";
 import { combineCurves, fitClass, fmtDay, riskNotes } from "@/lib/lab/f-report";
 import { toDetail } from "@/lib/lab/f-report/detail";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { Meaning } from "@/lib/types";
 
 type Params = { params: Promise<{ termId: string }> };

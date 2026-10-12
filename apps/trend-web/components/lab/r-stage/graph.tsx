@@ -2,7 +2,7 @@
    사전에 있는 말은 그 항목으로 가는 링크, 아직 없는 말은 흐리게. 나온 곳(작품·인물·사건)은 같은 곳에서 나온 다른 밈을 묶는다.
    커뮤니티가 나온 곳이면 사이트 이름을 내지 않는다(ADR 0003). 훅이 없어 서버·클라이언트 어디서나 쓴다. */
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { TermRelated } from "@/lib/types";
 import { DOMAIN_EN, KIND_EN, tx, type CopyKey } from "./copy";

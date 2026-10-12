@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { setLocaleCookie, type Locale } from "@/lib/i18n";
+import { setLocaleCookie, type LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report/copy";
 
 /** 한국어 / EN — 쿠키만 바꾸고 서버 그림을 다시 받는다(앱의 언어 전환과 같은 쿠키) */

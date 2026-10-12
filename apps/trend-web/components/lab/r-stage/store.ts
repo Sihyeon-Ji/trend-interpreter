@@ -6,7 +6,7 @@
    /api/recommend → 시장마다 차례로 /api/generate → /api/copy-check → /api/poster. 백엔드는 모델 요청을 둘까지만 받으므로 시장은 차례로. */
 
 import { useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { CampaignTone, CopyCheck, FitCategory, GenerationResult, PosterResult, RecommendItem, RecommendResult } from "@/lib/types";
 import type { VerdictKind } from "./bits";
 import { MARKETS, type Market } from "./copy";

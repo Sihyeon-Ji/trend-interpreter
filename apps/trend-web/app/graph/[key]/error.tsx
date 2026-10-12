@@ -5,12 +5,12 @@ import { useSyncExternalStore } from "react";
 import { PageShell } from "@/components/page-shell";
 import { StatePanel } from "@/components/state-panel";
 import { Button } from "@/components/ui/button";
-import { t, type Locale } from "@/lib/i18n";
+import { localeOf, t, type Locale } from "@/lib/i18n";
 
 /* 콘텐츠를 불러오지 못했을 때(api 모드에서 서버가 답하지 않음). 예시 데이터로 바꾸지 않고, 다시 불러오기를 준다.
    오류 화면은 클라이언트 컴포넌트라 쿠키를 읽지 못한다 — 루트 레이아웃이 <html lang> 에 넣은 화면 언어를 따른다. */
 const noop = () => () => {};
-const readLocale = (): Locale => (document.documentElement.lang === "en" ? "en" : "ko");
+const readLocale = (): Locale => localeOf(document.documentElement.lang);
 
 export default function GraphError({ retry }: { error: Error & { digest?: string }; retry: () => void }) {
   const locale = useSyncExternalStore(noop, readLocale, (): Locale => "ko");

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./f-report.css";
 import { Frame } from "@/components/lab/f-report/frame";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 export const metadata: Metadata = { title: "트렌드 리포트 · 시안 f-report" };
 

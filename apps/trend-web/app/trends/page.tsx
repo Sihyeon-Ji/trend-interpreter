@@ -6,7 +6,7 @@ import { isPartialWeek } from "@/components/trend-chart";
 import { getKeywordBoard, getTermRelated } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
 import { t, type Locale } from "@/lib/i18n";
-import { L, regionLabel, sourceName } from "@/lib/labels";
+import { L, regionLabel, sourceLabel, sourceName } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import type { KeywordBoard, KeywordCard } from "@/lib/types";
 
@@ -17,7 +17,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 const LISTS: XList[] = ["rising", "fading", "caution"];
-const NOUN: Record<Locale, Record<string, string>> = { ko: { wiki: "문서", web: "문서", news: "기사", short: "영상" }, en: { wiki: "page", web: "page", news: "article", short: "video" } };
+const NOUN: Record<Locale, Record<string, string>> = {
+  ko: { wiki: "문서", web: "문서", news: "기사", short: "영상" }, en: { wiki: "page", web: "page", news: "article", short: "video" },
+  ja: { wiki: "記事", web: "ページ", news: "記事", short: "動画" },
+};
 
 /** 목록 한 줄 — 판정·생애주기는 백엔드 규칙 값 그대로, 여기서는 글로 옮기기만. 커뮤니티 글은 근거로 싣지 않는다 */
 function toRow(c: KeywordCard, locale: Locale): XRow {
@@ -26,7 +29,7 @@ function toRow(c: KeywordCard, locale: Locale): XRow {
     .filter((e) => e.kind !== "community" && e.kind !== "datalab")
     .sort((a, b) => Number(b.kind === "wiki" || b.kind === "web") - Number(a.kind === "wiki" || a.kind === "web") || String(b.observed_at).localeCompare(String(a.observed_at)))
     .slice(0, 3)
-    .map((e) => ({ url: e.url, label: `${sourceName(locale, e.source_domain)} ${NOUN[locale][e.kind] ?? ""}`.trim(), title: e.title, date: e.observed_at }));
+    .map((e) => ({ url: e.url, label: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind] ?? ""), title: e.title, date: e.observed_at }));
   return {
     id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c),
     life: labels.lifecycle[c.lifecycle], diffusion: c.diffusion ?? null, m4: c.mentions_4w, weekly: c.weekly.slice(-12),

@@ -3,9 +3,10 @@
    커뮤니티가 나온 곳이면 사이트 이름을 내지 않는다(ADR 0003). 훅이 없어 서버·클라이언트 어디서나 쓴다. */
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
+import { sep } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { TermRelated } from "@/lib/types";
-import { DOMAIN_EN, KIND_EN, tx, type CopyKey } from "./copy";
+import { DOMAIN_EN, DOMAIN_JA, KIND_EN, KIND_JA, tx, type CopyKey } from "./copy";
 
 const REL: Record<string, CopyKey> = {
   derived_from: "rel_derived_from", derived_into: "rel_derived_into", variant: "rel_variant", opposite: "rel_opposite",
@@ -27,8 +28,10 @@ export function RelGraph({ word, lang, graph, href, locale, play = true }: {
   word: string; lang?: string | null; graph: TermRelated; href: (termId: string) => string; locale: Locale; play?: boolean;
 }) {
   const card = graph.card;
-  const kind = card ? (locale === "ko" ? card.kind_ko : KIND_EN[card.kind] ?? card.kind) : null;
-  const domains = card ? (locale === "ko" ? card.domains_ko : card.domains.map((d) => DOMAIN_EN[d] ?? d.replace(/_/g, " "))) : [];
+  const kinds = locale === "ja" ? KIND_JA : KIND_EN;
+  const domainNames = locale === "ja" ? DOMAIN_JA : DOMAIN_EN;
+  const kind = card ? (locale === "ko" ? card.kind_ko : kinds[card.kind] ?? card.kind) : null;
+  const domains = card ? (locale === "ko" ? card.domains_ko : card.domains.map((d) => domainNames[d] ?? d.replace(/_/g, " "))) : [];
   const source = graph.source ?? (card && card.source_type !== "unknown" ? { type: card.source_type, name: card.source_name } : null);
   const branches: Branch[] = [
     ...graph.related.map((r): Branch => ({ kind: "term", key: `r-${r.term_id}`, rel: r.rel, id: r.term_id, name: r.canonical, lang: r.lang })),
@@ -42,7 +45,7 @@ export function RelGraph({ word, lang, graph, href, locale, play = true }: {
       {kind || domains.length ? (
         <dl className="rs-g-card">
           {kind ? <div><dt>{tx(locale, "tm_kind")}</dt><dd>{kind}</dd></div> : null}
-          {domains.length ? <div><dt>{tx(locale, "tm_domains")}</dt><dd>{domains.join(", ")}</dd></div> : null}
+          {domains.length ? <div><dt>{tx(locale, "tm_domains")}</dt><dd>{domains.join(sep(locale))}</dd></div> : null}
         </dl>
       ) : null}
       {branches.length ? (

@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { glossFor } from "@/lib/gloss";
 import { langTag, scriptLang } from "@/lib/lang";
 import { L } from "@/lib/labels";

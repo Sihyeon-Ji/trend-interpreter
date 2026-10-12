@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Google_Sans_Flex } from "next/font/google";
 import { Frame } from "@/components/lab/r-stage/frame";
 import { getReviewStats } from "@/lib/data";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import { getReader, getViewer } from "@/lib/reader-server";
 import "./r-stage.css";
 

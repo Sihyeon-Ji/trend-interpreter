@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronRight, Copy } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { glossFor } from "@/lib/gloss";
 import { langTag } from "@/lib/lang";
 import { L } from "@/lib/labels";

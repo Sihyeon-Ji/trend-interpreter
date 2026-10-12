@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { BASE, copy, editionName } from "@/lib/lab/o-editorial";
 
 const noop = () => () => {};

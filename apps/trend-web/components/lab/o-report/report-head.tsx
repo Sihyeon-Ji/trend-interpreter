@@ -1,6 +1,6 @@
 /* 리포트 머리 — 지역이 제목이자 조작부. 한 문장 요약(실제 수), 비교 기간, 갱신 시각, 추천받기. 제목 위에 라벨을 얹지 않는다. */
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtTime, type Weeks } from "@/lib/lab/o-report";
 import { tr } from "@/lib/lab/o-report/copy";
 import { RegionPicker, type RegionOption } from "./region-picker";

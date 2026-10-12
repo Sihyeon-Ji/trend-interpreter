@@ -4,7 +4,7 @@
      증감 규칙은 한 곳(combineCurves)뿐이다 — 타일·행·미리보기·항목이 같은 숫자를 낸다.
    - 근거: 커뮤니티·SNS 글은 제목·인용·사이트 이름을 화면에 내지 않는다(2026-09-29 자료 방침). 백엔드가 news 로 붙인 커뮤니티(Weverse·브런치·네이버 블로그)도 같다.
      보이는 출처는 참고 위키·기사·영상뿐이고, 글로 가지 않는 첫 화면 주소(https://youtube.com/)는 근거처럼 보이지 않게 뺀다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { KeywordCard, KeywordList } from "@/lib/types";
 import type { GenerationCurve, UpdateItem } from "@/lib/trends/types";
 

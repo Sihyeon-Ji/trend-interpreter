@@ -4,8 +4,8 @@ import { ArrowUpRight, Copy as CopyIcon, ListChecks, RotateCw, Sparkles, Stamp }
 import Link from "next/link";
 import { ViewTransition, useState } from "react";
 import { glossFor } from "@/lib/gloss";
-import type { Locale } from "@/lib/i18n";
-import { L, sourceName } from "@/lib/labels";
+import { koOrEn, type Locale } from "@/lib/i18n";
+import { L, gap, sep, sourceLabel, sourceName } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { CopyIssue, ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
 import { ActorTag, MemeWord, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
@@ -22,6 +22,7 @@ import { focusMarket, redo, restart, sign, unsign, useStage, type Column, type R
 const KIND_NOUN: Record<Locale, Record<string, string>> = {
   ko: { wiki: "문서", web: "문서", news: "기사", short: "영상" },
   en: { wiki: "page", web: "page", news: "article", short: "video" },
+  ja: { wiki: "記事", web: "ページ", news: "記事", short: "動画" },
 };
 
 function statusText(col: Column, run: Run, locale: Locale): string {
@@ -54,7 +55,7 @@ function Checks({ c, i, n, col, run, locale }: { c: SocialCopy; i: number; n: nu
       <span className="rs-check" data-state={issues.length ? "flag" : "ok"} data-avoid={issues.some((x) => x.code === "avoid")}>
         <ListChecks aria-hidden="true" size={14} />
         <span className="rs-sr">{tx(locale, "cp_rule")}: </span>
-        {issues.length ? [...new Set(issues.map((x) => issueLabel(x, locale)))].join(", ") : col.checkFailed && i === 0 ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
+        {issues.length ? [...new Set(issues.map((x) => issueLabel(x, locale)))].join(sep(locale)) : col.checkFailed && i === 0 ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
       </span>
       {fit?.fit ? (
         <span className="rs-check" data-who="ai" data-state={fit.fit === "ok" ? "ok" : "flag"}>
@@ -102,7 +103,7 @@ function WhyChips({ item, rec, locale }: { item: RecommendItem; rec: RecommendRe
   const chips: { k: string; v: string }[] = [];
   if (item.matched_category && rec.brief) chips.push({ k: tx(locale, "pk_why_cat"), v: labels.fitCategory[rec.brief.category] });
   else if (item.any_category) chips.push({ k: tx(locale, "pk_why_any"), v: "" });
-  if (item.matched_feelings.length) chips.push({ k: tx(locale, "pk_why_feel"), v: item.matched_feelings.map((f) => labels.feeling[f]).join(", ") });
+  if (item.matched_feelings.length) chips.push({ k: tx(locale, "pk_why_feel"), v: item.matched_feelings.map((f) => labels.feeling[f]).join(sep(locale)) });
   if (item.diffusion) chips.push({ k: tx(locale, "pk_why_spread"), v: diffusionWord(item.diffusion, locale) });
   chips.push({ k: tx(locale, "pk_why_stage"), v: labels.lifecycle[item.lifecycle] });
   chips.push({ k: v === "caution" ? tx(locale, "pk_why_risk_caution") : v === "ok" ? tx(locale, "pk_why_risk_ok") : tx(locale, "pk_why_risk_unknown"), v: "" });
@@ -122,7 +123,7 @@ function SourceLine({ item, locale }: { item: RecommendItem; locale: Locale }) {
   return (
     <p className="rs-src">
       <span className="rs-src-k">{tx(locale, "pk_source")}</span>
-      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="rs-link">{sourceName(locale, ref.source_domain)} {KIND_NOUN[locale][ref.kind] ?? ""}<ArrowUpRight aria-hidden="true" size={13} /></a>
+      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="rs-link">{sourceLabel(locale, sourceName(locale, ref.source_domain), KIND_NOUN[locale][ref.kind] ?? "")}<ArrowUpRight aria-hidden="true" size={13} /></a>
       <span className="rs-src-date">{fmtDay(ref.observed_at, locale, true)}</span>
     </p>
   );
@@ -203,7 +204,7 @@ function FullView({ col, run, locale, reviewer }: { col: Column; run: Run; local
                 <span className="rs-pick-open">{tx(locale, "pk_open")}<ArrowUpRight aria-hidden="true" size={14} /></span>
               </Link>
               <p className="rs-gloss" id={`rs-gloss-${m}`} lang={scriptLang(glossFor(col.pick, locale))}>{glossFor(col.pick, locale)}</p>
-              {col.pick.local_note ? <p className="rs-local"><span>{tx(locale, "pk_why_local")}</span>{locale === "ko" ? col.pick.local_note.ko : col.pick.local_note.en}</p> : null}
+              {col.pick.local_note ? <p className="rs-local"><span>{tx(locale, "pk_why_local")}</span>{col.pick.local_note[koOrEn(locale)]}</p> : null}
               <div className="rs-sub">
                 <h4>{tx(locale, "pk_why")}</h4>
                 <WhyChips item={col.pick} rec={rec} locale={locale} />
@@ -293,7 +294,7 @@ function FullView({ col, run, locale, reviewer }: { col: Column; run: Run; local
                   : <span className="rs-poster-blank" aria-hidden="true">{rec?.brief?.product ?? run.input.text}</span>}
                 {headline ? <span className="rs-poster-copy" lang={lang}><b>{headline}</b><span>{rec?.brief?.product}</span></span> : null}
               </div>
-              <figcaption>{tx(locale, "po_off")} {tx(locale, "po_cap")}</figcaption>
+              <figcaption>{tx(locale, "po_off")}{gap(locale)}{tx(locale, "po_cap")}</figcaption>
               {col.poster?.plan ? (
                 <details className="rs-more">
                   <summary>{tx(locale, "po_plan")}</summary>
@@ -428,7 +429,7 @@ function BriefBar({ run, locale }: { run: Run; locale: Locale }) {
           <h1 className="rs-brief-product" data-reading={run.phase === "reading"}>{product || tx(locale, "po_photo")}</h1>
           {run.input.text.trim() && rec?.brief?.product && run.input.text.trim() !== rec.brief.product ? <p className="rs-brief-text">{run.input.text.trim()}</p> : null}
           <dl className="rs-brief-meta">
-            {rec?.brief ? <div><dt>{tx(locale, "dr_category")}</dt><dd>{labels.fitCategory[rec.brief.category]}{run.input.category ? "" : <span className="rs-quiet"> ({tx(locale, "dr_category_auto")})</span>}</dd></div> : null}
+            {rec?.brief ? <div><dt>{tx(locale, "dr_category")}</dt><dd>{labels.fitCategory[rec.brief.category]}{run.input.category ? "" : <span className="rs-quiet">{locale === "ja" ? `（${tx(locale, "dr_category_auto")}）` : ` (${tx(locale, "dr_category_auto")})`}</span>}</dd></div> : null}
             <div><dt>{tx(locale, "dr_tone")}</dt><dd>{labels.campaignTone[run.input.tone]}</dd></div>
             <div><dt>{tx(locale, "dr_at")}</dt><dd>{fmtStamp(run.at, locale)}</dd></div>
           </dl>

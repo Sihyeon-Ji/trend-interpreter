@@ -5,7 +5,7 @@
    지켜보는 밈은 누른 때의 단계·쓸 때 조심을 함께 적어 둔다 — 다음에 와서 '무엇이 바뀌었나' 를 말하려고(09-29 검토). */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { Lifecycle } from "@/lib/contract/types";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { Change, RiskKey, Row } from "@/lib/lab/o-report";
 import type { WatchState } from "@/lib/lab/o-report/data";
 

@@ -50,6 +50,7 @@ export interface TermRecord {
   usage: TermUsage[];
   weekly: WeeklyPoint[];
   ko?: MeaningText | null;  // 한국어 화면이 쓸 뜻 (일본어·영어 표제어의 뜻을 한국어로)
+  ja?: MeaningText | null;  // 일본어 화면이 쓸 뜻. 없으면 원문과 '翻訳なし' 안내 (views.TermRecord.ja)
   recheck_days: number;
   media?: TermMedia[];     // 대표 그림·영상 (주소만 보관, 라이선스 함께)
   gate_reasons?: string[]; // needs_review 인 경우 게이트가 남긴 사유
@@ -147,6 +148,8 @@ export interface KeywordCard {
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
+  gloss_ja?: string;             // 일본어 뜻풀이. 일본어판이 없으면 원문 (views). 예전 서버·캐시에는 없다
+  ja_pending?: boolean;          // 일본어 뜻풀이가 없고 원문도 일본어가 아니다 (views)
   regions: string[];              // 목표 지역 코드, 목표 지역 밖에서 널리 쓰이면 GLOBAL
   lifecycle: Lifecycle;
   diffusion?: Diffusion;
@@ -202,6 +205,8 @@ export interface RecommendItem {
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
+  gloss_ja?: string;             // 일본어 뜻풀이. 일본어판이 없으면 원문 (views). 예전 서버·캐시에는 없다
+  ja_pending?: boolean;          // 일본어 뜻풀이가 없고 원문도 일본어가 아니다 (views)
   regions: string[];
   diffusion?: Diffusion;
   lifecycle: Lifecycle;
@@ -298,6 +303,8 @@ export interface CopyMeme {
   gloss_en: string;
   en_pending?: boolean;          // 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문 (views)
   ko_pending?: boolean;          // 한국어 뜻풀이가 없다 — gloss_ko 는 일본어·영어 원문 (views)
+  gloss_ja?: string;             // 일본어 뜻풀이. 일본어판이 없으면 원문 (views). 예전 서버·캐시에는 없다
+  ja_pending?: boolean;          // 일본어 뜻풀이가 없고 원문도 일본어가 아니다 (views)
   regions: string[];
   lifecycle: Lifecycle;
   diffusion?: Diffusion | null;

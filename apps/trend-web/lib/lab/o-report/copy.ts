@@ -1,5 +1,5 @@
 /* 초안 1(/lab/o-report) 화면 문구. lib/i18n.ts 는 건드리지 않고 여기 한국어·영어를 함께 둔다(키가 빠지면 타입 에러). */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { Diffusion, Lifecycle } from "@/lib/contract/types";
 
 const ko = {

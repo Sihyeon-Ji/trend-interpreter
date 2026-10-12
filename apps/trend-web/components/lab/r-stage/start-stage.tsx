@@ -4,7 +4,7 @@ import { Camera, ChevronDown, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ViewTransition, useEffect, useId, useRef, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { L } from "@/lib/labels";
 import { langTag } from "@/lib/lang";
 import type { CampaignTone, FitCategory } from "@/lib/types";

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { tx } from "@/components/lab/r-stage/copy";
 import { BASE } from "@/components/lab/r-stage/frame";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 export default async function NotFound() {
   const locale = await getLocale();

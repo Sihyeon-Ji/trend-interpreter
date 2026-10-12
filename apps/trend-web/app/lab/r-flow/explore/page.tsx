@@ -6,7 +6,7 @@ import { ExploreTable } from "@/components/lab/r-flow/explore-table";
 import { getMarketCounts } from "@/components/lab/r-flow/server";
 import { getKeywordBoard } from "@/lib/data";
 import { fmtDateTime } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { KeywordBoard, KeywordList } from "@/lib/types";
 
 /* 둘러보기 — 시장 하나씩, 목록 셋(뜨는 중·식는 중·조심, 대시보드 규칙 그대로). 시장·목록·쪽은 주소에만 둔다(?m=&l=&p=).

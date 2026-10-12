@@ -1,6 +1,6 @@
 /* 시안 r-stage 의 작은 부품 — 서버·클라이언트 어디서나 쓴다(훅 없음). */
 import { Ban, CircleHelp, CircleCheck, ListChecks, Sparkles, Stamp, TriangleAlert } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { tx } from "./copy";
 

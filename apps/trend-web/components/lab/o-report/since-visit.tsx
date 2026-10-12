@@ -5,7 +5,7 @@
    누르면 사전에서 찾아본다). 지켜보는 밈은 지켜보기 시작한 뒤 단계·쓸 때 조심·뜻이 바뀐 수를 함께 말한다. */
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtDay, fmtTime, type Change } from "@/lib/lab/o-report";
 import { tr } from "@/lib/lab/o-report/copy";
 import { regionLabel } from "@/lib/labels";

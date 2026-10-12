@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
 import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleRecommend } from "@/lib/sample/recommend";
+import { koOrEn, localeOf } from "@/lib/i18n";
 import { L } from "@/lib/labels";
 import type { CampaignTone, FitCategory } from "@/lib/types";
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   const text = String(form.get("text") ?? "").trim().slice(0, 500);
   const tone = (TONES.includes(form.get("tone") as CampaignTone) ? form.get("tone") : "friendly") as CampaignTone;
   const regions = String(form.get("regions") ?? "").split(",").map((r) => r.trim().toUpperCase()).filter((r) => WRITE_REGIONS.includes(r));
-  const lang = form.get("lang") === "en" ? "en" : "ko";
+  const lang = koOrEn(localeOf(form.get("lang")));   // 모델이 쓰는 설명은 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
   // 사전 항목의 '이 밈으로 만들기' 에서 먼저 고른 밈 id — 모양만 보고 넘긴다(있는지는 백엔드가 본다)
   const term = String(form.get("term") ?? "").trim();
   const pin = /^[\w.:-]{1,64}$/.test(term) ? term : "";

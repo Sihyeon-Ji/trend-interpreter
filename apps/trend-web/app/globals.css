@@ -237,6 +237,10 @@
     word-break: normal;
     line-break: strict;
   }
+  /* 일본어는 구(文節) 단위로 줄을 바꾼다 — '下書きを作 / ります' 처럼 낱말 가운데서 끊기지 않게. 지원하지 않는 브라우저는 위의 normal 그대로 */
+  :lang(ja) { word-break: auto-phrase; }
+  /* 일본어 화면 안의 한국어(번역 없는 원문 뜻·밈 원문)는 한국어 규칙대로 낱말을 끊지 않는다 */
+  :lang(ko) { word-break: keep-all; }
 }
 
 /* 링크는 먹 글자라 밑줄로 알아보게 한다(강조색은 사람의 결정에만) */

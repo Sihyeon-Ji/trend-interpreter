@@ -1,7 +1,7 @@
 /* 손으로 그린 SVG 차트. 글자는 HTML 에 두고(SVG 글자는 휴대폰에서 6px 까지 줄었다) 선만 SVG.
    가로로 늘어나는 차트는 preserveAspectRatio="none" + vector-effect 로 선 굵기를 지킨다.
    곡선은 두 톤이다 — 끝의 '최근 창' 은 진하게, 그 앞 '비교 창' 은 옅게, 더 앞은 회색. 그래서 곡선 자체가 무엇을 무엇과 견줬는지 말한다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { c, genLabel } from "@/lib/lab/f-report/copy";
 import { fmtMonth, type GenTrend } from "@/lib/lab/f-report";
 

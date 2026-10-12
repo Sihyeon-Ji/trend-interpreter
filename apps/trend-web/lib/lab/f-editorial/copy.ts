@@ -1,6 +1,6 @@
 /* 시안 F(에디토리얼) 화면 문구 — 한국어·영어를 함께 둔다. lib/i18n.ts 는 건드리지 않는다.
    이용자 화면이므로 에이전트·게이트·확신도·판 번호 같은 내부 말은 쓰지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { Diffusion, Lifecycle } from "@/lib/contract/types";
 
 type RiskWord = "none" | "caution" | "avoid" | "unknown";

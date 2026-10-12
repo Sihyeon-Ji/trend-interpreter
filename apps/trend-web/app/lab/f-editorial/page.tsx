@@ -15,7 +15,7 @@ import {
   recommendHref, rubrics, searchTrend, searchedMore, sourceItems, uniqueCards, type Rubric as RubricData, type SearchTrend,
 } from "@/lib/lab/f-editorial";
 import { fmtDateTime } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { GenerationCurve } from "@/lib/trends/types";
 import type { KeywordCard } from "@/lib/types";
 

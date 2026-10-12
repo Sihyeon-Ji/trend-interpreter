@@ -5,14 +5,14 @@ import { FitName, Growth, RiskMark, RiskNotes } from "@/components/lab/o-report/
 import { SilhouetteShape } from "@/components/lab/o-report/charts";
 import { GenGrid, IndexChart } from "@/components/lab/o-report/entry-charts";
 import { EntryWatch } from "@/components/lab/o-report/entry-watch";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtDay, readingOf, type RiskKey, type Silhouette } from "@/lib/lab/o-report";
 import { spreadWord, stageWord, tr, type CopyKey } from "@/lib/lab/o-report/copy";
 import { loadEntry, parseRegions, type Entry } from "@/lib/lab/o-report/data";
 import { getTermRecord } from "@/lib/data";
 import { scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 초안 1 밈 항목 — 머리(원문 이름·다른 표기·뜻 한 줄·단계·쓸 때 조심·만들기·지켜보기) → 대표 자료 → 유래 → 이렇게 써요 →
    쓰임 추이 → 나라별 차이 → 출처 → 뜻이 바뀐 기록. 절 제목은 왼쪽 칸, 내용은 오른쪽 칸(리포트의 '숫자는 이렇게 셌어요' 와 같은 틀).

@@ -10,7 +10,7 @@ import { ListTabs } from "@/components/list-tabs";
 import { PageHeader } from "@/components/page-header";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
-import { t, type Locale } from "@/lib/i18n";
+import { koOrEn, t, type Locale } from "@/lib/i18n";
 import { fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import { TARGET_REGIONS } from "@/lib/reader";
@@ -73,7 +73,7 @@ function Named({ items, locale, region }: { items: { label: string; note: { ko: 
           <span className="block text-ink" lang={scriptLang(m.label, region)}>
             {m.term_id ? <Link href={`/dictionary/${m.term_id}`} className="text-link-blue hover:underline">{m.label}</Link> : m.label}
           </span>
-          {m.note[locale] && <span className="block text-[13px] text-steel">{m.note[locale]}</span>}
+          {m.note[koOrEn(locale)] && <span className="block text-[13px] text-steel">{m.note[koOrEn(locale)]}</span>}
         </li>
       ))}
     </ul>
@@ -87,7 +87,7 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
   const since = (v: TopicVariant) => (
     <>
       <span className="tabular-nums">{v.dated ? fmtDate(v.since) : t(locale, "map_undated")}</span>
-      {v.dated && v.since_source && <span className="block text-[12px] text-steel">{v.since_source[locale]}</span>}
+      {v.dated && v.since_source && <span className="block text-[12px] text-steel">{v.since_source[koOrEn(locale)]}</span>}
     </>
   );
   const local = (v: TopicVariant) => (
@@ -97,8 +97,8 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
   );
   return (
     <section aria-labelledby="mp-compare" className="space-y-3">
-      <h2 id="mp-compare" className="text-[18px] font-semibold text-ink">{fill(t(locale, "mp_compare_title"), { meme: topic.name[locale] })}</h2>
-      {topic.summary[locale] && <p className="max-w-[720px] text-[15px] leading-[1.55] text-charcoal">{topic.summary[locale]}</p>}
+      <h2 id="mp-compare" className="text-[18px] font-semibold text-ink">{fill(t(locale, "mp_compare_title"), { meme: topic.name[koOrEn(locale)] })}</h2>
+      {topic.summary[koOrEn(locale)] && <p className="max-w-[720px] text-[15px] leading-[1.55] text-charcoal">{topic.summary[koOrEn(locale)]}</p>}
       {!origin && <p className="max-w-[720px] text-[13px] text-steel">{t(locale, "map_no_path")}</p>}
 
       {/* 768px 이상: 표 */}
@@ -131,7 +131,7 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
               <td className="px-3 py-3 text-charcoal">{since(v)}</td>
               {done && <>
                 <td className="px-3 py-3 text-right"><Heat value={v.heat} /></td>
-                <td className="px-3 py-3 leading-[1.55] text-charcoal">{v.what_changed[locale] || <span className="text-steel">—</span>}</td>
+                <td className="px-3 py-3 leading-[1.55] text-charcoal">{v.what_changed[koOrEn(locale)] || <span className="text-steel">—</span>}</td>
                 <td className="px-3 py-3 text-charcoal"><Named items={v.local_memes} locale={locale} region={v.region} /></td>
                 <td className="px-3 py-3 text-charcoal"><Named items={v.linked} locale={locale} region={v.region} /></td>
               </>}
@@ -153,8 +153,8 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
               <div className="flex gap-2"><dt className="text-steel">{t(locale, "mp_first_confirmed")}</dt><dd className="text-charcoal">{since(v)}</dd></div>
               {done && <div className="flex gap-2"><dt className="text-steel">{t(locale, "ex_heat")}</dt><dd className="tabular-nums text-charcoal">{v.heat}</dd></div>}
             </dl>
-            {done && v.what_changed[locale] && (
-              <div><p className="text-[13px] text-steel">{t(locale, "ex_what_changed")}</p><p className="leading-[1.55] text-charcoal">{v.what_changed[locale]}</p></div>
+            {done && v.what_changed[koOrEn(locale)] && (
+              <div><p className="text-[13px] text-steel">{t(locale, "ex_what_changed")}</p><p className="leading-[1.55] text-charcoal">{v.what_changed[koOrEn(locale)]}</p></div>
             )}
             {done && v.local_memes.length > 0 && <div><p className="text-[13px] text-steel">{t(locale, "ex_local_memes")}</p><Named items={v.local_memes} locale={locale} region={v.region} /></div>}
             {done && v.linked.length > 0 && <div><p className="text-[13px] text-steel">{t(locale, "ex_linked")}</p><Named items={v.linked} locale={locale} region={v.region} /></div>}
@@ -180,7 +180,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
   const list = LISTS.includes(sp.get("list") ?? "") ? sp.get("list") : null;
   const topics = useMemo(() => {
     const col = new Intl.Collator(locale);
-    return [...board.topics].sort((a, b) => Number(researched(b)) - Number(researched(a)) || b.variants.length - a.variants.length || col.compare(a.name[locale], b.name[locale]));
+    return [...board.topics].sort((a, b) => Number(researched(b)) - Number(researched(a)) || b.variants.length - a.variants.length || col.compare(a.name[koOrEn(locale)], b.name[koOrEn(locale)]));
   }, [board.topics, locale]);
   const wantedTopic = tab === "topics" ? sp.get("topic") : null;
   const topic = useMemo(() => (wantedTopic ? topics.find((x) => x.id === wantedTopic) : undefined), [topics, wantedTopic]);
@@ -417,7 +417,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
             <tr key={x.id} onClick={() => replace({ topic: x.id })} className={cn("cursor-pointer border-b border-hairline align-top hover:bg-surface-soft", on && "bg-surface shadow-[inset_2px_0_0_var(--link-blue)]")}>
               <th scope="row" className="px-3 py-2.5 font-medium">
                 <button type="button" aria-current={on ? "true" : undefined} onClick={(e) => { e.stopPropagation(); replace({ topic: x.id }); }}
-                  lang={scriptLang(x.name[locale])} className="text-left text-ink [overflow-wrap:break-word] hover:underline">{x.name[locale]}</button>
+                  lang={scriptLang(x.name[koOrEn(locale)])} className="text-left text-ink [overflow-wrap:break-word] hover:underline">{x.name[koOrEn(locale)]}</button>
                 {!researched(x) && <span className="mt-1 block md:hidden"><StatusBadge tone="muted">{t(locale, "mp_researching")}</StatusBadge></span>}
               </th>
               <td className="py-2.5 pr-3 text-charcoal">{o ? regionLabel(locale, o) : <span className="text-steel">{t(locale, "map_undated")}</span>}</td>

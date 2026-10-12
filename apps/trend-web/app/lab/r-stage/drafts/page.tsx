@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { tx } from "@/components/lab/r-stage/copy";
 import { DraftsStage } from "@/components/lab/r-stage/drafts-stage";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import { getReader, getViewer } from "@/lib/reader-server";
 
 export async function generateMetadata(): Promise<Metadata> {

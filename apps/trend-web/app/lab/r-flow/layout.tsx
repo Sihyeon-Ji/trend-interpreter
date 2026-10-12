@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Frame } from "@/components/lab/r-flow/frame";
 import { getMarketCounts, getQueueCount, getSignerName } from "@/components/lab/r-flow/server";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import "./r-flow.css";
 
 /* 시안 r-flow — '작업 공간'. 앱의 틀 대신 이 시안이 제 틀(옆 메뉴·찾기·패널)을 그린다. 문서: docs/디자인-시안/r-flow.md

@@ -1,7 +1,7 @@
 /* 초안 한 시장의 네 단계 — 규칙이 고르고, AI가 쓰고, 규칙이 다시 보고, 사람이 승인한다.
    막대마다 '누가' 의 움직임이 다르다: 규칙은 일정한 속도로 훑고(기계), AI는 숨 쉬듯 밝아졌다 어두워지고, 사람은 도장처럼 채운다. */
 import { ListChecks, Sparkles, Stamp } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { CopyCheck, GenerationResult } from "@/lib/types";
 import { tx } from "./copy";
 import type { Column, Run } from "./store";

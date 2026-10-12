@@ -4,12 +4,12 @@ import { ReportHead } from "@/components/lab/o-report/report-head";
 import { SinceVisit } from "@/components/lab/o-report/since-visit";
 import { Spotlight } from "@/components/lab/o-report/spotlight";
 import type { Current } from "@/components/lab/o-report/store";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtDay, minDays, type ListKey, type SortKey, type Weeks } from "@/lib/lab/o-report";
 import { tr } from "@/lib/lab/o-report/copy";
 import { KNOWN_REGIONS, loadReport, parseRegions, type Report } from "@/lib/lab/o-report/data";
 import { regionLabel } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
 
 /* 초안 1 첫 화면 — '지금 [지역]에서 쓰이는 밈'. 주 단위 계획(쓰이는·식는·조심할), 매일 확인(지난 방문 이후), 쓰기 전 확인(미리보기·찾기),

@@ -7,7 +7,7 @@
    탭·정렬·고른 밈은 주소에도 적어 둔다(history.replaceState) — 새로 고치거나 링크를 보내도 같은 화면. */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtDay, type Change, type ListKey, type Preview, type RiskKey, type Row, type SortKey, type Weeks } from "@/lib/lab/o-report";
 import type { Lifecycle } from "@/lib/contract/types";
 import { riskWord, spreadWord, stageWord, tr, type CopyKey } from "@/lib/lab/o-report/copy";

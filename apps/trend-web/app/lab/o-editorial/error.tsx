@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { copy } from "@/lib/lab/o-editorial";
 
 /* 이번 주 호를 불러오지 못했을 때 — 예시로 바꿔 넣지 않고, 무엇이 안 됐는지와 다시 불러오기를 준다.

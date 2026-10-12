@@ -5,9 +5,9 @@ import { ExploreStage, type XList, type XRow } from "@/components/lab/r-stage/ex
 import { isPartialWeek } from "@/components/trend-chart";
 import { getKeywordBoard, getTermRelated } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { L, regionLabel, sourceName } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { KeywordBoard, KeywordCard } from "@/lib/types";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {

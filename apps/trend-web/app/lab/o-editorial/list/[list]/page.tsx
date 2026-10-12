@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { IndexItem, LedgerItem, Poster, RubricHead } from "@/components/lab/o-editorial/rubrics";
 import { copy, editionHref, editionName, listHref, parseEdition } from "@/lib/lab/o-editorial";
 import { getListPage, getSearches } from "@/lib/lab/o-editorial/data";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { KeywordList } from "@/lib/types";
 
 /* 꼭지 전체 — 첫 화면에 다 싣지 못한 목록을 30개씩 쪽으로. 목록과 순서는 백엔드 그대로. */

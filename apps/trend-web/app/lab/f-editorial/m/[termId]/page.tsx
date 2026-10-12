@@ -14,7 +14,7 @@ import { fe } from "@/lib/lab/f-editorial/copy";
 import { editionName, editionRegions, issueHref, originRefs, parseEdition, sourceItems } from "@/lib/lab/f-editorial";
 import { fmtDate, fmtDateTime } from "@/lib/labels";
 import { langTag } from "@/lib/lang";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 밈 항목 — 한 편의 기사. 큰 제목, 뜻(리드), 단계·조심·갱신을 적은 한 줄, 유래(참고 문서와 함께), 쓰임, 조심(있을 때만),
    나라별 차이, 나이대별 검색 관심(없으면 그렇다고), 출처(위키·기사·영상만, 같은 기사는 한 번), 뜻의 이력. 예문은 지어내지 않는다. */

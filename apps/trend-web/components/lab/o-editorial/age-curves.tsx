@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { ageName, copy, curvePaths, fmtDay, pct, xOf, type AgeTrend } from "@/lib/lab/o-editorial";
 
 const W = 1000;

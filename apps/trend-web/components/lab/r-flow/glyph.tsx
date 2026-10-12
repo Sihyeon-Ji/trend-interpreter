@@ -1,6 +1,6 @@
 /* 누가 했나 — 규칙(네모), AI(마름모), 사람(동그라미). 모양과 낱말이 함께 달라 색을 못 봐도 구분된다.
    비어 있으면 아직 하지 않은 단계, 채워져 있으면 한 단계. 시안의 로고도 이 셋이다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "./copy";
 
 export type Actor = "rule" | "ai" | "person";

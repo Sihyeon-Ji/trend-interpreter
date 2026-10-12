@@ -8,7 +8,7 @@ import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, ImagePlus, Pencil, RotateCcw, Square, X } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { L } from "@/lib/labels";
 import type { CampaignTone, CopyCheck, FitCategory, GenerationResult, PosterResult, RecommendItem, RecommendResult } from "@/lib/types";

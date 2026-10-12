@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { WeeklyPoint } from "@/lib/types";
 import { fmtDay, fmtN } from "./bits";
 import { tx } from "./copy";

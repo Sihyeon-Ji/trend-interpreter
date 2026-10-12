@@ -4,7 +4,7 @@
    스크립트가 없거나 사전을 못 받으면 평범한 GET 폼(/search?q=)으로 그대로 동작한다. 색인은 칸을 처음 쓸 때 한 번 받는다. */
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { BASE, copy, entryHref, riskTone, riskWord, type RiskKind } from "@/lib/lab/o-editorial";
 import type { IndexEntry } from "@/lib/lab/o-editorial/data";
 

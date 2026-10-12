@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { t, type Locale } from "@/lib/i18n";
+import { koOrEn, t, type Locale } from "@/lib/i18n";
 import { whyAnchor } from "@/lib/country";
 import { scriptLang } from "@/lib/lang";
 import { L, fmtDate, sourceName } from "@/lib/labels";
@@ -28,7 +28,8 @@ export function WhyList({ items, locale }: { items: TrendWhy[]; locale: Locale }
               <h3 lang={otherLang(w.term, locale, w.region)} className="min-w-0 text-[15px] font-semibold text-ink">{w.term}</h3>
               <time dateTime={String(w.date)} className="text-[13px] tabular-nums text-steel">{fmtDate(String(w.date))}</time>
             </div>
-            <p lang={otherLang(w.why_now[locale], locale, w.region)} className="mt-1 max-w-[720px] text-[14px] leading-[1.55] text-charcoal">{w.why_now[locale]}</p>
+            {/* 이유 글은 한국어·영어 두 가지 — 일본어 화면은 영어판 */}
+            <p lang={otherLang(w.why_now[koOrEn(locale)], locale, w.region) ?? (locale === "ja" ? "en" : undefined)} className="mt-1 max-w-[720px] text-[14px] leading-[1.55] text-charcoal">{w.why_now[koOrEn(locale)]}</p>
             <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
               <div className="flex gap-1.5"><dt className="text-steel">{t(locale, "country_why_trigger")}</dt><dd className="text-charcoal">{labels.trigger[w.trigger] ?? w.trigger}</dd></div>
               {actors.length > 0 && (

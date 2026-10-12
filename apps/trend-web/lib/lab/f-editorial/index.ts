@@ -1,7 +1,7 @@
 /* 시안 F(에디토리얼) 규칙 — 판(edition) 주소, 호(issue) 이름, 꼭지 나누기, 표지 고르기, 네이버 검색 추세, 보이는 출처, 조심 이유 문장,
    지난 호 이후 달라진 것의 판 걸러내기. 판정은 여기(데이터 규칙)가 하고 화면은 그리기만 한다. 공용 파일은 읽기만 한다. */
 import type { UpdateRow } from "@/lib/data";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
 import { regionLabel, sourceName, termLangLabel } from "@/lib/labels";
 import { scriptLang } from "@/lib/lang";

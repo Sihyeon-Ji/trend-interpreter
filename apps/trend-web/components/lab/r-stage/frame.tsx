@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { setLocaleCookie, type Locale } from "@/lib/i18n";
+import { setLocaleCookie, type LabLocale as Locale } from "@/lib/i18n";
 import { ActorTag, fmtN } from "./bits";
 import { tx } from "./copy";
 import { useStage } from "./store";

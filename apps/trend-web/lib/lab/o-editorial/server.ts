@@ -3,7 +3,7 @@
    제목 앞에 되풀이된 출처 이름('네이버 뉴스 · ', 'Wikipedia: ')을 뗀다. 네이버 뉴스 검색으로 들어온 기사는
    출처를 '네이버 뉴스' 가 아니라 실제 언론사 주소로 적는다(주소가 그 언론사다). */
 import { headlineFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { scriptLang } from "@/lib/lang";
 import { cleanSource } from "@/lib/sources";
 import type { Evidence, MeaningText } from "@/lib/types";

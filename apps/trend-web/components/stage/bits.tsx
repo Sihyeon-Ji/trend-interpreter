@@ -1,6 +1,6 @@
 /* 무대 화면의 작은 부품 — 서버·클라이언트 어디서나 쓴다(훅 없음). */
 import { Ban, CircleHelp, CircleCheck, ListChecks, Sparkles, Stamp, TriangleAlert } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import { LOCALE_TAG, type Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { tx } from "./copy";
 
@@ -81,22 +81,22 @@ export function RiskMark({ kind, locale }: { kind: VerdictKind; locale: Locale }
   );
 }
 
-/* 날짜는 서울 시각으로 고정 — 서버 그림과 브라우저 그림이 같은 글자가 되게(하이드레이션) */
+/* 날짜는 서울 시각으로 고정 — 서버 그림과 브라우저 그림이 같은 글자가 되게(하이드레이션). 도쿄도 같은 UTC+9 다 */
 const TZ = "Asia/Seoul";
 
-/** 날짜 'M월 D일' / 'Mon D' */
+/** 날짜 'M월 D일' / 'Mon D' / 'M月D日' */
 export function fmtDay(iso: string | null | undefined, locale: Locale, withYear = false): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", { timeZone: TZ, ...(withYear ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }) });
+  return d.toLocaleDateString(LOCALE_TAG[locale], { timeZone: TZ, ...(withYear ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }) });
 }
 
 export function fmtStamp(iso: string | null | undefined, locale: Locale): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(locale === "ko" ? "ko-KR" : "en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(LOCALE_TAG[locale], { timeZone: TZ, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export const fmtN = (n: number) => n.toLocaleString("en-US");

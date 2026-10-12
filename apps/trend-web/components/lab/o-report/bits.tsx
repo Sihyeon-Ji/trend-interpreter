@@ -1,6 +1,6 @@
 /* 작은 표시들 — 쓸 때 조심, 증감, 순위 변화, 이름 조판. 색만으로 뜻을 전하지 않는다(글자·기호가 같이 간다). */
 import type { CSSProperties } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fitName, fmtPct, type Risk, type RiskNote } from "@/lib/lab/o-report";
 import { tr } from "@/lib/lab/o-report/copy";
 

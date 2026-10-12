@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/api-fetch";
    api 모드에서 대시보드가 실패하면 예시로 바꾸지 않고 null 을 돌려 화면이 '불러오지 못했습니다' 를 낸다(공용 규칙과 같다). */
 import { getGenerationCurves, getKeywordBoard, getMeta, getTermRecord, getUpdateFeed, isSampleMode, loadTermRecords } from "@/lib/data";
 import { termRegions, lastUsedOf } from "@/lib/dictionary/regions";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag, scriptLang } from "@/lib/lang";
 import { sampleCardsById } from "@/lib/sample/keyword-board";
 import type { GenerationCurve } from "@/lib/trends/types";

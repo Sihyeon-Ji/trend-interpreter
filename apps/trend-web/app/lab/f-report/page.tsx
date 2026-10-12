@@ -10,7 +10,7 @@ import { langTag } from "@/lib/lang";
 import { c, parseRegions, regionSentence, regionsParam } from "@/lib/lab/f-report/copy";
 import { combineCurves, filterRows, newlyVerified, pickSpotlight, toRow, type Row, type Trend } from "@/lib/lab/f-report";
 import { fmtDateTime } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { KeywordCard, KeywordList } from "@/lib/types";
 
 type Search = { regions?: string | string[]; page?: string; q?: string; list?: string };

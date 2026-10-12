@@ -5,7 +5,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { ViewTransition, useCallback, useEffect, useRef } from "react";
 import { Maximize2, X } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "./copy";
 
 export function Sheet({ locale, children }: { locale: Locale; children: React.ReactNode }) {

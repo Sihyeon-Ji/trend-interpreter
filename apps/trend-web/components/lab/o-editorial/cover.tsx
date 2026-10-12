@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { textFor } from "@/lib/explain";
 import { langTag } from "@/lib/lang";
 import {

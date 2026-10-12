@@ -5,7 +5,7 @@
    시작 화면에서는 같은 표가 비어 있는 채로 '이렇게 진행됩니다' 를 보여 주고, 만들기를 누르면 그대로 살아난다. */
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { MARKET_LANG, marketName, num, tr, type CopyKey, type Market } from "./copy";
 import { Mark, type Actor } from "./glyph";

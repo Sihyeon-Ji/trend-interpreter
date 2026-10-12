@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import {
   BASE, EDITION_ORDER, EDITION_TABS, SEA, copy, editionHref, editionName, fmtStamp, isCombined, recommendRegions, regionName, weekRange,
   type EditionKey, type SinceItem,

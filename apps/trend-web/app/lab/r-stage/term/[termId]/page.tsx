@@ -11,10 +11,10 @@ import { RelGraph, hasGraph } from "@/components/lab/r-stage/graph";
 import { isPartialWeek } from "@/components/trend-chart";
 import { getTermRecord, getTermRelated, getTermSignals } from "@/lib/data";
 import { currentMeaning, textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { L, regionLabel, termLangLabel } from "@/lib/labels";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import { cleanSource } from "@/lib/sources";
 import type { Evidence, Meaning } from "@/lib/types";
 

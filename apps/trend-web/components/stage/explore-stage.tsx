@@ -5,6 +5,7 @@ import { animate, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { ViewTransition, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Locale } from "@/lib/i18n";
+import { sep } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { Tone, TermRelated, WeeklyPoint } from "@/lib/types";
 import { MemeWord, RiskMark, Verdict, fmtDay, fmtN, fmtStamp, type VerdictKind, wordVT } from "./bits";
@@ -63,7 +64,7 @@ function Spot({ row, market, locale, from, titleId }: {
       <p className="rs-spot-gloss" lang={scriptLang(row.gloss)}>{row.gloss}</p>
       <dl className="rs-facts">
         {row.diffusion ? <div><dt>{tx(locale, "pk_why_spread")}</dt><dd>{diffusionWord(row.diffusion, locale)}</dd></div> : null}
-        {row.regions.length ? <div><dt>{tx(locale, "xp_where")}</dt><dd>{row.regions.join(", ")}</dd></div> : null}
+        {row.regions.length ? <div><dt>{tx(locale, "xp_where")}</dt><dd>{row.regions.join(sep(locale))}</dd></div> : null}
         <div><dt>{tx(locale, "xp_m4")}</dt><dd>{fmtN(row.m4)}</dd></div>
       </dl>
       <div className="rs-sub">

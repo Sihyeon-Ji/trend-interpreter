@@ -73,6 +73,7 @@ const BASE_RECORDS: TermRecord[] = [
     category: "meme",
     plain: "오히려 좋아",
     en: { definition: "An attitude of finding the upside in a bad situation and calling it 'lucky after all'.", expansion: "Lucky + Vicky (Jang Won-young's English name)", origin: "Started in April 2024 when IVE's Jang Won-young said '완전 럭키비키잖아' ('that's totally lucky-Vicky') in a video; spread together with 원영적 사고.", nuance: "The fad had passed by 2026; it survives mainly as an ironic use of a dated meme. A brand using it earnestly reads as out of touch.", plain: "lucky after all" },
+    ja: { definition: "悪い状況でも良い面を見つけて「かえって運がいい」と考える態度を表す言葉。", expansion: "Lucky + Vicky（チャン・ウォニョンの英語名）", origin: "2024年4月、IVEのチャン・ウォニョンが動画で言った「완전 럭키비키잖아」（完全にラッキービッキーじゃん）がミームになった。「원영적 사고」とともに広まった。", nuance: "2026年現在、流行は過ぎており、わざと古いミームを使う皮肉な使い方が残っている。ブランドが真剣に使うと時代遅れに見える。", plain: "かえってラッキー" },
     meanings: [
       {
         meaning_id: "m_lv_1", term_id: "t_luckyvicky", version: 1,
@@ -227,6 +228,7 @@ const BASE_RECORDS: TermRecord[] = [
     category: "slang",
     plain: "좋아하는 스타 응원 활동",
     en: { definition: "Everything you do to support your favorite idol or character: buying goods, going to shows, promoting them online.", expansion: "推し (the one you root for) + 活動 (activity)", origin: "Japanese idol-fandom term from the 2010s; became mainstream after being shortlisted for the 2021 word-of-the-year awards.", nuance: "In Japan it is standard vocabulary across generations. Korean fans transliterate it as 오시카츠, which is unfamiliar to people over 30.", plain: "supporting your favorite star" },
+    ja: { definition: "好きなアイドルやキャラクター（推し）を応援する活動全般。グッズの購入、ライブへの参加、SNSでの発信など。", expansion: "推し（応援する対象）＋活動", origin: "2010年代の日本のアイドルファンの言葉。2021年の新語・流行語大賞にノミネートされ、一般的な言葉になった。", nuance: "日本では世代を問わず通じる標準的な言葉。韓国のファンは「오시카츠」と音訳して使うが、30代以上にはなじみが薄い。", plain: "推しの応援" },
     meanings: [
       {
         meaning_id: "m_ok_1", term_id: "t_oshikatsu", version: 1,
@@ -425,10 +427,13 @@ export const SAMPLE_QUEUE: ReviewItem[] = [
 
 export const SAMPLE_COPY = "엄마 오늘 저메추 좀ㅋㅋ 소개팅은 됐고 나는 자만추 할래. 시험은 망했는데 완전 럭키비키잖아? 원영적 사고 가자";
 export const SAMPLE_COPY_EN = "ngl that boat kid is pure aura farming 😭 6-7!! bro is so skibidi";
+/** 일본어 화면의 예시 메시지 — 예시 사전의 말(推し活·aura farming)이 든 일본어 글. 미리 만든 재작성은 없다(모델 출력을 손으로 지어내지 않는다) */
+export const SAMPLE_COPY_JA = "週末は「推し活」でライブ遠征！ 会場で撮った写真、完全に aura farming だった 😭";
 
 /* '쉽게 풀어 쓰면' — 예시 메시지에 대해 로컬 Gemma(gemma4:12b, interpreters/gemma_rewrite.py)가 만든 재작성.
    규칙 치환은 쓰지 않는다. 다른 메시지는 API 모드에서 서버가 만든다. */
 export const SAMPLE_REWRITES: Record<Locale, Record<string, string>> = {
   ko: { [SAMPLE_COPY]: "엄마 오늘 저녁 메뉴 좀 추천해줘ㅋㅋ 소개팅은 됐고 나는 자연스럽게 만나서 연애할래. 시험은 망했는데 오히려 운이 좋네? 긍정적으로 생각하자" },
   en: { [SAMPLE_COPY_EN]: "ngl that boat kid is just trying to look impressive on purpose 😭 bro is so silly" },
+  ja: {},
 };

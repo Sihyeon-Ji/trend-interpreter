@@ -1,5 +1,5 @@
 import { tr } from "@/lib/lab/o-report/copy";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 리포트를 기다리는 동안 — 머리와 표지 자리만 조용히. 움직이는 반짝임은 쓰지 않는다 */
 export default async function ReportLoading() {

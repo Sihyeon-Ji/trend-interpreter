@@ -4,7 +4,7 @@
    바닥글은 두지 않는다 — '© 2026' 과 같은 링크를 되풀이하던 줄이었다. 페이지는 '숫자는 이렇게 셌어요' 로 끝난다. */
 import Link from "next/link";
 import { Suspense } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report/copy";
 import { LocaleToggle } from "./locale-toggle";
 import { NavLinks } from "./nav-links";

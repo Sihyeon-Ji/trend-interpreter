@@ -3,7 +3,7 @@
    표 아래 목록은 기본 순(백엔드 순서)이라, 늘어난 순위는 여기 표지가 맡는다. 표지는 표에 없는 것 하나를 더 말한다 —
    가장 많이 늘어난 연령대(누가 더 찾나). 휴대폰은 가로로 넘긴다(줄 안에서만 넘치고 페이지는 옆으로 밀리지 않는다). */
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fmtDay, type Weeks } from "@/lib/lab/o-report";
 import { stageWord, tr } from "@/lib/lab/o-report/copy";
 import type { SpotItem } from "@/lib/lab/o-report/data";

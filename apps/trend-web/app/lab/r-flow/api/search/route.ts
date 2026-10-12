@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { loadTermRecords } from "@/lib/data";
 import { textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 
 /* 명령 팔레트의 밈 찾기(읽기 전용). 브라우저는 백엔드에 직접 가지 않는다 — 서버가 사전(확인된 말)을 받아
    이름·다른 표기·뜻 한 줄만 추려 맞는 것 8개를 돌려준다. 추린 색인은 이 서버 메모리에 10분 둔다. */

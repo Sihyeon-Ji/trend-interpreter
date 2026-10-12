@@ -1,6 +1,6 @@
 "use client";
 
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { c } from "@/lib/lab/f-report/copy";
 import { useWatchlist, type WatchItem } from "./watch";
 

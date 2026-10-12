@@ -1,5 +1,5 @@
 import { copy } from "@/lib/lab/o-editorial";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 export default async function Loading() {
   const c = copy(await getLocale());

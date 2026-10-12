@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { MARKETS, isMarket, marketName, num, tr, type Market } from "./copy";
 
 const BASE = "/lab/r-flow";

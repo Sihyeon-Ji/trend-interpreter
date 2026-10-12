@@ -5,7 +5,7 @@ import { ArrowLeft, Ban, Check, CircleDashed, ExternalLink, TriangleAlert } from
 import { isPartialWeek } from "@/components/trend-chart";
 import { getTermRecord, getTermRelated, getTermSignals, getTermTopic } from "@/lib/data";
 import { currentMeaning, textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag, scriptLang } from "@/lib/lang";
 import { L, fmtDate, regionLabel, termLangLabel } from "@/lib/labels";
 import { cleanSource } from "@/lib/sources";

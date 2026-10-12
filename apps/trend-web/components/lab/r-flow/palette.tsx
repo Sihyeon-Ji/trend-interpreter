@@ -5,7 +5,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Compass, CornerDownLeft, Languages, Plus, Search } from "lucide-react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { MARKETS, marketName, tr } from "./copy";
 import { rememberMeme, recentMemes, useStore } from "./store";

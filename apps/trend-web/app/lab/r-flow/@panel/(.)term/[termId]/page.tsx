@@ -1,6 +1,6 @@
 import { TermView } from "@/components/lab/r-flow/term-view";
 import { isMarket } from "@/components/lab/r-flow/copy";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 type Props = { params: Promise<{ termId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 

@@ -1,6 +1,6 @@
 /* 시안 r-stage 화면 문구 — 한국어 기본, 영어. 앱 사전(lib/i18n.ts)은 건드리지 않고 이 시안 안에서만 쓴다.
    말투는 해요체. 내부 용어(에이전트·게이트·확신도·판 수·모델 이름·점수)는 쓰지 않는다. 유행어 원문은 번역하지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 
 const ko = {
   nav_make: "만들기",

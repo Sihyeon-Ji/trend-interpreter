@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RiskCell, StageCell } from "@/components/term-status";
 import type { UpdateRow } from "@/lib/data";
-import { t, type Locale } from "@/lib/i18n";
+import { koOrEn, t, type Locale } from "@/lib/i18n";
 import { isCountryCode, whyAnchor } from "@/lib/country";
 import { langTag, scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
@@ -10,7 +10,7 @@ import { glossFor } from "@/lib/gloss";
 /* 최근 변화 표. 날짜는 묶음 행으로 올리고 행에는 시각만 — 매 행 같은 날짜를 되풀이해 휴대폰에서 이름 칸이 좁았다(화면 개편 2차 검토).
    뜻·단계·리스크·지역은 대시보드 카드에서 온다(없으면 '—'). 목적지가 있는 행만 표현이 링크이고 hover 바탕이 생긴다. */
 
-const tz = (locale: Locale) => (locale === "ko" ? "Asia/Seoul" : "UTC");   // fmtDateTime 과 같은 기준
+const tz = (locale: Locale) => (locale === "ko" ? "Asia/Seoul" : locale === "ja" ? "Asia/Tokyo" : "UTC");   // fmtDateTime 과 같은 기준
 const parts = (iso: string, locale: Locale, opts: Intl.DateTimeFormatOptions) => {
   const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz(locale), hour12: false, ...opts }).formatToParts(new Date(iso));
   return (type: string) => p.find((x) => x.type === type)?.value ?? "";
@@ -25,7 +25,7 @@ const hhmm = (iso: string, locale: Locale) => {
 };
 function dayLabel(key: string, locale: Locale, today: string, yesterday: string) {
   const [y, m, d] = key.split("-").map(Number);
-  const date = locale === "ko" ? `${m}월 ${d}일`
+  const date = locale === "ko" ? `${m}월 ${d}일` : locale === "ja" ? `${m}月${d}日`
     : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
   if (key === today) return t(locale, "updates_today").replace("{date}", date);
   if (key === yesterday) return t(locale, "updates_yesterday").replace("{date}", date);
@@ -45,7 +45,7 @@ const Dash = () => <span className="text-steel">—</span>;
 /** 뜻 또는 이유. 뜻 바뀜은 '이전 뜻'·'지금 뜻' 두 줄(이전 뜻은 번역이 없어 원문), 검색 급증은 이유 한 문장. */
 function Meaning({ r, locale, clamp }: { r: UpdateRow; locale: Locale; clamp: string }) {
   if (r.kind === "spike") {
-    const why = r.reason?.[locale];
+    const why = r.reason?.[koOrEn(locale)];   // 이유 글은 한국어·영어 두 가지 — 일본어 화면은 영어판
     return why ? <p className={clamp} title={why}>{why}</p> : <Dash />;
   }
   const now = gloss(r, locale);

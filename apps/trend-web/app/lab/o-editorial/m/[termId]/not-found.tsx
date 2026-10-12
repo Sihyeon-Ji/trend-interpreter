@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BASE, copy, editionName } from "@/lib/lab/o-editorial";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 export default async function EntryNotFound() {
   const locale = await getLocale();

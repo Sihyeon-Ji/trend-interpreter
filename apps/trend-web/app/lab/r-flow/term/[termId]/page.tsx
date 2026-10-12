@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TermView } from "@/components/lab/r-flow/term-view";
 import { isMarket } from "@/components/lab/r-flow/copy";
 import { getTermRecord } from "@/lib/data";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 밈 하나 — 전체 화면. 같은 주소를 화면 안에서 열면 옆 패널(@panel/(.)term)로 열린다. */
 type Props = { params: Promise<{ termId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };

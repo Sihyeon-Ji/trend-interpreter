@@ -5,8 +5,8 @@ import { StartStage } from "@/components/lab/r-stage/start-stage";
 import type { MarketLive, Pin } from "@/components/lab/r-stage/store";
 import { getKeywordBoard, getTermRecord } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
-import type { Locale } from "@/lib/i18n";
-import { getLocale } from "@/lib/locale";
+import type { LabLocale as Locale } from "@/lib/i18n";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import type { KeywordCard } from "@/lib/types";
 
 export async function generateMetadata(): Promise<Metadata> {

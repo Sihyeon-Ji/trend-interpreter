@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { fe } from "@/lib/lab/f-editorial/copy";
 import { editionName, entryHref, glossOf, issueHref, type CoverRule, type SourceItem } from "@/lib/lab/f-editorial";
 import { fmtDate } from "@/lib/labels";

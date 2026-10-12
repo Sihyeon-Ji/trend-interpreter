@@ -4,7 +4,7 @@
    읽기 도움이 필요한 줄만 받고, 한 번에 8개까지, 같은 갱신(보드 시각) 안에서는 다시 받지 않는다. 미리보기는 누를 때 받는다. */
 import { getGenerationCurves, getKeywordBoard, getTermRecord, getTermSignals, getTermTopic, getUpdateFeed, getUpdatedAt, loadTermRecords } from "@/lib/data";
 import { currentMeaning, headlineFor, textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { riskOf } from "@/lib/keyword";
 import { langTag, scriptLang } from "@/lib/lang";
 import { L, sourceName, termLangLabel } from "@/lib/labels";

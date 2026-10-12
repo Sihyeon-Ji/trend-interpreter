@@ -4,7 +4,7 @@ import { RiskMark } from "@/components/lab/o-report/bits";
 import { matchScore, normQuery } from "@/lib/lab/o-report";
 import { stageWord, tr } from "@/lib/lab/o-report/copy";
 import { loadSearchIndex } from "@/lib/lab/o-report/data";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 초안 1의 사전 — 위 막대의 '사전' 과 찾기 칸의 '결과 모두 보기' 가 여기로 온다(09-29 검토: 앱의 예전 사전 화면으로 넘어갔다).
    찾는 말이 없으면 확인된 밈 전부를 이름순으로. 맞추는 규칙은 찾기 칸과 같다. 스크립트 없이도 폼으로 찾는다. */

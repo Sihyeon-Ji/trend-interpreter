@@ -7,7 +7,7 @@ import { ScrapButton } from "@/components/lab/o-editorial/client";
 import { FitName, Tape } from "@/components/lab/o-editorial/type";
 import { getGenerationCurves, getTermRecord, getTermSignals, getTermTopic } from "@/lib/data";
 import { termRegions, lastUsedOf } from "@/lib/dictionary/regions";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { currentMeaning, textFor } from "@/lib/explain";
 import { langTag, scriptLang } from "@/lib/lang";
 import {
@@ -15,7 +15,7 @@ import {
   riskNotes, riskTone, riskWhy, riskWord, searchSummary, stageSentence, stageTapes, youtubeId,
 } from "@/lib/lab/o-editorial";
 import { ledeFor, originSources, sourceList, type SourceItem } from "@/lib/lab/o-editorial/server";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 기사 — 한 밈의 특집. 제목(원문, lang) → 뜻 한 줄 → 단계·쓸 때 조심·확인한 날 → 본문(유래·쓰는 법·조심할 점·나라마다·누가 찾나·출처·기록).
    '브랜드가 써도 될까' 상자는 DOM 에서 본문보다 앞이라 휴대폰·화면 읽기 순서가 보이는 순서와 같다. 예문은 지어내지 않는다. */

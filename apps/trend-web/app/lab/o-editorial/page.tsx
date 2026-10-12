@@ -4,10 +4,10 @@ import { Cover, EmptyCover } from "@/components/lab/o-editorial/cover";
 import { EditionBar } from "@/components/lab/o-editorial/frame";
 import { MyScraps, SinceLastVisit } from "@/components/lab/o-editorial/return-band";
 import { IndexItem, LedgerItem, Poster, RankRow, Rubric, RubricHead, type SinceMark } from "@/components/lab/o-editorial/rubrics";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 import { copy, editionHref, editionName, listHref, parseEdition, searchedMore, type EditionKey } from "@/lib/lab/o-editorial";
 import { getIssue } from "@/lib/lab/o-editorial/data";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 
 /* 이번 주 호 — 판(시장 한 곳이나 여럿)을 고르면 그 시장의 커버 밈, 지난번 방문 이후 달라진 것, 꼭지 넷(지금 쓰이는·요즘 더 찾는·식어 가는·브랜드는 조심).
    목록 나누기와 단계·리스크는 백엔드 규칙(pipeline/dashboard.py) 그대로다. 이 화면이 새로 세는 것은 네이버 곡선의 4주 변화와 커버 고르기뿐이다. */

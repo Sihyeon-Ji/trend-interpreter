@@ -3,7 +3,7 @@
 import { Bookmark, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { LOCALE_NAME, setLocaleCookie, type Locale } from "@/lib/i18n";
+import { LOCALE_NAME, setLocaleCookie, type LabLocale as Locale } from "@/lib/i18n";
 import { BASE, copy, type SinceItem } from "@/lib/lab/o-editorial";
 import { isScrapped, lastVisit, readScraps, subscribeNothing, subscribeScraps, toggleScrap, type Scrap } from "./store";
 

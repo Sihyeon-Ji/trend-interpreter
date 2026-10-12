@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import {
   copy, entryHref, fmtDay, fmtStamp, riskKind, riskTone, riskWord, stageTape,
   type EditionKey, type RiskKind, type SinceItem,

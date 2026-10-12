@@ -101,6 +101,7 @@ export function Frame({ locale, font, signedIn, nick, reviewer, review, sample, 
           <div className="rs-lang" role="group" aria-label={tx(locale, "lang_group")}>
             <button type="button" lang="ko" aria-pressed={locale === "ko"} onClick={() => setLocale("ko")}>한국어</button>
             <button type="button" lang="en" aria-pressed={locale === "en"} onClick={() => setLocale("en")}>EN</button>
+            <button type="button" lang="ja" aria-pressed={locale === "ja"} onClick={() => setLocale("ja")}>日本語</button>
           </div>
           <Link href={account.href} className="rs-who">{account.label}</Link>
         </div>

@@ -66,11 +66,40 @@ const en: Labels = {
   draftLang: { ko: "Korean", ja: "Japanese", "zh-Hant": "Traditional Chinese", th: "Thai", vi: "Vietnamese", id: "Indonesian", en: "English", ms: "Malay" },
 };
 
-const LABELS: Record<Locale, Labels> = { ko, en };
+const ja: Labels = {
+  generation: { "10s": "10代", "20s": "20代", "30s": "30代", "40s": "40代", "50s+": "50代以上", all: "全世代" },
+  trigger: { influencer: "インフルエンサー", release: "発売・公開", event: "出来事・イベント", controversy: "論争", meme: "ミーム", promotion: "宣伝・放送", holiday: "祝日・記念日", sports: "試合", unknown: "原因不明" },
+  trendCategory: { slang_meme: "流行語・ミーム", song_challenge: "曲・チャレンジ", fashion_beauty: "ファッション・美容", food: "食べ物", product: "商品", people_content: "人物・コンテンツ", sports_event: "スポーツ・イベント" },
+  region: {
+    KR: "韓国", JP: "日本", TW: "台湾", HK: "香港", TH: "タイ", VN: "ベトナム", ID: "インドネシア", PH: "フィリピン", MY: "マレーシア",
+    SG: "シンガポール", IN: "インド", AU: "オーストラリア", US: "アメリカ", CA: "カナダ", GB: "イギリス", DE: "ドイツ", FR: "フランス", ES: "スペイン", IT: "イタリア",
+    BR: "ブラジル", MX: "メキシコ", CN: "中国", AE: "アラブ首長国連邦", AR: "アルゼンチン", TR: "トルコ", SA: "サウジアラビア", EG: "エジプト", NG: "ナイジェリア", ZA: "南アフリカ", GLOBAL: "全世界",
+  },
+  lifecycle: { emerging: "広がり始め", rising: "増加中", peak: "最も使われている時期", steady: "安定して使用", declining: "減少中", dormant: "ほとんど使われていない", unknown: "最近の使用データなし" },
+  lifecycleSentence: { emerging: "最近広がり始めています。", rising: "最近ますます使われています。", peak: "今、最も使われている時期です。", steady: "今も安定して使われています。", declining: "最近はだんだん使われなくなっています。", dormant: "今はほとんど使われていません。", unknown: "" },
+  verification: { verified_human: "確認済み", verified_auto: "確認済み", unverified: "確認中", rejected: "除外" },
+  termStatus: { candidate: "候補", researching: "調査中", needs_review: "確認中", verified: "確認済み", retired: "廃止" },
+  category: { slang: "流行語", meme: "ミーム", song: "曲", drama: "ドラマ", dance: "ダンス", news: "ニュース", geopolitics: "時事", product: "商品", other: "その他" },
+  evidenceKind: { short: "動画", news: "記事", datalab: "検索統計", web: "ウェブ", community: "コミュニティ", human: "レビュアー", wiki: "ウィキ" },
+  feeling: { joy: "喜び", hype: "ワクワク", cute: "かわいい", funny: "おもしろい", relatable: "共感", comfort: "癒やし", pride: "誇らしさ", surprise: "驚き", sarcasm: "皮肉",
+             frustration: "もどかしさ", tired: "疲れ", romance: "ときめき", nostalgia: "懐かしさ", cool: "かっこいい" },
+  fitCategory: { food_drink: "飲食", fashion_beauty: "ファッション・美容", tech: "家電・アプリ", game: "ゲーム", entertainment: "公演・映像・音楽", travel: "旅行",
+                 finance: "金融", health_fitness: "健康・運動", education: "教育", lifestyle: "生活用品" },
+  campaignTone: { friendly: "親しみ", witty: "ウィット", premium: "上質感" },
+  draftLang: { ko: "韓国語", ja: "日本語", "zh-Hant": "繁体字中国語", th: "タイ語", vi: "ベトナム語", id: "インドネシア語", en: "英語", ms: "マレー語" },
+};
+
+const LABELS: Record<Locale, Labels> = { ko, en, ja };
 export const L = (locale: Locale) => LABELS[locale];
 
-/** "20대·30대" / "20s and 30s" */
+/** 화면 언어의 나열 쉼표 — 일본어는 「、」 */
+export const sep = (locale: Locale) => (locale === "ja" ? "、" : ", ");
+/** 문장과 문장 사이 — 일본어는 「。」 뒤에 띄어 쓰지 않는다 */
+export const gap = (locale: Locale) => (locale === "ja" ? "" : " ");
+
+/** "20대·30대" / "20s and 30s" / "20代、30代" */
 export function listJoin(locale: Locale, items: string[]) {
+  if (locale === "ja") return items.join("、");
   if (locale === "ko" || items.length < 2) return items.join(locale === "ko" ? "·" : ", ");
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
@@ -90,13 +119,20 @@ const SOURCE_NAME: Record<Locale, Record<string, string>> = {
         "namu.wiki": "Namuwiki", "brunch.co.kr": "Brunch", "instagram.com": "Instagram", "youtube.com": "YouTube",
         "wikipedia.org": "Wikipedia", "ko.wikipedia.org": "Korean Wikipedia", "en.wikipedia.org": "Wikipedia", "ja.wikipedia.org": "Japanese Wikipedia",
         "zh.wikipedia.org": "Chinese Wikipedia" },
+  ja: { "naver:blog": "NAVERブログ", "naver:news": "NAVERニュース", "datalab.naver.com": "NAVERデータラボ", "trends.google.com": "Googleトレンド",
+        "namu.wiki": "ナムウィキ", "brunch.co.kr": "Brunch", "instagram.com": "Instagram", "youtube.com": "YouTube",
+        "wikipedia.org": "ウィキペディア", "ko.wikipedia.org": "韓国語版ウィキペディア", "en.wikipedia.org": "英語版ウィキペディア", "ja.wikipedia.org": "ウィキペディア",
+        "zh.wikipedia.org": "中国語版ウィキペディア" },
 };
 export const sourceName = (locale: Locale, domain: string) => SOURCE_NAME[locale][domain] ?? domain;
+/** 출처 이름 + 글의 종류 — "나무위키 문서" / "Namuwiki page" / "ナムウィキの記事" */
+export const sourceLabel = (locale: Locale, name: string, noun: string) => (!noun ? name : locale === "ja" ? `${name}の${noun}` : `${name} ${noun}`);
 
 /** 용어 원문의 언어 (Term.lang) */
 const TERM_LANG: Record<Locale, Record<string, string>> = {
   ko: { ko: "한국어", en: "영어", ja: "일본어", id: "인도네시아어", th: "태국어", vi: "베트남어", zh: "중국어" },
   en: { ko: "Korean", en: "English", ja: "Japanese", id: "Indonesian", th: "Thai", vi: "Vietnamese", zh: "Chinese" },
+  ja: { ko: "韓国語", en: "英語", ja: "日本語", id: "インドネシア語", th: "タイ語", vi: "ベトナム語", zh: "中国語" },
 };
 export const termLangLabel = (locale: Locale, code: string) => TERM_LANG[locale][code] ?? code;
 
@@ -105,11 +141,14 @@ export const termLangLabel = (locale: Locale, code: string) => TERM_LANG[locale]
 export const nuanceChecked = (meaning?: { verification?: string } | null) => meaning?.verification === "verified_human";
 
 export const fmtDate = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).replace(/-/g, ".") : "—");
-/** 시각까지. 한국어 화면은 서울 시간, 영어 화면은 UTC 로 고정(서버 렌더와 브라우저가 같은 값을 내야 한다). */
+/** 시각까지. 한국어 화면은 서울 시간, 일본어 화면은 도쿄 시간(ja-JP 꼴 2026/10/12 14:30), 영어 화면은 UTC 로 고정(서버 렌더와 브라우저가 같은 값을 내야 한다). */
 export function fmtDateTime(iso: string | null | undefined, locale: Locale) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  if (locale === "ja") {
+    return new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  }
   const tz = locale === "ko" ? "Asia/Seoul" : "UTC";
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
   const g = (t: string) => parts.find((x) => x.type === t)?.value ?? "";

@@ -3,7 +3,7 @@ import { MARKETS, isMarket, type Market } from "@/components/lab/r-flow/copy";
 import { Make, type Pinned } from "@/components/lab/r-flow/make";
 import { getMarketCounts, getSignerName } from "@/components/lab/r-flow/server";
 import { getTermRecord, isSampleMode } from "@/lib/data";
-import { getLocale } from "@/lib/locale";
+import { getLabLocale as getLocale } from "@/lib/locale";
 
 /* 시작(만들기) — 입력 상자와, 실행될 진행표를 빈 채로 미리 보인다. 만들기를 누르면 같은 화면에서 시장별 초안으로 펼쳐진다.
    ?regions=KR 는 둘러보기의 '이 시장으로 초안 만들기', ?term= 는 밈 항목의 '이 밈으로 초안 만들기'. */

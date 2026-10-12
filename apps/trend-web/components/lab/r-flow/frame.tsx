@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Compass, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { MotionConfig } from "motion/react";
-import { setLocaleCookie, type Locale } from "@/lib/i18n";
+import { setLocaleCookie, type LabLocale as Locale } from "@/lib/i18n";
 import { MARKETS, marketName, num, tr } from "./copy";
 import { Logo } from "./glyph";
 import { Palette } from "./palette";

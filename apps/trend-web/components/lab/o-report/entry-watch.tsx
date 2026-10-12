@@ -1,7 +1,7 @@
 "use client";
 
 import type { Lifecycle } from "@/lib/contract/types";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { RiskKey } from "@/lib/lab/o-report";
 import { WatchButton } from "./board";
 import { useWatchlist } from "./store";

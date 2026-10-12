@@ -1,7 +1,7 @@
 import "server-only";
 import { loadTermRecords } from "@/lib/data";
 import { textFor } from "@/lib/explain";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { SearchHit } from "./search";
 
 export async function loadSearchIndex(locale: Locale): Promise<SearchHit[] | null> {

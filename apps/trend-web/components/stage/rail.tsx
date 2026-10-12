@@ -62,5 +62,6 @@ export function StepRail({ steps, locale, size = "l", label }: { steps: Steps; l
 function stateWord(s: StepState, locale: Locale): string {
   const ko = { idle: "대기", working: "진행 중", done: "완료", flag: "표시 있음", fail: "멈춤", skip: "건너뜀", ready: "승인 대기" };
   const en = { idle: "waiting", working: "in progress", done: "done", flag: "flagged", fail: "stopped", skip: "skipped", ready: "awaiting approval" };
-  return (locale === "ko" ? ko : en)[s];
+  const ja = { idle: "待機中", working: "進行中", done: "完了", flag: "マークあり", fail: "停止", skip: "スキップ", ready: "承認待ち" };
+  return { ko, en, ja }[locale][s];
 }

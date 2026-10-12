@@ -1,7 +1,7 @@
 /* 디자인 시안 '에디토리얼형'(/lab/o-editorial) — 문구·표시 규칙·계산을 한 곳에. 화면(서버·클라이언트 모두)이 부른다.
    판정(단계·리스크·지역)은 백엔드 규칙이 한 것을 글로만 옮긴다. 여기서 새로 세는 것은 네이버 검색 곡선의 4주 변화와 커버 고르기뿐이고,
    그것도 곡선에 있는 값만 쓴다(없는 날은 0, 자료가 모자라면 '자료 부족'). 커뮤니티 글의 제목·인용·사이트 이름은 어디에도 내지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import type { GenerationCurve } from "@/lib/trends/types";
 import type { KeywordCard, Lifecycle } from "@/lib/types";
 

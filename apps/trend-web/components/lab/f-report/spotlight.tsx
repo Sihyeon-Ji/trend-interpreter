@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { c, stageLabel } from "@/lib/lab/f-report/copy";
 import { fitClass, fmtDay, type Row } from "@/lib/lab/f-report";

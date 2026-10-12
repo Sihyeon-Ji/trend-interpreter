@@ -1,6 +1,6 @@
 /* 시안 r-flow 의 화면 문구 — 한국어 기본, 영어. 앱 공용 사전(lib/i18n.ts)은 건드리지 않고 이 폴더 안에만 둔다.
    데이터 라벨(생애주기·분야·느낌·지역 이름)은 lib/labels.ts 의 L(locale) 을 그대로 쓴다. 유행어 원문은 번역하지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 
 const ko = {
   brand: "트렌드 통역",

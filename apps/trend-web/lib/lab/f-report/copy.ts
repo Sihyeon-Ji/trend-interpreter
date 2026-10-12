@@ -1,5 +1,5 @@
 /* 시안 f-report 의 화면 문구. 한국어·영어를 같이 둔다(키가 빠지면 타입 오류). 내부 용어(에이전트·게이트·확신도·판 번호)는 쓰지 않는다. */
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 
 const ko = {
   brand: "트렌드 통역",

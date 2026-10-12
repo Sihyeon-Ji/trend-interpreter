@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { explain } from "@/lib/data";
+import { koOrEn, localeOf, type Locale } from "@/lib/i18n";
 import { getReader } from "@/lib/reader-server";
 
 /** 물음표나 의문사가 있으면 질문으로 본다. "AI slop 누가 써?" 처럼 사전 용어가 들어 있어도 묻는 말이면
@@ -18,13 +19,13 @@ const STRIP = /(이거|이것|이\s*문장|이\s*메시지|다음)?\s*(해석|�
  *  - 붙여 넣은 메시지면: 규칙 매칭 + 근거 카드(해석).
  *  둘 다 답이 없으면 그렇게 말한다 — 지어내지 않는다. */
 export async function POST(req: Request) {
-  let text = "", locale: "ko" | "en" = "ko";
+  let text = "", locale: Locale = "ko";
   let history: Array<{ role: string; content: string }> = [];
   let isEval = false;
   try {
     const body = (await req.json()) as { text?: string; locale?: string; history?: Array<{ role: string; content: string }>; eval?: boolean };
     text = (body.text ?? "").trim().slice(0, 500);
-    locale = body.locale === "en" ? "en" : "ko";
+    locale = localeOf(body.locale);
     history = (body.history ?? []).slice(-6);
     isEval = body.eval === true;   // 평가 호출은 수요 집계에서 뺀다
   } catch {
@@ -55,7 +56,8 @@ export async function POST(req: Request) {
     const res = await apiFetch(`/ask/stream`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question: text, lang: locale, history, log_miss: !isEval }),
+      // 답은 모델이 쓰는 글이라 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
+      body: JSON.stringify({ question: text, lang: koOrEn(locale), history, log_miss: !isEval }),
       cache: "no-store",
       signal: req.signal,
     });

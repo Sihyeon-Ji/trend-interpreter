@@ -4,7 +4,7 @@ import { ArrowUpRight, X } from "lucide-react";
 import { animate, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { ViewTransition, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { Tone, TermRelated, WeeklyPoint } from "@/lib/types";
 import { MemeWord, RiskMark, Verdict, fmtDay, fmtN, fmtStamp, type VerdictKind, wordVT } from "./bits";

@@ -1,6 +1,6 @@
 /* 사전 항목 '출처' 표의 한 줄 — 수집기가 남긴 제목·발췌를 읽을 수 있게 다듬는다. 판정은 하지 않고 보이는 글만 고친다. */
 import type { Locale } from "./i18n";
-import { L, sourceName } from "./labels";
+import { L, sep, sourceLabel, sourceName } from "./labels";
 import type { Evidence } from "./types";
 
 export interface SourceRow {
@@ -16,6 +16,7 @@ export interface SourceRow {
 const NOUN: Record<Locale, Record<Evidence["kind"], string>> = {
   ko: { short: "영상", news: "기사", datalab: "검색 통계", web: "웹 문서", community: "글", human: "검수 기록", wiki: "문서" },
   en: { short: "video", news: "article", datalab: "search stats", web: "web page", community: "post", human: "review note", wiki: "article" },
+  ja: { short: "動画", news: "記事", datalab: "検索統計", web: "ページ", community: "投稿", human: "レビュー記録", wiki: "記事" },
 };
 
 const QUOTES = /^[\s"'“”‘’「」『』]+|[\s"'“”‘’「」『』]+$/g;
@@ -40,7 +41,7 @@ function around(text: string, term: string, width = 60): string {
 
 /** 출처 한 줄. 따옴표가 겹친 것을 풀고, 제목을 되풀이할 뿐인 발췌는 내지 않는다(제목 앞 30자만 비교하던 것을 전체 비교로). */
 export function cleanSource(e: Evidence, term: string, locale: Locale): SourceRow {
-  const names = [e.source_domain, sourceName("ko", e.source_domain), sourceName("en", e.source_domain)];
+  const names = [e.source_domain, sourceName("ko", e.source_domain), sourceName("en", e.source_domain), sourceName("ja", e.source_domain)];
   const title = stripSourceTail((e.title ?? "").trim(), names).replace(QUOTES, "") || e.url;
   let excerpt = (e.excerpt ?? "").trim().replace(QUOTES, "");
   const nt = norm(title), ne = norm(excerpt);
@@ -49,17 +50,17 @@ export function cleanSource(e: Evidence, term: string, locale: Locale): SourceRo
   return {
     id: e.evidence_id,
     date: e.observed_at,
-    source: `${sourceName(locale, e.source_domain)} ${NOUN[locale][e.kind]}`,
+    source: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind]),
     title,
     url: e.url,
     excerpt: excerpt ? around(excerpt, term) : "",
   };
 }
 
-/** "기사 11건, 커뮤니티 12건" / "article 11, community 12" — 많은 순 */
+/** "기사 11건, 커뮤니티 12건" / "article 11, community 12" / "記事11件、コミュニティ12件" — 많은 순 */
 export function kindCounts(evidences: Evidence[], locale: Locale): string {
   const counts = new Map<Evidence["kind"], number>();
   for (const e of evidences) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const label = L(locale).evidenceKind;
-  return [...counts].sort((a, b) => b[1] - a[1]).map(([k, n]) => (locale === "ko" ? `${label[k]} ${n}건` : `${label[k]} ${n}`)).join(", ");
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([k, n]) => (locale === "ko" ? `${label[k]} ${n}건` : locale === "ja" ? `${label[k]}${n}件` : `${label[k]} ${n}`)).join(sep(locale));
 }

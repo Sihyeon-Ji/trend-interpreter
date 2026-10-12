@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- 유튜브 미리보기는 주소만 쓰는 평범한 <img>(파일을 받지 않는다, 이미지 설정에 외부 도메인을 열지 않는다) */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import {
   AGE_ORDER, ageName, cardVideo, copy, entryHref, fadeReason, fmtDay, glossOf, notableStage, pct, riskKind, riskNotes, riskTone, riskWhy, riskWord,

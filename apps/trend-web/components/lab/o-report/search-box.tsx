@@ -5,7 +5,7 @@
    휴대폰에서는 단추를 누르면 화면을 덮는 칸이 열린다(fixed inset-0 + flex, 변형 없이). */
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { Locale } from "@/lib/i18n";
+import type { LabLocale as Locale } from "@/lib/i18n";
 import { tr } from "@/lib/lab/o-report/copy";
 import { matchScore, normQuery } from "@/lib/lab/o-report";
 import type { IndexItem } from "@/lib/lab/o-report/data";
