@@ -8,7 +8,7 @@ import { ActorTag } from "@/components/stage/bits";
 import { marketName, tx, type CopyKey } from "@/components/stage/copy";
 import { isBlocking } from "@/lib/approval";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
-import { fmtDateTime } from "@/lib/labels";
+import { fmtDateTime, sep } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { ApprovalGroup, ApprovalItem, ApprovalList } from "@/lib/types";
 
@@ -125,7 +125,7 @@ function Copies({ it, locale }: { it: ApprovalItem; locale: Locale }) {
             <span className="rs-check" data-state={c.issues.length ? "flag" : "ok"} data-avoid={c.issues.some(isBlocking)}>
               <ListChecks aria-hidden="true" size={14} />
               <span className="rs-sr">{tx(locale, "cp_rule")}: </span>
-              {c.issues.length ? c.issues.map((x) => tx(locale, `cp_issue_${x}` as CopyKey)).join(", ") : t(locale, "apq_rule_ok")}
+              {c.issues.length ? [...new Set(c.issues.map((x) => tx(locale, `cp_issue_${x}` as CopyKey)))].join(sep(locale)) : t(locale, "apq_rule_ok")}
             </span>
             {i === it.fit_copy && it.fit ? (
               <span className="rs-check" data-who="ai" data-state={it.fit === "ok" ? "ok" : "flag"}>
