@@ -19,3 +19,13 @@ test("predicate headwords match their inflected forms like the backend matcher",
   expect(predicateForms("마렵다")).toBe("마(?:렵|려(?=[우워운울]))[가-힣]*");
   expect(predicateForms("디토합니다")).toBeNull();
 });
+
+test("memes inside Japanese sentences match like the backend matcher (no word spaces)", () => {
+  const hits = (term: string, text: string) => termPattern(term).test(text);
+  expect(hits("推し活", "週末は推し活で忙しい")).toBe(true);
+  expect(hits("オタクに優しいギャル", "まさにオタクに優しいギャルだね")).toBe(true);
+  expect(hits("Nice boat", "最終回はNice boatだった")).toBe(true);
+  // Latin words still need ASCII boundaries
+  expect(hits("lol", "lolly pop")).toBe(false);
+  expect(hits("lol", "that was funny lol")).toBe(true);
+});

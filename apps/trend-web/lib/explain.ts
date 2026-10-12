@@ -37,7 +37,9 @@ export function termPattern(candidate: string): RegExp {
   if (forms) return new RegExp(forms, "u");
   const body = candidate.trim().split(/\s+/).map(escapeRe).join(hasHangul(candidate) ? "\\s*" : "\\s+");
   if (hasHangul(candidate)) return new RegExp(body, "iu");
-  return new RegExp(`(?<![\\p{L}\\p{N}-])${body}(?![\\p{L}\\p{N}-])`, "iu");
+  // 경계는 ASCII 글자·숫자만 본다(백엔드 match.term_pattern 과 같다) – 모든 글자(\p{L})를 경계로 보면 붙여 쓰는 일본어 문장 속
+  // 밈(週末は推し活で 의 推し活)을 못 찾았다(10-12, 백엔드는 찾고 화면이 다시 걸렀다)
+  return new RegExp(`(?<![A-Za-z0-9_-])${body}(?![A-Za-z0-9_-])`, "iu");
 }
 
 /** '-다' 로 실린 한 낱말 서술어 표제어의 활용형(찰지다 → 찰진·찰져, 마렵다 → 마려운, 폭룡적이다 → 폭룡적인)까지 찾는 정규식 본문.
