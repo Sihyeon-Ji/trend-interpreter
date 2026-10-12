@@ -52,7 +52,7 @@ export function sampleCopyCheck(text: string, region: string): CopyCheck {
     if (isFadingCard(c)) issues.push({ code: "fading", note: "" });
     if (!c.regions.includes(region)) issues.push({ code: "not_in_region", note: "" });
     else if (!writable(h.names, region)) issues.push({ code: "no_script", note: "" });
-    memes.push({ term_id: c.term_id, canonical: c.canonical, lang: c.lang, matched: h.matched, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en,
+    memes.push({ term_id: c.term_id, canonical: c.canonical, lang: c.lang, matched: h.matched, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, gloss_ja: c.gloss_ja, ja_pending: c.ja_pending,
       regions: c.regions, lifecycle: c.lifecycle, diffusion: c.diffusion ?? null, risk_level: c.risk_level ?? null,
       risk_checked_at: c.risk_checked_at ?? null, issues, fit: null, fit_note: null });
   }

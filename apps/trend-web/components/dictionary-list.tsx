@@ -48,12 +48,12 @@ function Regions({ row, locale }: { row: DictionaryRow; locale: Locale }) {
 
 function Gloss({ row, locale, q }: { row: DictionaryRow; locale: Locale; q: string }) {
   const alias = aliasHit(row, q);
-  const pending = locale === "en" && !!row.meaning_lang;   // 영어판이 없는 뜻은 한국어 원문 대신 '번역 전' — 대시보드와 같다
+  const pending = (locale === "en" || locale === "ja") && !!row.meaning_lang;   // 영어·일본어판이 없는 뜻은 한국어 원문 대신 '번역 전' — 대시보드와 같다
   return (
     <>
       {alias && <p className="mt-0.5 text-[12px] text-steel">{t(locale, "pg_dict_also")}: <span lang={langTag(row.lang)}>{alias}</span></p>}
       <p lang={pending ? undefined : row.meaning_lang ?? undefined} className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">
-        {pending ? t(locale, "gloss_en_pending") : <>
+        {pending ? t(locale, locale === "ja" ? "gloss_ja_pending" : "gloss_en_pending") : <>
           {row.expansion && <span className="font-medium text-ink">{row.expansion}. </span>}
           {row.definition ?? t(locale, "dict_pending")}
         </>}

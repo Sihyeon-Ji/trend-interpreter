@@ -70,7 +70,7 @@ export function sampleRecommend(regions: string[], tone: CampaignTone, pin?: str
     top.push(scored.find(({ c }) => c.term_id === pin) ?? { c: pinCard, s: 0, cat: false, shared: [], any: SAMPLE_FIT[pin!]?.any_category ?? false });
   }
   const items: RecommendItem[] = top.map(({ c, s, cat, shared, any }) => ({
-    term_id: c.term_id, canonical: c.canonical, lang: c.lang, pinned: c.term_id === pin, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, regions: c.regions,
+    term_id: c.term_id, canonical: c.canonical, lang: c.lang, pinned: c.term_id === pin, gloss_ko: c.gloss_ko, gloss_en: c.gloss_en, gloss_ja: c.gloss_ja, ja_pending: c.ja_pending, regions: c.regions,
     diffusion: c.diffusion ?? null, lifecycle: c.lifecycle, risk_level: c.risk_level ?? null, risk_reasons: c.risk_reasons,
     matched_category: cat, any_category: any, matched_feelings: shared, local_region: null, local_note: null,
     // 예시 모드: 그 지역의 글자로 쓴 표기(또는 로마자)가 있는 곳만 — 백엔드 generate.writable 의 간단한 판

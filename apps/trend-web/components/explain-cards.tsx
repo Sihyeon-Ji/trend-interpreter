@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { RiskCell, StageCell } from "@/components/term-status";
-import type { ExplainResult, Explanation } from "@/lib/explain";
+import { jaUntranslated, type ExplainResult, type Explanation } from "@/lib/explain";
 import { measuredUsage } from "@/lib/dictionary/regions";
 import { t, type Locale } from "@/lib/i18n";
-import { langTag } from "@/lib/lang";
+import { langTag, scriptLang } from "@/lib/lang";
 import { L, fmtDate, regionLabel, sourceName, nuanceChecked } from "@/lib/labels";
 
 /* 메시지 해석 결과. 원문 → 쉽게 풀어 쓰면 → 찾은 표현(표현마다 뜻과 라벨 행). 상자·그림자 없이 행 사이 선만 둔다.
@@ -48,7 +48,8 @@ export function ExpressionRow({ e, locale }: { e: Explanation; locale: Locale })
   const term = record.term;
   const labels = L(locale);
   const id = term.term_id;
-  const untranslated = locale === "en" && !record.en ? "ko" : undefined;   // 영어 화면에서 한국어 뜻으로 대신 나가는 줄
+  // 영어·일본어 화면에서 번역 없이 원문(대개 한국어) 뜻으로 대신 나가는 줄
+  const untranslated = locale === "en" && !record.en ? "ko" : locale === "ja" && jaUntranslated(record) ? scriptLang(text?.definition ?? "") ?? "ko" : undefined;
   const gens = [...new Set(measuredUsage(record.usage).map((u) => u.segment.generation))];
   // 가장 최근 근거 한 건. 검색 통계와 홈페이지 주소뿐인 것은 쓰인 글이 아니라 뺀다(대시보드와 같은 규칙) — 없으면 아무 근거나
   const byDate = [...record.evidences].sort((a, b) => b.observed_at.localeCompare(a.observed_at));

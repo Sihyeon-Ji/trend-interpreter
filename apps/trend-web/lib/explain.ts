@@ -4,7 +4,7 @@
 import { termRegions } from "./dictionary/regions";
 import { t, type Locale } from "./i18n";
 import type { Reader } from "./reader";
-import { L, regionLabel } from "./labels";
+import { L, gap, regionLabel } from "./labels";
 import type { Meaning, MeaningText, TermRecord } from "./types";
 
 export interface Explanation {
@@ -73,7 +73,16 @@ export function textFor(record: TermRecord, locale: Locale): MeaningText | null 
   if (locale === "en" && record.en) return record.en;
   // 한국어 화면도 번역본을 쓴다. 일본어 표제어의 뜻이 일본어 그대로 나가던 문제(2026-09-16 사용자 지적).
   if (locale === "ko" && record.ko) return { ...record.ko, plain: record.ko.plain ?? record.plain ?? null };
+  if (locale === "ja" && record.ja) return { ...record.ja, plain: record.ja.plain ?? null };
   return { definition: m.definition, expansion: m.expansion ?? null, origin: m.origin, nuance: m.nuance, plain: record.plain };
+}
+
+/** 일본어 화면이 일본어판 없이 원문 뜻을 보이는가 — 원문에 가나가 있으면(일본어로 조사한 표제어) 번역이 없어도 일본어다.
+ *  백엔드 views 의 ja_pending 과 같은 규칙. 사전 항목은 이때 '翻訳なし' 안내를 붙인다. */
+export function jaUntranslated(record: TermRecord): boolean {
+  if (record.ja) return false;
+  const m = currentMeaning(record);
+  return !!m?.definition && !/[぀-ヿ]/.test(m.definition);
 }
 
 export function headlineFor(text: MeaningText, locale: Locale) {
@@ -81,6 +90,7 @@ export function headlineFor(text: MeaningText, locale: Locale) {
   const blend = /\s\+\s|→/.test(text.expansion); // "Lucky + Vicky", "아리가토 고자이마스 → 아자스"
   // 사전 뜻과 같은 말투로(명사형). '…입니다.' 를 붙이면 뒤따르는 뜻 문장과 말투가 섞였다
   if (locale === "ko") return blend ? `${text.expansion}에서 온 말. ${text.definition}` : `'${text.expansion}'의 줄임말. ${text.definition}`;
+  if (locale === "ja") return blend ? `${text.expansion}から生まれた言葉。${text.definition}` : `「${text.expansion}」の略。${text.definition}`;
   return blend ? `From ${text.expansion}. ${text.definition}` : `Short for ${text.expansion}. ${text.definition}`;
 }
 
@@ -89,12 +99,13 @@ export function readerNotes(m: Meaning, regions: string[], locale: Locale, reade
   const out: string[] = [];
   if (reader.gen && m.generations.length && !m.generations.includes("all") && !m.generations.includes(reader.gen)) {
     const g = L(locale).generation[reader.gen];
-    out.push(locale === "ko" ? `${g} ${t(locale, "bg_unfamiliar_gen")}` : `${t(locale, "bg_unfamiliar_gen")} ${g}.`);
+    // 일본어는 한국어와 같은 어순(세대 + 조각), 띄어 쓰지 않는다
+    out.push(locale === "ko" ? `${g} ${t(locale, "bg_unfamiliar_gen")}` : locale === "ja" ? `${g}${t(locale, "bg_unfamiliar_gen")}` : `${t(locale, "bg_unfamiliar_gen")} ${g}.`);
   }
   const where = new Set([...m.regions, ...regions]);
   if (reader.region && where.size && !where.has(reader.region) && !where.has("GLOBAL")) {
     const r = regionLabel(locale, reader.region);
-    out.push(locale === "ko" ? `${r}${t(locale, "bg_other_region")}` : `${t(locale, "bg_other_region")} ${r}.`);
+    out.push(locale === "en" ? `${t(locale, "bg_other_region")} ${r}.` : `${r}${t(locale, "bg_other_region")}`);
   }
   return out;
 }
@@ -117,6 +128,7 @@ export function explainMessage(text: string, records: TermRecord[], locale: Loca
   const pos = (e: Explanation) => text.search(termPattern(e.matched));
   items.sort((a, b) => pos(a) - pos(b));
   const n = items.length;
-  const greeting = reader.nick && n ? `${reader.nick}${t(locale, "home_greeting")} ${n}${t(locale, "home_greeting_unit")}` : undefined;
+  // 일본어는 '…表現を3件' 처럼 붙여 쓴다
+  const greeting = reader.nick && n ? `${reader.nick}${t(locale, "home_greeting")}${gap(locale)}${n}${t(locale, "home_greeting_unit")}` : undefined;
   return { items, plain: n ? plain : null, greeting };
 }

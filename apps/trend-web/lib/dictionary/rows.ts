@@ -1,7 +1,7 @@
 /* 사전 색인의 행 모델과 거르기·정렬. 서버가 사전 기록(TermRecord)을 행 하나에 필요한 칸만 남겨 넘긴다 —
    기록 전체(근거·주간 수·뜻 버전)를 브라우저로 보내면 운영 데이터 148개에 2.26MB 였다(2026-09-29 검토). */
 import type { Diffusion, RiskLevel } from "../contract/types";
-import { currentMeaning, textFor } from "../explain";
+import { currentMeaning, jaUntranslated, textFor } from "../explain";
 import type { Locale } from "../i18n";
 import type { Category, Generation, Lifecycle, TermRecord } from "../types";
 import { lastUsedOf, measuredUsage, termRegions } from "./regions";
@@ -42,7 +42,7 @@ export interface DictionaryRow {
 export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
   const m = currentMeaning(r);
   const { expansion, definition } = glossParts(r, locale);
-  const translated = locale === "en" ? !!r.en : !!r.ko || (r.term.lang ?? "ko") === "ko";
+  const translated = locale === "en" ? !!r.en : locale === "ja" ? !jaUntranslated(r) : !!r.ko || (r.term.lang ?? "ko") === "ko";
   return {
     term_id: r.term.term_id, canonical: r.term.canonical, lang: r.term.lang ?? "ko", aliases: r.term.aliases ?? [],
     expansion, definition, meaning_lang: translated ? null : "ko",
@@ -79,9 +79,17 @@ export function riskKey(r: Pick<DictionaryRow, "risk_level" | "risk_checked_at">
   return r.risk_checked_at ? "unknown" : "unchecked";
 }
 
-/** 가나다순에서 글자 갈래의 순서: 화면 언어의 글자가 먼저, 일본어·태국어 같은 다른 글자는 뒤에 모인다. */
+/** 가나다순에서 글자 갈래의 순서: 화면 언어의 글자가 먼저, 일본어·태국어 같은 다른 글자는 뒤에 모인다.
+ *  일본어 화면은 가나·한자 → 라틴 → 숫자 → 한글 순. */
 function scriptRank(s: string, locale: Locale): number {
   const c = s.trim().charAt(0);
+  if (locale === "ja") {
+    if (/[぀-ヿ一-鿿]/.test(c)) return 0;
+    if (/[a-zÀ-ɏ]/i.test(c)) return 1;
+    if (/[0-9]/.test(c)) return 2;
+    if (/[가-힣ㄱ-ㅎ]/.test(c)) return 3;
+    return 4;
+  }
   if (/[가-힣ㄱ-ㅎ]/.test(c)) return locale === "ko" ? 0 : 1;
   if (/[a-zÀ-ɏ]/i.test(c)) return locale === "ko" ? 1 : 0;
   if (/[0-9]/.test(c)) return 2;

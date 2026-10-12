@@ -10,10 +10,10 @@ import { RelGraph, hasGraph } from "@/components/stage/graph";
 import { isPartialWeek } from "@/components/trend-chart";
 import { getTermRecord, getTermRelated, getTermSignals } from "@/lib/data";
 import { measuredUsage } from "@/lib/dictionary/regions";
-import { currentMeaning, textFor } from "@/lib/explain";
+import { currentMeaning, jaUntranslated, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
-import { langTag } from "@/lib/lang";
-import { L, regionLabel, termLangLabel } from "@/lib/labels";
+import { langTag, scriptLang } from "@/lib/lang";
+import { L, gap, regionLabel, sep, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { getViewer } from "@/lib/reader-server";
 import { LiveRiskPanel } from "@/components/stage/live-risk";
@@ -57,7 +57,10 @@ export default async function TermPage({ params, searchParams }: Props) {
   const term = record.term;
   const m = currentMeaning(record);
   const text = textFor(record, locale);
-  const txLang = locale === "en" && !record.en ? "ko" : undefined;     // 번역이 없으면 한국어 원문 — 한국어 음성으로 읽게
+  // 일본어판이 없으면 원문 뜻과 '翻訳なし' 안내(영어 화면처럼 원문을 보이되, 일본어 화면은 안내를 붙인다 — 계획서 B §3.4)
+  const noJa = locale === "ja" && jaUntranslated(record);
+  // 번역이 없으면 원문 — 그 말의 음성으로 읽게(영어 화면은 한국어 원문, 일본어 화면은 원문 글자로 짐작)
+  const txLang = locale === "en" && !record.en ? "ko" : noJa ? scriptLang(text?.definition ?? "") ?? "ko" : undefined;
   const verdict = verdictOf({ risk_level: term.risk_level, risk_checked_at: term.risk_checked_at });
   const byHuman = !!term.risk_human;
   const verdictWhy = tx(locale, verdict === "ok" ? "v_ok_why" : verdict === "caution" ? "v_caution_why" : verdict === "avoid" ? "v_avoid_why" : "v_unknown_why");
@@ -115,8 +118,8 @@ export default async function TermPage({ params, searchParams }: Props) {
         <dl className="rs-term-now">
           <div><dt>{tx(locale, "tm_now")}</dt><dd>{term.lifecycle ? labels.lifecycleSentence[term.lifecycle] || labels.lifecycle[term.lifecycle] : "–"}</dd></div>
           {term.diffusion ? <div><dt>{tx(locale, "pk_why_spread")}</dt><dd>{diffusionWord(term.diffusion, locale)}</dd></div> : null}
-          {regions.length ? <div><dt>{tx(locale, "tm_regions")}</dt><dd>{regions.map((r) => regionLabel(locale, r)).join(", ")}</dd></div> : null}
-          {gens.length ? <div><dt>{tx(locale, "tm_gens")}</dt><dd>{gens.map((g) => labels.generation[g]).join(", ")}</dd></div> : null}
+          {regions.length ? <div><dt>{tx(locale, "tm_regions")}</dt><dd>{regions.map((r) => regionLabel(locale, r)).join(sep(locale))}</dd></div> : null}
+          {gens.length ? <div><dt>{tx(locale, "tm_gens")}</dt><dd>{gens.map((g) => labels.generation[g]).join(sep(locale))}</dd></div> : null}
           {/* 검색 관심도는 생애주기와 따로 — 쓰임 단계가 아니라서 '지금 상태' 에 섞지 않는다(10-06 검증, Plan 02) */}
           {term.status === "verified" && term.interest ? (
             <div><dt>{t(locale, "term_sum_interest")}</dt><dd>{t(locale, `interest_${term.interest}`)}<span className="rs-term-now-why">{t(locale, "interest_why")}</span></dd></div>
@@ -135,6 +138,7 @@ export default async function TermPage({ params, searchParams }: Props) {
           {text ? (
             <section className="rs-block" aria-labelledby="rs-b-meaning">
               <h2 id="rs-b-meaning">{tx(locale, "tm_meaning")}</h2>
+              {noJa ? <p className="rs-quiet" data-untranslated="ja">{tx(locale, "tm_untranslated")}</p> : null}
               <p className="rs-block-lead" lang={txLang}>{text.definition}</p>
               {text.expansion ? <p className="rs-block-note" lang={txLang}>{text.expansion}</p> : null}
               {text.origin ? <><h3>{tx(locale, "tm_origin")}</h3><p lang={txLang}>{text.origin}</p></> : null}
@@ -179,8 +183,8 @@ export default async function TermPage({ params, searchParams }: Props) {
             {hasTrend ? <TrendChart weekly={weekly} locale={locale} partial={partial} height={132} /> : <p className="rs-quiet">{tx(locale, "tm_no_trend")}</p>}
             <p className="rs-quiet">
               {tx(locale, market ? "tm_trend_scope_in" : "tm_trend_scope_all", { where: market ? marketName(locale, market) : "" })}
-              {hasTrend ? <> {tx(locale, "tm_m4", { n: fmtN(m4) })}</> : null}
-              {hasTrend && partial ? <> {tx(locale, "tm_partial")}</> : null}
+              {hasTrend ? <>{gap(locale)}{tx(locale, "tm_m4", { n: fmtN(m4) })}</> : null}
+              {hasTrend && partial ? <>{gap(locale)}{tx(locale, "tm_partial")}</> : null}
             </p>
           </section>
           <section id="refs" className="rs-block" aria-labelledby="rs-b-refs">
