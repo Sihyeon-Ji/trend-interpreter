@@ -14,7 +14,7 @@
 | --- | --- |
 | 사람이 손댄 말(검수 결정, 사람 확인 뜻 `verified_human`, 리스크 사람 결정, 게시한 승인 배치의 말) | 그 말의 `terms`·`meanings`·`review_queue`·`translations`·`topic_notes`·`term_fit` 행을 운영 값으로 바꾼다(스냅숏의 자동 값은 버린다) |
 | 사람·Gemini가 붙인 쓰임 낱말 | `carry_fits`(`human:`·`gemini-`) |
-| 검수 기록·Gemini 호출 기록·이용자 설정·해석 캐시·승인 배치와 게시 기록 | 표째로 옮긴다 |
+| 검수 기록·Gemini 호출 기록·이용자 설정·해석 캐시·승인 배치와 게시 기록·문구 승인 기록(`copy_approvals`, 10-12 추가) | 표째로 옮긴다 |
 | 사전에서 뺀 말(Know Your Meme 등) | 검수 기록이 있는 retired 말 |
 
 `compare`가 운영의 사람 결정·기록이 새 DB에 하나도 빠지지 않고 같은지 센다. 10-10까지 한 일(리스크 36개, 草·도도독 뜻 수정, 쓰임 낱말 고정, 영어 뜻 60개 게시)은 모두 위 표에 든다.

@@ -532,7 +532,7 @@ PC와 무관하게 매일 04:00 KST에 `trend-production-maintenance`가 API 이
 
 | 항목 | 내용 |
 | --- | --- |
-| 정리 | 해석 캐시 7일, 못 답한 질문 30일이 지난 행을 지운다(`prune_user_text`) |
+| 정리 | 해석 캐시 7일, 못 답한 질문 30일이 지난 행을 지운다(`prune_user_text`). 문구 승인 기록은 30일이 지나면 본문만 지운다(`approvals.prune`) |
 | 점검 | 마지막 정상 게시(board·dashboard 성공)가 `STALE_AFTER_HOURS`보다 오래됐는지 본다. 운영 DB는 갱신 도구로 며칠에 한 번 바뀌므로 Job에서는 192시간(8일)이다. API의 `/meta`는 기본 12시간 그대로다 |
 | 결과 | 지운 건수·게시 시각·경과 시간만 담은 `event=maintenance` 로그 한 줄. 종료 코드 0 정상, 1 실패, 2 오래됨. 0이 아니면 "Trend scheduled job failed" 경보가 온다. 재시도는 하지 않는다 |
 | 권한 | `trend-production-maintenance` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 Job 실행만 가진다 |
