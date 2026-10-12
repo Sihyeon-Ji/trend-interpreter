@@ -128,6 +128,7 @@ class TermRecord(BaseModel):
     plain: str
     ko: MeaningText | None = None   # 한국어 화면이 쓸 뜻. 없으면 저장된 원문을 그대로 보여 준다
     en: MeaningText | None = None
+    ja: MeaningText | None = None   # 일본어 화면이 쓸 뜻. 없으면 화면이 원문 뜻과 '翻訳なし' 안내를 보인다
     meanings: list[Meaning]
     evidences: list[Evidence]
     usage: list[TermUsage]
@@ -232,12 +233,13 @@ def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord
         meanings = [m for m in meanings if m.verification in PUBLIC_VERIFICATIONS]
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
+    ja = ds.get_translation(con, t.term_id, "ja")
     usage = [TermUsage(segment=Segment(segment_id=u["segment_id"], generation=u["generation"], region=u["region"]), first_seen=u["first_seen"], share=u["share"], source=u["source"])
              for u in ds.get_usage(con, t.term_id)]
     weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
     reasons = ds.gate_reasons(con, t.term_id) if t.status == "needs_review" else None
     year, decade = popular_era(con, t.term_id)
-    return TermRecord(term=t, category=CATEGORY_MAP.get(t.category, "other"), plain=(ko.plain if ko and ko.plain else ""), ko=ko, en=en,
+    return TermRecord(term=t, category=CATEGORY_MAP.get(t.category, "other"), plain=(ko.plain if ko and ko.plain else ""), ko=ko, en=en, ja=ja,
                       meanings=meanings, evidences=shown_evidences(con, t), usage=usage, weekly=weekly,
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
@@ -683,6 +685,8 @@ class KeywordCard(BaseModel):
     dated: bool = False                # 뜻풀이(뉘앙스)가 유행이 지났다고 적었다 — '식어 가는 밈' 으로(dashboard.DATED)
     en_pending: bool = False           # 영어 뜻풀이가 아직 없다 — gloss_en 은 한국어 원문이다. 영어 화면은 원문 대신 '번역 전' 으로 보인다
     ko_pending: bool = False           # 한국어 뜻풀이가 없고 gloss_ko 가 일본어·영어 원문이다. 한국어 화면은 원문 대신 '준비 중' 으로 보인다
+    gloss_ja: str = ""                 # 일본어 뜻풀이. 일본어판이 없으면 원문. 이 칸이 생기기 전 캐시에는 빈 값 — 화면은 '翻訳なし' 로 본다
+    ja_pending: bool = False           # 일본어 뜻풀이가 없고 원문도 일본어(가나)가 아니다. 일본어 화면은 원문 대신 '翻訳なし' 로 보인다
 
 
 class RegionTop(BaseModel):
@@ -721,6 +725,8 @@ class RecommendItem(BaseModel):
     gloss_en: str
     en_pending: bool = False
     ko_pending: bool = False
+    gloss_ja: str = ""
+    ja_pending: bool = False
     regions: list[str]
     diffusion: Diffusion | None = None
     lifecycle: Lifecycle
@@ -841,6 +847,8 @@ class CopyMeme(BaseModel):
     gloss_en: str
     en_pending: bool = False
     ko_pending: bool = False
+    gloss_ja: str = ""
+    ja_pending: bool = False
     regions: list[str]
     lifecycle: Lifecycle
     diffusion: Diffusion | None = None

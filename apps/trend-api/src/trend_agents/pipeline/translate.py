@@ -1,5 +1,6 @@
-"""6단계 뜻 텍스트 언어판. 검증된 현행 뜻마다 ko·en MeaningText 를 만든다. 용어 원문은 번역하지 않는다.
-기본은 Gemini(예산 안에서), USE_LOCAL_GEMMA=1 이고 Ollama 가 떠 있으면 로컬 Gemma."""
+"""6단계 뜻 텍스트 언어판. 검증된 현행 뜻마다 ko·en·ja MeaningText 를 만든다. 용어 원문은 번역하지 않는다.
+기본은 Gemini(예산 안에서), USE_LOCAL_GEMMA=1 이고 Ollama 가 떠 있으면 로컬 Gemma.
+일본어판은 로컬 Gemma 로만 만든다(비용 없음, 계획서 ktwoo-copy-flow-and-japanese-ui B §3.3) — 로컬 모델이 없으면 건너뛴다."""
 from __future__ import annotations
 
 import time
@@ -12,7 +13,8 @@ from .runs import record_model, stage
 from . import dashboard
 from ..storage.db import Connection
 
-LANG_NAME = {"ko": "Korean", "en": "English"}
+LANG_NAME = {"ko": "Korean", "en": "English", "ja": "Japanese"}
+LOCAL_ONLY = {"ja"}          # Gemini 예산을 쓰지 않는 언어 — 로컬 Gemma 가 있을 때만 만든다
 PROMPT = """Rewrite this dictionary entry about the internet slang term "{term}" in {target}. Return JSON with keys definition, expansion, origin, nuance, plain.
 Rules: never translate or transliterate the term "{term}" or other quoted slang. "expansion": keep the original spelled-out form and add a short {target} gloss in parentheses; null if there is none.
 "plain": a short everyday {target} phrase that could replace the term (null if it is a pure exclamation). Do not add facts that are not in the entry.
@@ -27,6 +29,15 @@ def _entry(m: Meaning) -> dict:
     return {"definition": m.definition, "expansion": m.expansion, "origin": m.origin, "nuance": m.nuance}
 
 
+def local_ready() -> bool:
+    """로컬 Gemma 로 번역할 수 있는가 (USE_LOCAL_GEMMA=1 + Ollama 에 모델 있음)."""
+    if not USE_LOCAL_GEMMA:
+        return False
+    from ..interpreters import gemma_local
+
+    return gemma_local.is_available()
+
+
 def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[MeaningText, str]:
     if USE_LOCAL_GEMMA:
         from ..interpreters import gemma_local, gemma_translate
@@ -38,6 +49,8 @@ def make_text(con: Connection, term: str, m: Meaning, target: str) -> tuple[Mean
             text, model = gemma_translate.translate_meaning(base, term, target, model=GEMMA_LOCAL_MODEL), f"local:{GEMMA_LOCAL_MODEL}"
             record_model(model, time.time() - t0)
             return text, model
+    if target in LOCAL_ONLY:                 # 로컬 모델이 도중에 내려가도 Gemini 로 넘기지 않는다
+        raise RuntimeError("local model unavailable")
     parsed, model = structured(con, PROMPT.format(term=term, target=LANG_NAME.get(target, target), **_entry(m)), MeaningText, temperature=0.2)
     return (parsed if isinstance(parsed, MeaningText) else MeaningText.model_validate(parsed)), model
 
@@ -61,6 +74,8 @@ def priority(con: Connection) -> list:
 def run(con: Connection, max_calls: int = 12) -> dict:
     with stage(con, "translate") as r:
         calls = 0
+        # 영어 먼저 — 한국어 화면은 한국어 원문 뜻으로도 읽힌다. 일본어는 로컬 Gemma 가 있을 때만
+        langs = ("en", "ko", "ja") if local_ready() else ("en", "ko")
         for t in priority(con):
             if calls >= max_calls:                         # 한도에 닿으면 남은 용어를 더 돌지 않는다
                 r.note = "이번 실행 한도"
@@ -68,7 +83,7 @@ def run(con: Connection, max_calls: int = 12) -> dict:
             m = ds.current_meaning(con, t.term_id)
             if not m or m.verification not in ("verified_auto", "verified_human"):
                 continue
-            for lang in ("en", "ko"):                       # 영어 먼저 — 한국어 화면은 한국어 원문 뜻으로도 읽힌다
+            for lang in langs:
                 have = ds.get_translation(con, t.term_id, lang)
                 if have:
                     continue

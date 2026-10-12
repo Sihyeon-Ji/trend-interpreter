@@ -35,8 +35,8 @@ def test_local_translation_records_the_exact_model(monkeypatch):
 
     monkeypatch.setattr(gemma_translate, "translate_meaning", fake_translate)
 
-    assert translate.run(con)["translate"].count == 2
-    assert called == [config.GEMMA_LOCAL_MODEL] * 2
+    assert translate.run(con)["translate"].count == 3            # 영어·한국어 + 로컬 모델이 있을 때만 만드는 일본어
+    assert called == [config.GEMMA_LOCAL_MODEL] * 3
     want = f"local:{config.GEMMA_LOCAL_MODEL}"
     assert {m for (m,) in con.execute("SELECT model FROM translations").fetchall()} == {want}
     assert _models(con, "translate") == want

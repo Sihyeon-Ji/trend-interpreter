@@ -63,10 +63,16 @@ def translation_inputs(con: Connection, term_ids: list[str], snapshot_id: str, s
     return ("\n".join(rows) + "\n").encode()
 
 
+TRANSLATION_LANGS = ("en", "ja")   # 번역 생산자가 만드는 언어판(결과 행의 칸 이름). 일본어판은 10-12에 열었다
+
+
 def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_id: str, *, skip_failed: bool = False,
-                      exclude: frozenset[str] = frozenset()) -> tuple[ChangeBatch, int]:
+                      exclude: frozenset[str] = frozenset(), lang: str = "en") -> tuple[ChangeBatch, int]:
     """exclude: 사람이 번역 검토에서 뺀 표제어. 계보 검사는 다른 행과 똑같이 거치고 배치에만 넣지 않는다 –
-    모델 실패(skip_failed)와 섞지 않는다. 뺀 건수는 부르는 쪽이 len(exclude)로 기록한다."""
+    모델 실패(skip_failed)와 섞지 않는다. 뺀 건수는 부르는 쪽이 len(exclude)로 기록한다.
+    lang: 결과 행에서 읽을 언어판(생산자의 TRANSLATE_TARGET). 그 언어 칸이 없는 결과는 형식 오류다."""
+    if lang not in TRANSLATION_LANGS:
+        raise PublicationError("invalid_translation_language")
     try:
         inputs = [TranslationInput.model_validate_json(line) for line in input_bytes.splitlines() if line.strip()]
         outputs = [json.loads(line) for line in output_bytes.splitlines() if line.strip()]
@@ -119,7 +125,7 @@ def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_
                 raise PublicationError("translation_failed_rows")
             continue
         try:
-            translated = MeaningText.model_validate(result["en"])
+            translated = MeaningText.model_validate(result[lang])
             # 원문에 있는 칸만 번역에도 있어야 한다 – 원문 뉘앙스가 빈 말('인정' 등)은 번역 뉘앙스도 비어 있다(10-09)
             if not translated.definition.strip() or any(getattr(source.entry, field).strip() and not getattr(translated, field).strip()
                                                        for field in ("origin", "nuance")):
@@ -127,7 +133,7 @@ def pack_translations(input_bytes: bytes, output_bytes: bytes, run: dict, batch_
         except Exception:
             raise PublicationError("invalid_translation_output") from None
         items.append(ChangeItem(term_id=tid, expected_meaning_id=source.expected_meaning_id,
-                                derived_from_sha256=source.derived_from_sha256, translations={"en": translated}))
+                                derived_from_sha256=source.derived_from_sha256, translations={lang: translated}))
     if seen != set(indexed):
         raise PublicationError("incomplete_translation_output")
     if not items:

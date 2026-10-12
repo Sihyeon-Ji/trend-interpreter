@@ -1,4 +1,4 @@
-"""Kaggle GPU에서 밀린 사전 뜻 영어판을 로컬 Gemma로 시험 번역한다(Plan 02 10-06 데모 준비도).
+"""Kaggle GPU에서 밀린 사전 뜻 영어판(TRANSLATE_TARGET=ja 면 일본어판)을 로컬 Gemma로 시험 번역한다(Plan 02 10-06 데모 준비도).
 
 입력은 비공개 Dataset 하나다: `terms.jsonl`(term_id·term·entry)과 저장소의 `trend_agents` 일부.
 번역은 저장소의 `interpreters.gemma_translate.translate_meaning`을 그대로 부른다(프롬프트·재질문·Ollama 호출 옵션이 같다).
@@ -18,6 +18,7 @@ import urllib.request
 from pathlib import Path
 
 MODEL = os.environ.get("GEMMA_LOCAL_MODEL", "gemma4:12b")
+TARGET = os.environ.get("TRANSLATE_TARGET", "en")   # 결과 행의 언어 칸 – pack-translations --lang 과 같게(en·ja)
 OLLAMA_PIN = os.environ.get("OLLAMA_PIN", "")
 OUT = Path("/kaggle/working")
 HANGUL = re.compile("[가-힣]")
@@ -75,7 +76,7 @@ def main() -> None:
                 or result.get("expected_meaning_id") != source.get("expected_meaning_id")
                 or result.get("derived_from_sha256") != source.get("derived_from_sha256")
                 or result.get("model") != MODEL or result.get("gemma_translate_sha256") != code_hash
-                or result.get("input_sha256") != input_hash):
+                or result.get("input_sha256") != input_hash or result.get("target", "en") != TARGET):
             raise SystemExit("translation_resume_source_conflict")
         seen.add(result["term_id"])
     version, digest = start_ollama()
@@ -93,7 +94,7 @@ def main() -> None:
                 continue
             t0 = time.time()
             try:
-                out = gemma_translate.translate_meaning(MeaningText(**r["entry"]), r["term"], "en", model=MODEL,
+                out = gemma_translate.translate_meaning(MeaningText(**r["entry"]), r["term"], TARGET, model=MODEL,
                                                        glossary=r.get("glossary") or None)
                 result, error = out.model_dump(), None
                 if HANGUL.search(out.definition or ""):
@@ -103,7 +104,7 @@ def main() -> None:
                 failures += 1
             dt = time.time() - t0
             times.append(dt)
-            f.write(json.dumps({"term_id": r["term_id"], "term": r["term"], "source": r["entry"], "en": result,
+            f.write(json.dumps({"term_id": r["term_id"], "term": r["term"], "source": r["entry"], TARGET: result, "target": TARGET,
                                 "expected_meaning_id": r.get("expected_meaning_id"), "derived_from_sha256": r.get("derived_from_sha256"),
                                 "model": MODEL, "model_digest": digest, "gemma_translate_sha256": code_hash,
                                 "input_sha256": input_hash,
@@ -112,7 +113,7 @@ def main() -> None:
             print(f"[{i}/{len(rows)}] {dt:.1f}s{' FAIL' if error else ''}", flush=True)
     gpu = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
     meta = {"model": MODEL, "model_digest": digest, "ollama": version, "gpu": gpu, "python": platform.python_version(),
-            "terms": len(rows), "translated_now": len(times), "failures": failures, "definition_still_korean": still_korean,
+            "target": TARGET, "terms": len(rows), "translated_now": len(times), "failures": failures, "definition_still_korean": still_korean,
             "seconds_total": round(sum(times), 1), "seconds_median": round(sorted(times)[len(times) // 2], 1) if times else None,
             "input_sha256": input_hash, "gemma_translate_sha256": code_hash}
     (OUT / "run.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

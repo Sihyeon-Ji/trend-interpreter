@@ -102,6 +102,7 @@ def _stale(c: KeywordCard, now: datetime) -> bool:
 # 뜻 자체가 '촌스럽다' 인 말(밤티)은 뉘앙스가 아니라 뜻에 있으므로 걸리지 않는다. '유사어'·'옛말에' 같은 유래 설명도 걸리지 않게 좁혔다.
 # 한국어판이 없고 원문 뜻에 한글이 한 자도 없으면 한국어 화면에 일본어·영어 원문이 그대로 나갔다(대시보드 25개, 10-05)
 HANGUL = re.compile(r"[가-힣]")
+KANA = re.compile(r"[\u3040-\u30ff]")   # 원문 뜻이 일본어인가(가나) — 일본어 화면의 ja_pending
 DATED = re.compile(r"유행(?:은|이)? ?(?:한참 |이미 |다 )?지[났나]|철 ?지[난나]|한물|식상|사장[된되]|더 이상 (?:잘 )?(?:쓰|사용)"
                    r"|요즘(?:은|에는)? (?:거의 |잘 )?(?:안 |쓰지 않|사용하지 않)|촌스럽게 (?:읽|보|느껴)|올드하|옛 짤|옛날 (?:밈|유행어|짤)"
                    r"|(?:빨리|이미|금방) 식었")
@@ -310,7 +311,7 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
     if not regions and not outside:
         return None
     m = ds.current_meaning(con, t.term_id)
-    ko, en = ds.get_translation(con, t.term_id, "ko"), ds.get_translation(con, t.term_id, "en")
+    ko, en, ja = (ds.get_translation(con, t.term_id, lang) for lang in ("ko", "en", "ja"))
     base = m.definition if m else ""
     # 쓰임 근거 + 설명 문서(위키·웹). 네이버 블로그 결과는 'web' 으로 들어와도 표시 전용이라 뺀다(검토 2차). 주소가 홈페이지뿐인 것도 뺀다.
     # 문서도 표제어가 든 것만 — 주제 단계가 나라마다 위키백과 검색 1위를 거르지 않고 넣어 '오살힘' 추천의 근거가 한국 배우·KBS 드라마 문서였다(검토 3차)
@@ -355,7 +356,8 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         weekly=[], mentions_4w=0, search=search_hits(t, queries), gen_peaks=gen_peaks(con, t.term_id),
         tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed,
         dated=bool(m and DATED.search(m.nuance or "")), en_pending=en is None,
-        ko_pending=ko is None and bool(base) and not HANGUL.search(base))
+        ko_pending=ko is None and bool(base) and not HANGUL.search(base),
+        gloss_ja=ja.definition if ja else base, ja_pending=ja is None and bool(base) and not KANA.search(base))
     return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
                   held=held)
 

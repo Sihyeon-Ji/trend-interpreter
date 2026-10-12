@@ -53,12 +53,14 @@ def main() -> None:
     pack.add_argument("--out", type=Path, required=True)
     pack.add_argument("--skip-failed", action="store_true")
     pack.add_argument("--exclude-term", action="append", default=[], help="사람이 번역 검토에서 뺀 표제어 ID(여러 번)")
+    pack.add_argument("--lang", choices=inputs.TRANSLATION_LANGS, default="en", help="결과의 언어판 – 생산자의 TRANSLATE_TARGET 과 같게")
     args = parser.parse_args()
     if args.command == "pack-translations":
         try:
             batch, failures = inputs.pack_translations(args.input.read_bytes(), args.results.read_bytes(),
                                                        json.loads(args.run.read_bytes()), args.batch_id,
-                                                       skip_failed=args.skip_failed, exclude=frozenset(args.exclude_term))
+                                                       skip_failed=args.skip_failed, exclude=frozenset(args.exclude_term),
+                                                       lang=args.lang)
             private_write(args.out, pub.canonical(batch).encode())
         except pub.PublicationError as exc:
             raise SystemExit(exc.code) from None
