@@ -10,6 +10,7 @@ Cloud SQL 로 보낼 사본은 --skip-user-data 로 해석 캐시·미해결 질
 from __future__ import annotations
 
 import argparse
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -25,6 +26,14 @@ RENAMED = {"reader_prefs": {"user": "reader"}}
 # PostgreSQL 기본키 색인에 들어가지 않는 행. 파이프라인도 저장하지 않는다(store.upsert_news)
 WHERE = {"news": f"length(CAST(link AS BLOB)) <= {store.NEWS_LINK_MAX}"}
 BATCH = 1000
+
+
+def _text(value):
+    """PostgreSQL 은 글 칸의 NUL(0x00)도, JSON 칸의 \\u0000 도 받지 않는다 – 위키에서 옮긴 조사 메모 한 줄에 섞여 10-12 리허설 이관이
+    그 표에서 멈췄다. 지우고 옮긴다(앞에 역슬래시가 하나 더 있는 '\\\\u0000' 은 글자 그대로라 둔다)."""
+    if not isinstance(value, str):
+        return value
+    return re.sub(r"(?<!\\)\\u0000", "", value.replace("\x00", ""))
 
 
 def migrate(sqlite_path: Path, dst: db.Connection, *, fresh: bool = False, skip_user_data: bool = False) -> None:
@@ -57,7 +66,7 @@ def migrate(sqlite_path: Path, dst: db.Connection, *, fresh: bool = False, skip_
         copied = 0
         while rows := cur.fetchmany(BATCH):
             before = dst.raw.cursor()
-            before.executemany(db.translate(insert, True), [tuple(db._param(v) for v in row) for row in rows])
+            before.executemany(db.translate(insert, True), [tuple(db._param(_text(v)) for v in row) for row in rows])
             copied += before.rowcount if before.rowcount >= 0 else 0
             dst.commit()
         print(f"{name:20} {copied}/{total} 복사" + (f" (기본키 색인에 들어가지 않는 {left_out}건 제외)" if left_out else ""))

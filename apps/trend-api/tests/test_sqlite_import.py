@@ -64,6 +64,13 @@ def test_diffusion_column_is_filled_from_the_term_json(tmp_path):
     con.close()
 
 
+def test_nul_characters_in_scraped_text_do_not_stop_the_copy(tmp_path):
+    """위키에서 옮긴 글에 섞인 NUL(0x00) 하나가 PostgreSQL 이관을 멈췄다(10-12 리허설) – 지우고 옮긴다."""
+    con = db.connect(":memory:")
+    mig.migrate(_twin(tmp_path, Term(term_id="t1", canonical="おいらが行くしかねえ\x00な")), con)
+    assert ds.get_term(con, "t1").canonical == "おいらが行くしかねえな"
+
+
 def test_fresh_refuses_a_database_that_already_has_terms(tmp_path):
     con = db.connect(":memory:")
     ds.upsert_term(con, Term(term_id="t1", canonical="럭키비키", status="needs_review"))
