@@ -190,6 +190,15 @@ def measured_series(series: list[int], weeks: list[str], last_sampled: datetime)
     return out
 
 
+def complete_weeks(series: list[int]) -> list[int]:
+    """모양은 다 찬 주끼리 견준다 – 늘 모으는 원본의 이번 주(덜 참)를 지난주와 같은 한 주로 견주면 꾸준한 말도 주 초에는 '지는 중' 이 된다
+    (10-12 월요일 수집 서버: 주간 언급이 있는 말 40여 개, 언급 시험도 월요일마다 실패). 덜 찬 이번 주가 벌써 지난주만큼 쓰였으면
+    줄어드는 중일 수 없으니 남긴다 – 새 말, 한 주 넘게 쉬다 다시 쓰인 말이 그렇다(빼면 '지는 중'·'잠잠함' 이 된다)."""
+    if len(series) < 2 or series[-1] >= series[-2]:
+        return series
+    return series[:-1]
+
+
 def as_of_last_look(last_look: datetime | None, now: datetime) -> datetime:
     """'마지막으로 쓰인 때' 를 셀 기준 시각 — 조사가 마지막으로 근거를 찾아본 때(오래지 않았으면). 그 뒤로 찾아보지 않은 날을 '안 쓰임' 으로
     세면 다시 조사하기 전에 '꾸준함' 이 '지는 중' 으로 저절로 바뀌었다(검토 3차: 일본 '지금 쓰이는 밈' 12개 중 9개가 사흘 안에).
@@ -243,7 +252,7 @@ def run(con: Connection) -> dict:
             if sum(measured):
                 t.lifecycle = life_stage(measured, weeks_since)
             elif sum(steady_series):
-                t.lifecycle = life_stage(steady_series, weeks_since)
+                t.lifecycle = life_stage(complete_weeks(steady_series), weeks_since)
             else:
                 last_raw = max((datetime.fromisoformat(w).replace(tzinfo=timezone.utc) for w, v in raw.items() if v), default=None)
                 last_look = ds.last_researched(con, t.term_id, ok_only=True)

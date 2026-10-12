@@ -1054,6 +1054,23 @@ def test_measured_weeks_stop_at_the_last_news_search():
     assert measured_series(flat, weeks, tuesday)[-1] == 7 and life_stage(measured_series(flat, weeks, tuesday), 30) == "steady"
 
 
+def test_shape_compares_complete_weeks_only():
+    """늘 모으는 원본의 이번 주는 덜 찼다 – 주 초에는 꾸준한 말도 '지는 중' 이 됐다(10-12 월요일)."""
+    from trend_agents.lifecycle import stage as life_stage
+    from trend_agents.pipeline.track import complete_weeks
+
+    flat = [7] * 11 + [1]                          # 월요일: 이번 주는 하루 치
+    assert life_stage(flat, 30) == "declining" and life_stage(complete_weeks(flat), 30) == "steady"
+    new = [0] * 11 + [3]                           # 이번 주에 처음 나온 말
+    assert complete_weeks(new) == new and life_stage(complete_weeks(new), 1) == "emerging"
+    back = [5] + [0] * 10 + [4]                    # 두 달 쉬다 이번 주에 다시 쓰임
+    assert complete_weeks(back) == back and life_stage(complete_weeks(back), 30) != "dormant"
+    pause = [5] * 10 + [0, 3]                      # 지난주 한 주 쉬고 이번 주 다시(덜 찬 주가 벌써 지난주보다 많다)
+    assert complete_weeks(pause) == pause and life_stage(complete_weeks(pause), 30) != "declining"
+    fall = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 4, 1]   # 정말 줄어드는 말은 다 찬 주로도 '지는 중'
+    assert complete_weeks(fall) == fall[:-1] and life_stage(complete_weeks(fall), 30) == "declining"
+
+
 def test_recency_counts_from_the_last_look_while_it_is_fresh():
     """다시 조사하기 전에 '꾸준함' 이 저절로 '지는 중' 이 되지 않는다 — 마지막으로 찾아본 때를 기준으로(그 조사가 오래지 않았으면)."""
     from datetime import datetime, timedelta, timezone
