@@ -271,10 +271,10 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     if not terms:
         raise ValueError("고른 밈 가운데 이 지역에서 쓰이고 그 말로 쓸 수 있는 것이 없습니다")
     lang = REGION_LANG.get(region, "en")
+    names = name_memes(con, terms)
     # 모델이 아예 설정되지 않은 개발 환경만 예시 — 설정된 모델이 꺼져 있을 때 예시(남의 제품 카피)를 내지 않는다(검토 3차, 추천의 understand 와 같은 기준)
     if not (USE_LOCAL_GEMMA or configured()):
-        return sample(terms, region, tone)
-    names = name_memes(con, terms)
+        return sample(terms, region, tone, names)
     first, source = _generate(con, terms, brief, region, tone, "", ui, names)
     calls = 1
     problems = check(_items(first), terms, brief, names, lang)
@@ -297,10 +297,11 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
                 dropped.append(Dropped(id=k, code=code, reason=why))  # type: ignore[arg-type]
     copies = [_without_name_tags(kept[k], [t for t in terms if t.term_id in names]) for k in IDS[:4] if k in kept]
     return GenerationResult(region=region, language=lang, tone=tone, memes=[t.canonical for t in terms], copies=copies,  # type: ignore[arg-type]
-                            script=kept.get("script"), thumbnail=kept.get("thumbnail"), dropped=dropped, model_calls=calls, source=source)
+                            script=kept.get("script"), thumbnail=kept.get("thumbnail"), dropped=dropped, model_calls=calls, source=source,
+                            image_memes=[t.term_id for t in terms if t.term_id in names])
 
 
-def sample(terms, region: str, tone: str) -> GenerationResult:
+def sample(terms, region: str, tone: str, names: set[str] = frozenset()) -> GenerationResult:
     """모델 없는 개발 환경의 고정 예시 — 화면과 e2e 가 끝까지 돌게. 화면이 '예시' 라고 알린다. 글이 한국어라 말도 한국어로 적는다."""
     name = terms[0].canonical
     copies = [SocialCopy(platform="instagram", text=f"더운 오후엔 {name}! 여름 한정 아이스 흑당 라떼로 기분 전환해요 ☕", hashtags=["여름한정", "흑당라떼", name],
@@ -314,4 +315,5 @@ def sample(terms, region: str, tone: str) -> GenerationResult:
                                  ScriptScene(start_s=10, end_s=15, visual="제품 클로즈업", caption="여름 한정", line="")])
     thumb = ThumbnailPlan(headline=f"{name} 한 잔", layout="왼쪽 제품, 오른쪽 큰 문구", colors=["갈색", "흰색"], subject="제품을 화면 왼쪽 3분의 1", note_ko="문구는 두 줄 이내")
     return GenerationResult(region=region, language="ko", tone=tone, memes=[t.canonical for t in terms],  # type: ignore[arg-type]
-                            copies=copies, script=script, thumbnail=thumb, model_calls=0, source="sample")
+                            copies=copies, script=script, thumbnail=thumb, model_calls=0, source="sample",
+                            image_memes=[t.term_id for t in terms if t.term_id in names])

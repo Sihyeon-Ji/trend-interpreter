@@ -125,6 +125,13 @@ def test_maintenance_prunes_user_text_and_logs_one_event_without_it(monkeypatch,
     ds.log_lookup_miss(con, "새 질문", "ko")
     con.execute("UPDATE lookups SET last_at=? WHERE text=?", (_ago(24 * 31), "오래된 질문"))
     con.commit()
+    from trend_agents.storage import approvals
+    for when, text in ((_ago(24 * 31), "오래된 승인 문구"), (_ago(1), "새 승인 문구")):   # 문구 승인 기록의 본문은 30일 뒤 지운다
+        row = approvals.create(con, market="KR", term_id="t", canonical="t", lang="ko", product="제품 문장", copies=[
+            {"platform": "x", "text": text, "hashtags": []}], issues=[[]], fit="ok", fit_copy=0, fit_note="의견 문장", image_meme=False,
+            by="mk", approve=False)
+        con.execute("UPDATE copy_approvals SET requested_at=? WHERE approval_id=?", (when, row["approval_id"]))
+    con.commit()
     _ran(con, "board", "ok", 1)
     _ran(con, "dashboard", "ok", 1)
     m = _maintenance()
@@ -137,9 +144,10 @@ def test_maintenance_prunes_user_text_and_logs_one_event_without_it(monkeypatch,
     out = capsys.readouterr().out
     e = _one_event(out)
     assert e["event"] == "maintenance" and e["status"] == "ok" and e["severity"] == "INFO"
-    assert e["explain_cache_deleted"] == 1 and e["lookups_deleted"] == 1
+    assert e["explain_cache_deleted"] == 1 and e["lookups_deleted"] == 1 and e["approval_text_cleared"] == 1
     assert e["stale"] is False and e["stale_after_hours"] == ds.STALE_AFTER_HOURS and 0.9 < e["published_age_hours"] < 1.1
-    assert "문장" not in out and "질문" not in out       # 사용자 문장은 로그에 남기지 않는다
+    assert "문장" not in out and "질문" not in out and "문구" not in out       # 사용자 문장은 로그에 남기지 않는다
+    assert [r[0] for r in con.execute("SELECT copies_json FROM copy_approvals ORDER BY requested_at").fetchall()][0] is None
     assert ds.explain_cache_get(con, "ko", "새 문장") is not None and ds.explain_cache_get(con, "ko", "오래된 문장") is None
     assert [t for _, t, _ in ds.pending_lookups(con)] == ["새 질문"]
 

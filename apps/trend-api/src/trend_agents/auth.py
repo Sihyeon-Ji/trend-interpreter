@@ -65,6 +65,11 @@ def check_account(user: str, password: str) -> Account | None:
     return None
 
 
+def is_account(user: str) -> bool:
+    """설정된 계정인가 – 문구 승인 요청처럼 로그인한 사람만 쓰는 API 가 프론트의 세션 검사와 별개로 한 번 더 본다(익명 문구를 쌓지 않는다)."""
+    return any(str(r["user"]) == user for r in _accounts())
+
+
 def is_reviewer(user: str) -> bool:
     return any(str(r["user"]) == user and r.get("reviewer") for r in _accounts())
 

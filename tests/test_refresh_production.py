@@ -177,3 +177,31 @@ def test_overlay_carries_production_ad_fit_tags_set_by_a_person_or_gemini(dbs):
     assert fits["untouched"][1].kind == "word" and got["copied_rows"]["term_fit_carried"] == 1
     assert "brand-gone" not in fits
     assert refresh.compare(source, target)["missing"]["fit_human"] == 0
+
+
+def test_refresh_carries_copy_approval_records_from_production(dbs):
+    """문구 승인 기록(migration 025)은 운영에만 쌓인다 – 새 DB 로 바꿔도 기다리는 요청과 결정이 그대로 남아야 한다."""
+    from trend_agents.storage import approvals
+
+    source, target = dbs
+    ask = lambda text, approve: approvals.create(source, market="KR", term_id="approved", canonical="approved", lang="ko",  # noqa: E731
+                                                 product="라떼", copies=[{"platform": "x", "text": text, "hashtags": []}], issues=[[]],
+                                                 fit="ok", fit_copy=0, fit_note=None, image_meme=False, by="reviewer", approve=approve)
+    waiting, done = ask("기다리는 문구", False), ask("승인한 문구", True)
+    report = refresh.overlay(source, target)
+    assert report["copied_rows"]["copy_approvals"] == 2
+    assert approvals.get(target, waiting["approval_id"])["status"] == "pending"
+    assert approvals.get(target, done["approval_id"])["decided_by"] == "reviewer"
+    assert refresh.compare(source, target)["differences"] == []
+    approvals.decide(source, waiting["approval_id"], False, "reviewer")          # 얹은 뒤에 운영에서 결정하면 compare 가 잡는다
+    assert "copy_approvals" in refresh.compare(source, target)["differences"]
+    refresh.overlay(source, target)
+    assert refresh.compare(source, target)["differences"] == []
+
+
+def test_refresh_accepts_a_source_database_from_before_the_approval_migration(dbs):
+    source, target = dbs
+    source.execute("DROP TABLE copy_approvals")
+    source.commit()
+    assert refresh.overlay(source, target)["copied_rows"]["copy_approvals"] == 0
+    assert refresh.compare(source, target)["differences"] == []

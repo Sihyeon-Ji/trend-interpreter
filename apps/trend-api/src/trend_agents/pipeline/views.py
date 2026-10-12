@@ -786,6 +786,7 @@ class GenerationResult(BaseModel):
     dropped: list[Dropped] = []        # 두 번 다 검사에 걸려 뺀 안과 이유
     model_calls: int                   # 모델 호출 수 — 생성 1, 다시 만들면 2 (검사는 규칙이라 세지 않는다)
     source: Literal["gemini", "local", "sample"]
+    image_memes: list[str] = []        # 고른 밈 가운데 짤·형식의 이름인 것(쓰임 낱말 kind=meme_name)의 term_id — 화면이 그림 권리 안내를 붙인다
 
 
 # ---------- 시장별 포스터 시안 — 구성안은 pipeline/poster.py 의 규칙이 만든다. 이미지에는 글자를 넣지 않고, 검사한 문구는 화면이 얹는다 ----------
@@ -834,7 +835,8 @@ class Briefing(BaseModel):
 # ---------- 카피 검사 — 판정은 pipeline/copycheck.py 규칙, '뜻에 맞게 썼나' 만 모델 의견. 입력 문장은 저장·기록하지 않는다 ----------
 
 class CopyIssue(BaseModel):
-    code: Literal["avoid", "caution", "undecided", "fading", "not_in_region", "no_script"]
+    # crude 저속한 말투(쓰임 낱말 voice), sensitive 리스크를 아직 판단하지 않은 민감한 소재 — 추천이 후보에서 빼는 기준(recommend.blocked)과 같다
+    code: Literal["avoid", "crude", "caution", "sensitive", "undecided", "fading", "not_in_region", "no_script"]
     note: str = ""                     # caution 일 때 '쓸 때 조심' 안내(generate.caution_note, 한국어). 근거 글은 인용하지 않는다
 
 
@@ -865,3 +867,66 @@ class CopyCheck(BaseModel):
     unsafe: bool                       # 문구에 욕설·선정 표현이 있다(match.unsafe)
     x_length: int                      # X 가 세는 글자 수 (280 까지)
     fit_source: Literal["gemini", "local", "none", "busy", "failed"]   # none: 모델 없음, busy: 자리 없음, failed: 모델 실패
+
+
+class CopyChecks(BaseModel):
+    """초안 한 시장의 문구 모두를 규칙으로 다시 본 결과(POST /copy-check/all). AI 의견은 시장마다 한 번 — opinion 번째 문구에만 붙는다."""
+    region: str
+    items: list[CopyCheck]             # 보낸 문구 순서 그대로
+    opinion: int | None = None         # AI 의견을 받은 문구의 번호. None 이면 받지 않았다
+
+
+# ---------- 문구 승인 기록 (Plan 20 ⑤) — 값은 storage/approvals.py 가 채운다. 본문은 검수자·읽기 전용 계정에게만 ----------
+
+ApprovalGroup = Literal["blocked", "read", "clean"]      # 막힘(승인할 수 없음) · 읽어 볼 것 · 깨끗함 — 규칙 검사 결과로만 정한다
+ApprovalStatus = Literal["pending", "approved", "rejected"]
+
+
+class ApprovalCopy(BaseModel):
+    platform: Literal["instagram", "x"]
+    text: str | None = None            # 문구 본문. 보존 기간(30일)이 지나면 None
+    hashtags: list[str] = []
+    issues: list[str] = []             # 규칙 검사 코드(CopyIssue.code, 욕설·선정이면 unsafe) — 본문을 지워도 남는다
+
+
+class ApprovalItem(BaseModel):
+    approval_id: str
+    market: str
+    term_id: str
+    canonical: str
+    lang: str = ""
+    product: str | None = None         # 제품 한 줄. 보존 기간이 지나면 None
+    copies: list[ApprovalCopy]
+    fit: Literal["ok", "off", "unsure"] | None = None   # AI 의견(시장마다 한 번). None 이면 받지 못했다
+    fit_copy: int | None = None        # AI 의견을 받은 문구의 번호
+    fit_note: str | None = None        # AI 가 쓴 짧은 이유. 보존 기간이 지나면 None
+    image_meme: bool = False           # 고른 밈이 짤·형식의 이름(쓰임 낱말 kind=meme_name) — 화면이 '그림을 쓰려면 권리를 먼저 확인하세요' 를 붙인다
+    group: ApprovalGroup
+    reasons: list[str]                 # 묶음을 정한 규칙 코드(막는 것 먼저) — 화면이 쉬운 말로 바꾼다
+    status: ApprovalStatus
+    requested_by: str
+    requested_at: datetime
+    decided_by: str | None = None
+    decided_at: datetime | None = None
+    memo: str | None = None
+    expired: bool = False              # 본문을 지웠다
+
+
+class ApprovalState(BaseModel):
+    """요청한 사람이 초안 화면에서 보는 상태 — 본문 없이(GET /approvals/{id})."""
+    approval_id: str
+    market: str
+    status: ApprovalStatus
+    group: ApprovalGroup
+    reasons: list[str]
+    image_meme: bool = False
+    requested_by: str
+    requested_at: datetime
+    decided_by: str | None = None
+    decided_at: datetime | None = None
+    memo: str | None = None
+
+
+class ApprovalList(BaseModel):
+    pending: list[ApprovalItem]        # 결정을 기다리는 것 — 최신순(묶음은 화면이 나눈다)
+    history: list[ApprovalItem]        # 결정한 것 — 결정한 때 최신순

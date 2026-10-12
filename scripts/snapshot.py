@@ -19,7 +19,7 @@ import google_crc32c
 
 ROOT = "gs://copybara-team-shared-bucket/taewoo/trend-interpreter"
 FILES = ("trend-latest.db.gz", "table-counts.txt", "updated_at.txt")
-EXCLUDED = {"explain_cache", "lookups", "reader_prefs"}
+EXCLUDED = {"explain_cache", "lookups", "reader_prefs", "copy_approvals"}
 CHUNK_SIZE = 1024 * 1024
 IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,99}")
 

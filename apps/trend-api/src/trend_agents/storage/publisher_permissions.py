@@ -55,7 +55,9 @@ def require_role(con: Connection) -> None:
 
 
 def _forbidden_access(con: Connection, role: str, schema: str) -> None:
-    for table in ("lookups", "reader_prefs", "gemini_calls"):
+    # copy_approvals (user copy, migration 025) is checked only where the migration has run.
+    present = con.execute("SELECT to_regclass(?) IS NOT NULL", (f'"{schema}"."copy_approvals"',)).fetchone()[0]
+    for table in ("lookups", "reader_prefs", "gemini_calls", *(("copy_approvals",) if present else ())):
         if con.execute("SELECT has_table_privilege(?, ?, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') "
                        "OR has_any_column_privilege(?, ?, 'SELECT, INSERT, UPDATE, REFERENCES')",
                        (role, f'"{schema}"."{table}"', role, f'"{schema}"."{table}"')).fetchone()[0]:

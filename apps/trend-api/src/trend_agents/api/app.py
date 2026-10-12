@@ -26,9 +26,9 @@ from ..pipeline import explain as explain_stage
 from ..pipeline import dashboard, generate as generate_stage, recommend as recommend_stage, risk, views
 from ..pipeline import briefing as briefing_stage, copycheck, live_risk, poster as poster_stage
 from ..schemas import CampaignTone, FitCategory, ProductBrief, RiskLevel, Topic, TrendBoard
-from ..auth import check_account, frontend_token_ok, is_readonly
+from ..auth import check_account, frontend_token_ok, is_account, is_readonly, is_reviewer
 from ..logging_setup import configure as configure_logging
-from ..storage import db
+from ..storage import approvals, db
 from ..storage import dictionary_store as ds
 from ..storage import publications
 from ..storage.db import Connection
@@ -596,7 +596,7 @@ MultiPartParser.spool_max_size = recommend_stage.MAX_IMAGE + 1024 * 1024
 
 # 몸통 크기 한도 — 폼·JSON 을 읽기 전에 Content-Length 로 막는다. 만들기는 제품 설명(수백 자)과 밈 id 몇 개뿐이다(검토 3차: 수백 KB 설명이 프롬프트로 갔다)
 _BODY_CAP = {"/recommend": recommend_stage.MAX_IMAGE + 64 * 1024, "/campaign/poster": recommend_stage.MAX_IMAGE + 64 * 1024,
-             "/generate": 16 * 1024, "/copy-check": 16 * 1024}
+             "/generate": 16 * 1024, "/copy-check": 16 * 1024, "/copy-check/all": 48 * 1024, "/approvals": 48 * 1024}
 
 
 @app.middleware("http")
@@ -801,6 +801,154 @@ def copy_check(body: CopyCheckIn):
         return result
     finally:
         _model_slots.release()
+
+
+class CopyCheckAllIn(BaseModel):
+    texts: list[str] = Field(min_length=1, max_length=6)     # 초안 한 시장의 문구(본문과 해시태그) — 만들기는 넷을 쓴다
+    region: str
+    lang: str = "ko"
+    opinion: int | None = Field(default=0, ge=0, le=5)       # AI 의견을 받을 문구의 번호(시장마다 한 번). None 이면 받지 않는다
+
+
+@app.post("/copy-check/all", response_model=views.CopyChecks)
+def copy_check_all(body: CopyCheckAllIn):
+    """초안 한 시장의 문구 모두를 규칙으로 다시 본다(Plan 20 ④). 사전은 한 번만 읽고, AI 의견은 opinion 번째 문구 하나에만 받는다 —
+    문구 수만큼 모델을 부르지 않는다. 문구는 저장하지 않고 기록에도 남기지 않는다. 모델이 없거나 바쁘거나 실패해도 규칙 결과는 돌려준다."""
+    region = body.region.strip().upper()
+    if region not in WRITE_REGIONS:
+        raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
+    texts = [t.strip() for t in body.texts]
+    if not all(texts) or any(len(t) > 2 * copycheck.MAX_TEXT for t in texts):     # 본문(1000자)과 해시태그
+        raise HTTPException(400, "검사할 문구는 비어 있지 않고 2000자 이내여야 합니다")
+    if not _copy_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    checked = copycheck.check_all(_con, texts, region)
+    idx = body.opinion if body.opinion is not None and body.opinion < len(texts) else None
+    if idx is not None and checked[idx][1] and copycheck.model_ready():
+        result, terms = checked[idx]
+        if not _model_slots.acquire(blocking=False):
+            result.fit_source = "busy"
+        else:
+            try:
+                checked[idx] = (copycheck.fit(_con, texts[idx], result, terms, "en" if body.lang == "en" else "ko"), terms)
+            except Exception:
+                result.fit_source = "failed"
+            finally:
+                _model_slots.release()
+    return views.CopyChecks(region=region, items=[c for c, _ in checked], opinion=idx)
+
+
+# ---------- 문구 승인 기록 (Plan 20 ⑤) ----------
+# 브라우저는 부르지 않는다 — 같은 사이트의 웹 라우트(app/api/approvals)가 세션과 권한을 확인하고 서버만 아는 토큰을 붙여 넘긴다.
+# 여기서도 권한을 다시 본다: 요청은 설정된 계정만(익명 문구를 쌓지 않는다), 승인·반려는 검수자만, 읽기 전용 계정은 결정하지 못한다.
+# 본문(제품 한 줄·문구)은 이 표에만 두고 로그에 쓰지 않는다. 규칙 검사는 받은 결과를 믿지 않고 여기서 다시 한다(판정은 규칙) —
+# 막힘은 규칙만으로 정하고, AI 의견(받은 그대로)은 '읽어 볼 것' 과 '깨끗함' 을 가를 때만 쓴다.
+
+class ApprovalCopyIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    platform: Literal["instagram", "x"]
+    text: str = Field(min_length=1, max_length=copycheck.MAX_TEXT)
+    hashtags: list[str] = Field(default_factory=list, max_length=10)
+
+
+class ApprovalIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    by: str = Field(min_length=1, max_length=120)          # 요청한 계정 — 웹 라우트가 세션에서 넣는다
+    market: str
+    term_id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,120}$")
+    product: str = Field(default="", max_length=200)
+    copies: list[ApprovalCopyIn] = Field(min_length=1, max_length=6)
+    # 초안 화면이 받은 AI 의견(시장마다 한 번, 모델을 다시 부르지 않는다). 의견이라 막지 않는다 — '읽어 볼 것' 과 '깨끗함' 을 가를 때만 쓴다
+    fit: Literal["ok", "off", "unsure"] | None = None
+    fit_note: str | None = Field(default=None, max_length=300)
+    fit_copy: int | None = Field(default=None, ge=0, le=5)
+    decision: Literal["approve"] | None = None             # 검수자가 초안에서 바로 승인 — 요청과 승인을 한 번에 적는다
+
+
+class ApprovalDecisionIn(BaseModel):
+    model_config = {"extra": "forbid"}
+    decision: Literal["approve", "reject"]
+    by: str = Field(min_length=1, max_length=120)
+    memo: str = Field(default="", max_length=500)
+
+
+_approval_limit = recommend_stage.RateLimit(per_minute=30)
+
+
+def _rule_issues(market: str, copies: list[dict]) -> list[list[str]]:
+    """문구마다의 규칙 코드 — 본문과 해시태그를 함께 본다(generate.copy_text 와 같은 글, 초안 화면의 다시 검사도 같다). 모델은 부르지 않는다."""
+    texts = ["\n\n".join(x for x in (c["text"], " ".join(f"#{h}" for h in c.get("hashtags", []))) if x) for c in copies]
+    return [approvals.copy_issues([i.code for m in r.memes for i in m.issues], r.unsafe) for r, _ in copycheck.check_all(_con, texts, market)]
+
+
+def _approval_error(e: approvals.ApprovalError):
+    status = 404 if e.code == "missing" else 409
+    return JSONResponse({"detail": e.code, "reasons": e.reasons}, status_code=status, headers={"Cache-Control": "private, no-store"})
+
+
+@app.post("/approvals", response_model=views.ApprovalState, dependencies=[Depends(_review_access)])
+def create_approval(body: ApprovalIn):
+    """초안의 '검수 요청'(로그인한 계정) 또는 검수자의 바로 승인(decision=approve). 시장 하나가 한 줄이다."""
+    if not is_account(body.by):
+        raise HTTPException(403, "account_required")
+    _writer(body.by)
+    if body.decision == "approve" and not is_reviewer(body.by):
+        raise HTTPException(403, "reviewer_required")
+    market = body.market.strip().upper()
+    if market not in WRITE_REGIONS:
+        raise HTTPException(400, "목표 지역 가운데 하나를 골라 주세요")
+    t = ds.get_term(_con, body.term_id)
+    if not t or t.status != "verified":
+        raise HTTPException(400, "사전에 실린 밈이 아닙니다")
+    if not _approval_limit.allow(time.monotonic()):
+        raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
+    copies = [{"platform": c.platform, "text": c.text.strip(), "hashtags": [h.strip()[:60] for h in c.hashtags if h.strip()]} for c in body.copies]
+    fit_copy = body.fit_copy if body.fit_copy is not None and body.fit_copy < len(copies) else None
+    try:
+        row = approvals.create(_con, market=market, term_id=t.term_id, canonical=t.canonical, lang=t.lang or "",
+                               product=" ".join(body.product.split()), copies=copies, issues=_rule_issues(market, copies),
+                               fit=body.fit if fit_copy is not None else None, fit_copy=fit_copy,
+                               fit_note=" ".join((body.fit_note or "").split())[:300] if fit_copy is not None else None,
+                               image_meme=t.term_id in generate_stage.name_memes(_con, [t]), by=body.by,
+                               approve=body.decision == "approve")
+    except approvals.ApprovalError as e:
+        return _approval_error(e)
+    return approvals.state(row)
+
+
+@app.get("/approvals/{approval_id}", response_model=views.ApprovalState, dependencies=[Depends(_review_access)])
+def approval_state(approval_id: str, viewer: str = Query(min_length=1, max_length=120)):
+    """초안 화면이 요청의 상태(대기·승인·반려)를 다시 읽는다 — 본문 없이. 요청한 사람이나 검수자만, 아니면 없는 것과 같다(404)."""
+    row = approvals.get(_con, approval_id)
+    if not row or (row["requested_by"] != viewer and not is_reviewer(viewer)):
+        raise HTTPException(404, "not found")
+    return approvals.state(row)
+
+
+@app.get("/review/approvals", response_model=views.ApprovalList, dependencies=[Depends(_review_access)])
+def review_approvals(viewer: str = Query(min_length=1, max_length=120), history: int = Query(50, ge=0, le=200)):
+    """관리 화면 '문구 승인' — 기다리는 요청과 지난 기록. 본문이 있어 검수자·읽기 전용 계정만 읽는다. 읽기 전에 보존 기간이 지난 본문을 지운다."""
+    if not is_reviewer(viewer):
+        raise HTTPException(403, "reviewer_required")
+    approvals.prune(_con)
+    return approvals.listing(_con, history)
+
+
+@app.post("/review/approvals/{approval_id}/decision", response_model=views.ApprovalState, dependencies=[Depends(_review_access)])
+def decide_approval(approval_id: str, body: ApprovalDecisionIn):
+    """승인·반려. 검수자만, 읽기 전용 계정은 못 한다. 승인은 지금 사전으로 규칙 검사를 다시 한 뒤에만 — 그사이 막힌 말이 됐으면 409."""
+    _writer(body.by)
+    if not is_reviewer(body.by):
+        raise HTTPException(403, "reviewer_required")
+    row = approvals.get(_con, approval_id)
+    if row is None:
+        raise HTTPException(404, "not found")
+    approve = body.decision == "approve"
+    issues = _rule_issues(row["market"], approvals.stored_copies(row)) if approve and row["copies_json"] and row["status"] == "pending" else None
+    try:
+        return approvals.state(approvals.decide(_con, approval_id, approve, body.by, body.memo, issues))
+    except approvals.ApprovalError as e:
+        return _approval_error(e)
 
 
 @app.get("/dashboard", response_model=views.KeywordBoard)

@@ -20,7 +20,11 @@ REPLACED = ("terms", "meanings", "review_queue", "translations", "topic_notes", 
 MERGED = ("evidences",)
 # Written only by the service, so production is the only source. gemini_calls holds the monthly spending ledger.
 PUBLICATION_TABLES = ("change_batches", "change_items", "publications", "publication_state")
-CARRIED = ("review_history", "gemini_calls", "reader_prefs", "lookups", "explain_cache", *PUBLICATION_TABLES)
+# Copy approval records (migration 025): reviewers' decisions on marketing copy, written only on production.
+APPROVAL_TABLES = ("copy_approvals",)
+# Tables an older database may not have yet; their keys count as empty there.
+OPTIONAL_TABLES = (*PUBLICATION_TABLES, *APPROVAL_TABLES)
+CARRIED = ("review_history", "gemini_calls", "reader_prefs", "lookups", "explain_cache", *PUBLICATION_TABLES, *APPROVAL_TABLES)
 # Ad-fit tags set by a person or re-tagged with Gemini on production (fit_backfill --gemini, Plan 07) are newer than the
 # snapshot's local-model tags, so production's rows win for every term the new database still has.
 FIT_CARRIED_WHERE = "(model LIKE 'human:%' OR model LIKE 'gemini-%')"
@@ -45,6 +49,7 @@ KEYS_SQL = {
     "change_items": "SELECT batch_id, term_id, item_sha256, baseline_sha256 FROM change_items",
     "publications": "SELECT publication_id, batch_id, payload_sha256, published_at FROM publications",
     "publication_state": "SELECT singleton, publication_id FROM publication_state",
+    "copy_approvals": "SELECT approval_id, status, decided_by, decided_at FROM copy_approvals",
 }
 COLUMNS_SQL = ("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? "
                "ORDER BY ordinal_position")
@@ -141,7 +146,7 @@ def rejudge_risk(con: db.Connection, term_ids: list[str]) -> int:
 
 def _keys(con: db.Connection) -> dict[str, set[tuple]]:
     return {name: {tuple(row) for row in con.execute(sql).fetchall()}
-            if name not in PUBLICATION_TABLES or _has_table(con, name) else set() for name, sql in KEYS_SQL.items()}
+            if name not in OPTIONAL_TABLES or _has_table(con, name) else set() for name, sql in KEYS_SQL.items()}
 
 
 def counts(con: db.Connection) -> dict[str, int]:

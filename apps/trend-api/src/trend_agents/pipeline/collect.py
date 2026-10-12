@@ -7,6 +7,7 @@ from ..collectors import google_trends as gt
 from ..collectors import news_rss, wikipedia_search, wikipedia_top, youtube
 from ..config import ENGLISH_EDITIONS, GOOGLE_CLOUD_PROJECT, REGIONS_ALL, REGIONS_FOCUS, YOUTUBE_API_KEY, home_region, next_region, region_cycle
 from ..lifecycle import recheck_interval_days
+from ..storage import approvals
 from ..storage import dictionary_store as ds
 from ..storage import store as db
 from .match import mentions
@@ -161,8 +162,10 @@ def run(con: Connection, mention_terms: int = 30) -> dict:
         con.commit()
         pruned = ds.prune_dangling_edges(con)
         cache, lookups = ds.prune_user_text(con)
+        copies = approvals.prune(con)
         r.count, r.status = n, "ok"
         r.note = (f"30일 경과 삭제 {n}건" if n else "삭제 대상 없음") + (f" · 근거 없는 엣지 {pruned}건 정리" if pruned else "") \
-            + (f" · 해석 캐시 {cache}건(7일)" if cache else "") + (f" · 미해결 질문 {lookups}건(30일)" if lookups else "")
+            + (f" · 해석 캐시 {cache}건(7일)" if cache else "") + (f" · 미해결 질문 {lookups}건(30일)" if lookups else "") \
+            + (f" · 문구 승인 본문 {copies}건(30일)" if copies else "")
         out["retention"] = r
     return out

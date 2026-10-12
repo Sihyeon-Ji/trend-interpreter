@@ -62,6 +62,7 @@ def test_restricted_role_can_publish_and_replay_without_owner_privileges(restric
 
 @pytest.mark.parametrize("sql", [
     "SELECT * FROM lookups", "SELECT * FROM reader_prefs", "SELECT * FROM explain_cache", "SELECT * FROM gemini_calls",
+    "SELECT * FROM copy_approvals", "UPDATE copy_approvals SET status='approved'",
     "CREATE TABLE unauthorized (value TEXT)", "ALTER TABLE terms ADD COLUMN unauthorized TEXT",
     "TRUNCATE terms", "UPDATE change_batches SET status='approved', reviewed_by='spoofed'",
     "UPDATE change_items SET item_sha256='changed'", "INSERT INTO publisher_db_roles VALUES ('spoofed')",
@@ -94,7 +95,8 @@ def test_configuration_refuses_owner_and_privileged_roles_before_granting(restri
         permissions.configure(con, owner)
 
 
-@pytest.mark.parametrize("grant", ["SELECT ON lookups", "SELECT (text) ON lookups", "SELECT ON explain_cache"])
+@pytest.mark.parametrize("grant", ["SELECT ON lookups", "SELECT (text) ON lookups", "SELECT ON explain_cache",
+                                   "SELECT ON copy_approvals", "SELECT (copies_json) ON copy_approvals"])
 def test_runtime_rejects_added_user_text_privileges_including_column_grants(restricted, grant):
     con, role = restricted
     con.execute(f'GRANT {grant} TO "{role}"')
