@@ -11,14 +11,15 @@ test("switching to 日本語 turns the start, drafts, explore and an entry into 
   await expect(page.getByRole("navigation", { name: "メインメニュー" })).toBeVisible();
   await expect(page.getByRole("button", { name: "日本語", pressed: true })).toBeVisible();
 
-  // 초안 — 시장마다 규칙이 고르고 AI가 쓰고 규칙이 다시 보고 사람이 승인한다
+  // 초안 — 시장마다 규칙이 고르고 AI가 쓰고 규칙이 다시 보고 사람이 승인한다(로그인하지 않으면 승인 대신 로그인 안내)
   await page.getByRole("textbox", { name: "商品" }).fill("夏限定のアイス黒糖ラテ");
   await page.getByRole("button", { name: "下書きを作る" }).click();
   await expect(page).toHaveURL(/\/drafts$/);
   const kr = page.getByRole("article", { name: "韓国" });
   await expect(kr.getByRole("list", { name: "韓国, 下書きができるまでの流れ" })).toBeVisible();
   await expect(kr.getByRole("heading", { name: /除外した言葉$/ })).toBeVisible();
-  await expect(kr.getByRole("button", { name: "韓国の下書きを承認する" })).toBeEnabled({ timeout: 30_000 });
+  await expect(kr.getByText("ログインするとレビューを依頼できます。")).toBeVisible({ timeout: 30_000 });
+  await expect(kr.getByRole("button", { name: "韓国の下書きを承認する" })).toHaveCount(0);
 
   // 둘러보기 → 사전 항목: 일본어 뜻이 있는 말
   await page.goto("/trends?m=JP");
