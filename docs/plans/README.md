@@ -34,7 +34,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-15 밤 | [2026-10-15-collection-server-snapshot](2026-10-15-collection-server-snapshot.md) | ktwoo | fit 단계 빼기(지금부터), 일본 후보 보강, `db/latest` 업로드 | 업로드 시각 |
+| 10-15 밤 | [2026-10-15-collection-server-snapshot](2026-10-15-collection-server-snapshot.md) | ktwoo | fit 단계 빼기(10-12 완료), 일본 후보 보강(진행 중), `db/latest` 업로드 | 업로드 시각 |
 | 10-16 | [2026-10-16-final-db-refresh](2026-10-16-final-db-refresh.md) | shji | 마지막 운영 DB 갱신, 새 후보 쓰임 낱말·리스크, 12사례 재측정, 이전 DB 되돌리기 | 사람 결정 유지, 새 snapshot 시각으로 웹 열림 |
 | 10-17 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | WIF 계정 분리, 이력 재검사, 공개, `gcp` environment 보호 | 외부·collaborator 계정의 거부·승인 확인 |
 | 10-20 ~ 26 | [2026-10-20-cloud-sql-transition](2026-10-20-cloud-sql-transition.md) | shji | 체험 종료 전 유료 전환 또는 이전 | 체험 표시 소멸, 서비스 확인 |
@@ -44,8 +44,8 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 마감 |
 | --- | --- | --- | --- | --- | --- |
-| [ktwoo-copy-flow-and-japanese-ui](ktwoo-copy-flow-and-japanese-ui.md) | ktwoo | 문구 흐름 남은 일(승인 기록·재검사)과 일본어 화면(Plan 20) | 시작 전 | 승인 기록 서버 저장, 日本語 전환 | 10-14 |
-| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | ktwoo | 밈 추천 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | 시작 전 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
+| [ktwoo-copy-flow-and-japanese-ui](ktwoo-copy-flow-and-japanese-ui.md) | ktwoo | 문구 흐름 남은 일(승인 기록·재검사)과 일본어 화면(Plan 20) | 코드 완료 – develop 반영(10-12), 배포 전 | 승인 기록 서버 저장, 日本語 전환 | 10-14 |
+| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | ktwoo | 밈 추천 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | 진행 중 – 결정 반영(10-12), 일본 보강 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
 | [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 진행 중 – 1·2단계 로컬 구현 | 운영 GPU VM(지시현 확인), 버튼 실행 한 번과 청구 확인 | 10-14 |
 | [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
 | [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |

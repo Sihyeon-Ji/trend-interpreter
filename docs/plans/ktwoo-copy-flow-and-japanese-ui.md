@@ -1,6 +1,6 @@
 # 문구 흐름 남은 일과 일본어 화면
 
-작성일 **2026-10-10** · 담당 **ktwoo(김태우)** · 상태 **A의 1·2·짤 권리 안내 코드 완료(10-12, `feat/approval-records`, 배포 전) · B 진행 중** · 코드 동결 **10-14** · 제출 **10-18**
+작성일 **2026-10-10** · 담당 **ktwoo(김태우)** · 상태 **A의 1·2·짤 권리 안내, B 일본어 화면 코드 완료 – develop 반영(10-12), 배포(`release/gcp`) 전** · 코드 동결 **10-14** · 제출 **10-18**
 
 [계획 목록](README.md) · 이어받은 계획 [Plan 20](archive/20-copy-check-localization-flow.md)(방향·흐름·화면 원칙, §5 일본어) · 데모 [데모 영상](sng_j-demo-video.md)(sng_j) · 수집 서버 [마지막 갱신 전 준비](2026-10-15-collection-server-snapshot.md)
 
