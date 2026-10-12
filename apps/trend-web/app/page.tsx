@@ -5,6 +5,7 @@ import { StartStage } from "@/components/stage/start-stage";
 import type { MarketLive, Pin } from "@/components/stage/store";
 import { getKeywordBoard, getTermRecord } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
+import { writableIn } from "@/lib/lang";
 import { t, type Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import type { KeywordCard } from "@/lib/types";
@@ -16,11 +17,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const LIFE_RANK: Record<string, number> = { emerging: 0, rising: 0, peak: 0, steady: 1 };
 
-/** 무대의 '살아 있는 말' — 그 시장의 쓰이는 중 목록에서 규칙이 리스크를 검사한 말(문제 없음·조심)만, 4주 언급 순 6개.
+/** 무대의 '살아 있는 말' — 그 시장의 쓰이는 중 목록에서 규칙이 리스크를 검사한 말(문제 없음·조심)이고 그 시장 글자로 쓴 말만, 4주 언급 순 6개.
  *  쓰지 않을 말·아직 판단 못 한 말은 무대에 세우지 않는다. 판정·목록은 백엔드 규칙 그대로이고 여기서는 고르고 줄 세우기만 */
-function liveWords(cards: KeywordCard[], locale: Locale) {
+function liveWords(cards: KeywordCard[], locale: Locale, market: Market) {
   return cards
-    .filter((c) => c.risk_level === "none" || c.risk_level === "caution")
+    .filter((c) => (c.risk_level === "none" || c.risk_level === "caution") && writableIn(c.canonical, market))
     .sort((a, b) => b.mentions_4w - a.mentions_4w || (LIFE_RANK[a.lifecycle] ?? 2) - (LIFE_RANK[b.lifecycle] ?? 2))
     .slice(0, 6)
     .map((c) => ({ id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c) }));
@@ -29,7 +30,7 @@ function liveWords(cards: KeywordCard[], locale: Locale) {
 async function loadLive(market: Market, locale: Locale): Promise<MarketLive> {
   try {
     const board = await getKeywordBoard([market], 1);
-    return { market, count: board.counts[market] ?? 0, words: liveWords(board.rising, locale), at: board.collected_at ?? board.generated_at };
+    return { market, count: board.counts[market] ?? 0, words: liveWords(board.rising, locale, market), at: board.collected_at ?? board.generated_at };
   } catch {
     return { market, count: 0, words: [], failed: true };
   }

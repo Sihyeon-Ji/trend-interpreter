@@ -14,3 +14,9 @@ export function scriptLang(text: string, region?: string | null): string | undef
   if (/[一-鿿]/.test(text)) return region === "JP" ? "ja" : "zh-Hant";
   return undefined;
 }
+
+/** 그 시장 글자로 쓸 수 있는 말인가 — 라틴 글자만이거나 그 시장의 글자(한글·가나·한자)가 있다. 백엔드 generate.writable 의 글자 조건과 같다.
+ *  첫 화면은 시장마다 '제 글자로 된' 말을 세우는데, 일본 칸에 한글 표기 말(건어물녀)이 섰다(10-12 리허설). */
+const NON_LATIN = /[^\x00-\x7fÀ-ɏḀ-ỿ]/u;
+const MARKET_SCRIPT: Record<string, RegExp> = { KR: /[가-힣]/u, JP: /[぀-ヿ一-鿿]/u };
+export const writableIn = (word: string, market: string) => !NON_LATIN.test(word) || !!MARKET_SCRIPT[market]?.test(word);
