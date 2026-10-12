@@ -29,9 +29,10 @@ resource "google_cloud_run_v2_job" "publication" {
   template {
     task_count = 1
     template {
+      # Actual publication runs took 316–459s including cache rebuilds; allow headroom.
       service_account       = google_service_account.runtime["publisher"].email
       execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
-      timeout               = "300s"
+      timeout               = "900s"
       max_retries           = 0
       vpc_access {
         egress = "PRIVATE_RANGES_ONLY"

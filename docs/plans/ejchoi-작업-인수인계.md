@@ -100,5 +100,5 @@ BASE_URL=https://<운영 웹 주소> docker compose run --rm --build --no-deps -
 
 - 커밋 메시지·`docs/` 문서는 한국어, 덱·README·EVALUATION·제출 문안은 영어다. Markdown과 커밋 메시지에는 긴 대시(U+2014) 대신 줄표(U+2013, –)를 쓴다.
 - 운영 데이터를 바꾸는 일(게시·갱신)이 돌고 있을 때는 배포하지 않는다.
-- 승인 배치를 게시할 때는 Job 제한 시간 때문에 `gcloud run jobs execute trend-production-publication --update-env-vars PUBLICATION_BATCH_ID=<id> --task-timeout=1800s --wait`처럼 시간을 늘려 돌린다([승인 배치 게시](../개발환경/승인-배치-게시.md)).
+- 승인 배치를 게시할 때는 `gcloud run jobs execute trend-production-publication --update-env-vars PUBLICATION_BATCH_ID=<id> --wait`로 실행한다. 기본 제한은 900초(15분, 10-12 조정)다([승인 배치 게시](../개발환경/승인-배치-게시.md)).
 - 덱은 PowerPoint에서 직접 고쳐도 된다. 디자인 규칙: 글자 #121826, 보조 #566074, 판 #F2F4F7, 파란색 #2448E0은 사람 승인에만, 좌우 여백 0.4인치, 내용은 1.4~5.05인치.
