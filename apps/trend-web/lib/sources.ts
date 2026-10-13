@@ -30,6 +30,16 @@ function stripSourceTail(title: string, names: string[]): string {
   return names.some((n) => n && (norm(n) === tail || tail === norm(n.replace(/^www\./, "")))) ? title.slice(0, m.index).trim() : title;
 }
 
+/** 앞에 붙은 사이트 이름('나무위키: 제로투 회피', 'Wikipedia: 오시카츠')을 뗀다 — 출처 칸이 이미 화면 언어로 사이트를 말한다.
+ *  일본어·영어 화면에 '나무위키:' 가 한국어로 남았다(10-13). 문서 제목과 라이선스 표시는 그대로 둔다 */
+const SITE_HEAD = /^(나무위키|위키백과|위키낱말사전|Namuwiki|Wikipedia|Wiktionary|ナムウィキ|ウィキペディア)\s*:\s*/i;
+export function stripSourceHead(title: string, names: string[] = []): string {
+  const m = SITE_HEAD.exec(title);
+  if (m) return title.slice(m[0].length).trim();
+  const n = names.find((x) => x && title.toLowerCase().startsWith(`${x.toLowerCase()}:`));
+  return n ? title.slice(n.length + 1).trim() : title;
+}
+
 /** 표제어가 보이는 자리를 가운데 두고 자른다 — 앞에서부터 자르면 정작 그 표현이 잘려 나간다(2026-09-16 검토). */
 function around(text: string, term: string, width = 60): string {
   const at = text.toLowerCase().indexOf(term.toLowerCase());
@@ -42,7 +52,7 @@ function around(text: string, term: string, width = 60): string {
 /** 출처 한 줄. 따옴표가 겹친 것을 풀고, 제목을 되풀이할 뿐인 발췌는 내지 않는다(제목 앞 30자만 비교하던 것을 전체 비교로). */
 export function cleanSource(e: Evidence, term: string, locale: Locale): SourceRow {
   const names = [e.source_domain, sourceName("ko", e.source_domain), sourceName("en", e.source_domain), sourceName("ja", e.source_domain)];
-  const title = stripSourceTail((e.title ?? "").trim(), names).replace(QUOTES, "") || e.url;
+  const title = stripSourceHead(stripSourceTail((e.title ?? "").trim(), names), names).replace(QUOTES, "") || e.url;
   let excerpt = (e.excerpt ?? "").trim().replace(QUOTES, "");
   const nt = norm(title), ne = norm(excerpt);
   if (!ne || nt.includes(ne)) excerpt = "";

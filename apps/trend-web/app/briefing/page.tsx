@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { RiskCell, StageCell } from "@/components/term-status";
 import { getBriefing, isSampleMode } from "@/lib/data";
 import { t, type Locale, type StringKey } from "@/lib/i18n";
-import { langTag } from "@/lib/lang";
+import { langTag, localWord } from "@/lib/lang";
 import { fmtDate, fmtDateTime, regionLabel, sourceName } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { TARGET_REGIONS } from "@/lib/reader";
@@ -26,7 +26,7 @@ const fill = (s: string, v: Record<string, string | number>) => Object.entries(v
 function ruleSummary(b: Briefing, locale: Locale, names: string): string {
   const c = b.counts;
   const parts = [fill(t(locale, "brief_rule_1"), { regions: names, rising: c.rising, use_now: c.use_now })];
-  if (b.use_now.length) parts.push(fill(t(locale, "brief_rule_top"), { top: b.use_now.slice(0, 3).map((x) => x.canonical).join(", ") }));
+  if (b.use_now.length) parts.push(fill(t(locale, "brief_rule_top"), { top: b.use_now.slice(0, 3).map((x) => localWord(x, locale).text).join(", ") }));
   parts.push(fill(t(locale, "brief_rule_2"), { careful: c.careful, fading: c.fading }));
   if (c.undecided) parts.push(fill(t(locale, "brief_rule_3"), { undecided: c.undecided }));
   return parts.join(" ");
@@ -51,8 +51,8 @@ function Section({ kind, cards, total, locale, regions }: { kind: Kind; cards: K
             return (
               <li key={c.term_id} className="grid gap-x-6 gap-y-1.5 border-t border-hairline py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="min-w-0">
-                  <Link href={`/dictionary/${encodeURIComponent(c.term_id)}${q}`} lang={langTag(c.lang)} className="text-[15px] font-semibold text-ink hover:underline">
-                    {c.canonical}
+                  <Link href={`/dictionary/${encodeURIComponent(c.term_id)}${q}`} lang={langTag(localWord(c, locale).lang)} className="text-[15px] font-semibold text-ink hover:underline">
+                    {localWord(c, locale).text}
                   </Link>
                   <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.55] text-charcoal">{glossFor(c, locale)}</p>
                   {ev && (

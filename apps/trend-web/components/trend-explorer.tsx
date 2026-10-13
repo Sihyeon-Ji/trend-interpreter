@@ -12,7 +12,7 @@ import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { koOrEn, t, type Locale } from "@/lib/i18n";
 import { fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
-import { langTag, scriptLang } from "@/lib/lang";
+import { langTag, localWord, scriptLang } from "@/lib/lang";
 import { TARGET_REGIONS } from "@/lib/reader";
 import { displayOrder, originOf, pathOf } from "@/lib/trends/path";
 import type { Topic, TopicVariant, TrendBoard } from "@/lib/trends/types";
@@ -354,7 +354,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
                     <td className="py-2 pr-3 text-right tabular-nums text-ink">{r.count}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-charcoal">{r.caution}</td>
                     <td className="py-2 pr-3 [overflow-wrap:break-word]">
-                      {r.top ? <Link href={`/dictionary/${r.top.term_id}`} lang={langTag(r.top.lang)} className="text-ink hover:underline">{r.top.canonical}</Link>
+                      {r.top ? <Link href={`/dictionary/${r.top.term_id}`} lang={langTag(localWord(r.top, locale).lang)} className="text-ink hover:underline">{localWord(r.top, locale).text}</Link>
                         : <span className="text-steel">{r.count ? "—" : t(locale, "mp_none_yet")}</span>}
                     </td>
                   </tr>
@@ -382,7 +382,7 @@ export function TrendExplorer({ keywords, board, locale }: { keywords: KeywordBo
                         </span>
                       ) : <span className="shrink-0 text-[13px] text-steel">{t(locale, "mp_none_yet")}</span>}
                     </div>
-                    {r.top && <Link href={`/dictionary/${r.top.term_id}`} lang={langTag(r.top.lang)} className="mt-0.5 block text-[14px] text-charcoal [overflow-wrap:break-word]">{r.top.canonical}</Link>}
+                    {r.top && <Link href={`/dictionary/${r.top.term_id}`} lang={langTag(localWord(r.top, locale).lang)} className="mt-0.5 block text-[14px] text-charcoal [overflow-wrap:break-word]">{localWord(r.top, locale).text}</Link>}
                   </div>
                 </li>
               );

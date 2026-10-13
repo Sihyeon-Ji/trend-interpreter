@@ -8,6 +8,7 @@ import { glossFor } from "@/lib/gloss";
 import { t, type Locale } from "@/lib/i18n";
 import { L, regionLabel, sourceLabel, sourceName } from "@/lib/labels";
 import { localWord } from "@/lib/lang";
+import { stripSourceHead } from "@/lib/sources";
 import { getLocale } from "@/lib/locale";
 import type { KeywordBoard, KeywordCard } from "@/lib/types";
 
@@ -31,7 +32,7 @@ function toRow(c: KeywordCard, locale: Locale): XRow {
     .filter((e) => e.kind !== "community" && e.kind !== "datalab")
     .sort((a, b) => Number(b.kind === "wiki" || b.kind === "web") - Number(a.kind === "wiki" || a.kind === "web") || String(b.observed_at).localeCompare(String(a.observed_at)))
     .slice(0, 3)
-    .map((e) => ({ url: e.url, label: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind] ?? ""), title: e.title, date: e.observed_at }));
+    .map((e) => ({ url: e.url, label: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind] ?? ""), title: stripSourceHead(e.title), date: e.observed_at }));
   return {
     id: c.term_id, word: w.text, lang: w.lang, readings: w.readings, gloss: glossFor(c, locale), verdict: verdictOf(c),
     life: labels.lifecycle[c.lifecycle], diffusion: c.diffusion ?? null, m4: c.mentions_4w, weekly: c.weekly.slice(-12),

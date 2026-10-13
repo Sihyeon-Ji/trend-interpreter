@@ -738,6 +738,7 @@
 .r-stage .rs-term-word { margin: 4px 0 0; container-type: inline-size; }
 .r-stage .rs-term-word .rs-word { font-weight: 640; letter-spacing: -0.035em; }
 .r-stage .rs-term-reading { margin-top: -0.1em; font-size: 20px; color: var(--rs-slate); }
+.r-stage .rs-v-orig { display: inline-block; margin-right: 6px; padding: 0 5px; border: 1px solid var(--rs-line); border-radius: 4px; font-size: 11px; line-height: 16px; color: var(--rs-slate); vertical-align: 1px; }
 .r-stage .rs-spot-reading { margin-top: -10px; font-size: 15px; color: var(--rs-slate); }
 .r-stage .rs-term-sub { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 14px; color: var(--rs-slate); }
 .r-stage .rs-term-sub b { font-weight: 600; color: var(--rs-ink-2); margin-left: 8px; }

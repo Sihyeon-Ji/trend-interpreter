@@ -173,7 +173,13 @@ export default async function TermPage({ params, searchParams }: Props) {
                       <ActorTag who={HUMAN(v.created_by) ? "human" : "ai"} locale={locale}>{tx(locale, HUMAN(v.created_by) ? "tm_v_by_human" : "tm_v_by_ai")}</ActorTag>
                       <ActorTag who={st.who} locale={locale}>{st.text}</ActorTag>
                     </p>
-                    {shown ? <p className="rs-v-text" lang="ko">{v.definition}</p> : null}
+                    {shown ? (() => {
+                      // 지금 판은 화면 언어 뜻(번역)이 있으면 그것을, 옛 판은 번역이 없으므로 원문에 '원문' 표시를 붙인다(10-13: 일본어·영어 화면의 뜻 기록이 한국어였다)
+                      const translated = open && !txLang && text?.definition && text.definition !== v.definition;
+                      const orig = scriptLang(v.definition) ?? "ko";
+                      return translated ? <p className="rs-v-text">{text.definition}</p>
+                        : <p className="rs-v-text" lang={orig}>{locale !== "ko" && orig !== locale ? <span className="rs-v-orig" lang={locale}>{tx(locale, "tm_v_original")}</span> : null}{v.definition}</p>;
+                    })() : null}
                   </li>
                 );
               })}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { stripSourceHead } from "@/lib/sources";
 import { StatusBadge } from "@/components/status-badge";
 import { RiskCell, StageCell } from "@/components/term-status";
 import { jaUntranslated, type ExplainResult, type Explanation } from "@/lib/explain";
@@ -87,7 +88,7 @@ export function ExpressionRow({ e, locale }: { e: Explanation; locale: Locale })
               <span className="tabular-nums">{fmtDate(latest.observed_at)}</span>
             </span>
             {latest.title && (
-              <a href={latest.url} target="_blank" rel="noreferrer noopener" className="block text-[13px] text-link-blue hover:underline">{latest.title}</a>
+              <a href={latest.url} target="_blank" rel="noreferrer noopener" className="block text-[13px] text-link-blue hover:underline">{stripSourceHead(latest.title)}</a>
             )}
             {record.evidences.length > 1 && (
               <Link href={`/dictionary/${id}#refs`} className="block text-[13px] text-link-blue hover:underline">

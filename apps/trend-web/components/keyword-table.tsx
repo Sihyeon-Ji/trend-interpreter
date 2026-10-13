@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkline } from "@/components/sparkline";
 import { RiskCell, StageCell } from "@/components/term-status";
 import { t, type Locale } from "@/lib/i18n";
-import { langTag } from "@/lib/lang";
+import { langTag, localWord } from "@/lib/lang";
 import { fmtDate, fmtInt, regionLabel } from "@/lib/labels";
 import type { KeywordCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ export function KeywordTable({ cards, locale, showRegions = false, linkRegions =
           {cards.map((c) => (
             <tr key={c.term_id} className="relative border-b border-hairline align-top hover:bg-surface-soft">
               <td className="py-3 pr-4 pl-3">
-                <Link href={entry(c)} lang={langTag(c.lang)} className={cn("text-[15px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
+                <Link href={entry(c)} lang={langTag(localWord(c, locale).lang)} className={cn("text-[15px] font-semibold text-ink", rowLink)}>{localWord(c, locale).text}</Link>
                 <p className="mt-0.5 truncate text-[13px] text-charcoal" title={gloss(c, locale)}>{gloss(c, locale)}</p>
                 {regions(c)}
               </td>
@@ -70,7 +70,7 @@ export function KeywordTable({ cards, locale, showRegions = false, linkRegions =
         {cards.map((c) => (
           <li key={c.term_id} className="relative py-3.5 hover:bg-surface-soft">
             <div className="flex items-start justify-between gap-3">
-              <Link href={entry(c)} lang={langTag(c.lang)} className={cn("min-w-0 text-[16px] font-semibold text-ink", rowLink)}>{c.canonical}</Link>
+              <Link href={entry(c)} lang={langTag(localWord(c, locale).lang)} className={cn("min-w-0 text-[16px] font-semibold text-ink", rowLink)}>{localWord(c, locale).text}</Link>
               {/* 휴대폰에서는 '특이 사항 없음' 만 생략한다 — 주의·사용 자제·근거 부족·확인 전은 그대로 */}
               {c.risk_level !== "none" && <RiskCell item={c} locale={locale} />}
             </div>
