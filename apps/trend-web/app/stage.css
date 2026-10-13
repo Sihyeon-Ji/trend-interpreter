@@ -150,7 +150,10 @@
 }
 .r-stage .rs-word:lang(ja), .r-stage .rs-word:lang(zh-Hant) { letter-spacing: 0; word-break: normal; }
 /* 표제어 읽기 — 원문 곁에 작게, 원문보다 한 단계 옅게. 원문을 대신하지 않는다 */
-.r-stage .rs-reading { display: block; margin-top: 2px; font: 400 12px/1.35 var(--rs-text); letter-spacing: 0; color: var(--rs-slate); overflow-wrap: anywhere; }
+/* 표제어 읽기 — 원문을 대신하지 않는 보조 글: 원문 바로 곁에 한 단계 작고 옅게. 큰 표제어 밑에서는 붙여서 원문의 일부로 보이게,
+   목록에서는 같은 줄에 두어 뜻 줄과 섞이지 않게 한다(10-13) */
+.r-stage .rs-reading { display: block; margin-top: 1px; font: 400 12px/1.3 var(--rs-text); letter-spacing: 0.01em; color: var(--rs-mute); overflow-wrap: anywhere; }
+.r-stage .rs-inline-reading { display: inline; margin: 0; flex: 0 100 auto; min-width: 0; font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- 무대 ---------- */
 .r-stage .rs-stage {
@@ -327,7 +330,7 @@
 .r-stage .rs-pick { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; border-radius: 12px; }
 .r-stage .rs-pick .rs-word { animation: rs-rise 0.68s var(--rs-spring) both; }
 .r-stage .rs-pick-open { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; color: var(--rs-slate); }
-.r-stage .rs-pick-reading { margin-top: -2px; font-size: 15px; }
+.r-stage .rs-pick-reading { margin-top: -4px; font-size: 15px; color: var(--rs-slate); }
 .r-stage .rs-pick:hover .rs-pick-open { color: var(--rs-ink); text-decoration: underline; text-underline-offset: 3px; }
 .r-stage .rs-gloss { font-size: 16px; line-height: 1.6; color: var(--rs-ink-2); max-width: 34em; }
 .r-stage .rs-local { font-size: 14px; color: var(--rs-ink-2); }
@@ -642,7 +645,9 @@
 .r-stage .rs-cast-row:hover { background: rgba(18, 24, 38, 0.045); }
 .r-stage .rs-cast-row[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 2px rgba(18, 24, 38, 0.06); }
 .r-stage .rs-cast-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.r-stage .rs-cast-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.r-stage .rs-cast-line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.r-stage .rs-cast-line .rs-riskmark { align-self: center; }
+.r-stage .rs-cast-line .rs-cast-word { flex: 0 0 auto; max-width: 100%; }   /* 줄이 모자라면 읽기부터 줄이고, 원문은 그 다음에 */
 .r-stage .rs-cast-word { font: 620 19px/1.25 var(--rs-display); letter-spacing: -0.015em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transform-origin: 0 0; }
 .r-stage .rs-cast-gloss { font-size: 13px; color: var(--rs-slate); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .r-stage .rs-cast-m4 { font-size: 13px; color: var(--rs-ink-2); text-align: right; }
@@ -732,8 +737,8 @@
 .r-stage .rs-term-hero { display: flex; flex-direction: column; gap: 10px; container-type: inline-size; max-width: 1100px; }
 .r-stage .rs-term-word { margin: 4px 0 0; container-type: inline-size; }
 .r-stage .rs-term-word .rs-word { font-weight: 640; letter-spacing: -0.035em; }
-.r-stage .rs-term-reading { margin-top: 6px; font-size: 20px; color: var(--rs-slate); }
-.r-stage .rs-spot-reading { margin-top: 4px; font-size: 15px; }
+.r-stage .rs-term-reading { margin-top: -0.1em; font-size: 20px; color: var(--rs-slate); }
+.r-stage .rs-spot-reading { margin-top: -10px; font-size: 15px; color: var(--rs-slate); }
 .r-stage .rs-term-sub { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 14px; color: var(--rs-slate); }
 .r-stage .rs-term-sub b { font-weight: 600; color: var(--rs-ink-2); margin-left: 8px; }
 .r-stage .rs-term-row { display: grid; grid-template-columns: minmax(0, 680px) minmax(0, 1fr); gap: 20px 40px; align-items: start; }

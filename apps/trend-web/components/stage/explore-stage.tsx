@@ -182,9 +182,9 @@ function Body({ locale, market, list, page, pageSize, totals, rows, initial }: {
                     <span className="rs-cast-main">
                       <span className="rs-cast-line">
                         <span className="rs-cast-word" lang={langTag(r.lang)}>{r.word}</span>
+                        <Reading readings={r.readings} locale={locale} className="rs-inline-reading" />
                         <RiskMark kind={r.verdict} locale={locale} />
                       </span>
-                      <Reading readings={r.readings} locale={locale} />
                       <span className="rs-cast-gloss" lang={scriptLang(r.gloss)}>{r.gloss}</span>
                     </span>
                     <Spark weekly={r.weekly} />
