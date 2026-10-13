@@ -4,6 +4,7 @@ import type { Diffusion, RiskLevel } from "../contract/types";
 import { currentMeaning, jaUntranslated, textFor } from "../explain";
 import type { Locale } from "../i18n";
 import type { Category, Generation, Lifecycle, TermRecord } from "../types";
+import { localWord } from "../lang";
 import { lastUsedOf, measuredUsage, termRegions } from "./regions";
 
 /** 뜻 한 줄: 풀이(expansion)와 뜻을 잇는다. 끝 문장부호를 떼고, 뜻에 이미 풀이가 들어 있으면 풀이를 뺀다.
@@ -54,8 +55,8 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
     generations: [...new Set(measuredUsage(r.usage).map((u) => u.segment.generation))],
     alt: m?.definition && m.definition !== definition ? m.definition : null,
-    reading: r.names?.[locale] ? null : r.readings?.[locale] ?? null,
-    name: r.names?.[locale] ?? null,
+    reading: localWord({ ...r.term, names: r.names }, locale).local ? null : r.readings?.[locale] ?? null,
+    name: localWord({ ...r.term, names: r.names }, locale).local ? localWord({ ...r.term, names: r.names }, locale).text : null,
   };
 }
 
