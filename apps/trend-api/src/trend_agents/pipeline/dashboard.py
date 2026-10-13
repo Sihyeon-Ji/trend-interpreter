@@ -357,7 +357,8 @@ def build_card(con: Connection, t: Term, queries: list[tuple], regions_of: _Regi
         tone=Tone(), evidences=[], last_seen=t.last_seen, use_confirmed=confirmed, mentions_mixed=mixed,
         dated=bool(m and DATED.search(m.nuance or "")), en_pending=en is None,
         ko_pending=ko is None and bool(base) and not HANGUL.search(base),
-        gloss_ja=ja.definition if ja else base, ja_pending=ja is None and bool(base) and not KANA.search(base))
+        gloss_ja=ja.definition if ja else base, ja_pending=ja is None and bool(base) and not KANA.search(base),
+        readings=ds.get_readings(con, t))
     return Stored(card=card, weeks=weeks, weekly=weekly, tone={r: dict(c) for r, c in tone.items()}, evidences=examples, last_used=last_used,
                   held=held)
 

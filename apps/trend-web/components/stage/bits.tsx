@@ -31,6 +31,13 @@ export function MemeWord({ text, lang, max, min = 20, as: Tag = "span", classNam
   );
 }
 
+/** 표제어 읽기 — 원문 곁에 작게. 원문 글자가 화면 언어와 다를 때만 백엔드가 준다(장원영 → 일본어 화면 チャン・ウォニョン).
+ *  화면 언어의 글자이므로 lang 은 화면 언어 — 원문의 lang 이 달린 칸 안에 들어가도 제 음성으로 읽힌다 */
+export function Reading({ readings, locale, className = "" }: { readings?: Record<string, string> | null; locale: Locale; className?: string }) {
+  const text = readings?.[locale];
+  return text ? <span className={`rs-reading ${className}`} lang={LOCALE_TAG[locale]}>{text}</span> : null;
+}
+
 export type Actor = "rule" | "ai" | "human";
 const ACTOR_ICON = { rule: ListChecks, ai: Sparkles, human: Stamp } as const;
 

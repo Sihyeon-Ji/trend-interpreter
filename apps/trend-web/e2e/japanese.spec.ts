@@ -36,3 +36,16 @@ test("switching to 日本語 turns the start, drafts, explore and an entry into 
   await expect(page.locator("[data-untranslated]")).toHaveText(/^翻訳なし/);
   await expect(page.getByText(/^자연스러운 만남을 추구한다는 뜻/).first()).toBeVisible();
 });
+
+test("a Korean headword stays as written and shows how to read it in the screen language", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("group", { name: /^(화면 언어|Language)$/ }).getByRole("button", { name: "日本語" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+  await page.goto("/dictionary/t_luckyvicky");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("럭키비키");          // 원문은 번역하지 않는다
+  await expect(page.locator(".rs-term-reading")).toHaveText("ラッキービッキー");
+  await expect(page.locator(".rs-term-reading")).toHaveAttribute("lang", "ja-JP");
+  // 일본어 화면 사전에서 가타카나로 한국어 표제어를 찾는다
+  await page.goto("/dictionary?q=" + encodeURIComponent("ラッキー"));
+  await expect(page.getByRole("link", { name: "럭키비키" }).first()).toBeVisible();
+});

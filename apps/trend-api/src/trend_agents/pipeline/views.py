@@ -142,6 +142,7 @@ class TermRecord(BaseModel):
     provenance: Provenance | None = None   # 항목 하나를 볼 때만(GET /terms/{id}) 채운다 — 사전 색인에는 없다
     risk_labels: RiskBreakdown | None = None   # 항목 하나를 볼 때만 — 리스크 판정에 쓴 근거 문장별 분류
     regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
+    readings: dict[str, str] = {}   # 화면 언어 → 표제어 읽기(ja 가타카나 · en 로마자 · ko 한글). 원문 글자가 화면 언어와 다를 때만 있다(term_readings)
 
 
 class PipelineStage(BaseModel):
@@ -244,7 +245,7 @@ def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
                       gate_reasons=reasons or None, regions=regions_for(con, t),
-                      popular_year=year, popular_decade=decade)
+                      popular_year=year, popular_decade=decade, readings=ds.get_readings(con, t))
 
 
 def _maker(model: str | None) -> Maker | None:
@@ -687,6 +688,7 @@ class KeywordCard(BaseModel):
     ko_pending: bool = False           # 한국어 뜻풀이가 없고 gloss_ko 가 일본어·영어 원문이다. 한국어 화면은 원문 대신 '준비 중' 으로 보인다
     gloss_ja: str = ""                 # 일본어 뜻풀이. 일본어판이 없으면 원문. 이 칸이 생기기 전 캐시에는 빈 값 — 화면은 '翻訳なし' 로 본다
     ja_pending: bool = False           # 일본어 뜻풀이가 없고 원문도 일본어(가나)가 아니다. 일본어 화면은 원문 대신 '翻訳なし' 로 보인다
+    readings: dict[str, str] = {}      # 화면 언어 → 표제어 읽기(TermRecord.readings). 이 칸이 생기기 전 캐시에는 없다 — 화면은 원문만 낸다
 
 
 class RegionTop(BaseModel):
@@ -727,6 +729,7 @@ class RecommendItem(BaseModel):
     ko_pending: bool = False
     gloss_ja: str = ""
     ja_pending: bool = False
+    readings: dict[str, str] = {}      # 화면 언어 → 표제어 읽기(KeywordCard.readings)
     regions: list[str]
     diffusion: Diffusion | None = None
     lifecycle: Lifecycle

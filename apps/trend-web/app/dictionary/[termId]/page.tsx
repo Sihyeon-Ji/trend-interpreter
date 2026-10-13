@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowUpRight, ListChecks, Sparkles, Stamp } from "lucide-rea
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ViewTransition } from "react";
-import { ActorTag, MemeWord, Verdict, fmtDay, fmtN, verdictOf, wordVT, type Actor } from "@/components/stage/bits";
+import { ActorTag, MemeWord, Reading, Verdict, fmtDay, fmtN, verdictOf, wordVT, type Actor } from "@/components/stage/bits";
 import { TrendChart } from "@/components/stage/chart";
 import { diffusionWord, isMarket, marketName, tx, type Market } from "@/components/stage/copy";
 import { RelGraph, hasGraph } from "@/components/stage/graph";
@@ -99,6 +99,7 @@ export default async function TermPage({ params, searchParams }: Props) {
           <ViewTransition name={wordVT(termId, market)} share="rs-morph" default="none">
             <h1 id="rs-term-h" className="rs-term-word"><MemeWord text={term.canonical} lang={term.lang} max={168} min={44} /></h1>
           </ViewTransition>
+          <Reading readings={record.readings} locale={locale} className="rs-term-reading" />
           <p className="rs-term-sub">
             <span>{tx(locale, "tm_lang", { lang: termLangLabel(locale, term.lang ?? "ko") })}</span>
             {term.aliases?.length ? <span>{tx(locale, "tm_aliases")} {term.aliases.slice(0, 4).map((a) => <b key={a} lang={langTag(term.lang)}>{a}</b>)}</span> : null}

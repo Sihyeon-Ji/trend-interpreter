@@ -31,7 +31,7 @@ export interface Column {
   since?: string | null;           // 지금 단계를 시작한 때 — '몇 초째' 표시
 }
 export type SendError = "blocked" | "signed_out" | "forbidden" | "busy" | "failed";
-export interface LiveWord { id: string; word: string; lang: string; gloss: string; verdict: VerdictKind }
+export interface LiveWord { id: string; word: string; lang: string; gloss: string; verdict: VerdictKind; readings?: Record<string, string> }
 export interface MarketLive { market: Market; count: number; words: LiveWord[]; failed?: boolean; at?: string | null }
 export interface Pin { id: string; word: string; lang: string }
 export interface Input { text: string; category: FitCategory | ""; tone: CampaignTone; markets: Market[]; pin: Pin | null }

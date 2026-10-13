@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { packRows, toRow, unpackRows, type DictionaryRow } from "../lib/dictionary/rows";
+import { matchesExceptRegion, packRows, toRow, unpackRows, type DictionaryRow } from "../lib/dictionary/rows";
 import { SAMPLE_RECORDS } from "../lib/sample/dictionary";
 import type { TermUsage } from "../lib/types";
 
@@ -7,7 +7,7 @@ const row: DictionaryRow = {
   term_id: "t1", canonical: "럭키비키", lang: "ko", aliases: ["원영적 사고"], expansion: null,
   definition: "나쁜 일도 결국 잘된 일이라고 여기는 태도.", meaning_lang: null, category: "slang", diffusion: "mainstream",
   lifecycle: "steady", regions: ["KR"], last_used: "2026-09-30T08:02:56Z", changed: "2026-09-30", risk_level: null,
-  risk_checked_at: null, generations: ["20s"], alt: null,
+  risk_checked_at: null, generations: ["20s"], alt: null, reading: null,
 };
 
 test("dictionary rows survive the compact transport unchanged and drop the repeated field names", () => {
@@ -22,4 +22,14 @@ test("generation filtering uses measured ages instead of a model's meaning", () 
   const record = { ...SAMPLE_RECORDS[0], usage: [estimated] };
   expect(toRow(record, "ko").generations).toEqual([]);
   expect(toRow({ ...record, usage: [estimated, measured] }, "ko").generations).toEqual(["30s"]);
+});
+
+test("a headword reading follows the screen language and can be searched", () => {
+  const record = { ...SAMPLE_RECORDS[0], readings: { ja: "ラッキービッキー", en: "Lucky Vicky" } };
+  expect(toRow(record, "ja").reading).toBe("ラッキービッキー");
+  expect(toRow(record, "en").reading).toBe("Lucky Vicky");
+  expect(toRow(record, "ko").reading).toBeNull();
+  const filters = { q: "ラッキー", regions: [], kind: "", lang: "", risk: "" };
+  expect(matchesExceptRegion({ ...row, reading: "ラッキービッキー" }, filters)).toBe(true);
+  expect(matchesExceptRegion(row, filters)).toBe(false);
 });

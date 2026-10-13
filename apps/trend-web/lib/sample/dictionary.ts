@@ -70,6 +70,7 @@ const BASE_RECORDS: TermRecord[] = [
   },
   {
     term: { term_id: "t_luckyvicky", canonical: "럭키비키", lang: "ko", aliases: ["완전 럭키비키잖아", "럭키비키잖아"], status: "verified", lifecycle: "declining", first_seen: "2024-04-20T00:00:00Z", last_seen: "2026-09-12T15:00:00Z" },
+    readings: { ja: "ラッキービッキー", en: "Lucky Vicky" },
     category: "meme",
     plain: "오히려 좋아",
     en: { definition: "An attitude of finding the upside in a bad situation and calling it 'lucky after all'.", expansion: "Lucky + Vicky (Jang Won-young's English name)", origin: "Started in April 2024 when IVE's Jang Won-young said '완전 럭키비키잖아' ('that's totally lucky-Vicky') in a video; spread together with 원영적 사고.", nuance: "The fad had passed by 2026; it survives mainly as an ironic use of a dated meme. A brand using it earnestly reads as out of touch.", plain: "lucky after all" },
@@ -225,6 +226,7 @@ const BASE_RECORDS: TermRecord[] = [
   },
   {
     term: { term_id: "t_oshikatsu", canonical: "推し活", lang: "ja", aliases: ["오시카츠", "oshikatsu"], status: "verified", lifecycle: "steady", first_seen: "2015-01-01T00:00:00Z", last_seen: "2026-09-13T11:00:00Z" },
+    readings: { ko: "오시카쓰", en: "oshikatsu" },
     category: "slang",
     plain: "좋아하는 스타 응원 활동",
     en: { definition: "Everything you do to support your favorite idol or character: buying goods, going to shows, promoting them online.", expansion: "推し (the one you root for) + 活動 (activity)", origin: "Japanese idol-fandom term from the 2010s; became mainstream after being shortlisted for the 2021 word-of-the-year awards.", nuance: "In Japan it is standard vocabulary across generations. Korean fans transliterate it as 오시카츠, which is unfamiliar to people over 30.", plain: "supporting your favorite star" },

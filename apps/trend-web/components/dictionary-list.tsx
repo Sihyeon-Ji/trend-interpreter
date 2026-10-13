@@ -8,7 +8,7 @@ import {
   PAGE_SIZE, aliasHit, inRegions, matchesExceptRegion, sortRows, unpackRows, type DictionaryRow, type Filters, type PackedRows, type RiskFilter,
   type SortKey,
 } from "@/lib/dictionary/rows";
-import { t, type Locale, type StringKey } from "@/lib/i18n";
+import { LOCALE_TAG, t, type Locale, type StringKey } from "@/lib/i18n";
 import { langTag } from "@/lib/lang";
 import { L, fmtDate, regionLabel, termLangLabel } from "@/lib/labels";
 import { TARGET_REGIONS } from "@/lib/reader";
@@ -214,6 +214,7 @@ export function DictionaryList({ packed, locale, readerGen = null, initial }: { 
                   <tr key={r.term_id} className="border-b border-hairline align-top hover:bg-surface-soft">
                     <th scope="row" className="px-3 py-3 text-left font-normal">
                       <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="text-[15px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                      {r.reading && <span lang={LOCALE_TAG[locale]} className="ml-2 text-[12px] text-steel">{r.reading}</span>}
                       <Gloss row={r} locale={locale} q={s.q} />
                       {!oneRegion && <p className="mt-0.5 text-[12px] text-steel xl:hidden"><Regions row={r} locale={locale} /></p>}
                     </th>
@@ -231,7 +232,10 @@ export function DictionaryList({ packed, locale, readerGen = null, initial }: { 
             {slice.map((r) => (
               <li key={r.term_id} className="py-3.5">
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="min-w-0 text-[16px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                  <span className="min-w-0">
+                    <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="text-[16px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                    {r.reading && <span lang={LOCALE_TAG[locale]} className="ml-2 text-[12px] text-steel">{r.reading}</span>}
+                  </span>
                   <RiskCell item={r} locale={locale} />
                 </div>
                 <Gloss row={r} locale={locale} q={s.q} />

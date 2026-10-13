@@ -8,7 +8,7 @@ import type { Locale } from "@/lib/i18n";
 import { sep } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { Tone, TermRelated, WeeklyPoint } from "@/lib/types";
-import { MemeWord, RiskMark, Verdict, fmtDay, fmtN, fmtStamp, type VerdictKind, wordVT } from "./bits";
+import { MemeWord, Reading, RiskMark, Verdict, fmtDay, fmtN, fmtStamp, type VerdictKind, wordVT } from "./bits";
 import { Spark, TrendChart } from "./chart";
 import { MARKETS, diffusionWord, marketName, tx, type CopyKey, type Market } from "./copy";
 import { MiniGlobe } from "./globe";
@@ -16,7 +16,7 @@ import { RelGraph, hasGraph } from "./graph";
 
 export type XList = "rising" | "fading" | "caution";
 export interface XRow {
-  id: string; word: string; lang: string; gloss: string; verdict: VerdictKind; life: string; diffusion: string | null;
+  id: string; word: string; lang: string; readings?: Record<string, string>; gloss: string; verdict: VerdictKind; life: string; diffusion: string | null;
   m4: number; weekly: WeeklyPoint[]; regions: string[]; tone: Tone; partial: boolean;
   refs: { url: string; label: string; title: string; date: string }[];
   related?: TermRelated | null;
@@ -61,6 +61,7 @@ function Spot({ row, market, locale, from, titleId }: {
       <ViewTransition name={wordVT(row.id, market)} share="rs-morph" default="none">
         <h2 id={titleId} className="rs-spot-word" ref={wordRef}><MemeWord text={row.word} lang={row.lang} max={104} min={34} /></h2>
       </ViewTransition>
+      <Reading readings={row.readings} locale={locale} className="rs-spot-reading" />
       <p className="rs-spot-gloss" lang={scriptLang(row.gloss)}>{row.gloss}</p>
       <dl className="rs-facts">
         {row.diffusion ? <div><dt>{tx(locale, "pk_why_spread")}</dt><dd>{diffusionWord(row.diffusion, locale)}</dd></div> : null}
@@ -183,6 +184,7 @@ function Body({ locale, market, list, page, pageSize, totals, rows, initial }: {
                         <span className="rs-cast-word" lang={langTag(r.lang)}>{r.word}</span>
                         <RiskMark kind={r.verdict} locale={locale} />
                       </span>
+                      <Reading readings={r.readings} locale={locale} />
                       <span className="rs-cast-gloss" lang={scriptLang(r.gloss)}>{r.gloss}</span>
                     </span>
                     <Spark weekly={r.weekly} />

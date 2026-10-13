@@ -24,7 +24,7 @@ function liveWords(cards: KeywordCard[], locale: Locale, market: Market) {
     .filter((c) => (c.risk_level === "none" || c.risk_level === "caution") && writableIn(c.canonical, market))
     .sort((a, b) => b.mentions_4w - a.mentions_4w || (LIFE_RANK[a.lifecycle] ?? 2) - (LIFE_RANK[b.lifecycle] ?? 2))
     .slice(0, 6)
-    .map((c) => ({ id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c) }));
+    .map((c) => ({ id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c), readings: c.readings }));
 }
 
 async function loadLive(market: Market, locale: Locale): Promise<MarketLive> {

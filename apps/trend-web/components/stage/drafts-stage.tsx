@@ -9,7 +9,7 @@ import { koOrEn, type Locale } from "@/lib/i18n";
 import { L, gap, sep, sourceLabel, sourceName } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
-import { ActorTag, MemeWord, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
+import { ActorTag, MemeWord, Reading, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
 import { Count } from "./count";
 import { LANG_NAME, MARKET_LANG, diffusionWord, marketName, tx, type CopyKey, type Market } from "./copy";
 import { MiniGlobe } from "./globe";
@@ -294,6 +294,7 @@ function FullView({ col, run, locale, viewer }: { col: Column; run: Run; locale:
                 <ViewTransition name={wordVT(col.pick.term_id, m)} share="rs-morph" default="none">
                   <MemeWord text={col.pick.canonical} lang={col.pick.lang} max={96} min={34} />
                 </ViewTransition>
+                <Reading readings={col.pick.readings} locale={locale} className="rs-pick-reading" />
                 <span className="rs-pick-open">{tx(locale, "pk_open")}<ArrowUpRight aria-hidden="true" size={14} /></span>
               </Link>
               <p className="rs-gloss" id={`rs-gloss-${m}`} lang={scriptLang(glossFor(col.pick, locale))}>{glossFor(col.pick, locale)}</p>
@@ -470,6 +471,7 @@ function EqualView({ col, run, locale }: { col: Column; run: Run; locale: Locale
             </ActorTag>
           </p>
           <div className="rs-eq-word"><MemeWord text={col.pick.canonical} lang={col.pick.lang} max={84} min={30} /></div>
+          <Reading readings={col.pick.readings} locale={locale} className="rs-pick-reading" />
           <p className="rs-eq-gloss" lang={scriptLang(glossFor(col.pick, locale))}>{glossFor(col.pick, locale)}</p>
         </>
       ) : (

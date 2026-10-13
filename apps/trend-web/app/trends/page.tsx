@@ -31,7 +31,7 @@ function toRow(c: KeywordCard, locale: Locale): XRow {
     .slice(0, 3)
     .map((e) => ({ url: e.url, label: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind] ?? ""), title: e.title, date: e.observed_at }));
   return {
-    id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c),
+    id: c.term_id, word: c.canonical, lang: c.lang, readings: c.readings, gloss: glossFor(c, locale), verdict: verdictOf(c),
     life: labels.lifecycle[c.lifecycle], diffusion: c.diffusion ?? null, m4: c.mentions_4w, weekly: c.weekly.slice(-12),
     regions: c.regions.map((r) => regionLabel(locale, r)), tone: c.tone, refs, partial: isPartialWeek(c.weekly.at(-1)),
   };

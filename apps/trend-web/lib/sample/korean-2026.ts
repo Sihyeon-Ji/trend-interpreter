@@ -20,6 +20,7 @@ export interface Spec {
   usage: [string, Generation, string, number][]; // region, generation, first_seen, share
   weekly: number[];
   recheck?: number;
+  readings?: Record<string, string>;   // 화면 언어 → 표제어 읽기 (TermRecord.readings)
 }
 
 export function rec(s: Spec): TermRecord {
@@ -29,6 +30,7 @@ export function rec(s: Spec): TermRecord {
     category: s.category,
     plain: s.ko.plain ?? "",
     en: s.en,
+    readings: s.readings,
     meanings: [{
       meaning_id: `m_${s.id.replace(/^t_/, "")}_1`, term_id: s.id, version: 1,
       definition: s.ko.definition, expansion: s.ko.expansion ?? null, origin: s.ko.origin, nuance: s.ko.nuance,

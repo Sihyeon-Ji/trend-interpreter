@@ -8,7 +8,7 @@ import type { Locale } from "@/lib/i18n";
 import { L } from "@/lib/labels";
 import { langTag } from "@/lib/lang";
 import type { CampaignTone, FitCategory } from "@/lib/types";
-import { ActorTag, MemeWord, RiskMark, fmtN, fmtStamp, wordVT } from "./bits";
+import { ActorTag, MemeWord, Reading, RiskMark, fmtN, fmtStamp, wordVT } from "./bits";
 import { tx, marketName, type CopyKey, type Market } from "./copy";
 import { MiniGlobe } from "./globe";
 import { seedInput, setInput, setPhoto, startRun, toggleMarket, useStage, type MarketLive, type Pin } from "./store";
@@ -39,6 +39,7 @@ function MarketColumn({ live, on, locale }: { live: MarketLive; on: boolean; loc
                   <ViewTransition name={wordVT(w.id, m)} share="rs-morph" default="none">
                     <MemeWord text={w.word} lang={w.lang} max={i === 0 ? 60 : i < 3 ? 34 : 22} min={i === 0 ? 30 : 18} />
                   </ViewTransition>
+                  <Reading readings={w.readings} locale={locale} />
                 </Link>
                 <RiskMark kind={w.verdict} locale={locale} />
                 <span className="rs-tip" role="tooltip" id={`tip-${m}-${i}`}>{w.gloss}</span>

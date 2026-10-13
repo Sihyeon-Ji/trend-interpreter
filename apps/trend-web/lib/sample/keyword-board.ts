@@ -26,7 +26,7 @@ function toCard(r: TermRecord): KeywordCard {
     gloss_ko: r.ko?.definition ?? m?.definition ?? "", gloss_en: r.en?.definition ?? m?.definition ?? "",
     // 일본어판이 없고 원문도 일본어(가나)가 아니면 '翻訳なし' — 백엔드 dashboard.build_card 와 같다
     gloss_ja: r.ja?.definition ?? m?.definition ?? "", ja_pending: !r.ja && !/[぀-ヿ]/.test(m?.definition ?? ""),
-    regions: termRegions(r), lifecycle: r.term.lifecycle ?? "unknown", diffusion: r.term.diffusion ?? null,
+    readings: r.readings, regions: termRegions(r), lifecycle: r.term.lifecycle ?? "unknown", diffusion: r.term.diffusion ?? null,
     risk_level: r.term.risk_level ?? null, risk_reasons: r.term.risk_reasons ?? [],
     weekly, mentions_4w: weekly.slice(-4).reduce((a, p) => a + p.count, 0),
     risk_checked_at: r.term.risk_checked_at ?? null,

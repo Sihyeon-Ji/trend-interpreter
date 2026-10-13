@@ -29,6 +29,7 @@ _BATCH_SQL = {
              "WHERE term_id = ANY(?) ORDER BY term_id, share DESC",
     "weekly": "SELECT term_id, week_start, count FROM mentions_weekly WHERE term_id = ANY(?) ORDER BY term_id, week_start DESC",
     "translations": "SELECT term_id, lang, json FROM translations WHERE term_id = ANY(?)",
+    "readings": "SELECT term_id, lang, headword, reading FROM term_readings WHERE term_id = ANY(?)",
     "media": "SELECT term_id, kind, url, page_url, title, license, attribution FROM term_media "
              "WHERE term_id = ANY(?) ORDER BY term_id, kind DESC, added_at",
     "gate": "SELECT term_id, reasons_json FROM review_queue WHERE term_id = ANY(?) AND decision IS NULL AND COALESCE(kind, 'new')='new'",
@@ -91,6 +92,9 @@ CREATE TABLE IF NOT EXISTS mention_samples (term_id TEXT, region TEXT, link TEXT
 -- 나라별 원본 언급(Plan 04, 마이그레이션 005). 대시보드가 고른 지역의 수치만 보이게 한다.
 CREATE TABLE IF NOT EXISTS mentions_weekly_region (term_id TEXT, region TEXT, week_start TEXT, count BIGINT, PRIMARY KEY(term_id, region, week_start));
 CREATE TABLE IF NOT EXISTS translations (term_id TEXT, lang TEXT, json TEXT, updated_at TEXT, model TEXT, PRIMARY KEY(term_id, lang));
+-- 표제어 읽기(마이그레이션 026, 10-13): 원문 아래 작게 붙일 읽는 법. lang 은 읽는 사람의 화면 언어(ja 가타카나 · en 로마자 · ko 한글).
+-- 수집 서버가 만들고 규칙으로 걸러(수집 서버 pipeline/readings.check) 스냅숏으로 들어온다. headword 는 만들 때의 표제어 — 표제어가 바뀌면 옛 읽기를 내지 않는다
+CREATE TABLE IF NOT EXISTS term_readings (term_id TEXT, lang TEXT, headword TEXT, reading TEXT, source TEXT, updated_at TEXT, PRIMARY KEY(term_id, lang));
 -- 검수 큐. 표제어마다 한 줄. kind(Plan 12, 마이그레이션 007): new(조사 결과 — 지금 판이 제안된 뜻) · correction(draft_json 이 고칠 안, 지금 뜻은 그대로 실림)
 -- · conflict(docs_json 이 서로 다른 문서의 설명들) · retire(사전에서 뺄지). docs_json 은 제안의 근거가 된 참고 문서 [{wiki, url, summary, proposal}].
 CREATE TABLE IF NOT EXISTS review_queue (
@@ -546,6 +550,18 @@ def get_translation(con: Connection, term_id: str, lang: str) -> MeaningText | N
     else:
         row = con.execute("SELECT json FROM translations WHERE term_id=? AND lang=?", (term_id, lang)).fetchone()
     return MeaningText.model_validate_json(row[0]) if row else None
+
+
+def set_reading(con: Connection, term_id: str, lang: str, headword: str, reading: str, source: str) -> None:
+    con.execute("INSERT OR REPLACE INTO term_readings VALUES (?,?,?,?,?,?)", (term_id, lang, headword, reading, source, now_s()))
+    con.commit()
+
+
+def get_readings(con: Connection, t: Term) -> dict[str, str]:
+    """화면 언어 → 읽기. 지금 표제어로 만든 것만."""
+    if (rows := _cached("readings", t.term_id)) is None:
+        rows = con.execute("SELECT lang, headword, reading FROM term_readings WHERE term_id=?", (t.term_id,)).fetchall()
+    return {lang: r for lang, head, r in rows if head == t.canonical}
 
 
 # ---------- 검수 큐 · 리서치 로그 ----------
