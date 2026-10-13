@@ -13,6 +13,7 @@ from ..storage import dictionary_store as ds
 from .gemini import BudgetExhausted, generate
 from .match import term_pattern, text_pattern  # noqa: F401  (tests 와 다른 단계가 여기서 가져간다)
 from ..storage.db import Connection
+from ..ui_lang import NAME_EN
 
 def match_terms(text: str, terms: list[Term]) -> list[Term]:
     hits: list[tuple[int, Term]] = []
@@ -86,7 +87,7 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
     aud = ""
     if reader and (reader.get("gen") or reader.get("region")):
         aud = f" The reader is in their {reader.get('gen') or 'unknown age'} and lives in {reader.get('region') or 'an unknown country'}; choose comparisons they would know."
-    fut = _pool.submit(_generate_apart, REWRITE.format(lang={"ko": "Korean", "en": "English"}.get(lang, lang), glossary=g, text=text, audience=aud))
+    fut = _pool.submit(_generate_apart, REWRITE.format(lang=NAME_EN.get(lang, lang), glossary=g, text=text, audience=aud))
     try:
         resp, _ = fut.result(timeout=timeout_s)
         return (resp.text or "").strip() or None

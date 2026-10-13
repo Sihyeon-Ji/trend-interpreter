@@ -48,6 +48,25 @@ PROMPT = {
 {glossary}
 
 메시지: {text}""",
+    "ja": """ネットスラングを知らない人（たとえば50代の親）がすぐ分かるように、下のメッセージを自然な日本語に書き直してください。
+用語集の意味を使って、書き手が言いたかったことを普通の言葉で言い表します。単語の置き換えではなく書き直しです。
+
+ルール:
+- 用語集にある表現だけを変える。それ以外（口調・絵文字・語順）は元のまま残す。
+- 用語集の言葉をそのまま貼り付けて不自然になるなら、人が話すような文にする。
+- **用語集にない言葉を推測しない。そのまま残す。** 分からなくてかまわない。
+- 意味のない感嘆詞（意味なし）は消し、前後の文がちゃんとつながるようにする。
+- 説明は付けない。長さは同じくらい。書き直したメッセージだけを JSON で返す。
+
+例
+用語集: 草 → 笑える、面白い / エモい → しみじみ心に響く
+メッセージ: その動画マジで草、最後のシーンはエモすぎた
+結果: その動画は本当に面白い、最後のシーンはすごく心に響いた
+
+用語集:
+{glossary}
+
+メッセージ: {text}""",
     "en": """Rewrite the message below so that someone who knows no internet slang (say, a parent in their 50s) understands it immediately.
 Use the glossary meanings to say what the writer meant, in ordinary words. This is a rewrite, not a word swap.
 
@@ -71,6 +90,6 @@ Message: {text}""",
 
 
 def rewrite_plain(text: str, glossary: list[GlossaryItem], lang: str = "ko", model: str = GEMMA_LOCAL_MODEL) -> str:
-    none = "뜻 없음, 감탄사" if lang == "ko" else "meaning: none, exclamation"
+    none = {"ko": "뜻 없음, 감탄사", "ja": "意味なし、感嘆詞"}.get(lang, "meaning: none, exclamation")
     gl = "\n".join(f"- {g.term} → {g.meaning or none}" for g in glossary)
-    return local_chat.structured(PROMPT[lang].format(glossary=gl, text=text), Rewrite, temperature=0.2, model=model).text.strip()
+    return local_chat.structured(PROMPT.get(lang, PROMPT["en"]).format(glossary=gl, text=text), Rewrite, temperature=0.2, model=model).text.strip()

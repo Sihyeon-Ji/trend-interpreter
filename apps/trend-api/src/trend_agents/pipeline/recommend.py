@@ -25,6 +25,7 @@ from .risk import sensitive_topic
 from .gemini import BudgetExhausted, configured, structured
 from .generate import REGION_LANG, writable
 from .views import ExcludedItem, KeywordCard, RecommendItem, RecommendResult
+from ..ui_lang import NAME_KO
 
 TOP = 5
 EXCLUDED_PER_REGION = 4   # 만들기 화면의 '뺀 말' — 시장마다 이만큼
@@ -128,7 +129,7 @@ def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None 
         cached = json.loads(hit)
         return ProductBrief.model_validate(cached["brief"]), cached["source"]
     what = ("제품 사진" + (" 과 홍보 문구" if text else "")) if image else "홍보 문구"
-    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang="한국어" if lang == "ko" else "영어")
+    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang=NAME_KO.get(lang, "한국어"))
     try:
         # 요청 때의 사진·문구 이해는 Gemini 가 맡는다(2026-09-28 결정). 로컬 Gemma 는 Gemini 가 없는 개발 PC 에서만
         parsed, model = structured(con, prompt, ProductBrief, image=image, prefer_gemini=True, request=True)

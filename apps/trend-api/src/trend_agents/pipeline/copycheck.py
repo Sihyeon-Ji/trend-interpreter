@@ -29,6 +29,7 @@ from .generate import caution_note, writable, x_length
 from .match import text_pattern, unsafe
 from .risk import sensitive_topic
 from .views import CopyCheck, CopyIssue, CopyMeme
+from ..ui_lang import NAME_KO
 
 MAX_TEXT = 1000
 MAX_MEMES = 8
@@ -122,7 +123,7 @@ def fit(con: Connection, text: str, result: CopyCheck, terms: list, lang: str) -
     for t in terms:
         tr = ds.get_translation(con, t.term_id, "ko") or ds.current_meaning(con, t.term_id)
         lines.append(f"- {t.term_id} | {t.canonical}: {(tr.definition if tr else '')[:200]} (뉘앙스: {(tr.nuance if tr else '')[:120]})")
-    prompt = FIT_PROMPT.format(lang="영어" if lang == "en" else "한국어", text=text[:MAX_TEXT], memes="\n".join(lines))
+    prompt = FIT_PROMPT.format(lang=NAME_KO.get(lang, "한국어"), text=text[:MAX_TEXT], memes="\n".join(lines))
     parsed, model = structured(con, prompt, FitResult, prefer_gemini=True, request=True)
     got = parsed if isinstance(parsed, FitResult) else FitResult.model_validate(parsed)
     by_id = {i.term_id: i for i in got.items}

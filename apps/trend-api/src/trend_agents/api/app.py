@@ -34,6 +34,7 @@ from ..storage import publications
 from ..storage.db import Connection
 from ..verification import is_public_entry
 from ..pipeline.match import term_pattern, text_pattern
+from ..ui_lang import ui_lang
 
 configure_logging()
 
@@ -651,7 +652,7 @@ def recommend(text: str = Form(""), regions: str = Form(""), tone: str = Form("f
     if not _recommend_limit.allow(time.monotonic()):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
     wanted = [r.strip().upper() for r in regions.split(",") if r.strip()]
-    ui = "en" if lang == "en" else "ko"
+    ui = ui_lang(lang)
     if not recommend_stage.ready(_con, wanted):      # 비교할 후보가 없는 지역 — 모델을 부르지 않고 알린다
         return views.RecommendResult(brief=None, brief_source="none", regions=dashboard.chosen_regions(wanted), tone=tone,  # type: ignore[arg-type]
                                      items=[], considered=0, untagged=len(dashboard.cards(_con, wanted)))
@@ -688,7 +689,7 @@ def generate(body: GenerateIn):
         raise HTTPException(429, "잠시 뒤에 다시 시도해 주세요")
     try:
         with _model_slot():
-            return generate_stage.run(_con, body.term_ids, body.brief, region, body.tone, "en" if body.lang == "en" else "ko")
+            return generate_stage.run(_con, body.term_ids, body.brief, region, body.tone, ui_lang(body.lang))
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
     except generate_stage.Unavailable as e:
@@ -752,7 +753,7 @@ def trend_briefing(regions: str = "", lang: str = "ko", summary: bool = True):
     """트렌드 브리핑 — 고른 지역의 대시보드를 한 장으로. 목록·건수는 대시보드 규칙, 요약 문장만 모델(갱신 시각·지역·언어마다 한 번).
     모델이 없거나 자리·한도가 없거나 실패하면 summary 를 비워 두고 화면이 규칙 문장을 쓴다 — 보고서는 늘 열린다.
     summary=false 면 모델을 부르지 않는다(이미 만든 요약은 준다) — 대시보드의 '한눈에 보기' 가 열 때마다 모델을 부르지 않게."""
-    ui = "en" if lang == "en" else "ko"
+    ui = ui_lang(lang)
     b = briefing_stage.build(_con, [r.strip().upper() for r in regions.split(",") if r.strip()])
     hit = briefing_stage.cached(_con, b, ui)
     if hit:
@@ -795,7 +796,7 @@ def copy_check(body: CopyCheckIn):
         result.fit_source = "busy"
         return result
     try:
-        return copycheck.fit(_con, text, result, terms, "en" if body.lang == "en" else "ko")
+        return copycheck.fit(_con, text, result, terms, ui_lang(body.lang))
     except Exception:
         result.fit_source = "failed"
         return result
@@ -830,7 +831,7 @@ def copy_check_all(body: CopyCheckAllIn):
             result.fit_source = "busy"
         else:
             try:
-                checked[idx] = (copycheck.fit(_con, texts[idx], result, terms, "en" if body.lang == "en" else "ko"), terms)
+                checked[idx] = (copycheck.fit(_con, texts[idx], result, terms, ui_lang(body.lang)), terms)
             except Exception:
                 result.fit_source = "failed"
             finally:

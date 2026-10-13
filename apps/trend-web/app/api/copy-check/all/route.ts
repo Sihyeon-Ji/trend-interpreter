@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { isSampleMode } from "@/lib/data";
 import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleCopyCheck } from "@/lib/sample/copy-check";
+import { localeOf } from "@/lib/i18n";
 
 const MAX_TEXT = 2000;          // 본문(백엔드 copycheck.MAX_TEXT 1000자)과 해시태그 — 백엔드 /copy-check/all 과 같다
 const MAX_TEXTS = 6;            // 만들기는 시장마다 문구 넷
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   const raw = Array.isArray(body?.texts) ? body.texts : [];
   const texts = raw.map((t) => (typeof t === "string" ? t.trim() : ""));
   const region = String(body?.region ?? "").toUpperCase();
-  const lang = body?.lang === "en" ? "en" : "ko";
+  const lang = localeOf(body?.lang);   // 화면 언어 그대로(ko·en·ja) — 일본어 화면이 한국어 AI 의견을 받던 것(10-13)
   if (!texts.length || texts.length > MAX_TEXTS || texts.some((t) => !t || t.length > MAX_TEXT)) return NextResponse.json({ error: "need_text" }, { status: 400 });
   if (!WRITE_REGIONS.includes(region)) return NextResponse.json({ error: "failed" }, { status: 400 });
   const opinion = typeof body?.opinion === "number" && Number.isInteger(body.opinion) && body.opinion >= 0 && body.opinion < texts.length ? body.opinion : null;

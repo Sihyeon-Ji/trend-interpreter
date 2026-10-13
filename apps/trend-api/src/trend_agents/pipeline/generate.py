@@ -19,6 +19,7 @@ from .gemini import BudgetExhausted, configured, structured
 from .match import mentions, unsafe
 from .risk import RISK_KO, nuance_warning
 from .views import Dropped, GenerationResult
+from ..ui_lang import NAME_KO
 
 MAX_MEMES = 3
 # 목표 지역의 말. 결과물은 입력 언어가 아니라 이 말로 만든다(Plan 08). 필리핀·싱가포르는 영어가 광고 표준어다.
@@ -223,6 +224,8 @@ def in_ui_language(text: str, ui: str, names: list[str]) -> bool:
         return True
     if ui == "en":
         return not re.search(r"[가-힣぀-ヿ一-鿿฀-๿]", body)
+    if ui == "ja":   # 일본어 화면(10-13): 가나·한자가 있고 한글이 없어야 한다
+        return bool(re.search(r"[぀-ヿ一-鿿]", body)) and not re.search(r"[가-힣]", body)
     return bool(re.search(r"[가-힣]", body))
 
 
@@ -247,7 +250,7 @@ def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: st
     lang = REGION_LANG.get(region, "en")
     prompt = GEN_PROMPT.format(region=region, tone=TONE_KO.get(tone, tone), product=brief.product, scene=brief.scene or "-",
                                values=", ".join(brief.values) or "-", avoid=", ".join(brief.avoid) or "-", memes=_meme_lines(con, terms, names),
-                               lang=LANG_NAME.get(lang, lang), explain="한국어" if ui == "ko" else "영어", x_limit=X_LIMIT,
+                               lang=LANG_NAME.get(lang, lang), explain=NAME_KO.get(ui, "한국어"), x_limit=X_LIMIT,
                                explain_rule="" if ui == "ko" else "Write note_ko, layout, subject and colors in English.\n", feedback=feedback)
     try:
         parsed, model = structured(con, prompt, ContentDraft, temperature=0.7, prefer_gemini=True, request=True)

@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { isSampleMode } from "@/lib/data";
-import { koOrEn, localeOf } from "@/lib/i18n";
+import { localeOf } from "@/lib/i18n";
 import { L } from "@/lib/labels";
 import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleGenerate } from "@/lib/sample/generate";
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   const termIds = Array.isArray(body?.term_ids) ? body.term_ids.filter((x): x is string => typeof x === "string" && x.length <= 64).slice(0, 3) : [];
   const region = String(body?.region ?? "").toUpperCase();
   const tone = (TONES.includes(body?.tone as CampaignTone) ? body?.tone : "friendly") as CampaignTone;
-  const lang = koOrEn(localeOf(body?.lang));   // 모델이 쓰는 설명은 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
+  const lang = localeOf(body?.lang);   // 화면 언어 그대로(ko·en·ja) — 모델이 쓰는 설명을 그 말로 쓴다(10-13)
   const brief = cleanBrief(body?.brief);
   if (!termIds.length) return NextResponse.json({ error: "need_pick" }, { status: 400 });
   if (!WRITE_REGIONS.includes(region) || !brief) return NextResponse.json({ error: "failed" }, { status: 400 });

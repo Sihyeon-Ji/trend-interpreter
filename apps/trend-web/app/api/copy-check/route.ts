@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiFetch } from "@/lib/api-fetch";
 import { isSampleMode } from "@/lib/data";
-import { koOrEn, localeOf } from "@/lib/i18n";
+import { localeOf } from "@/lib/i18n";
 import { WRITE_REGIONS } from "@/lib/reader";
 import { sampleCopyCheck } from "@/lib/sample/copy-check";
 
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { text?: unknown; region?: unknown; lang?: unknown } | null;
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const region = String(body?.region ?? "").toUpperCase();
-  const lang = koOrEn(localeOf(body?.lang));   // 모델이 쓰는 설명은 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
+  const lang = localeOf(body?.lang);   // 화면 언어 그대로(ko·en·ja) — 모델이 쓰는 설명을 그 말로 쓴다(10-13)
   if (!text) return NextResponse.json({ error: "need_text" }, { status: 400 });
   if (text.length > MAX_TEXT) return NextResponse.json({ error: "too_long" }, { status: 400 });
   if (!WRITE_REGIONS.includes(region)) return NextResponse.json({ error: "failed" }, { status: 400 });

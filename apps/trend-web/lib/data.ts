@@ -11,7 +11,7 @@ import type { ApprovalList, Briefing, GemmaUsage, GraphContent, GraphContentSumm
 import { sampleApprovals } from "./sample/approvals";
 import { sampleBriefing } from "./sample/briefing";
 import { loadBriefing } from "./briefing-fetch";
-import { koOrEn, type Locale } from "./i18n";
+import { type Locale } from "./i18n";
 import type { Reader } from "./reader";
 import { SAMPLE_COPY, SAMPLE_COPY_EN, SAMPLE_COPY_JA, SAMPLE_QUEUE, SAMPLE_RECORDS, SAMPLE_REWRITES, SAMPLE_STAGES } from "./sample/dictionary";
 import { explainMessage, type ExplainResult } from "./explain";
@@ -167,8 +167,8 @@ export function getSampleCopy(locale: Locale): string {
 export async function explain(text: string, locale: Locale, reader: Reader = {}): Promise<ExplainResult> {
   if (!isSampleMode) {
     // 서버는 매칭된 용어 id 와 '쉽게 풀어 쓰면'(모델 재작성)만 돌려주고, 문장 조립은 화면 언어 규칙(lib/explain.ts)이 맡는다
-    // '쉽게 풀어 쓰면' 은 모델이 쓰는 글이라 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
-    const res = await apiFetch(`/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: koOrEn(locale), reader: { gen: reader.gen, region: reader.region } }) });
+    // '쉽게 풀어 쓰면' 은 모델이 화면 언어(ko·en·ja)로 쓴다(10-13)
+    const res = await apiFetch(`/explain`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang: locale, reader: { gen: reader.gen, region: reader.region } }) });
     if (!res.ok) throw new Error(`/explain → ${res.status}`);
     const { term_ids, plain } = (await res.json()) as { term_ids: string[]; plain: string | null };
     // Only published entries may be assembled into a public explanation.
@@ -294,10 +294,9 @@ export async function getBriefing(regions: string[], locale: Locale): Promise<Br
   if (isSampleMode) return sampleBriefing(regions);
   // 요약을 처음 쓸 때 모델 호출이 끼어 늦을 수 있다 – 늦거나 실패하면 목록만 받아 규칙 문장으로 연다(briefing-fetch)
   const res = await loadBriefing((summary, waitMs) => {
-    const q = new URLSearchParams({ lang: koOrEn(locale) });
+    const q = new URLSearchParams({ lang: locale });
     if (regions.length) q.set("regions", regions.join(","));
-    // 모델 요약은 한국어·영어뿐 — 일본어 화면은 모델을 부르지 않고 규칙 문장(일본어)으로 연다
-    if (!summary || locale === "ja") q.set("summary", "false");
+    if (!summary) q.set("summary", "false");
     return apiFetch(`/briefing?${q}`, { cache: "no-store", signal: AbortSignal.timeout(waitMs) });
   });
   if (!res.ok) throw new ApiError("/briefing", res.status);

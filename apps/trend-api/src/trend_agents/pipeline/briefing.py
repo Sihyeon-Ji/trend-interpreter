@@ -25,6 +25,7 @@ from ..storage.db import Connection
 from . import dashboard
 from .gemini import configured, structured
 from .views import Briefing, BriefingCounts, KeywordCard
+from ..ui_lang import NAME_KO
 
 BRIEF_TOP = 5
 CACHE_MAX = 64
@@ -34,6 +35,8 @@ REGION_NAME = {
            "MY": "말레이시아", "SG": "싱가포르", "GLOBAL": "글로벌"},
     "en": {"KR": "Korea", "JP": "Japan", "TW": "Taiwan", "HK": "Hong Kong", "TH": "Thailand", "VN": "Vietnam", "ID": "Indonesia",
            "PH": "the Philippines", "MY": "Malaysia", "SG": "Singapore", "GLOBAL": "global"},
+    "ja": {"KR": "韓国", "JP": "日本", "TW": "台湾", "HK": "香港", "TH": "タイ", "VN": "ベトナム", "ID": "インドネシア", "PH": "フィリピン",
+           "MY": "マレーシア", "SG": "シンガポール", "GLOBAL": "英語圏"},
 }
 
 PROMPT = """너는 브랜드 마케터에게 이번 주 밈 트렌드를 알려 주는 편집자다. 아래 사실만으로 {lang} 2~3문장 요약을 써라.
@@ -117,9 +120,9 @@ def cached(con: Connection, b: Briefing, lang: str) -> tuple[str, str] | None:
 
 def summarize(con: Connection, b: Briefing, lang: str, request: bool = True) -> tuple[str, str]:
     """(요약, gemini·local). 실패하면 예외 — 부르는 쪽이 규칙 문장으로 대신한다. 모델이 설정되지 않았으면 부르지 않는다(부르는 쪽 책임)."""
-    names = REGION_NAME["en" if lang == "en" else "ko"]
+    names = REGION_NAME.get(lang, REGION_NAME["ko"])
     c = b.counts
-    prompt = PROMPT.format(lang="영어로" if lang == "en" else "한국어로", regions=", ".join(names.get(r, r) for r in b.regions),
+    prompt = PROMPT.format(lang=NAME_KO.get(lang, "한국어") + "로", regions=", ".join(names.get(r, r) for r in b.regions),
                            rising=c.rising, use_now=c.use_now, careful=c.careful, undecided=c.undecided, fading=c.fading,
                            use_names=_names(b.use_now), careful_names=_names(b.careful),
                            fading_names=_names(b.fading))

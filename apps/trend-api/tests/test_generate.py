@@ -294,6 +294,29 @@ def test_explanations_follow_the_screen_language(monkeypatch):
     assert out.copies[0].text == "여름엔 럭키비키"                                 # 결과물 본문(목표 지역의 말)은 건드리지 않는다
 
 
+def test_explanations_on_the_japanese_screen_are_japanese():
+    """일본어 화면(10-13)은 설명 칸을 일본어로 받는다 — 가나·한자가 있고 한글이 없어야 남는다. 결과물 본문(시장의 말)은 그대로."""
+    con = _con()
+    lv = [ds.get_term(con, "lv")]
+    d = _draft("여름엔 럭키비키")
+    d.copies[0].note_ko, d.copies[1].note_ko = "「럭키비키」を気分転換の一言に使った", "밈을 기분 전환에 붙였다"
+    out = generate._explanations_in_ui_language(d, "ja", lv)
+    assert out.copies[0].note_ko.startswith("「럭키비키」を") and out.copies[1].note_ko == ""
+    assert out.copies[0].text == "여름엔 럭키비키"
+
+
+def test_screen_language_names_reach_the_prompts(monkeypatch):
+    """제품 설명·AI 의견·브리핑 요약·쉽게 풀어 쓰기의 프롬프트가 일본어 화면에 '일본어' 로 쓰라고 한다. 모르는 값은 한국어(예전 화면)."""
+    from trend_agents import ui_lang
+    from trend_agents.interpreters import gemma_rewrite
+    from trend_agents.pipeline import briefing
+
+    assert ui_lang.ui_lang("ja") == "ja" and ui_lang.ui_lang("en") == "en" and ui_lang.ui_lang(None) == "ko" and ui_lang.ui_lang("th") == "ko"
+    assert ui_lang.NAME_KO["ja"] == "일본어" and ui_lang.NAME_EN["ja"] == "Japanese"
+    assert briefing.REGION_NAME["ja"]["GLOBAL"] == "英語圏" and set(briefing.REGION_NAME["ja"]) == set(briefing.REGION_NAME["ko"])
+    assert "{glossary}" in gemma_rewrite.PROMPT["ja"] and "{text}" in gemma_rewrite.PROMPT["ja"]
+
+
 def test_hashtags_are_single_tokens():
     """해시태그는 공백·기호에서 끊긴다 — '#aura farming' 은 #aura 만 걸렸다(검토 3차). 태국어 모음 부호(결합 부호)는 남긴다."""
     c = SocialCopy(platform="instagram", text="x", hashtags=["#aura farming", "6-7", " 여름 한정 ", "ที่นี่", "여름한정", "😀"])
