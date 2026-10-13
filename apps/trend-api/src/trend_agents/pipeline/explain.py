@@ -15,6 +15,9 @@ from .match import term_pattern, text_pattern  # noqa: F401  (tests 와 다른 �
 from ..storage.db import Connection
 from ..ui_lang import NAME_EN
 
+# 다른 말의 메시지도 화면 언어로 옮겨 풀어 쓴다 — 일본어 화면에 한국어 메시지를 한국어로 풀어 썼다(10-13 시험)
+LANG_RULE = {"ja": " 書き直した文は必ず日本語で書く（元のメッセージが韓国語・英語でも日本語に訳して書き直す）。"}
+
 def match_terms(text: str, terms: list[Term]) -> list[Term]:
     hits: list[tuple[int, Term]] = []
     for t in terms:
@@ -29,7 +32,7 @@ def match_terms(text: str, terms: list[Term]) -> list[Term]:
     return [t for _, t in hits]
 
 
-REWRITE = """Rewrite the message below in plain everyday {lang} so someone who does not know these slang terms understands it.{audience} Keep the tone, length and emoji. Replace each slang term with what it means in context, as natural speech — do not paste dictionary definitions, do not add explanations or quotes. Return only the rewritten message.
+REWRITE = """Rewrite the message below in plain everyday {lang} so someone who does not know these slang terms understands it.{audience} Keep the tone, length and emoji.{lang_rule} Replace each slang term with what it means in context, as natural speech — do not paste dictionary definitions, do not add explanations or quotes. Return only the rewritten message.
 
 Glossary:
 {glossary}
@@ -87,7 +90,7 @@ def rewrite(text: str, lang: str, glossary: list[tuple[str, str]], reader: dict 
     aud = ""
     if reader and (reader.get("gen") or reader.get("region")):
         aud = f" The reader is in their {reader.get('gen') or 'unknown age'} and lives in {reader.get('region') or 'an unknown country'}; choose comparisons they would know."
-    fut = _pool.submit(_generate_apart, REWRITE.format(lang=NAME_EN.get(lang, lang), glossary=g, text=text, audience=aud))
+    fut = _pool.submit(_generate_apart, REWRITE.format(lang=NAME_EN.get(lang, lang), lang_rule=LANG_RULE.get(lang, ""), glossary=g, text=text, audience=aud))
     try:
         resp, _ = fut.result(timeout=timeout_s)
         return (resp.text or "").strip() or None

@@ -8,3 +8,15 @@ NAME_EN = {"ko": "Korean", "en": "English", "ja": "Japanese"}    # 영어로 쓴
 def ui_lang(lang: str | None) -> str:
     """모르는 값은 한국어 — 예전 화면은 ko·en 만 보냈다."""
     return lang if lang in UI_LANGS else "ko"
+
+
+# 설명 칸을 그 말로 쓰라는 지시를 그 말로 — 한국어 프롬프트 안의 '일본어로' 만으로는 약한 모델(Flash Lite)이 영어·한국어로 썼다(10-13 시험)
+RULE = {
+    "ko": "",
+    "en": "Write {fields} in English.\n",
+    "ja": "{fields} は日本語で書く（英語・韓国語は使わない）。\n",
+}
+
+
+def rule(lang: str, fields: str) -> str:
+    return RULE.get(lang, "").format(fields=fields)

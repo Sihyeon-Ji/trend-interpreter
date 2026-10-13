@@ -27,6 +27,9 @@ from .gemini import configured, structured
 from .views import Briefing, BriefingCounts, KeywordCard
 from ..ui_lang import NAME_KO
 
+# 일본어 요약은 목록 이름을 화면과 같게 — '식어 가는' 을 「食い込んでいます」로 옮겼다(10-13 시험)
+JA_RULE = "要約は日本語の文で書く。目録の呼び方は「今使える」「注意して使う」「下火」「判断保留」。\n"
+
 BRIEF_TOP = 5
 CACHE_MAX = 64
 
@@ -44,7 +47,7 @@ PROMPT = """너는 브랜드 마케터에게 이번 주 밈 트렌드를 알려 
 - 각 밈이 어느 목록에 있는지(써도 됨·조심·식어 감)를 바꾸지 않는다. '안전하다' 고 단정하지 않는다.
 - 제목·목록·따옴표·이모지 없이 문장만.
 
-지역: {regions}
+{lang_rule}지역: {regions}
 지금 쓰이는 밈 {rising}개 가운데 리스크 문제가 없는 밈 {use_now}개, 조심해서 쓸 밈 {careful}개, 근거가 부족해 판단을 미룬 밈 {undecided}개.
 식어 가는 밈 {fading}개.
 지금 써도 되는 밈(앞에서부터): {use_names}
@@ -122,7 +125,7 @@ def summarize(con: Connection, b: Briefing, lang: str, request: bool = True) -> 
     """(요약, gemini·local). 실패하면 예외 — 부르는 쪽이 규칙 문장으로 대신한다. 모델이 설정되지 않았으면 부르지 않는다(부르는 쪽 책임)."""
     names = REGION_NAME.get(lang, REGION_NAME["ko"])
     c = b.counts
-    prompt = PROMPT.format(lang=NAME_KO.get(lang, "한국어") + "로", regions=", ".join(names.get(r, r) for r in b.regions),
+    prompt = PROMPT.format(lang=NAME_KO.get(lang, "한국어") + "로", lang_rule=JA_RULE if lang == "ja" else "", regions=", ".join(names.get(r, r) for r in b.regions),
                            rising=c.rising, use_now=c.use_now, careful=c.careful, undecided=c.undecided, fading=c.fading,
                            use_names=_names(b.use_now), careful_names=_names(b.careful),
                            fading_names=_names(b.fading))
@@ -130,6 +133,12 @@ def summarize(con: Connection, b: Briefing, lang: str, request: bool = True) -> 
     text = " ".join(((parsed.text if isinstance(parsed, BriefingText) else BriefingText.model_validate(parsed).text) or "").split())[:600]
     if not text:
         raise ValueError("빈 요약")
+    if lang == "ja":
+        from .generate import in_ui_language
+
+        names = [c.canonical for c in (*b.use_now, *b.careful, *b.fading)]
+        if not in_ui_language(text, "ja", names):   # 밈 이름 밖에 한글이 섞였다('今使える밈としては', 10-13 시험) — 화면이 일본어 규칙 문장을 쓴다
+            raise ValueError("일본어가 아닌 요약")
     out = (text, "local" if model.startswith("local:") else "gemini")
     _remember(b, lang, out)
     ds.cache_set(con, _db_key(b, lang), json.dumps(out, ensure_ascii=False))

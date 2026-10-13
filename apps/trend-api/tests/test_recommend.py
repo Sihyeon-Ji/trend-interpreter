@@ -1,5 +1,6 @@
 """밈 추천(Plan 07) — 후보·순위·이유 거르기는 규칙이다. 모델 없이 인메모리 DB 로."""
 import base64
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -389,6 +390,27 @@ def test_score_skips_fading_and_unjudged_sensitive_memes():
     assert recommend.score(LATTE, fit, card("철지난", dated=True), "friendly") is None
     assert recommend.score(LATTE, fit, card("죽고 싶지만 떡볶이는 먹고 싶어", "우울한 감정", risk=None), "friendly") is None
     assert recommend.score(LATTE, fit, card("오살힘", "하루를 버티게 해 주는 것", risk=None), "friendly") is not None   # 판단 전이어도 소재가 무난하면
+
+
+def test_brief_fields_not_in_the_screen_language_are_rewritten_once(monkeypatch):
+    """영어로 넣은 제품을 일본어 화면에서 읽었더니 요약이 한국어로 나왔다(10-13 시험, Flash Lite) — 그 칸만 한 번 옮기고 캐시에도 옮긴 것을 둔다."""
+    from trend_agents.pipeline import generate
+
+    con = db.connect(":memory:")
+    monkeypatch.setattr(recommend, "configured", lambda: True)
+    monkeypatch.setattr(recommend, "structured", lambda *a, **k: (LATTE.model_copy(update={"product": "여름 한정 아이스 라떼", "values": ["시원함", "夏限定"],
+                                                                                         "scene": "暑い午後"}), "gemini-x"))
+    asked = []
+
+    def fake(con, prompt, schema, **k):
+        lines = [x for x in prompt.splitlines() if re.match(r"^\d+\. ", x)]
+        asked.append(lines)
+        return generate._Lines(lines=["夏限定のアイスラテ", "爽快感"]), "gemini-x"
+
+    monkeypatch.setattr(generate, "structured", fake)
+    b, _ = recommend.understand(con, "Summer iced latte", None, "ja")
+    assert (b.product, b.values, b.scene) == ("夏限定のアイスラテ", ["爽快感", "夏限定"], "暑い午後") and len(asked) == 1 and len(asked[0]) == 2
+    assert recommend.understand(con, "Summer iced latte", None, "ja")[0].product == "夏限定のアイスラテ" and len(asked) == 1
 
 
 def test_same_input_reuses_the_first_product_brief(monkeypatch):

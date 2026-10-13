@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import re
 
+from pydantic import BaseModel
+
 from ..config import USE_LOCAL_GEMMA
 from ..schemas import ContentDraft, ProductBrief, ScriptScene, ShortScript, SocialCopy, ThumbnailPlan
 from ..storage import dictionary_store as ds
@@ -19,7 +21,7 @@ from .gemini import BudgetExhausted, configured, structured
 from .match import mentions, unsafe
 from .risk import RISK_KO, nuance_warning
 from .views import Dropped, GenerationResult
-from ..ui_lang import NAME_KO
+from ..ui_lang import NAME_KO, rule
 
 MAX_MEMES = 3
 # 목표 지역의 말. 결과물은 입력 언어가 아니라 이 말로 만든다(Plan 08). 필리핀·싱가포르는 영어가 광고 표준어다.
@@ -229,12 +231,68 @@ def in_ui_language(text: str, ui: str, names: list[str]) -> bool:
     return bool(re.search(r"[가-힣]", body))
 
 
+class _Lines(BaseModel):
+    lines: list[str]
+
+
+# '그 말로 자연스럽게 다시 써라' 는 약한 모델이 한국어 줄을 그대로 돌려줬다 — '옮겨라' 를 그 말로 시키고 예를 하나 둔다(10-13 시험, Flash Lite)
+RELANG_PROMPT = {
+    "ja": """次の各行を自然な日本語に訳してください（マーケター向けの説明文）。次の名前は一文字も変えずに原文のまま残す（韓国語の名前はハングルのまま）: {names}。
+かぎかっこの中はそのまま。行の数と順番は変えない。JSON {{"lines": [...]}} で返す。
+例: 「인스타그램 1안: 밈을 기분 전환에 붙였다」→「インスタ1案：ミームを気分転換の一言に使った」
+
+{lines}""",
+    "en": """Translate each numbered line into natural English for a marketer. Keep these names exactly as written, letter for letter: {names}.
+Keep text inside quotes as is. Do not add or drop lines. Return JSON {{"lines": [...]}} with the same number of lines in the same order.
+
+{lines}""",
+}
+
+
+def relanguage(con: Connection, texts: list[str], ui: str, names: list[str]) -> list[str | None] | None:
+    """화면 언어가 아닌 설명 몇 줄을 한 번에 화면 언어로 옮긴다(모델 한 번). 약한 모델은 한국어 프롬프트의 말(한국어)로 설명을 썼다 —
+    일본어 화면의 한국·영어권 초안 설명이 모두 한국어라 지워졌다(10-13 시험, Flash Lite). 옮긴 줄도 화면 언어가 아니면 None. 실패하면 None."""
+    try:
+        prompt = RELANG_PROMPT.get(ui, RELANG_PROMPT["en"]).format(names=", ".join(names) or "-",
+                                                                   lines="\n".join(f"{k + 1}. {t}" for k, t in enumerate(texts)))
+        parsed, _ = structured(con, prompt, _Lines, temperature=0.1, prefer_gemini=True, request=True)
+        got = (parsed if isinstance(parsed, _Lines) else _Lines.model_validate(parsed)).lines
+    except Exception:
+        return None
+    if len(got) != len(texts):
+        return None
+    return [g if in_ui_language(g, ui, names) else None for g in got]
+
+
+def _relanguage(con: Connection, d: ContentDraft, ui: str, terms) -> tuple[ContentDraft, int]:
+    """설명 칸 가운데 화면 언어가 아닌 것만 모아 옮긴다 — (초안, 부른 횟수). 한국어 화면은 하지 않는다(예전 그대로). 옮기지 못한 칸은 다음 검사가 지운다."""
+    if ui == "ko":
+        return d, 0
+    names = [n for t in terms for n in (t.canonical, *t.aliases) if n]
+    th = d.thumbnail
+    slots = [(c, "note_ko") for c in d.copies] + [(d.script, "note_ko"), (th, "layout"), (th, "subject"), (th, "note_ko")]
+    bad = [(o, f) for o, f in slots if (getattr(o, f) or "").strip() and not in_ui_language(getattr(o, f), ui, names)]
+    bad_colors = [i for i, x in enumerate(th.colors) if x and not in_ui_language(x, ui, names)]
+    if not bad and not bad_colors:
+        return d, 0
+    got = relanguage(con, [getattr(o, f) for o, f in bad] + [th.colors[i] for i in bad_colors], ui, names)
+    if got:
+        for (o, f), new in zip(bad, got[:len(bad)]):
+            if new:
+                setattr(o, f, new)
+        for i, new in zip(bad_colors, got[len(bad):]):
+            if new:
+                th.colors[i] = new
+    return d, 1
+
+
 def _explanations_in_ui_language(d: ContentDraft, ui: str, terms) -> ContentDraft:
     """설명 칸(노트·배치·위치·색)이 화면 언어가 아니면 비운다 — 결과물 본문은 목표 지역의 말이라 건드리지 않는다."""
     names = [n for t in terms for n in (t.canonical, *t.aliases) if n]
 
     def ok(text: str) -> bool:
-        return in_ui_language(text or "", ui, names)
+        # 일본어 화면에 영어 설명이 오면 지우지 않는다 — 예전처럼 영어로라도 보이는 편이 빈칸보다 낫다(10-13 시험: 모델이 영어로 씀). 한국어는 지운다
+        return in_ui_language(text or "", ui, names) or (ui == "ja" and in_ui_language(text or "", "en", names))
 
     for c in d.copies:
         c.note_ko = c.note_ko if ok(c.note_ko) else ""
@@ -251,7 +309,7 @@ def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: st
     prompt = GEN_PROMPT.format(region=region, tone=TONE_KO.get(tone, tone), product=brief.product, scene=brief.scene or "-",
                                values=", ".join(brief.values) or "-", avoid=", ".join(brief.avoid) or "-", memes=_meme_lines(con, terms, names),
                                lang=LANG_NAME.get(lang, lang), explain=NAME_KO.get(ui, "한국어"), x_limit=X_LIMIT,
-                               explain_rule="" if ui == "ko" else "Write note_ko, layout, subject and colors in English.\n", feedback=feedback)
+                               explain_rule=rule(ui, "note_ko, layout, subject and colors" if ui == "en" else "note_ko・layout・subject・colors"), feedback=feedback)
     try:
         parsed, model = structured(con, prompt, ContentDraft, temperature=0.7, prefer_gemini=True, request=True)
         if parsed is None:
@@ -261,7 +319,8 @@ def _generate(con: Connection, terms, brief: ProductBrief, region: str, tone: st
     except Exception as e:
         raise Unavailable("지금은 결과물을 만들지 못했습니다") from e
     draft = parsed if isinstance(parsed, ContentDraft) else ContentDraft.model_validate(parsed)
-    return _explanations_in_ui_language(draft, ui, terms), ("local" if model.startswith("local:") else "gemini")
+    draft, extra = _relanguage(con, draft, ui, terms)
+    return _explanations_in_ui_language(draft, ui, terms), ("local" if model.startswith("local:") else "gemini"), extra
 
 
 def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, tone: str, ui: str = "ko") -> GenerationResult:
@@ -278,8 +337,8 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
     # 모델이 아예 설정되지 않은 개발 환경만 예시 — 설정된 모델이 꺼져 있을 때 예시(남의 제품 카피)를 내지 않는다(검토 3차, 추천의 understand 와 같은 기준)
     if not (USE_LOCAL_GEMMA or configured()):
         return sample(terms, region, tone, names)
-    first, source = _generate(con, terms, brief, region, tone, "", ui, names)
-    calls = 1
+    first, source, extra = _generate(con, terms, brief, region, tone, "", ui, names)
+    calls = 1 + extra
     problems = check(_items(first), terms, brief, names, lang)
     kept = {k: v for k, v in _items(first).items() if k not in problems}
     dropped: list[Dropped] = []
@@ -287,7 +346,8 @@ def run(con: Connection, term_ids: list[str], brief: ProductBrief, region: str, 
         feedback = "\n지난 초안의 문제(이번에는 고쳐라):\n" + "\n".join(f"- {k}: {why}" for k, (_, why) in problems.items())
         calls += 1
         try:
-            second, _ = _generate(con, terms, brief, region, tone, feedback, ui, names)
+            second, _, extra = _generate(con, terms, brief, region, tone, feedback, ui, names)
+            calls += extra
             again, redo = check(_items(second), terms, brief, names, lang), _items(second)
         except Unavailable:
             # 다시 만들기가 실패해도(예산·장애·형식 오류) 첫 안에서 통과한 것은 돌려준다 — 통째로 503 이 났다(검토 3차)

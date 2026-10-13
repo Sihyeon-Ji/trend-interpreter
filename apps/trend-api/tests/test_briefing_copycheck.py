@@ -82,6 +82,16 @@ def test_briefing_summary_is_written_once_per_board_and_falls_back(con, monkeypa
     assert body["summary"] is None and body["summary_source"] == "none" and body["counts"]["use_now"] == 2   # 보고서는 그대로 열린다
 
 
+def test_japanese_summary_with_hangul_outside_meme_names_falls_back_to_the_rule_sentence(con, monkeypatch):
+    """일본어 요약에 밈 이름 밖의 한글이 섞였다('今使える밈としては', 10-13 시험) — 버리고 화면의 일본어 규칙 문장을 쓴다. 밈 이름의 한글은 괜찮다."""
+    texts = iter(["今使える밈としては럭키비키があります。", "今週は럭키비키が使えます。"])
+    monkeypatch.setattr(briefing, "model_ready", lambda: True)
+    monkeypatch.setattr(briefing, "structured", lambda *a, **k: (briefing.BriefingText(text=next(texts)), "gemini-x"))
+    c = TestClient(api.app)
+    assert c.get("/briefing", params={"regions": "KR", "lang": "ja"}).json()["summary"] is None
+    assert c.get("/briefing", params={"regions": "KR", "lang": "ja"}).json()["summary"] == "今週は럭키비키が使えます。"
+
+
 def test_briefing_summary_is_warmed_by_the_pipeline_and_shared_through_the_database(con, monkeypatch):
     """새로 뜬 API 의 첫 브리핑이 Gemini 를 기다려 30초 걸렸다(10-09). dashboard 단계가 기본 지역 요약을 미리 만들어 두고,
     새 인스턴스는 board_cache 에서 읽는다. 대시보드가 새로 만들어지면 옛 요약은 지운다."""

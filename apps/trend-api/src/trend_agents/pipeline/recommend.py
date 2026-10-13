@@ -23,9 +23,9 @@ from ..storage.db import Connection
 from . import dashboard
 from .risk import sensitive_topic
 from .gemini import BudgetExhausted, configured, structured
-from .generate import REGION_LANG, writable
+from .generate import REGION_LANG, in_ui_language, relanguage, writable
 from .views import ExcludedItem, KeywordCard, RecommendItem, RecommendResult
-from ..ui_lang import NAME_KO
+from ..ui_lang import NAME_KO, rule
 
 TOP = 5
 EXCLUDED_PER_REGION = 4   # 만들기 화면의 '뺀 말' — 시장마다 이만큼
@@ -50,7 +50,7 @@ BRIEF_PROMPT = """너는 광고 기획자다. 아래 {what}을 보고 제품을 
 category 는 food_drink · fashion_beauty · tech · game · entertainment · travel · finance · health_fitness · education · lifestyle 가운데 하나.
 feelings 는 이 홍보가 전하고 싶은 느낌 1~3개를 joy · hype · cute · funny · relatable · comfort · pride · surprise · sarcasm · frustration · tired ·
 romance · nostalgia · cool 가운데서. 브랜드가 피해야 할 표현·주제가 보이면 avoid 에. 글(product·values·scene·colors·avoid)은 {lang}로.
-{text}"""
+{lang_rule}{text}"""
 
 def blocked(fit: MemeFit, card: KeywordCard, tone: str) -> str | None:
     """제품과 상관없이 권하지 않는 이유(ExcludedItem.code) — 없으면 None. 화면의 '뺀 말' 이 이 값을 그대로 보인다."""
@@ -129,7 +129,8 @@ def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None 
         cached = json.loads(hit)
         return ProductBrief.model_validate(cached["brief"]), cached["source"]
     what = ("제품 사진" + (" 과 홍보 문구" if text else "")) if image else "홍보 문구"
-    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang=NAME_KO.get(lang, "한국어"))
+    prompt = BRIEF_PROMPT.format(what=what, text=f"홍보 문구: {text[:500]}" if text else "", lang=NAME_KO.get(lang, "한국어"),
+                                lang_rule=rule(lang, "product・values・scene・colors・avoid") if lang == "ja" else "")
     try:
         # 요청 때의 사진·문구 이해는 Gemini 가 맡는다(2026-09-28 결정). 로컬 Gemma 는 Gemini 가 없는 개발 PC 에서만
         parsed, model = structured(con, prompt, ProductBrief, image=image, prefer_gemini=True, request=True)
@@ -140,6 +141,18 @@ def understand(con: Connection, text: str = "", image: tuple[bytes, str] | None 
     if parsed is None:                 # Gemini 가 형식을 못 맞추면 parsed 가 비어 온다
         raise Unavailable("지금은 사진·문구를 읽지 못했습니다")
     brief = parsed if isinstance(parsed, ProductBrief) else ProductBrief.model_validate(parsed)
+    if lang != "ko":   # 화면 언어가 아닌 칸만 옮긴다 — 영어로 넣은 제품의 요약이 일본어 화면에 한국어로 나왔다(10-13 시험, Flash Lite)
+        slots = [("product", None), ("scene", None)] + [("values", i) for i in range(len(brief.values))]
+        texts = [getattr(brief, f) if i is None else brief.values[i] for f, i in slots]
+        bad = [k for k, x in enumerate(texts) if x and not in_ui_language(x, lang, [])]
+        got = relanguage(con, [texts[k] for k in bad], lang, []) if bad else None
+        for k, new in zip(bad, got or []):
+            if new:
+                f, i = slots[k]
+                if i is None:
+                    setattr(brief, f, new)
+                else:
+                    brief.values[i] = new
     source = "local" if model.startswith("local:") else "gemini"
     ds.brief_cache_set(con, key, json.dumps({"brief": brief.model_dump(), "source": source}, ensure_ascii=False))
     return brief, source

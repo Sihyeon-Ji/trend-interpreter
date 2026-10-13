@@ -1,4 +1,5 @@
 """콘텐츠 생성(Plan 08) — 모델 호출 수·규칙 검사에 걸린 안 빼기·지역과 말. 모델은 가짜로 바꿔 끼운다."""
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -300,8 +301,10 @@ def test_explanations_on_the_japanese_screen_are_japanese():
     lv = [ds.get_term(con, "lv")]
     d = _draft("여름엔 럭키비키")
     d.copies[0].note_ko, d.copies[1].note_ko = "「럭키비키」を気分転換の一言に使った", "밈을 기분 전환에 붙였다"
+    d.copies[2].note_ko = "Uses '럭키비키' as a cheerful twist"        # 모델이 영어로 쓰면 빈칸보다 영어가 낫다(10-13 시험)
     out = generate._explanations_in_ui_language(d, "ja", lv)
     assert out.copies[0].note_ko.startswith("「럭키비키」を") and out.copies[1].note_ko == ""
+    assert out.copies[2].note_ko.startswith("Uses")
     assert out.copies[0].text == "여름엔 럭키비키"
 
 
@@ -315,6 +318,32 @@ def test_screen_language_names_reach_the_prompts(monkeypatch):
     assert ui_lang.NAME_KO["ja"] == "일본어" and ui_lang.NAME_EN["ja"] == "Japanese"
     assert briefing.REGION_NAME["ja"]["GLOBAL"] == "英語圏" and set(briefing.REGION_NAME["ja"]) == set(briefing.REGION_NAME["ko"])
     assert "{glossary}" in gemma_rewrite.PROMPT["ja"] and "{text}" in gemma_rewrite.PROMPT["ja"]
+    assert ui_lang.rule("ja", "note_ko").startswith("note_ko は日本語で") and ui_lang.rule("ko", "x") == ""
+
+
+def test_notes_in_another_language_are_rewritten_once_on_a_japanese_screen(monkeypatch):
+    """약한 모델이 일본어 화면의 설명을 한국어로 썼다(10-13 시험) — 화면 언어가 아닌 칸만 모아 한 번 옮기고, 옮긴 줄도 일본어가 아니면
+    다음 검사가 지운다. 이미 일본어인 칸은 보내지 않는다. 한국어 화면은 옮기지 않는다(예전 그대로)."""
+    con = _con()
+    lv = [ds.get_term(con, "lv")]
+    d = _draft("여름엔 럭키비키")
+    d.copies[0].note_ko, d.copies[1].note_ko = "「럭키비키」を気分転換に使った", "밈을 기분 전환에 붙였다"
+    d.copies[2].note_ko = d.copies[3].note_ko = ""
+    d.script.note_ko = "더위에 지친 오후를 그렸다"
+    sent = []
+
+    def fake(con, prompt, schema, **k):
+        lines = [x for x in prompt.splitlines() if re.match(r"^\d+\. ", x)]
+        sent.append(lines)
+        return generate._Lines(lines=["그대로 한국어"] + [f"日本語の説明{i}" for i in range(1, len(lines))]), "gemini-x"
+
+    monkeypatch.setattr(generate, "structured", fake)
+    out, calls = generate._relanguage(con, d, "ja", lv)
+    out = generate._explanations_in_ui_language(out, "ja", lv)
+    assert calls == 1 and len(sent) == 1 and not any("気分転換に使った" in x for x in sent[0])
+    assert out.copies[0].note_ko.startswith("「럭키비키」を") and out.copies[1].note_ko == ""
+    assert out.script.note_ko == "日本語の説明1"
+    assert generate._relanguage(con, _draft("여름엔 럭키비키"), "ko", lv)[1] == 0
 
 
 def test_hashtags_are_single_tokens():
