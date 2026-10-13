@@ -85,7 +85,7 @@ export default async function TermPage({ params, searchParams }: Props) {
     { who: HUMAN(creator) ? "human" : "ai", text: tx(locale, HUMAN(creator) ? "tm_how2_human" : "tm_how2_ai") },
     m?.verification === "verified_human" ? { who: "human", text: tx(locale, "tm_how3_human") }
       : m?.verification === "verified_auto" ? { who: "rule", text: tx(locale, "tm_how3_auto") } : { who: "human", text: tx(locale, "tm_how3_wait") },
-    ...(term.risk_checked_at ? [{ who: (byHuman ? "human" : "rule") as Actor, text: tx(locale, "tm_how4") }] : []),
+    ...(term.risk_checked_at ? [{ who: (byHuman ? "human" : "rule") as Actor, text: tx(locale, byHuman ? "tm_how4_human" : "tm_how4") }] : []),
   ];
   const back = market ? `/trends?m=${market}&w=${encodeURIComponent(termId)}` : `/trends`;
 
