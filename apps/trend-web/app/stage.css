@@ -204,6 +204,10 @@
   transition: opacity 0.15s var(--rs-effects), transform 0.34s var(--rs-spring), display 0.34s allow-discrete;
 }
 .r-stage .rs-live li:hover .rs-tip, .r-stage .rs-live li:focus-within .rs-tip { display: block; opacity: 1; transform: none; transition-delay: 0.22s; }
+/* 말풍선이 아래 말·조심 표시에 묻혔다(10-13) — 항목마다 들어오는 애니메이션이 쌓임 맥락을 만들어 뒤의 형제가 위에 그려진다.
+   가리킨 항목과 그 열을 위로 올린다 */
+.r-stage .rs-live li:hover, .r-stage .rs-live li:focus-within { z-index: 20; }
+.r-stage .rs-col:hover, .r-stage .rs-col:focus-within { z-index: 5; }
 @starting-style { .r-stage .rs-live li:hover .rs-tip, .r-stage .rs-live li:focus-within .rs-tip { opacity: 0; transform: translateY(-4px); } }
 .r-stage .rs-col-empty { color: var(--rs-slate); font-size: 14px; padding-top: 12px; }
 .r-stage .rs-col-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: auto; padding-top: 14px; font-size: 13px; color: var(--rs-slate); }
