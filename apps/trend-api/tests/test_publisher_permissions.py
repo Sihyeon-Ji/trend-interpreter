@@ -149,3 +149,15 @@ def test_restricted_publication_failure_rolls_back_and_can_retry(restricted, mon
     assert ds.cache_get(con, "board")[0] == "LAST GOOD BOARD"
     monkeypatch.setattr(pub, "refresh_caches", refresh)
     assert pub.publish(con, "approved")["item_count"] == 1
+
+
+def test_migration_gives_an_already_registered_role_read_access_to_headword_readings(restricted):
+    """026 이전에 등록된 게시 역할도 027 만으로 표제어 읽기를 읽는다(배포 뒤 configure 를 다시 돌리기 전에도 캐시를 만든다)."""
+    con, role = restricted
+    con.execute(f'REVOKE SELECT ON term_readings FROM "{role}"')
+    con.commit()
+    sql = (db.MIGRATIONS_DIR / "027_term_readings_publisher_grant.sql").read_text()
+    con.raw.execute(sql)
+    con.commit()
+    assert con.execute("SELECT has_table_privilege(?, 'term_readings', 'SELECT'), has_table_privilege(?, 'term_readings', 'INSERT')",
+                       (role, role)).fetchone() == (True, False)
