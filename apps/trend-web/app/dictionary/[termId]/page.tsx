@@ -12,7 +12,7 @@ import { getTermRecord, getTermRelated, getTermSignals } from "@/lib/data";
 import { measuredUsage } from "@/lib/dictionary/regions";
 import { currentMeaning, jaUntranslated, textFor } from "@/lib/explain";
 import { t, type Locale } from "@/lib/i18n";
-import { langTag, scriptLang } from "@/lib/lang";
+import { langTag, localWord, scriptLang } from "@/lib/lang";
 import { L, gap, regionLabel, sep, termLangLabel } from "@/lib/labels";
 import { getLocale } from "@/lib/locale";
 import { getViewer } from "@/lib/reader-server";
@@ -55,6 +55,7 @@ export default async function TermPage({ params, searchParams }: Props) {
 
   const labels = L(locale);
   const term = record.term;
+  const shown = localWord({ ...term, names: record.names, readings: record.readings }, locale);   // 일본에서 온 말은 일본어 화면에 원어 이름(牛丼)
   const m = currentMeaning(record);
   const text = textFor(record, locale);
   // 일본어판이 없으면 원문 뜻과 '翻訳なし' 안내(영어 화면처럼 원문을 보이되, 일본어 화면은 안내를 붙인다 — 계획서 B §3.4)
@@ -97,11 +98,13 @@ export default async function TermPage({ params, searchParams }: Props) {
         </nav>
         <div className="rs-term-hero">
           <ViewTransition name={wordVT(termId, market)} share="rs-morph" default="none">
-            <h1 id="rs-term-h" className="rs-term-word"><MemeWord text={term.canonical} lang={term.lang} max={168} min={44} /></h1>
+            <h1 id="rs-term-h" className="rs-term-word"><MemeWord text={shown.text} lang={shown.lang} max={168} min={44} /></h1>
           </ViewTransition>
-          <Reading readings={record.readings} locale={locale} className="rs-term-reading" />
+          <Reading readings={shown.readings} locale={locale} className="rs-term-reading" />
           <p className="rs-term-sub">
-            <span>{tx(locale, "tm_lang", { lang: termLangLabel(locale, term.lang ?? "ko") })}</span>
+            {shown.local
+              ? <span>{tx(locale, "tm_headword", { lang: termLangLabel(locale, term.lang ?? "ko") })} <b lang={langTag(term.lang)}>{term.canonical}</b></span>
+              : <span>{tx(locale, "tm_lang", { lang: termLangLabel(locale, term.lang ?? "ko") })}</span>}
             {term.aliases?.length ? <span>{tx(locale, "tm_aliases")} {term.aliases.slice(0, 4).map((a) => <b key={a} lang={langTag(term.lang)}>{a}</b>)}</span> : null}
           </p>
         </div>

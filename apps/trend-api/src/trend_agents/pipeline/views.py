@@ -143,6 +143,7 @@ class TermRecord(BaseModel):
     risk_labels: RiskBreakdown | None = None   # 항목 하나를 볼 때만 — 리스크 판정에 쓴 근거 문장별 분류
     regions: list[str] = []   # 보여 줄 지역 — 대시보드와 같은 규칙(dashboard.regions_for: 쓰는 나라 + 그 나라 매체 3곳 이상이 쓴 목표 지역)
     readings: dict[str, str] = {}   # 화면 언어 → 표제어 읽기(ja 가타카나 · en 로마자 · ko 한글). 원문 글자가 화면 언어와 다를 때만 있다(term_readings)
+    names: dict[str, str] = {}      # 화면 언어 → 원어 이름(term_names). 있으면 그 화면은 표제어 대신 이 이름을 보인다(규동 → 일본어 화면 牛丼)
 
 
 class PipelineStage(BaseModel):
@@ -245,7 +246,8 @@ def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord
                       recheck_days=recheck_interval_days(t.lifecycle),
                       media=[TermMedia(**m) for m in ds.get_media(con, t.term_id) if m["kind"] in ("image", "video")],
                       gate_reasons=reasons or None, regions=regions_for(con, t),
-                      popular_year=year, popular_decade=decade, readings=ds.get_readings(con, t))
+                      popular_year=year, popular_decade=decade, readings=ds.get_readings(con, t),
+                      names=ds.get_names(con, t))
 
 
 def _maker(model: str | None) -> Maker | None:
@@ -432,8 +434,11 @@ def _index_stamp(con: Connection) -> str:
         "SELECT (SELECT md5(string_agg(md5(json), '' ORDER BY term_id)) FROM terms WHERE status='verified'), "
         "(SELECT md5(string_agg(md5(json), '' ORDER BY meaning_id)) FROM meanings WHERE valid_to IS NULL), "
         "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM translations), "
-        "(SELECT count(*) FROM evidences)").fetchone()
-    return hashlib.md5(("public-v3|" + "|".join(str(v) for v in row)).encode()).hexdigest()   # v3: 사용 자제·욕설·성적 표제어를 공개에서 뺀 뒤(10-09)
+        "(SELECT count(*) FROM evidences), "
+        "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM term_readings), "
+        "(SELECT count(*) || ':' || coalesce(max(updated_at)::text, '') FROM term_names)").fetchone()
+    # v4: 표제어 읽기·나라별 이름도 색인에 든다 — 이 둘만 바뀌어도 다시 만든다(10-13, 이름을 넣었는데 사전 검색이 옛 색인을 냈다)
+    return hashlib.md5(("public-v4|" + "|".join(str(v) for v in row)).encode()).hexdigest()   # v3: 사용 자제·욕설·성적 표제어를 공개에서 뺀 뒤(10-09)
 
 
 def save_term_index(con: Connection) -> bytes:
@@ -689,6 +694,7 @@ class KeywordCard(BaseModel):
     gloss_ja: str = ""                 # 일본어 뜻풀이. 일본어판이 없으면 원문. 이 칸이 생기기 전 캐시에는 빈 값 — 화면은 '翻訳なし' 로 본다
     ja_pending: bool = False           # 일본어 뜻풀이가 없고 원문도 일본어(가나)가 아니다. 일본어 화면은 원문 대신 '翻訳なし' 로 보인다
     readings: dict[str, str] = {}      # 화면 언어 → 표제어 읽기(TermRecord.readings). 이 칸이 생기기 전 캐시에는 없다 — 화면은 원문만 낸다
+    names: dict[str, str] = {}         # 화면 언어 → 원어 이름(TermRecord.names)
 
 
 class RegionTop(BaseModel):
@@ -730,6 +736,7 @@ class RecommendItem(BaseModel):
     gloss_ja: str = ""
     ja_pending: bool = False
     readings: dict[str, str] = {}      # 화면 언어 → 표제어 읽기(KeywordCard.readings)
+    names: dict[str, str] = {}         # 화면 언어 → 원어 이름(KeywordCard.names)
     regions: list[str]
     diffusion: Diffusion | None = None
     lifecycle: Lifecycle

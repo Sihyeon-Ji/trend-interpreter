@@ -20,3 +20,11 @@ export function scriptLang(text: string, region?: string | null): string | undef
 const NON_LATIN = /[^\x00-\x7fÀ-ɏḀ-ỿ]/u;
 const MARKET_SCRIPT: Record<string, RegExp> = { KR: /[가-힣]/u, JP: /[぀-ヿ一-鿿]/u };
 export const writableIn = (word: string, market: string) => !NON_LATIN.test(word) || !!MARKET_SCRIPT[market]?.test(word);
+
+/** 화면에 세울 말 — 외국에서 온 말이 화면 언어의 원어 이름을 가지면 그 이름(규동 → 일본어 화면 牛丼), 아니면 표제어 원문과 읽기.
+ *  원어 이름은 번역이 아니라 원문이다(백엔드 pipeline/names: 문서에 글자 그대로 있는 것만). 이름을 쓰면 읽기는 붙이지 않는다 */
+export function localWord(x: { canonical: string; lang?: string | null; names?: Record<string, string> | null; readings?: Record<string, string> | null },
+  locale: string): { text: string; lang: string; readings?: Record<string, string>; local: boolean } {
+  const name = x.names?.[locale];
+  return name ? { text: name, lang: locale, local: true } : { text: x.canonical, lang: x.lang ?? "ko", readings: x.readings ?? undefined, local: false };
+}

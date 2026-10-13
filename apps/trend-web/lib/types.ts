@@ -60,6 +60,7 @@ export interface TermRecord {
   provenance?: Provenance | null;   // 항목 하나를 볼 때만 — 이 뜻을 누가 쓰고 무엇으로 확인했나(views.Provenance)
   risk_labels?: RiskBreakdown | null;   // 항목 하나를 볼 때만 — 리스크 판정에 쓴 근거 문장별 분류(views.RiskBreakdown)
   readings?: Record<string, string>;   // 화면 언어 → 표제어 읽기(ja 가타카나 · en 로마자 · ko 한글). 원문 글자가 화면 언어와 다를 때만 (views.TermRecord.readings)
+  names?: Record<string, string>;      // 화면 언어 → 원어 이름. 있으면 그 화면은 표제어 대신 이 이름을 보인다(규동 → 일본어 화면 牛丼, views.TermRecord.names)
 }
 
 export type Maker = "gemma" | "gemini" | "person" | "unknown";
@@ -170,6 +171,7 @@ export interface KeywordCard {
   mentions_mixed?: boolean;       // 언급에 글자만 같은 딴 이야기가 더 많다 — 언급 수를 순서에 쓰지 않는다
   dated?: boolean;                // 뜻풀이가 유행이 지났다고 적었다 — 식어 가는 밈으로 (dashboard.DATED)
   readings?: Record<string, string>;   // 화면 언어 → 표제어 읽기 (views.KeywordCard.readings). 예전 캐시에는 없다
+  names?: Record<string, string>;      // 화면 언어 → 원어 이름 (views.KeywordCard.names)
 }
 
 export type KeywordList = "rising" | "fading" | "caution";
@@ -210,6 +212,7 @@ export interface RecommendItem {
   gloss_ja?: string;             // 일본어 뜻풀이. 일본어판이 없으면 원문 (views). 예전 서버·캐시에는 없다
   ja_pending?: boolean;          // 일본어 뜻풀이가 없고 원문도 일본어가 아니다 (views)
   readings?: Record<string, string>;   // 화면 언어 → 표제어 읽기 (views.RecommendItem.readings)
+  names?: Record<string, string>;      // 화면 언어 → 원어 이름 (views.RecommendItem.names)
   regions: string[];
   diffusion?: Diffusion;
   lifecycle: Lifecycle;

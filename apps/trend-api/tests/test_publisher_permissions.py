@@ -161,3 +161,13 @@ def test_migration_gives_an_already_registered_role_read_access_to_headword_read
     con.commit()
     assert con.execute("SELECT has_table_privilege(?, 'term_readings', 'SELECT'), has_table_privilege(?, 'term_readings', 'INSERT')",
                        (role, role)).fetchone() == (True, False)
+
+
+def test_migration_gives_an_already_registered_role_read_access_to_original_names(restricted):
+    con, role = restricted
+    con.execute(f'REVOKE SELECT ON term_names FROM "{role}"')
+    con.commit()
+    con.raw.execute((db.MIGRATIONS_DIR / "028_term_names.sql").read_text())
+    con.commit()
+    assert con.execute("SELECT has_table_privilege(?, 'term_names', 'SELECT'), has_table_privilege(?, 'term_names', 'INSERT')",
+                       (role, role)).fetchone() == (True, False)

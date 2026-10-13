@@ -222,7 +222,7 @@ def recommend(con: Connection, brief: ProductBrief, brief_source: str, regions: 
         term = ds.get_term(con, c.term_id)
         regions = dashboard.regions_for(con, term) if term else []     # 만들기(generate.run)와 같은 값 — 대시보드·사전 항목과 같은 규칙
         items.append(RecommendItem(term_id=c.term_id, canonical=c.canonical, lang=c.lang, gloss_ko=c.gloss_ko, gloss_en=c.gloss_en, en_pending=c.en_pending, ko_pending=c.ko_pending,
-                                   gloss_ja=c.gloss_ja, ja_pending=c.ja_pending, readings=c.readings, regions=c.regions,
+                                   gloss_ja=c.gloss_ja, ja_pending=c.ja_pending, readings=c.readings, names=c.names, regions=c.regions,
                                    diffusion=c.diffusion, lifecycle=c.lifecycle, risk_level=c.risk_level, risk_reasons=c.risk_reasons,
                                    risk_checked_at=c.risk_checked_at, matched_category=cat,
                                    any_category=bool(fits.get(c.term_id) and fits[c.term_id].any_category),

@@ -12,7 +12,7 @@ READ_TABLES = (
     "review_history", "board_cache", "usage", "term_timeline", "mentions_weekly", "mentions_weekly_region",
     "mention_samples", "gen_curves", "term_media", "wiki_catalog", "audit_log", "evidence_labels", "trend_queries",
     "trend_explanations", "trend_class", "interpretations", "pipeline_runs", "news", "videos", "edges", "term_pageviews", "shopping_trends",
-    "research_log", "search_interest", "term_readings",
+    "research_log", "search_interest", "term_readings", "term_names",
 )
 WRITE_TABLES = {
     "terms": "INSERT, UPDATE",

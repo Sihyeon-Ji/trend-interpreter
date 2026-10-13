@@ -7,6 +7,7 @@ import { getKeywordBoard, getTermRelated } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
 import { t, type Locale } from "@/lib/i18n";
 import { L, regionLabel, sourceLabel, sourceName } from "@/lib/labels";
+import { localWord } from "@/lib/lang";
 import { getLocale } from "@/lib/locale";
 import type { KeywordBoard, KeywordCard } from "@/lib/types";
 
@@ -25,13 +26,14 @@ const NOUN: Record<Locale, Record<string, string>> = {
 /** 목록 한 줄 — 판정·생애주기는 백엔드 규칙 값 그대로, 여기서는 글로 옮기기만. 커뮤니티 글은 근거로 싣지 않는다 */
 function toRow(c: KeywordCard, locale: Locale): XRow {
   const labels = L(locale);
+  const w = localWord(c, locale);
   const refs = c.evidences
     .filter((e) => e.kind !== "community" && e.kind !== "datalab")
     .sort((a, b) => Number(b.kind === "wiki" || b.kind === "web") - Number(a.kind === "wiki" || a.kind === "web") || String(b.observed_at).localeCompare(String(a.observed_at)))
     .slice(0, 3)
     .map((e) => ({ url: e.url, label: sourceLabel(locale, sourceName(locale, e.source_domain), NOUN[locale][e.kind] ?? ""), title: e.title, date: e.observed_at }));
   return {
-    id: c.term_id, word: c.canonical, lang: c.lang, readings: c.readings, gloss: glossFor(c, locale), verdict: verdictOf(c),
+    id: c.term_id, word: w.text, lang: w.lang, readings: w.readings, gloss: glossFor(c, locale), verdict: verdictOf(c),
     life: labels.lifecycle[c.lifecycle], diffusion: c.diffusion ?? null, m4: c.mentions_4w, weekly: c.weekly.slice(-12),
     regions: c.regions.map((r) => regionLabel(locale, r)), tone: c.tone, refs, partial: isPartialWeek(c.weekly.at(-1)),
   };

@@ -213,7 +213,7 @@ export function DictionaryList({ packed, locale, readerGen = null, initial }: { 
                 {slice.map((r) => (
                   <tr key={r.term_id} className="border-b border-hairline align-top hover:bg-surface-soft">
                     <th scope="row" className="px-3 py-3 text-left font-normal">
-                      <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="text-[15px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                      <Link href={`/dictionary/${r.term_id}`} lang={r.name ? LOCALE_TAG[locale] : langTag(r.lang)} className="text-[15px] font-semibold text-ink hover:underline">{r.name ?? r.canonical}</Link>
                       {r.reading && <span lang={LOCALE_TAG[locale]} className="ml-2 text-[12px] text-steel">{r.reading}</span>}
                       <Gloss row={r} locale={locale} q={s.q} />
                       {!oneRegion && <p className="mt-0.5 text-[12px] text-steel xl:hidden"><Regions row={r} locale={locale} /></p>}
@@ -233,7 +233,7 @@ export function DictionaryList({ packed, locale, readerGen = null, initial }: { 
               <li key={r.term_id} className="py-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <span className="min-w-0">
-                    <Link href={`/dictionary/${r.term_id}`} lang={langTag(r.lang)} className="text-[16px] font-semibold text-ink hover:underline">{r.canonical}</Link>
+                    <Link href={`/dictionary/${r.term_id}`} lang={r.name ? LOCALE_TAG[locale] : langTag(r.lang)} className="text-[16px] font-semibold text-ink hover:underline">{r.name ?? r.canonical}</Link>
                     {r.reading && <span lang={LOCALE_TAG[locale]} className="ml-2 text-[12px] text-steel">{r.reading}</span>}
                   </span>
                   <RiskCell item={r} locale={locale} />

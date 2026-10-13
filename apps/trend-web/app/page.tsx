@@ -5,7 +5,7 @@ import { StartStage } from "@/components/stage/start-stage";
 import type { MarketLive, Pin } from "@/components/stage/store";
 import { getKeywordBoard, getTermRecord } from "@/lib/data";
 import { glossFor } from "@/lib/gloss";
-import { writableIn } from "@/lib/lang";
+import { localWord, writableIn } from "@/lib/lang";
 import { t, type Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 import type { KeywordCard } from "@/lib/types";
@@ -24,7 +24,7 @@ function liveWords(cards: KeywordCard[], locale: Locale, market: Market) {
     .filter((c) => (c.risk_level === "none" || c.risk_level === "caution") && writableIn(c.canonical, market))
     .sort((a, b) => b.mentions_4w - a.mentions_4w || (LIFE_RANK[a.lifecycle] ?? 2) - (LIFE_RANK[b.lifecycle] ?? 2))
     .slice(0, 6)
-    .map((c) => ({ id: c.term_id, word: c.canonical, lang: c.lang, gloss: glossFor(c, locale), verdict: verdictOf(c), readings: c.readings }));
+    .map((c) => { const w = localWord(c, locale); return { id: c.term_id, word: w.text, lang: w.lang, gloss: glossFor(c, locale), verdict: verdictOf(c), readings: w.readings }; });
 }
 
 async function loadLive(market: Market, locale: Locale): Promise<MarketLive> {

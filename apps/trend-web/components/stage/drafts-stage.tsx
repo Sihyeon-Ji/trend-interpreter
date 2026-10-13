@@ -7,7 +7,7 @@ import { isBlocking } from "@/lib/approval";
 import { glossFor } from "@/lib/gloss";
 import { koOrEn, type Locale } from "@/lib/i18n";
 import { L, gap, sep, sourceLabel, sourceName } from "@/lib/labels";
-import { langTag, scriptLang } from "@/lib/lang";
+import { langTag, localWord, scriptLang } from "@/lib/lang";
 import type { ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
 import { ActorTag, MemeWord, Reading, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
 import { Count } from "./count";
@@ -292,9 +292,9 @@ function FullView({ col, run, locale, viewer }: { col: Column; run: Run; locale:
               </p>
               <Link href={`/dictionary/${encodeURIComponent(col.pick.term_id)}?m=${m}`} className="rs-pick" aria-describedby={`rs-gloss-${m}`}>
                 <ViewTransition name={wordVT(col.pick.term_id, m)} share="rs-morph" default="none">
-                  <MemeWord text={col.pick.canonical} lang={col.pick.lang} max={96} min={34} />
+                  <MemeWord text={localWord(col.pick, locale).text} lang={localWord(col.pick, locale).lang} max={96} min={34} />
                 </ViewTransition>
-                <Reading readings={col.pick.readings} locale={locale} className="rs-pick-reading" />
+                <Reading readings={localWord(col.pick, locale).readings} locale={locale} className="rs-pick-reading" />
                 <span className="rs-pick-open">{tx(locale, "pk_open")}<ArrowUpRight aria-hidden="true" size={14} /></span>
               </Link>
               <p className="rs-gloss" id={`rs-gloss-${m}`} lang={scriptLang(glossFor(col.pick, locale))}>{glossFor(col.pick, locale)}</p>
@@ -429,7 +429,7 @@ function WingView({ col, run, locale }: { col: Column; run: Run; locale: Locale 
       </div>
       <StepRail steps={stepsOf(col, run)} locale={locale} size="s" label={`${name}, ${tx(locale, "st_flow")}`} />
       <div className="rs-wing-word">
-        {col.pick ? <MemeWord text={col.pick.canonical} lang={col.pick.lang} max={36} min={17} /> : <span className="rs-quiet">{tx(locale, "s_none")}</span>}
+        {col.pick ? <MemeWord text={localWord(col.pick, locale).text} lang={localWord(col.pick, locale).lang} max={36} min={17} /> : <span className="rs-quiet">{tx(locale, "s_none")}</span>}
       </div>
       <p className="rs-wing-status" data-who={col.approval ? "human" : col.status === "writing" ? "ai" : "rule"}>{status}</p>
       {col.gen?.copies[0] ? <p className="rs-wing-peek" lang={langTag(col.gen.language)}>{col.gen.copies[0].text}</p> : null}
@@ -470,8 +470,8 @@ function EqualView({ col, run, locale }: { col: Column; run: Run; locale: Locale
                     : <span key={i}>{part}</span>)}
             </ActorTag>
           </p>
-          <div className="rs-eq-word"><MemeWord text={col.pick.canonical} lang={col.pick.lang} max={84} min={30} /></div>
-          <Reading readings={col.pick.readings} locale={locale} className="rs-pick-reading" />
+          <div className="rs-eq-word"><MemeWord text={localWord(col.pick, locale).text} lang={localWord(col.pick, locale).lang} max={84} min={30} /></div>
+          <Reading readings={localWord(col.pick, locale).readings} locale={locale} className="rs-pick-reading" />
           <p className="rs-eq-gloss" lang={scriptLang(glossFor(col.pick, locale))}>{glossFor(col.pick, locale)}</p>
         </>
       ) : (

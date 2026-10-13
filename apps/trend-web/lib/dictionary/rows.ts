@@ -38,6 +38,7 @@ export interface DictionaryRow {
   generations: Generation[];
   alt: string | null;            // 보이는 뜻과 다른 원문 뜻(영어 화면에서 번역된 말의 한국어 원문) — 검색에만 쓴다
   reading: string | null;        // 화면 언어로 쓴 표제어 읽기(TermRecord.readings) — 원문 곁에 작게, 검색에도(일본어 화면에서 「チャン」으로 장원영)
+  name: string | null;           // 화면 언어의 원어 이름(TermRecord.names) — 있으면 표제어 대신 보이고 읽기는 붙이지 않는다(규동 → 牛丼)
 }
 
 export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
@@ -53,7 +54,8 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
     generations: [...new Set(measuredUsage(r.usage).map((u) => u.segment.generation))],
     alt: m?.definition && m.definition !== definition ? m.definition : null,
-    reading: r.readings?.[locale] ?? null,
+    reading: r.names?.[locale] ? null : r.readings?.[locale] ?? null,
+    name: r.names?.[locale] ?? null,
   };
 }
 
@@ -61,7 +63,7 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
    사전 첫 화면 HTML 이 5MB(gzip 1MB)였다(10-05). 칸 순서는 ROW_KEYS 하나로 정해 서버·브라우저가 같이 쓴다. */
 const ROW_KEYS = [
   "term_id", "canonical", "lang", "aliases", "expansion", "definition", "meaning_lang", "category", "diffusion", "lifecycle",
-  "regions", "last_used", "changed", "risk_level", "risk_checked_at", "generations", "alt", "reading",
+  "regions", "last_used", "changed", "risk_level", "risk_checked_at", "generations", "alt", "reading", "name",
 ] as const satisfies ReadonlyArray<keyof DictionaryRow>;
 // 칸을 하나 더하고 ROW_KEYS 에 빠뜨리면 여기서 형 검사가 실패한다(브라우저에서 그 칸이 조용히 비지 않게)
 const allKeys: Record<Exclude<keyof DictionaryRow, (typeof ROW_KEYS)[number]>, never> = {};
@@ -138,7 +140,7 @@ const searchCache = new WeakMap<DictionaryRow, string>();
 function searchText(r: DictionaryRow): string {
   let s = searchCache.get(r);
   if (s === undefined) {
-    s = [r.canonical, ...r.aliases, r.reading ?? "", r.expansion ?? "", r.definition ?? "", r.alt ?? ""].join(" ").toLowerCase();
+    s = [r.canonical, r.name ?? "", ...r.aliases, r.reading ?? "", r.expansion ?? "", r.definition ?? "", r.alt ?? ""].join(" ").toLowerCase();
     searchCache.set(r, s);
   }
   return s;

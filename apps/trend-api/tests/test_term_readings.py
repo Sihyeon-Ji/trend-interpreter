@@ -44,3 +44,25 @@ def test_list_views_read_the_readings_in_one_query():
     with ds.batched(con, ["a", "b"]):
         assert ds.get_readings(con, ds.get_term(con, "a")) == {"ja": "ガッセン"}
         assert ds.get_readings(con, ds.get_term(con, "b")) == {}
+
+
+def test_entry_and_card_carry_the_original_name_for_the_screen_language():
+    """나라별 이름(마이그레이션 028) — 일본에서 온 말은 일본어 화면에 원어 이름을(규동 → 牛丼). 표제어가 바뀌면 옛 이름은 보이지 않는다."""
+    con = db.connect(":memory:")
+    _term(con, "gd", "규동")
+    ds.set_name(con, "gd", "ja", "규동", "牛丼", "test", "https://ko.wikipedia.org/wiki/규동")
+    assert views.term_record(con, ds.get_term(con, "gd")).names == {"ja": "牛丼"}
+    dashboard.run(con)
+    assert next(c for c in dashboard.cards(con, ["KR"]) if c.term_id == "gd").names == {"ja": "牛丼"}
+    ds.set_name(con, "gd", "en", "규메시", "gyumeshi", "test", "")
+    assert ds.get_names(con, ds.get_term(con, "gd")) == {"ja": "牛丼"}
+
+
+def test_dictionary_index_is_rebuilt_when_only_readings_or_names_change():
+    con = db.connect(":memory:")
+    _term(con, "gd", "규동")
+    before = views._index_stamp(con)
+    ds.set_name(con, "gd", "ja", "규동", "牛丼", "test", "")
+    after_name = views._index_stamp(con)
+    ds.set_reading(con, "gd", "en", "규동", "gyudong", "test")
+    assert len({before, after_name, views._index_stamp(con)}) == 3
