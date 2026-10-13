@@ -25,7 +25,7 @@ from ..storage.db import Connection
 from . import dashboard
 from .explain import match_terms
 from .gemini import configured, structured
-from .generate import caution_note, writable, x_length
+from .generate import caution_note, in_ui_language, relanguage, writable, x_length
 from .match import text_pattern, unsafe
 from .risk import sensitive_topic
 from .views import CopyCheck, CopyIssue, CopyMeme
@@ -131,5 +131,13 @@ def fit(con: Connection, text: str, result: CopyCheck, terms: list, lang: str) -
         i = by_id.get(m.term_id)
         if i:
             m.fit, m.fit_note = i.fit, " ".join(i.note.split())[:300] or None
+    if lang != "ko":
+        # 의견 문장이 화면 언어가 아니면 한 번 옮기고, 그래도 아니면 비운다(판정은 그대로) — 로컬 Gemma 가 일본어 화면의 의견을 한국어로 썼다(10-13 시험)
+        names = [n for t in terms for n in (t.canonical, *t.aliases) if n]
+        bad = [m for m in result.memes if m.fit_note and not in_ui_language(m.fit_note, lang, names)]
+        got_lines = relanguage(con, [m.fit_note for m in bad], lang, names) if bad else None
+        for k, m in enumerate(bad):
+            new = got_lines[k] if got_lines else None
+            m.fit_note = new or (m.fit_note if lang == "ja" and in_ui_language(m.fit_note, "en", names) else None)
     result.fit_source = "local" if model.startswith("local:") else "gemini"
     return result

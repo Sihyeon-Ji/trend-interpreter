@@ -166,6 +166,21 @@ def test_copy_check_meaning_fit_is_a_model_opinion_and_never_blocks(con, monkeyp
             api._model_slots.release()
 
 
+def test_copy_check_opinion_on_a_japanese_screen_is_japanese(con, monkeypatch):
+    """로컬 Gemma 가 일본어 화면의 의견을 한국어로 썼다(10-13 시험) — 한 번 옮기고, 그래도 아니면 비운다. 판정(맞음·다름)은 그대로."""
+    from trend_agents.pipeline import generate
+
+    monkeypatch.setattr(copycheck, "model_ready", lambda: True)
+    monkeypatch.setattr(copycheck, "structured", lambda *a, **k: (copycheck.FitResult(items=[copycheck.FitItem(term_id="fresh", fit="ok", note="긍정 상황에 맞게 썼다")]), "gemini-x"))
+    replies = iter([generate._Lines(lines=["前向きな場面で正しく使われている"]), generate._Lines(lines=["그대로 한국어"])])
+    monkeypatch.setattr(generate, "structured", lambda *a, **k: (next(replies), "gemini-x"))
+    c = TestClient(api.app)
+    first = c.post("/copy-check", json={"text": "실패해서 럭키비키", "region": "KR", "lang": "ja"}).json()["memes"][0]
+    assert first["fit"] == "ok" and first["fit_note"] == "前向きな場面で正しく使われている"
+    second = c.post("/copy-check", json={"text": "오늘도 럭키비키", "region": "KR", "lang": "ja"}).json()["memes"][0]
+    assert second["fit"] == "ok" and second["fit_note"] is None
+
+
 def test_term_topic_returns_one_topic_and_follows_board_changes(con):
     """사전 항목의 관련 표현은 주제 하나만 받는다(보드 전체 1.5MB 대신). 보드가 다시 만들어지면 바로 따른다(해석 결과를 둔 캐시라도)."""
     from trend_agents.pipeline import board as board_stage
