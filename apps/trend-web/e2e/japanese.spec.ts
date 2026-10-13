@@ -28,8 +28,10 @@ test("switching to 日本語 turns the start, drafts, explore and an entry into 
   await page.getByRole("link", { name: /^詳しく見る/ }).first().click();
   await expect(page).toHaveURL(/\/dictionary\/t_oshikatsu\?m=JP$/);
   await expect(page.getByText("使えますか？")).toBeVisible();
-  await expect(page.getByText(/^好きなアイドルやキャラクター（推し）を応援する活動全般/)).toBeVisible();
+  await expect(page.getByText(/^好きなアイドルやキャラクター（推し）を応援する活動全般/).first()).toBeVisible();
   await expect(page.locator("[data-untranslated]")).toHaveCount(0);
+  // 뜻의 기록도 지금 판은 일본어 뜻으로(원문 한국어를 그대로 내지 않는다)
+  await expect(page.locator(".rs-versions li[data-open=true] .rs-v-text")).toHaveText(/^好きなアイドル/);
 
   // 일본어 뜻이 없는 말은 원문 뜻과 '翻訳なし' 안내
   await page.goto("/dictionary/t_jamanchu");
