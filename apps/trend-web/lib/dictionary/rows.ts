@@ -43,6 +43,7 @@ export interface DictionaryRow {
 }
 
 export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
+  const shown = localWord({ ...r.term, names: r.names }, locale);
   const m = currentMeaning(r);
   const { expansion, definition } = glossParts(r, locale);
   const translated = locale === "en" ? !!r.en : locale === "ja" ? !jaUntranslated(r) : !!r.ko || (r.term.lang ?? "ko") === "ko";
@@ -55,8 +56,9 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
     generations: [...new Set(measuredUsage(r.usage).map((u) => u.segment.generation))],
     alt: m?.definition && m.definition !== definition ? m.definition : null,
-    reading: localWord({ ...r.term, names: r.names }, locale).local ? null : r.readings?.[locale] ?? null,
-    name: localWord({ ...r.term, names: r.names }, locale).local ? localWord({ ...r.term, names: r.names }, locale).text : null,
+    // 화면 언어 이름이면 읽기는 붙이지 않고, 다른 나라 원어(goblin mode·牛丼)를 세울 때는 화면 언어 글자의 읽기를 곁에
+    reading: shown.local && shown.lang === locale ? null : r.readings?.[locale] ?? null,
+    name: shown.local ? shown.text : null,
   };
 }
 

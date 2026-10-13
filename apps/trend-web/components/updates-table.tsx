@@ -3,7 +3,7 @@ import { RiskCell, StageCell } from "@/components/term-status";
 import type { UpdateRow } from "@/lib/data";
 import { koOrEn, t, type Locale } from "@/lib/i18n";
 import { isCountryCode, whyAnchor } from "@/lib/country";
-import { langTag, scriptLang } from "@/lib/lang";
+import { langTag, localWord, scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
 import { glossFor } from "@/lib/gloss";
 
@@ -38,7 +38,8 @@ const href = (r: UpdateRow) =>
   r.term_id ? `/dictionary/${r.term_id}`
     : r.kind === "spike" && r.region && isCountryCode(r.region) ? `/country/${r.region}?tab=why#${encodeURIComponent(whyAnchor(r.label))}` : null;
 
-const labelLang = (r: UpdateRow) => (r.card ? langTag(r.card.lang) : scriptLang(r.label, r.region));
+const shownLabel = (r: UpdateRow, locale: Locale) => (r.card ? localWord(r.card, locale) : null);
+const labelLang = (r: UpdateRow, locale: Locale) => { const w = shownLabel(r, locale); return w ? langTag(w.lang) : scriptLang(r.label, r.region); };
 const gloss = (r: UpdateRow, locale: Locale) => (r.card ? glossFor(r.card, locale) || t(locale, "dict_pending") : null);
 const Dash = () => <span className="text-steel">—</span>;
 
@@ -52,7 +53,7 @@ function Meaning({ r, locale, clamp }: { r: UpdateRow; locale: Locale; clamp: st
   if (r.kind === "meaning_changed") {
     return (
       <dl className="space-y-0.5">
-        {r.previous && (
+        {r.previous && (locale === "ko" || scriptLang(r.previous) === locale) && (   // 이전 뜻은 번역이 없다 — 다른 말 화면에는 지금 뜻만(10-13)
           <div className="flex gap-2"><dt className="shrink-0 text-steel">{t(locale, "updates_before")}</dt>
             <dd lang={r.card ? langTag(r.card.lang) : undefined} className={`min-w-0 ${clamp}`} title={r.previous}>{r.previous}</dd></div>
         )}
@@ -64,10 +65,11 @@ function Meaning({ r, locale, clamp }: { r: UpdateRow; locale: Locale; clamp: st
   return now ? <p className={clamp} title={now}>{now}</p> : <Dash />;
 }
 
-function Name({ r, className }: { r: UpdateRow; className: string }) {
+function Name({ r, className, locale }: { r: UpdateRow; className: string; locale: Locale }) {
   const to = href(r);
-  return to ? <Link href={to} lang={labelLang(r)} className={`${className} hover:underline`}>{r.label}</Link>
-    : <span lang={labelLang(r)} className={className}>{r.label}</span>;
+  const label = shownLabel(r, locale)?.text ?? r.label;   // 외국에서 온 말은 화면 언어의 원어 이름(규동 → 牛丼)
+  return to ? <Link href={to} lang={labelLang(r, locale)} className={`${className} hover:underline`}>{label}</Link>
+    : <span lang={labelLang(r, locale)} className={className}>{label}</span>;
 }
 
 const regionsText = (r: UpdateRow, locale: Locale) => rowRegions(r).map((x) => regionLabel(locale, x)).join(", ");
@@ -108,7 +110,7 @@ export function UpdatesTable({ rows, locale, now }: { rows: UpdateRow[]; locale:
                 <tr key={`${r.kind}-${r.label}-${i}`} className={`border-b border-hairline align-top${href(r) ? " hover:bg-surface-soft" : ""}`}>
                   <td className="py-3 pr-4 text-[13px] tabular-nums text-steel"><time dateTime={r.at}>{hhmm(r.at, locale)}</time></td>
                   <td className="py-3 pr-4 text-[13px] text-charcoal">{change(r)}</td>
-                  <td className="py-3 pr-4"><Name r={r} className="text-[15px] font-semibold text-ink" /></td>
+                  <td className="py-3 pr-4"><Name r={r} locale={locale} className="text-[15px] font-semibold text-ink" /></td>
                   <td className="max-w-0 py-3 pr-4 text-[14px] text-charcoal"><Meaning r={r} locale={locale} clamp="truncate" /></td>
                   <td className="py-3 pr-4 text-[13px] text-charcoal">{regionsText(r, locale) || <Dash />}</td>
                   <td className="py-3 pr-4">{r.card ? <StageCell diffusion={r.card.diffusion} lifecycle={r.card.lifecycle} locale={locale} /> : <Dash />}</td>
@@ -128,7 +130,7 @@ export function UpdatesTable({ rows, locale, now }: { rows: UpdateRow[]; locale:
               {g.rows.map((r, i) => (
                 <li key={`${r.kind}-${r.label}-${i}`} className="py-3.5">
                   <div className="flex items-start gap-3">
-                    <Name r={r} className="min-w-0 flex-1 text-[16px] font-semibold text-ink" />
+                    <Name r={r} locale={locale} className="min-w-0 flex-1 text-[16px] font-semibold text-ink" />
                     {r.card && <RiskCell item={r.card} locale={locale} />}
                     <time dateTime={r.at} className="shrink-0 pt-0.5 text-[13px] tabular-nums text-steel">{hhmm(r.at, locale)}</time>
                   </div>

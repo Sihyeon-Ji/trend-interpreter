@@ -9,6 +9,7 @@ import { t, type Locale, type StringKey } from "@/lib/i18n";
 import { L, fmtDate, fmtDateTime, joinGens, joinRegions, sourceName } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
 import type { Evidence, MeaningDraft, ReviewDoc, ReviewItem, ReviewKind } from "@/lib/types";
+import { reasonText } from "@/lib/reasons";
 import { cn } from "@/lib/utils";
 
 /* 검수 대기 목록 (docs/트렌드/디자인-개편.md, 관리 화면 검토 09-29).
@@ -66,12 +67,12 @@ function shortUrl(u: string): string {
 }
 
 /** 사유 목록 — 안에 든 문서 주소는 링크로 (문서 대조의 사유는 판정 이름과 참고 문서 주소를 적는다) */
-function Reasons({ list }: { list: string[] }) {
+function Reasons({ list, locale }: { list: string[]; locale: Locale }) {
   return (
     <ul className="list-disc space-y-0.5 pl-4">
       {list.map((r, i) => (
         <li key={`${i}-${r}`} className="[overflow-wrap:anywhere]">
-          {r.split(URL_RE).map((p, j) => (j % 2
+          {reasonText(r, locale).split(URL_RE).map((p, j) => (j % 2
             ? <a key={j} href={p} target="_blank" rel="noreferrer noopener" className="text-link-blue hover:underline">{shortUrl(p)}</a>
             : p))}
         </li>
@@ -340,7 +341,7 @@ export function ReviewTable({ items, live = false, locale, kind }: { items: Revi
                     <p className="line-clamp-3 text-[14px] leading-[1.55] text-charcoal md:col-start-2 md:row-start-1">{proposalLine(it, locale)}</p>
                     <div className="text-[13px] text-charcoal md:col-start-2 md:row-start-2 md:pt-2 xl:col-start-3 xl:row-start-1 xl:pt-0">
                       <span className="text-steel md:sr-only">{t(locale, "adm_col_reasons")}</span>
-                      <Reasons list={it.reasons} />
+                      <Reasons list={it.reasons} locale={locale} />
                     </div>
                     <span className="hidden text-right text-[14px] tabular-nums whitespace-nowrap text-charcoal md:col-start-3 md:row-start-1 md:block xl:col-start-4">
                       <span className="sr-only">{t(locale, "adm_col_evidence")} </span>{fill(t(locale, "adm_count"), { n: it.evidence_count })}
@@ -430,7 +431,7 @@ function Detail({ it, tab, lang, locale, onDecide, onSkip }: { it: ReviewItem; t
           <div className="space-y-2">
             <h4 className="text-[13px] font-medium text-steel">{t(locale, "adm_col_proposal")}</h4>
             <p className="text-[15px] leading-[1.55] text-ink">{it.proposed.definition}</p>
-            {it.reasons.length > 0 && <div className="text-[13px] text-charcoal"><Reasons list={it.reasons} /></div>}
+            {it.reasons.length > 0 && <div className="text-[13px] text-charcoal"><Reasons list={it.reasons} locale={locale} /></div>}
           </div>
           {(it.weekly?.length ?? 0) > 1 && (
             <div className="space-y-2">
@@ -475,7 +476,7 @@ function Detail({ it, tab, lang, locale, onDecide, onSkip }: { it: ReviewItem; t
       {it.kind !== "new" && it.reasons.length > 0 && (
         <div className="space-y-1 text-[13px] text-charcoal">
           <h4 className="font-medium text-steel">{t(locale, "adm_col_reasons")}</h4>
-          <Reasons list={it.reasons} />
+          <Reasons list={it.reasons} locale={locale} />
         </div>
       )}
 

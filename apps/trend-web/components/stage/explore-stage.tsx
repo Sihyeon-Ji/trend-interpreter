@@ -86,7 +86,7 @@ function Spot({ row, market, locale, from, titleId }: {
               <li key={r.url}>
                 <a href={r.url} target="_blank" rel="noopener noreferrer" className="rs-ref">
                   <span className="rs-ref-src">{r.label}<ArrowUpRight aria-hidden="true" size={13} /></span>
-                  <span className="rs-ref-title">{r.title}</span>
+                  <span className="rs-ref-title" lang={scriptLang(r.title) ?? "en"}>{r.title}</span>
                   <span className="rs-ref-date rs-num">{fmtDay(r.date, locale, true)}</span>
                 </a>
               </li>

@@ -12,8 +12,8 @@ export function Sparkline({ points, width = 240, height = 48, className, label }
   const area = `${line} L${coords.at(-1)![0].toFixed(1)},${height - pad} L${pad},${height - pad} Z`;
   const [ex, ey] = coords.at(-1)!;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className={`text-charcoal ${className ?? ""}`} role="img"
-      aria-label={label ?? `${values.length}주 언급 수, 최근 ${values.at(-1)}건, 최대 ${max}건`}>
+    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className={`text-charcoal ${className ?? ""}`}
+      {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}>
       <line x1={pad} x2={width - pad} y1={height - pad} y2={height - pad} className="stroke-hairline" strokeWidth="1" />
       <path d={area} fill="currentColor" opacity="0.07" />
       <path d={line} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />

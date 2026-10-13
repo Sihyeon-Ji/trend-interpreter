@@ -38,6 +38,6 @@ test("a word from abroad shows its original name on that language's screen, with
   const record = { ...SAMPLE_RECORDS[0], names: { ja: "牛丼" }, readings: { ja: "キュドン", en: "gyudong" } };
   const ja = toRow(record, "ja");
   expect([ja.name, ja.reading]).toEqual(["牛丼", null]);           // 원어 이름이 있으면 읽기는 붙이지 않는다
-  expect(toRow(record, "en")).toMatchObject({ name: null, reading: "gyudong" });
+  expect(toRow(record, "en")).toMatchObject({ name: "牛丼", reading: "gyudong" });  // 영어 화면도 원어로(기준은 화면 언어), 읽기는 로마자
   expect(matchesExceptRegion({ ...row, name: "牛丼" }, { q: "牛丼", regions: [], kind: "", lang: "", risk: "" })).toBe(true);
 });

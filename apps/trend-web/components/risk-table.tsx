@@ -7,6 +7,7 @@ import { StatusBadge, type Tone } from "@/components/status-badge";
 import { t, type Locale } from "@/lib/i18n";
 import { fmtDate } from "@/lib/labels";
 import { langTag, scriptLang } from "@/lib/lang";
+import { reasonText } from "@/lib/reasons";
 import { cn } from "@/lib/utils";
 
 type Level = "none" | "caution" | "avoid";
@@ -105,7 +106,7 @@ export function RiskTable({ rows, live = false, locale }: { rows: RiskRow[]; liv
                     <span className="sr-only">{t(locale, "adm_risk_col_reasons")}</span>
                     {reasons.length ? (
                       <ul className="list-disc space-y-0.5 pl-4">
-                        {(open ? reasons : reasons.slice(0, 2)).map((x) => <li key={x} lang={scriptLang(x)} className={cn(!open && "line-clamp-2")}>{x}</li>)}
+                        {(open ? reasons : reasons.slice(0, 2)).map((x) => { const y = reasonText(x, locale); return <li key={x} lang={scriptLang(y)} className={cn(!open && "line-clamp-2")}>{y}</li>; })}
                       </ul>
                     ) : <span className="text-steel">—</span>}
                     {reasons.length > 2 || reasons.some((x) => x.length > 90) ? (

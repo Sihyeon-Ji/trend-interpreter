@@ -32,8 +32,10 @@ function stripSourceTail(title: string, names: string[]): string {
 
 /** 앞에 붙은 사이트 이름('나무위키: 제로투 회피', 'Wikipedia: 오시카츠')을 뗀다 — 출처 칸이 이미 화면 언어로 사이트를 말한다.
  *  일본어·영어 화면에 '나무위키:' 가 한국어로 남았다(10-13). 문서 제목과 라이선스 표시는 그대로 둔다 */
-const SITE_HEAD = /^(나무위키|위키백과|위키낱말사전|Namuwiki|Wikipedia|Wiktionary|ナムウィキ|ウィキペディア)\s*:\s*/i;
+const SITE_HEAD = /^(나무위키|위키백과|위키낱말사전|Namuwiki|Wikipedia(?:\s*\([a-z-]{2,7}\))?|Wiktionary|Know Your Meme|Trend A Word(?:\s*#\d+)?|ナムウィキ|ウィキペディア|pixiv百科事典|ニコニコ大百科|萌娘百科)\s*[:：]\s*/i;
+const SITE_TAIL = /\s[-–|]\s(나무위키|위키백과|Namuwiki|Wikipedia|ナムウィキ|ウィキペディア)(?=\s*(\(CC[^)]*\))?$)/;
 export function stripSourceHead(title: string, names: string[] = []): string {
+  title = title.replace(SITE_TAIL, "");
   const m = SITE_HEAD.exec(title);
   if (m) return title.slice(m[0].length).trim();
   const n = names.find((x) => x && title.toLowerCase().startsWith(`${x.toLowerCase()}:`));

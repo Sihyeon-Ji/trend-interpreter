@@ -21,15 +21,17 @@ const NON_LATIN = /[^\x00-\x7fÀ-ɏḀ-ỿ]/u;
 const MARKET_SCRIPT: Record<string, RegExp> = { KR: /[가-힣]/u, JP: /[぀-ヿ一-鿿]/u };
 export const writableIn = (word: string, market: string) => !NON_LATIN.test(word) || !!MARKET_SCRIPT[market]?.test(word);
 
-/** 화면에 세울 말 — 외국에서 온 말이 원어 이름을 가지면: 그 화면 언어의 이름(규동 → 일본어 화면 牛丼), 없으면 한국어가 아닌 화면은
- *  영어 원어(고블린 모드 → 일본어 화면 goblin mode — 한글보다 읽기 쉽다). 원어 이름은 번역이 아니라 원문이다(백엔드 pipeline/names 가
- *  문서에 글자 그대로 있는 것만 넣는다). 이름을 쓰면 읽기는 붙이지 않는다 — 읽기는 한글 표제어의 소리다 */
+/** 화면에 세울 말 — 기준은 화면 언어다(10-13 사용자: "설정한 언어가 기준이 되어야지"). 외국에서 온 말이 원어 이름을 가지면
+ *  화면 언어의 이름(규동 → 일본어 화면 牛丼), 없으면 한국어가 아닌 화면에서는 그 말이 온 나라의 원어(고블린 모드 → 일본어 화면 goblin mode,
+ *  규동 → 영어 화면 牛丼)를 세우고 화면 언어 글자의 읽기(ゴブリン モード, gyudon)를 곁에 둔다. 한국 말·원어 이름이 없는 말은 표제어와 읽기.
+ *  원어 이름은 번역이 아니라 원문이다(백엔드 pipeline/names 가 문서에 글자 그대로 있는 것만 넣는다) */
 export function localWord(x: { canonical: string; lang?: string | null; names?: Record<string, string> | null; readings?: Record<string, string> | null },
   locale: string): { text: string; lang: string; readings?: Record<string, string>; local: boolean } {
   const own = x.names?.[locale];
   if (own) return { text: own, lang: locale, local: true };
-  const en = locale !== "ko" ? x.names?.en : undefined;
-  if (en) return { text: en, lang: "en", local: true };
+  const otherLang = locale === "ja" ? "en" : locale === "en" ? "ja" : null;
+  const other = otherLang ? x.names?.[otherLang] : undefined;
+  if (other && otherLang) return { text: other, lang: otherLang, readings: x.readings ?? undefined, local: true };
   return { text: x.canonical, lang: x.lang ?? "ko", readings: x.readings ?? undefined, local: false };
 }
 
@@ -38,4 +40,11 @@ export function originalName(names: Record<string, string> | null | undefined): 
   if (names?.ja) return { lang: "ja", name: names.ja };
   if (names?.en) return { lang: "en", name: names.en };
   return null;
+}
+
+/** 글의 주된 글자 — 한글과 가나·한자 가운데 많은 쪽(일본어 인용이 낀 한국어 뜻을 일본어로 보지 않게). 둘 다 없으면 scriptLang */
+export function mainScript(text: string): string | undefined {
+  const ko = (text.match(/[가-힣]/g) ?? []).length, ja = (text.match(/[぀-ヿ]/g) ?? []).length;
+  if (ko || ja) return ko >= ja ? "ko" : "ja";
+  return scriptLang(text);
 }
