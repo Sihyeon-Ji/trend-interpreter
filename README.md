@@ -10,7 +10,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Ex
 
 | | |
 | --- | --- |
-| Live prototype | Added at submission (Cloud Run) |
+| Live prototype | [trend-production-web-7jftqxfz3q-an.a.run.app](https://trend-production-web-7jftqxfz3q-an.a.run.app/?lang=en) (Cloud Run; `?lang=en`, `ko` or `ja` sets the language) |
 | Demo video (under 3 minutes) | Added at submission |
 | Evaluation | [EVALUATION.md](EVALUATION.md) · per-round totals in [`evals/`](evals/recommend-rounds.csv) |
 | Architecture | [Diagram](#architecture) · [architecture document](docs/운영/시스템-아키텍처.md) (Korean) |
@@ -71,10 +71,14 @@ recommendation ranking are deterministic code; a model never sets a status.
 - **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): researches new terms with
   grounding, reads trending short videos, turns a product photo or copy into a product brief, writes campaign
   copy, summarises the briefing and judges whether copy uses a meme in the right sense.
-- **Gemma 4** (local, Kaggle or an on-demand GPU VM): drafts dictionary translations, classifies evidence
-  sentences for risk and audits dictionary meanings against their sources. A QLoRA fine-tune of the auditor
+- **Gemma 4** (local, Kaggle or an on-demand GPU VM): drafts headword readings and meaning translations for newly
+  listed terms, classifies evidence sentences for risk and audits dictionary meanings against their sources. A QLoRA fine-tune of the auditor
   learned the verdict format but did not show better judgement, so the base model is used
   ([EVALUATION.md](EVALUATION.md)).
+- **Agent Development Kit (ADK)**: an optional four-agent team (collector → investigator → lexicographer → publisher)
+  calls the same deterministic pipeline steps as tools and writes a run report; the agents never set a status
+  ([`agents/team.py`](apps/trend-api/src/trend_agents/agents/team.py)).
+- The collection server calls Gemini through the Gemini API (Google AI Studio key) under a daily call budget.
 - Every model output is checked by rules before it is shown: a meaning needs a matching reference document,
   generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
   held back.
@@ -89,7 +93,8 @@ Where this shows in the deployed app:
   model calls and time spent in the last 24 hours.
 - Reviewers can ask Gemma on the GPU VM to classify a term's latest news headlines again, or re-run the batch risk
   step on up to five chosen terms, and see the result next to the published verdict. Nothing is saved, the same
-  rules grade both, and the page says so at once when the GPU is off.
+  rules grade both, and the page says so at once when the GPU is off. The GPU VM is started only for demos to keep
+  cost down; while it is off the page shows the last recorded run.
 
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
@@ -231,3 +236,7 @@ docs/                        Korean documentation: setup, operations, Trend desi
 - [Team workflow](docs/개발환경/팀-작업-방식.md)
 - [Repository](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup)
 - [Project board](https://github.com/users/Sihyeon-Ji/projects/1)
+
+## License
+
+[Apache License 2.0](LICENSE). Third-party libraries keep their own licenses.

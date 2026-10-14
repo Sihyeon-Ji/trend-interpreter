@@ -11,7 +11,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 | | |
 | --- | --- |
-| 배포본 | 제출 때 추가(Cloud Run) |
+| 배포본 | [trend-production-web-7jftqxfz3q-an.a.run.app](https://trend-production-web-7jftqxfz3q-an.a.run.app/?lang=ko) (Cloud Run, 주소의 `?lang=ko`·`en`·`ja` 로 화면 언어) |
 | 데모 영상(3분 미만) | 제출 때 추가 |
 | 평가 | [EVALUATION.md](EVALUATION.md)(영어) · 회차별 집계 [`evals/`](evals/recommend-rounds.csv) |
 | 구조 | [그림](#구조) · [시스템 아키텍처](docs/운영/시스템-아키텍처.md) |
@@ -65,8 +65,11 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 - **Vertex AI의 Gemini** (런타임 service account, API key 없음, 월 금액 상한): 새 말의 grounding 조사, 인기 쇼츠 해석,
   제품 사진·문구의 제품 설명, 캠페인 카피 생성, 브리핑 요약, 카피가 밈을 뜻에 맞게 썼는지 의견.
-- **Gemma 4** (로컬·Kaggle 또는 필요할 때 켜는 GPU VM): 사전 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
+- **Gemma 4** (로컬·Kaggle 또는 필요할 때 켜는 GPU VM): 새로 실린 말의 표제어 읽기·뜻 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
   감사관 QLoRA 파인튜닝은 판정 형식은 배웠지만 판단이 나아졌다는 근거가 없어 기본 모델을 씁니다([EVALUATION.md](EVALUATION.md)).
+- **Agent Development Kit(ADK)**: 네 에이전트 팀(수집 → 조사 → 사전 편집 → 게시)이 같은 결정론 단계를 도구로 부르고 실행 보고서를 남깁니다.
+  에이전트는 상태를 정하지 않습니다([`agents/team.py`](apps/trend-api/src/trend_agents/agents/team.py)).
+- 수집 서버는 Gemini API(Google AI Studio 키)로 Gemini 를 하루 호출 예산 안에서 부릅니다.
 - 모델 결과는 화면에 나가기 전에 규칙이 검사합니다. 뜻은 맞는 참고 문서가 있어야 하고, 생성한 카피는 고른 밈·욕설·길이를
   다시 확인하며, 비었거나 메모 같은 뜻은 내보내지 않습니다.
 
@@ -79,6 +82,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 - 검수자용 상태 화면은 파이프라인 단계마다 모델별 공개 결과 수와, 최근 24시간의 모델 호출 수·걸린 시간을 보입니다.
 - 검수자는 GPU VM의 Gemma에게 용어의 최신 기사 제목을 지금 다시 분류하게 하거나, 고른 용어(5개까지)에 배치 리스크 단계를 다시 돌려
   공개 판정과 나란히 볼 수 있습니다. 아무것도 저장하지 않고 같은 규칙으로 매기며, GPU가 꺼져 있으면 바로 알립니다.
+  GPU VM은 비용 때문에 시연할 때만 켜고, 꺼져 있는 동안에는 마지막으로 돌린 기록을 보입니다.
 
 무엇을 어떻게 쟀는지, 수치와 한계, 남은 과제는 [EVALUATION.md](EVALUATION.md)(영어)에 있습니다.
 
@@ -211,3 +215,7 @@ docs/                        설치, 운영, 트렌드 설계 기록, 계획 문
 - [팀 협업 방식](docs/개발환경/팀-작업-방식.md)
 - [Gemma/vLLM 안내](models/vllm/README.md)
 - [GitHub 프로젝트 보드](https://github.com/users/Sihyeon-Ji/projects/1)
+
+## 라이선스
+
+[Apache License 2.0](LICENSE). 외부 라이브러리는 각자의 라이선스를 따릅니다.
