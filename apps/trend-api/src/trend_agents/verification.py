@@ -24,9 +24,24 @@ PUBLIC_VERIFICATIONS = frozenset({"verified_auto", "verified_human"})
 
 
 def is_public_entry(term: Term | None, meaning: Meaning | None) -> bool:
-    """Only a verified entry with an approved current meaning may be read publicly."""
+    """Only a verified entry with an approved current meaning may be read publicly.
+    자동 확인된 뜻이 뜻 대신 근거 메모('근거에 밈 사용법에 대한 설명이 없음')이거나 '밈으로 사용됨' 뿐인 빈말이면 싣지 않는다 —
+    게이트에 이 규칙이 생기기 전에 실린 162개가 사전 첫 쪽에 'The evidence contains nothing…' 으로 나왔다(10-14 점검). 사람이 확인한 뜻은 그대로."""
     return bool(term and term.status == "verified" and meaning and meaning.verification in PUBLIC_VERIFICATIONS
-                and not hidden_from_public(term.canonical, term.risk_level))
+                and not hidden_from_public(term.canonical, term.risk_level)
+                and not (meaning.verification == "verified_auto" and (evidence_note(meaning.definition) or vacuous_meaning(meaning.definition))))
+
+
+# 유래·뉘앙스 칸이 통째로 '근거 없음'·'알 수 없음' 같은 메모인가 — 공개 화면에서는 칸을 비운다(박포·원균·현피, 10-14 점검).
+# 내용 뒤에 '언제부터 쓰였는지는 알 수 없다' 가 붙은 문장(뻘글)은 그대로 둔다
+_NOTE_ONLY = __import__("re").compile(
+    r"\(?\s*(?:근거(?:에|에는|에서|가|만으로는)?\s?(?:는\s?)?(?:명시되지|제시되지|나타나지|언급되지|확인되지|드러나지)\s?않(?:음|는다|았다)|근거\s?(?:없음|부족)"
+    r"|알\s?수\s?없(?:음|다)|확인되지\s?않(?:음|았다)|정보\s?없음|불명|없음|unknown)\s*[.)]?\s*\)?", __import__("re").I)
+
+
+def note_only(text: str | None) -> bool:
+    t = (text or "").strip()
+    return bool(t) and (bool(_NOTE_ONLY.fullmatch(t)) or (evidence_note(t) and len(t) < 60))
 
 
 def hidden_from_public(canonical: str, risk_level: str | None) -> bool:

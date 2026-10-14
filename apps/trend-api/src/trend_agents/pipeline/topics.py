@@ -21,7 +21,7 @@ PER_RUN = 6
 
 class VariantNote(BaseModel):
     local_name: str = Field(description="그 나라에서 이 용어를 부르는 표기. 근거에 없으면 원래 표기 그대로")
-    what_changed: Text2 = Field(description="이 나라에서 무엇이 달라졌나 1~2문장 (ko/en)")
+    what_changed: Text2 = Field(description="이 나라에서 무엇이 달라졌나 1~2문장 (ko/en/ja — 일본어 화면용 ja 도 쓴다)")
     local_memes: list[dict] = Field(default_factory=list, description="[{label, note_ko, note_en}] 근거 원문에 나오는 현지 밈·놀이·대사만")
     self_confidence: float = Field(ge=0, le=1)
 

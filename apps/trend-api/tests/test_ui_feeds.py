@@ -82,6 +82,7 @@ def test_country_page_lists_confirmed_terms_only():
                        "verified_auto" if status == "verified" else "unverified", [])
         ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
     assert [r.term.term_id for r in views.country_page(con, "KR").terms] == ["v"]
+    assert views.country_page(con, "KR", brief=True).terms == []      # 웹 나라 화면은 용어 목록을 받지 않는다(13MB 였다)
 
 
 def test_japanese_spike_reason_is_kept_only_when_written_in_japanese():
@@ -91,3 +92,51 @@ def test_japanese_spike_reason_is_kept_only_when_written_in_japanese():
     assert ja_or_empty("오살힘がファンの間で広まった。", "오살힘", "팬들이 쓴다", []) == "오살힘がファンの間で広まった。"
     assert ja_or_empty("ビ디오が話題になった", "x", "영상이 화제", []) == ""
     assert ja_or_empty("Fans use it", "x", "팬들이 쓴다", []) == ""
+
+
+def test_user_feed_drops_terms_no_longer_in_the_dictionary():
+    """실렸다가 검수로 내려간 말은 이용자 피드에 없다 — 링크가 404 였다(フェムテック, 10-14)."""
+    con = _seed()
+    t = ds.get_term(con, "b")
+    t.status = "needs_review"
+    ds.upsert_term(con, t, human=True)
+    labels = [r["label"] for r in ds.update_feed(con, hours=1)["items"]]
+    assert "원영적 사고" not in labels and "럭키비키" in labels
+
+
+def test_public_entry_skips_evidence_notes_and_blanks_note_only_origin():
+    """뜻 대신 근거 메모인 자동 확인 뜻은 싣지 않고, '근거 없음' 뿐인 유래는 공개 화면에서 비운다(10-14 점검)."""
+    from trend_agents.pipeline import views
+    from trend_agents.verification import is_public_entry, note_only
+
+    con = _seed()
+    ds.add_meaning(con, "b", _draft("근거에 밈 사용법에 대한 구체적인 설명이 없음."), "verified_auto", [])
+    assert not is_public_entry(ds.get_term(con, "b"), ds.current_meaning(con, "b"))
+    ds.add_meaning(con, "b", _draft("근거에 밈 사용법에 대한 구체적인 설명이 없음."), "verified_human", [])
+    assert is_public_entry(ds.get_term(con, "b"), ds.current_meaning(con, "b"))         # 사람이 확인한 뜻은 그대로
+
+    assert note_only("근거에 명시되지 않음") and note_only("unknown") and not note_only("2020년 방송에서 유래했다. 정확한 시기는 알 수 없다.")
+    d = _draft("좋은 일로 끝난다고 여기는 태도.")
+    d.origin = "근거 없음"
+    ds.add_meaning(con, "a", d, "verified_auto", [])
+    rec = views.term_record(con, ds.get_term(con, "a"), public=True)
+    assert rec.meanings[-1].origin == "" and views.term_record(con, ds.get_term(con, "a")).meanings[-1].origin == "근거 없음"
+
+
+def test_rechecking_an_auto_verified_meaning_keeps_it_unless_it_is_weak():
+    """재조사가 같은 뜻을 말만 바꿔 새 판을 만들며 번역을 지웠다(권루트 19판, 10-14) — 지금 뜻이 약할 때만 바꾼다."""
+    from trend_agents.pipeline.research import settled
+
+    con = _seed()
+    cur = ds.add_meaning(con, "b", _draft("특정 분야에 진심을 다해 임하는 것을 이르는 유행어."), "verified_auto", [])
+    assert settled(con, "b", cur, _draft("어떤 일에 진지하게 몰두하는 태도를 이르는 말."), "verified_auto")
+    assert not settled(con, "b", cur, _draft("다른 뜻"), "needs_review")
+    ds.add_meaning(con, "b", _draft("근거에 밈 사용법에 대한 구체적인 설명이 없음."), "verified_auto", [])
+    assert not settled(con, "b", ds.current_meaning(con, "b"), _draft("어떤 일에 몰두하는 태도를 이르는 말."), "verified_auto")
+
+
+def test_slurs_inside_hashtags_and_names_are_unsafe():
+    from trend_agents.pipeline.match import unsafe
+
+    assert unsafe("#NiggerNavy") and unsafe("Noah Knigga")
+    assert not unsafe("niggardly") and not unsafe("snigger") and not unsafe("Nigeria")

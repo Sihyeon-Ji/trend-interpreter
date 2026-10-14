@@ -34,7 +34,7 @@ def test_caution_stays_in_use_avoid_is_hidden_and_stale_memes_are_fading():
 
     b = dashboard.board(con, ["KR"])
     ids = [[c.term_id for c in lst] for lst in (b.rising, b.fading, b.caution)]
-    assert ids == [["warn", "fresh", "quiet"], ["old"], ["warn"]]   # 주의 밈은 표시와 함께 쓰이는 목록에도, 사용 자제는 어디에도 없다(10-09)
+    assert ids == [["fresh", "quiet", "warn"], ["old"], ["warn"]]   # 주의 밈은 표시와 함께 쓰이는 목록에도(맨 뒤, 10-14), 사용 자제는 어디에도 없다(10-09)
     assert b.totals == {"rising": 3, "fading": 1, "caution": 1}
     assert b.totals["rising"] + b.totals["fading"] == b.counts["KR"] == 4   # 칩 건수 = 쓰이는 + 식는
     assert b.counts["ALL"] == 5 and b.counts["JP"] == 1

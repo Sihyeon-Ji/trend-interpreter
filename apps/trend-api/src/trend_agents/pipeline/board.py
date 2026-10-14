@@ -116,6 +116,7 @@ def build(con: Connection) -> TrendBoard:
         m = ds.current_meaning(con, t.term_id)
         en = ds.get_translation(con, t.term_id, "en")
         ko = ds.get_translation(con, t.term_id, "ko")
+        ja = ds.get_translation(con, t.term_id, "ja")
         notes = ds.get_topic_notes(con, t.term_id)
         variants = []
         for r in regions:
@@ -142,7 +143,8 @@ def build(con: Connection) -> TrendBoard:
         variants.sort(key=lambda v: (not v.dated, v.since if v.dated else "", -v.heat))
         cat = {"slang": "slang_meme", "meme": "slang_meme", "song": "song_challenge", "dance": "song_challenge", "product": "product"}.get(t.category, "people_content")
         topics.append(Topic(id=f"tp_{t.term_id}", category=cat, name=Text2(ko=t.canonical, en=t.canonical),
-                            summary=Text2(ko=(ko.definition if ko else (m.definition if m else "")), en=(en.definition if en else (m.definition if m else ""))), variants=variants))
+                            summary=Text2(ko=(ko.definition if ko else (m.definition if m else "")), en=(en.definition if en else (m.definition if m else "")),
+                                          ja=ja.definition if ja else None), variants=variants))   # 일본어 화면은 영어 요약이었다(10-14)
     return TrendBoard(generated_at=datetime.now(timezone.utc), items=items, topics=topics, why=why_list(con))
 
 

@@ -176,7 +176,9 @@ UNSAFE = re.compile(
     r"(?<![가-힣])보지(?!만|요|도|는|\s*(?:마|않|못|말|뭐|그래))|(?<![가-힣])자지(?!러|만|요|도|는|\s*(?:마|않|못|말))|"
     # 영어: 낱말 경계. 'fuck' 은 낱말 안에 있어도(motherfucker) 욕이다
     r"fuck|\b(?:bull|dog|horse)?shit(?:s|ty|post\w*)?\b|\bporn|hentai|ahegao|nsfw|goatse|"
-    r"\b(?:bitch(?:es|y)?|cunts?|pussy|nigg(?:a|er)s?|retard(?:ed|s)?|whores?|sluts?)\b|"
+    r"\b(?:bitch(?:es|y)?|cunts?|pussy|retard(?:ed|s)?|whores?|sluts?)\b|"
+    # 인종 비하어는 해시태그·이름 안에 붙어도 비하어다('#NiggerNavy'·'Noah Knigga' 가 판단 없이 확정, 10-14 점검)
+    r"(?<![a-z])k?nigg(?:er|a(?!rd))|"
     # 목표 지역(검토 2차): 일본어·태국어·베트남어·인도네시아어·타갈로그어·말레이어 — 뜻이 하나뿐인 말만
     r"セックス|ちんこ|まんこ|ちんぽ|アヘ顔|ควย|เย็ด|เหี้ย|หี(?![บ])|\bđịt\b|\blồn\b|\bcặc\b|\bđụ\b|"
     r"\b(?:kontol|ngentot|memek|jancok|pukimak|putangina|tangina|pakyu)\b|"

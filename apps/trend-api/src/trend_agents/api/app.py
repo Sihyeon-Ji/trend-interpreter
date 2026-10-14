@@ -566,8 +566,8 @@ def updates(hours: int = 48, kinds: str | None = None, limit: int = 100):
 
 
 @app.get("/countries/{region}", response_model=views.CountryPage)
-def country(region: str):
-    return views.country_page(_con, region.upper())
+def country(region: str, brief: bool = False):
+    return views.country_page(_con, region.upper(), brief=brief)
 
 
 @app.get("/graph/shared", response_model=list[views.SharedNode])

@@ -236,6 +236,15 @@ def term_record(con: Connection, t: Term, *, public: bool = False) -> TermRecord
     ko = ds.get_translation(con, t.term_id, "ko")
     en = ds.get_translation(con, t.term_id, "en")
     ja = ds.get_translation(con, t.term_id, "ja")
+    if public and meanings:
+        # 유래·뉘앙스가 '근거 없음'·'알 수 없음' 메모뿐이면 그 칸을 비운다 — 번역판의 같은 칸도('From this evidence alone…', 10-14)
+        from ..verification import note_only
+
+        cur = meanings[-1]
+        empty = [f for f in ("origin", "nuance") if note_only(getattr(cur, f, None)) or note_only(getattr(ko, f, None) if ko else None)]
+        if empty:
+            meanings = [*meanings[:-1], cur.model_copy(update={f: "" for f in empty})]
+            ko, en, ja = (x.model_copy(update={f: "" for f in empty}) if x else x for x in (ko, en, ja))
     usage = [TermUsage(segment=Segment(segment_id=u["segment_id"], generation=u["generation"], region=u["region"]), first_seen=u["first_seen"], share=u["share"], source=u["source"])
              for u in ds.get_usage(con, t.term_id)]
     weekly = [WeeklyPoint(week_start=w, count=c) for w, c in ds.get_weekly(con, t.term_id)]
@@ -553,7 +562,9 @@ class CountryPage(BaseModel):
     updated_at: str | None
 
 
-def country_page(con: Connection, region: str) -> CountryPage:
+def country_page(con: Connection, region: str, brief: bool = False) -> CountryPage:
+    """brief: 검색어·이유만(웹 나라 화면) — 용어 목록은 화면이 쓰지 않는데 한국이 2,362개·13MB 라 화면이 매번 5초 걸렸고
+    캐시(2MB 한도)에도 안 들어갔다(10-14 점검). 용어·세대 비율은 brief 가 아닐 때만 만든다."""
     from ..schemas import TrendBoard
     from ..storage import dictionary_store as ds2
 
@@ -565,7 +576,7 @@ def country_page(con: Connection, region: str) -> CountryPage:
     # 확인된 것만 — 공개 사전(/terms)과 같은 규칙. 확인 전 표현이 '확인된 표현' 으로 섞여 나왔다(화면 개편 2차 검토)
     from ..verification import is_public_entry
 
-    recs = [term_record(con, t, public=True) for t in ds2.list_terms(con, ("verified",))
+    recs = [] if brief else [term_record(con, t, public=True) for t in ds2.list_terms(con, ("verified",))
             if is_public_entry(t, ds2.current_meaning(con, t.term_id)) and any(u["region"] == region for u in ds2.get_usage(con, t.term_id))]
     share: dict[str, float] = {}
     for r in recs:

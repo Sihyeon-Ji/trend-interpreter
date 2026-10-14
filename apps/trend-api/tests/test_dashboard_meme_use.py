@@ -62,6 +62,12 @@ def test_mentions_mixed_with_other_stories_do_not_lead_the_list():
     rising, _, _ = dashboard.split([card("dori", 30, mixed=True), card("lucky", 5), card("new", 50, confirmed=False)])
     assert [c.term_id for c in rising] == ["lucky", "dori", "new"]
 
+    # 조심해서 쓸 말은 목록에 남되 뒤로 — 첫 화면 나라 칸·목록 첫 줄이 '조심' 말이었다(10-14)
+    warn = card("gura", 90)
+    warn.risk_level = "caution"
+    rising, _, _ = dashboard.split([warn, card("lucky", 5)])
+    assert [c.term_id for c in rising] == ["lucky", "gura"]
+
 
 def test_dashboard_holds_meanings_that_only_describe_the_thing():
     """'김치는 발효식품이다' 처럼 쓰임이 없는 뜻은 목록에서 보류(사전에는 남는다). 사람이 확인한 뜻은 그대로."""

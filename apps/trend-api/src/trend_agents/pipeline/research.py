@@ -37,6 +37,21 @@ MAX_HOPS = 6      # 그라운딩 주소는 구글의 넘겨주기 주소다 — 
 UA = "Mozilla/5.0 (compatible; trend-agents/0.1)"
 
 
+# 이미 자동으로 실린 뜻은 다시 조사해도 지금 뜻이 약할 때(근거 메모·빈말·짐작·대상 소개뿐)만 바꾼다.
+# 나무위키 문서가 고쳐질 때마다 다시 조사해 같은 뜻을 말만 바꿔 새 판을 만들었다 — '권루트' 는 10-10 부터 '유튜브 인트로 유행어' 와
+# '달동네 크루 인물' 을 오가며 19판, 판이 바뀔 때마다 번역이 지워져 31개 말의 Sonnet 번역이 Gemma 로 바뀌었다(10-07 이후 458개 말에
+# 새 판 712개, 10-14 점검). 글자 유사도로는 같은 뜻의 다른 문장('진심을 다해 임하는'·'진지하게 몰두하는' 0.32)을 가를 수 없었다.
+# 뜻이 실제로 달라졌으면 문서 대조(crosscheck)가 고칠 안을 검수 큐에 올린다.
+def settled(con, term_id: str, current, draft, verification: str) -> bool:
+    """새 판을 만들지 않고 지금 뜻을 둔다 — 자동 확인 뜻을 자동 확인 뜻으로 바꿀 때만 본다(사람의 판정·검수 대기는 그대로)."""
+    from ..verification import evidence_note, guessed_meaning, no_usage_meaning, vacuous_meaning
+
+    if not current or current.verification != "verified_auto" or verification != "verified_auto":
+        return False
+    d = current.definition or ""
+    return not (len(d) < 8 or evidence_note(d) or vacuous_meaning(d) or guessed_meaning(d) or no_usage_meaning(d))
+
+
 def _norm(s: str) -> str:
     return "".join(s.split()).lower()
 
@@ -622,7 +637,8 @@ def research_one(con: Connection, term: Term, *, lean: bool = False) -> tuple[st
     display_only = {id(e) for e in evidences} - {id(e) for e in for_model(evidences)}
     keep = [e for e in evidences if id(e) in display_only or anchor_hit(term.canonical, e, term.aliases)]
     ds.add_evidences(con, term.term_id, keep)
-    ds.add_meaning(con, term.term_id, draft, verification, urls)
+    if not settled(con, term.term_id, current, draft, verification):
+        ds.add_meaning(con, term.term_id, draft, verification, urls)
     if verification == "verified_auto" and not ds.has_media(con, term.term_id):
         try:
             attach_media(con, term, keep)   # 사전에 오른 표제어에만 — 위키 호출을 아낀다

@@ -129,8 +129,9 @@ def split(cards: list[KeywordCard], now: datetime | None = None) -> tuple[list[K
         return 0 if c.mentions_mixed else c.mentions_4w
 
     usable = [c for c in cards if c.risk_level != "avoid"]
+    # 주의 말은 목록에 남되 뒤로 — 맨 앞(첫 화면 나라 칸·목록 첫 줄)이 '조심해서 쓰세요' 인 말이었다(구라·인정·과몰입, 10-14 점검)
     rising = sorted((c for c in usable if not _is_fading(c, now)),
-                    key=lambda c: (not c.use_confirmed, DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3),
+                    key=lambda c: (c.risk_level == "caution", not c.use_confirmed, DIFFUSION_ORDER.get(c.diffusion or "", 3), LIFECYCLE_ORDER.get(c.lifecycle, 3),
                                    -mentions(c), -recent(c)))
     fading = sorted((c for c in usable if _is_fading(c, now)), key=lambda c: (not c.use_confirmed, -recent(c)))
     caution = sorted((c for c in cards if c.risk_level in ("caution", "avoid")),
