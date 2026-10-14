@@ -60,8 +60,11 @@ SYSTEM = """너는 검증된 유행어 사전의 안내자다. 사람들이 유�
 
 # 답하는 말 — 화면 언어 그대로(ko·en·ja). 일본어 화면은 영어 답을 받았다(10-14 점검)
 LANG_LINE = {"ko": "- 한국어로, 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다.",
-             "en": "- 영어로(in English), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다.",
-             "ja": "- 일본어로(日本語で、である調), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다."}
+             "en": "- 영어로(in English), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다. 근거 건수도 영어로(\"65 sources\").",
+             "ja": "- 일본어로(日本語で、である調), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다. 근거 건수도 일본어로(「根拠65件」)."}
+# 도구 결과의 '근거 N건' 을 그대로 옮겨 일본어 답에 한국어가 섞였다(운영 10-14) — 지시로 못 막은 것은 코드가 옮긴다
+_COUNT = re.compile(r"근거\s*(\d+)\s*건")
+_COUNT_OUT = {"en": lambda m: f"{m.group(1)} sources", "ja": lambda m: f"根拠{m.group(1)}件"}
 LANG_WORD = {"ko": "한국어로", "en": "in English", "ja": "日本語で"}
 # 코드가 직접 쓰는 문장
 MSG = {
@@ -548,5 +551,7 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
                       fallback="도구만 부르고 답을 내지 않음", cards=ctx.cards)
     if not ctx.term_ids and log_miss:
         ds.log_lookup_miss(con, question.strip()[:200], lang)   # 사전이 답하지 못한 질문 → 발굴 단계 재료
+    if _lang(lang) in _COUNT_OUT:
+        last_text = _COUNT.sub(_COUNT_OUT[_lang(lang)], last_text)
     return Answer(text=last_text, used=used, term_ids=ctx.term_ids, turns=turn + 1, seconds=time.time() - t0,
                   cards=ctx.cards)

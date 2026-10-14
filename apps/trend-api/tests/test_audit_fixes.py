@@ -330,3 +330,4 @@ def test_japanese_screen_gets_japanese_answer_and_japanese_denials_are_caught(mo
     assert "日本語で" in seen[0] and "한국어로, 군더더기" not in seen[0]
     assert out.text.startswith("お探しの言葉は「Tung Tung Tung Sahur」")
     assert ask.CAN_DO["ja"] and ask.MSG["ja"]["none"].endswith("。")
+    assert ask._COUNT.sub(ask._COUNT_OUT["ja"], "（出典：推し活、근거 65건）") == "（出典：推し活、根拠65件）"
