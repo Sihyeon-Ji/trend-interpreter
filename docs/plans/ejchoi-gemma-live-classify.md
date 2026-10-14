@@ -98,7 +98,9 @@ GPU는 데모·녹화 때만 켜므로 심사위원이 들어왔을 때는 꺼�
 남은 운영 작업:
 
 1. 운영 GPU VM을 만든다(지시현 확인, 4-3절). 10-16 갱신 뒤 ejchoi가 켜서 데모에 쓸 용어 몇 개에 두 버튼을 돌려 기록을 남기고 끈다. 녹화는 sng_j 몫이다 – 영상에 버튼 장면을 넣는다면 그 녹화 시간에 맞춰 켠다.
-2. 심사용 계정을 운영 `ACCOUNTS` 비밀값에 더한다(`scripts/set_account.py`로 해시를 만들고 `"reviewer": true, "readonly": true`). 비밀번호는 저장소에 적지 않고 제출 양식에만 적는다.
+2. ~~심사용 계정을 운영 `ACCOUNTS` 비밀값에 더한다.~~ **10-14 완료(ktwoo).** `judge`(`"reviewer": true, "readonly": true`)를 더한 `trend-production-accounts` **version 2**, API 리비전 `trend-production-api-judge2`(트래픽 100%). 비밀번호는 저장소에 없고 ktwoo 가 가지고 있다(제출 양식에만 적는다).
+   - 이 서버의 gcloud 584 는 `run services update --update-secrets` 가 Terraform 이 넣은 secret 경로(`projects/<id>/secrets/…`)를 읽지 못해 멈췄다 – Cloud Run v2 REST 로 서비스 정의를 받아 `ACCOUNTS` 의 version 만 바꿔 PATCH 했다. CI 배포(`gcloud run deploy --image`)는 지금 정의를 그대로 이어 받으므로 version 2 가 유지된다.
+   - Terraform 변수 `services.accounts_secret_version` 은 `…/trend-production-accounts/versions/2` 로 맞춰야 한다(다음 apply 가 1로 되돌리지 않게).
 3. 제출 양식과 README에 '심사용 계정으로 `/admin/status`에서 Gemma 실행 기록을 볼 수 있다'고 안내한다.
 
 ## 4-3. 데모·녹화 때 GPU 켜고 끄기

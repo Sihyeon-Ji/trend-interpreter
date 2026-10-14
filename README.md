@@ -96,6 +96,9 @@ Where this shows in the deployed app:
   rules grade both, and the page says so at once when the GPU is off. The GPU VM is started only for demos to keep
   cost down; while it is off the page shows the last recorded run.
 
+Judges can sign in with the read-only reviewer account given in the submission form: every admin screen opens, the two
+Gemma preview buttons work, and approve, reject and risk decisions are refused.
+
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
 ## Architecture
