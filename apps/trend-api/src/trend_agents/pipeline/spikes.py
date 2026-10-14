@@ -34,6 +34,7 @@ YOUTUBE_PER_RUN = 3      # search.list 100 unit
 PROMPT = """아래 근거만 보고, '{term}'({region}) 검색이 {date} 무렵 갑자기 늘어난 이유를 설명하라.
 - why_now: 한국어 1~2문장. '누가(인플루언서·연예인·브랜드·방송) 무엇을 해서' 또는 '어떤 사건·출시·행사 때문에' 처럼 구체적으로. 근거에 이유가 없으면 "근거 부족: 이유 확인되지 않음".
 - why_now_en: 같은 내용을 영어로.
+- why_now_ja: 같은 내용을 일본어로. 이름은 근거에 나온 표기 그대로 두고 지어내지 않는다.
 - trigger: influencer | release | event | controversy | meme | promotion | holiday | sports | unknown
 - actors: 근거 원문에 그대로 나오는 이름만. 추측 금지.
 - first_signal: 근거에서 확인되는 가장 이른 날짜(YYYY-MM-DD), 없으면 null.
@@ -140,6 +141,15 @@ def gather(con: Connection, term: str, region: str, lang: str, use_youtube: bool
     return evs, notes
 
 
+def ja_or_empty(ja: str, term: str, ko: str, names: list[str]) -> str:
+    """일본어판은 가나가 있고, 한글은 검색어·한국어 이유·인물 이름에 글자 그대로 있는 것만 받는다(작은 모델이 'ビ디오' 처럼 섞는다).
+    아니면 비운다 — 화면은 일본어판이 없으면 영어판을 쓴다."""
+    source = " ".join([term, ko, *names])
+    if not re.search(r"[぀-ヿ]", ja or "") or any(run not in source for run in re.findall("[가-힣]+", ja)):
+        return ""
+    return ja.strip()
+
+
 def explain(con: Connection, term: str, region: str, d: str, evs: list[Evidence]) -> TrendExplanation:
     # 네이버 검색 결과는 화면 표시 전용(약관), 커뮤니티·SNS 글은 건수만(ADR 0003) — 급증 이유는 기사·영상·문서로 쓴다
     model_evs, posts = community.for_prompt(naver_search.for_model(evs))
@@ -152,7 +162,8 @@ def explain(con: Connection, term: str, region: str, d: str, evs: list[Evidence]
     conf = draft.self_confidence * (0.7 if dropped and not anchored else 1.0)
     if not evs:
         conf = min(conf, 0.2)
-    return TrendExplanation(**{**draft.model_dump(), "actors": anchored, "self_confidence": round(conf, 2)}, term=term, region=region, date=date.fromisoformat(d),
+    ja = ja_or_empty(draft.why_now_ja, term, draft.why_now, [a.name for a in anchored])
+    return TrendExplanation(**{**draft.model_dump(), "why_now_ja": ja, "actors": anchored, "self_confidence": round(conf, 2)}, term=term, region=region, date=date.fromisoformat(d),
                             evidence_ids=[e.evidence_id for e in evs[:30]], model=model)
 
 

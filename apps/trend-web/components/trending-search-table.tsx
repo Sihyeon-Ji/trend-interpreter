@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { StatusBadge, type Tone } from "@/components/status-badge";
-import { koOrEn, t, type Locale } from "@/lib/i18n";
+import { t, text2, type Locale } from "@/lib/i18n";
 import { scriptLang } from "@/lib/lang";
 import { L, fmtInt } from "@/lib/labels";
 import { TREND_CATEGORIES, type Change, type TrendItem } from "@/lib/trends/types";
@@ -9,10 +9,11 @@ const CHANGE_TONE: Record<Change, Tone> = { up: "good", new: "neutral", flat: "m
 
 /** '무엇인가' — 화면 언어로 쓴 설명만. 기사 제목 원문이나 출처 이름('Google Trends now')이 설명 칸에 들어와 있었다(화면 개편 2차 검토). */
 export function whatItIs(item: TrendItem, locale: Locale): string | null {
-  const note = item.note[koOrEn(locale)]?.trim();   // 일본어 화면은 영어판
+  const note = text2(item.note, locale)?.trim();   // 일본어판이 없으면 일본어 화면은 영어판
   if (!note || /^google trends\b/i.test(note)) return null;
   if (locale === "ko") return /[가-힣]/.test(note) ? note : null;
-  return scriptLang(note) ? null : note;
+  const l = scriptLang(note);
+  return !l || l === locale ? note : null;
 }
 
 export const sortSearches = (items: TrendItem[]) =>

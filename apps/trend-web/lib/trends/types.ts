@@ -6,7 +6,7 @@ export type TrendCategory = "slang_meme" | "song_challenge" | "fashion_beauty" |
 export const TREND_CATEGORIES: TrendCategory[] = ["slang_meme", "song_challenge", "fashion_beauty", "food", "product", "people_content", "sports_event"];
 
 export type Change = "new" | "up" | "flat" | "down";
-export type Text2 = { ko: string; en: string };
+export type Text2 = { ko: string; en: string; ja?: string | null }; // ja 는 일본어판이 있는 글만(급증 이유)
 
 export interface TrendItem {
   id: string;

@@ -23,7 +23,7 @@ def _seed():
         con.execute("INSERT INTO research_log VALUES (?,?,?,?,?,?,?)", ("b", now.isoformat(), "m", "", "[]", "verified_auto", "[]"))
     con.commit()
     ds.save_explanation(con, TrendExplanation(term="東北季風", region="TW", date=date.today(), why_now="북동 계절풍 예보로 검색이 늘었습니다.",
-                                              why_now_en="Monsoon forecast.", trigger="event", self_confidence=0.8))
+                                              why_now_en="Monsoon forecast.", why_now_ja="北東季節風の予報で検索が増えた。", trigger="event", self_confidence=0.8))
     ds.save_explanation(con, TrendExplanation(term="銀行", region="JP", date=date.today(), why_now="", why_now_en="", trigger="unknown",
                                               self_confidence=0.2))
     return con
@@ -39,7 +39,7 @@ def test_user_feed_keeps_only_user_kinds_one_row_per_term_per_day():
     changed = next(r for r in feed["items"] if r["kind"] == "meaning_changed")
     assert changed["previous"] == "처음 뜻"
     spike = next(r for r in feed["items"] if r["label"] == "東北季風")
-    assert spike["region"] == "TW" and spike["reason"]["ko"].startswith("북동")
+    assert spike["region"] == "TW" and spike["reason"]["ko"].startswith("북동") and spike["reason"]["ja"].startswith("北東")
     assert next(r for r in feed["items"] if r["label"] == "銀行")["reason"] is None   # 원인 미확인은 이유를 지어내지 않는다
     assert feed["counts"] == {"verified": 1, "meaning_changed": 1, "spike": 2} and feed["total"] == 4
 
@@ -82,3 +82,12 @@ def test_country_page_lists_confirmed_terms_only():
                        "verified_auto" if status == "verified" else "unverified", [])
         ds.set_usage(con, tid, [("20s", "KR", now.isoformat(), 1.0)])
     assert [r.term.term_id for r in views.country_page(con, "KR").terms] == ["v"]
+
+
+def test_japanese_spike_reason_is_kept_only_when_written_in_japanese():
+    """급증 이유 일본어판(10-14): 가나가 있고 한글은 검색어·한국어 이유·인물 이름에 있는 것만. 아니면 비워 화면이 영어판을 쓴다."""
+    from trend_agents.pipeline.spikes import ja_or_empty
+
+    assert ja_or_empty("오살힘がファンの間で広まった。", "오살힘", "팬들이 쓴다", []) == "오살힘がファンの間で広まった。"
+    assert ja_or_empty("ビ디오が話題になった", "x", "영상이 화제", []) == ""
+    assert ja_or_empty("Fans use it", "x", "팬들이 쓴다", []) == ""

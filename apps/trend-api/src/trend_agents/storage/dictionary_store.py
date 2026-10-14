@@ -1058,7 +1058,7 @@ def recent_updates(con: Connection, hours: int = 48, limit: int | None = 60, kin
                 "SELECT term, region, created_at, updated_at, trigger, json FROM trend_explanations WHERE updated_at>=?", (since,)).fetchall():
             x = json.loads(j) if j else {}
             # 급증 이유 한 문장을 함께 준다 — 이름과 시각뿐이면 무엇이 일어났는지 알 수 없다(화면 개편 2차 검토)
-            reason = {"ko": x.get("why_now") or "", "en": x.get("why_now_en") or x.get("why_now") or ""} if trig != "unknown" else None
+            reason = {"ko": x.get("why_now") or "", "en": x.get("why_now_en") or x.get("why_now") or "", "ja": x.get("why_now_ja") or None} if trig != "unknown" else None
             rows.append({"kind": "spike", "at": updated, "label": term, "region": region, "detail": trig, "reason": reason})
     # 실패한 조사('error')는 이용자 피드에 낼 변화가 아니다
     if "recheck" in want:

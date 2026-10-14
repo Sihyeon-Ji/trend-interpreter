@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { koOrEn, t, type Locale } from "@/lib/i18n";
+import { t, text2, type Locale } from "@/lib/i18n";
 import { whyAnchor } from "@/lib/country";
 import { scriptLang } from "@/lib/lang";
 import { L, fmtDate, sourceName } from "@/lib/labels";
@@ -22,14 +22,15 @@ export function WhyList({ items, locale }: { items: TrendWhy[]; locale: Locale }
       {items.map((w) => {
         const actors = w.actors.map((a) => a.name);
         const more = actors.length - ACTORS_SHOWN;
+        const why = text2(w.why_now, locale);
         return (
           <li key={w.term + w.date} id={whyAnchor(w.term)} className="scroll-mt-20 py-4 target:bg-surface-soft">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h3 lang={otherLang(w.term, locale, w.region)} className="min-w-0 text-[15px] font-semibold text-ink">{w.term}</h3>
               <time dateTime={String(w.date)} className="text-[13px] tabular-nums text-steel">{fmtDate(String(w.date))}</time>
             </div>
-            {/* 이유 글은 한국어·영어 두 가지 — 일본어 화면은 영어판 */}
-            <p lang={otherLang(w.why_now[koOrEn(locale)], locale, w.region) ?? (locale === "ja" ? "en" : undefined)} className="mt-1 max-w-[720px] text-[14px] leading-[1.55] text-charcoal">{w.why_now[koOrEn(locale)]}</p>
+            {/* 일본어판이 없는 옛 이유는 일본어 화면에 영어판 */}
+            <p lang={otherLang(why, locale, w.region) ?? (locale === "ja" && !w.why_now.ja ? "en" : undefined)} className="mt-1 max-w-[720px] text-[14px] leading-[1.55] text-charcoal">{why}</p>
             <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
               <div className="flex gap-1.5"><dt className="text-steel">{t(locale, "country_why_trigger")}</dt><dd className="text-charcoal">{labels.trigger[w.trigger] ?? w.trigger}</dd></div>
               {actors.length > 0 && (

@@ -88,7 +88,7 @@ def build(con: Connection) -> TrendBoard:
         t = ds.find_term(con, term)
         x = expl.get((''.join(term.split()).lower(), region))
         if x and x.self_confidence >= 0.5:
-            note = Text2(ko=x.why_now, en=x.why_now_en or x.why_now)
+            note = Text2(ko=x.why_now, en=x.why_now_en or x.why_now, ja=x.why_now_ja or None)
         else:
             ko, en = SOURCE_NOTE[source]
             note = Text2(ko=news_title or ko, en=news_title or en)
@@ -198,7 +198,7 @@ def why_list(con: Connection, limit_evidence: int = 8) -> list[TrendWhy]:
             counts[e.kind] = counts.get(e.kind, 0) + 1
         shown = [e for e in evs if not is_community_post(e)]
         row = con.execute("SELECT updated_at FROM trend_explanations WHERE key=?", (f"{ds.norm(x.term)}|{x.region}",)).fetchone()
-        out.append(TrendWhy(term=x.term, region=x.region, date=x.date, why_now=Text2(ko=x.why_now, en=x.why_now_en or x.why_now), trigger=x.trigger, actors=x.actors,
+        out.append(TrendWhy(term=x.term, region=x.region, date=x.date, why_now=Text2(ko=x.why_now, en=x.why_now_en or x.why_now, ja=x.why_now_ja or None), trigger=x.trigger, actors=x.actors,
                             first_signal=x.first_signal, confidence=x.self_confidence, evidence_counts=counts,
                             evidence=[EvidenceBrief(kind=e.kind, source_domain=e.source_domain, title=e.title or e.excerpt, url=e.url, observed_at=e.observed_at) for e in shown[:limit_evidence]],
                             updated_at=datetime.fromisoformat(row[0]) if row else datetime.now(timezone.utc)))

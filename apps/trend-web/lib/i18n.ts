@@ -11,6 +11,8 @@ export const isLocale = (v: unknown): v is Locale => typeof v === "string" && (L
 export const localeOf = (v: unknown): Locale => (isLocale(v) ? v : "ko");
 /** 서버 글이 한국어·영어 두 가지로만 올 때(Text2, 모델이 화면 언어로 쓰는 글) 고를 쪽 — 일본어 화면은 영어판 */
 export const koOrEn = (locale: Locale): "ko" | "en" => (locale === "ko" ? "ko" : "en");
+/** Text2 에서 화면 언어 글 — 일본어판(ja)이 있으면 그것(급증 이유, 10-14), 없으면 일본어 화면은 영어판 */
+export const text2 = (x: { ko: string; en: string; ja?: string | null }, locale: Locale): string => (locale === "ja" && x.ja) || x[koOrEn(locale)];
 /** 디자인 시안(/lab/*)은 한국어·영어로만 만들었다 — 일본어 화면에서는 영어로 연다 */
 export type LabLocale = "ko" | "en";
 export const LAB_LOCALES: LabLocale[] = ["ko", "en"];

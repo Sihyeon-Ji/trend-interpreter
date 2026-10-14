@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RiskCell, StageCell } from "@/components/term-status";
 import type { UpdateRow } from "@/lib/data";
-import { koOrEn, t, type Locale } from "@/lib/i18n";
+import { t, text2, type Locale } from "@/lib/i18n";
 import { isCountryCode, whyAnchor } from "@/lib/country";
 import { langTag, localWord, scriptLang } from "@/lib/lang";
 import { regionLabel } from "@/lib/labels";
@@ -46,8 +46,8 @@ const Dash = () => <span className="text-steel">—</span>;
 /** 뜻 또는 이유. 뜻 바뀜은 '이전 뜻'·'지금 뜻' 두 줄(이전 뜻은 번역이 없어 원문), 검색 급증은 이유 한 문장. */
 function Meaning({ r, locale, clamp }: { r: UpdateRow; locale: Locale; clamp: string }) {
   if (r.kind === "spike") {
-    const why = r.reason?.[koOrEn(locale)];   // 이유 글은 한국어·영어 두 가지 — 일본어 화면은 영어판
-    return why ? <p className={clamp} title={why}>{why}</p> : <Dash />;
+    const why = r.reason ? text2(r.reason, locale) : null;   // 일본어판이 없는 옛 이유는 일본어 화면에 영어판
+    return why ? <p lang={locale === "ja" && !r.reason?.ja ? "en" : undefined} className={clamp} title={why}>{why}</p> : <Dash />;
   }
   const now = gloss(r, locale);
   if (r.kind === "meaning_changed") {

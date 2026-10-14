@@ -472,6 +472,7 @@ Change = Literal["new", "up", "flat", "down"]
 class Text2(BaseModel):
     ko: str
     en: str
+    ja: str | None = None   # 일본어판이 있는 글만(급증 이유, 10-14). 없으면 일본어 화면은 영어판
 
 
 class TrendItem(BaseModel):
@@ -613,6 +614,7 @@ class ExplanationDraft(BaseModel):
 
     why_now: str = Field(description="한국어 1~2문장. 누가 무엇을 해서 지금 뜨는지")
     why_now_en: str
+    why_now_ja: str = Field(default="", description="같은 내용을 일본어로")
     trigger: Trigger
     actors: list[Actor] = Field(default_factory=list)
     first_signal: str | None = Field(default=None, description="근거에서 확인되는 가장 이른 날짜 YYYY-MM-DD, 없으면 null")
