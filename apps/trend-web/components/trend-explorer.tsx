@@ -73,7 +73,7 @@ function Named({ items, locale, region }: { items: { label: string; note: { ko: 
           <span className="block text-ink" lang={scriptLang(m.label, region)}>
             {m.term_id ? <Link href={`/dictionary/${m.term_id}`} className="text-link-blue hover:underline">{m.label}</Link> : m.label}
           </span>
-          {m.note[koOrEn(locale)] && <span className="block text-[13px] text-steel">{m.note[koOrEn(locale)]}</span>}
+          {text2(m.note, locale) && <span className="block text-[13px] text-steel">{text2(m.note, locale)}</span>}
         </li>
       ))}
     </ul>

@@ -29,7 +29,8 @@ export default async function DictionaryPage({ searchParams }: { searchParams: P
     q: (sp.q ?? "").slice(0, 80),
     regions: (sp.regions ?? "").split(",").filter((r) => known.includes(r)),
     kind: sp.kind ?? "", lang: sp.lang ?? "", risk: sp.risk ?? "",
-    sort: SORTS.includes(sp.sort as SortKey) ? (sp.sort as SortKey) : "name",
+    // 기본은 최근 쓰인 순 — A→Z 첫 쪽이 'A Brony Tale'·'A Haunted House 2'(영화 소개뿐인 뜻)였다(10-14 점검)
+    sort: SORTS.includes(sp.sort as SortKey) ? (sp.sort as SortKey) : "used",
     page: Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1),
   };
   const asOf = meta?.collected_at ?? meta?.last_run;

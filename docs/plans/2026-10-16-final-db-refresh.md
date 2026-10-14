@@ -25,12 +25,23 @@
 
 - ~~`fit_backfill.py`에 추천 후보의 로컬 모델(`local:`) 쓰임 낱말을 Gemini로 다시 붙이는 옵션을 더한다.~~ 10-10에 더했다: `fit_backfill.py --gemini gemini-3.5-flash --batch 12 --relabel-local`(2897066). 10-10 운영 사본에서 로컬 값인 추천 후보는 0개다.
 
+- **10-14 수집 DB 정리(ktwoo 위임, 결정 이름 `ktwoo(위임·Claude 조사 2026-10-14)`)** — 10-13 스냅숏(`20261013T170912-5f2443d`)과 그 빌드는 이 정리 전이라 10-15 밤 스냅숏으로 다시 만든다.
+  - 草: 뜻을 출처(일본어 위키백과 「（笑）」, 나무위키 草)대로 고친 새 판(verified_human), 언어 zh → ja. 이전 판은 '지지율 비유'(天草灘 지진 기사에서 뽑힌 틀린 뜻)였다.
+  - 게이트 규칙(근거 메모·'밈으로 사용됨' 뿐·짐작·한두 마디)이 생기기 전에 자동으로 실린 뜻 221개를 검수 대기로 내렸다(사람이 보던 제안이 있는 10개는 그대로).
+  - 리스크 사람 결정: 무뇌충·정속충·환기충·리얼충 주의(벌레 비하 접미), #BreakTheBias 사용 자제 → 주의. #NiggerNavy·Noah Knigga 는 표제어 규칙(match.unsafe)으로 공개에서 빠진다.
+  - 구두점만 다른 표제어 4쌍을 별칭으로 합침(Nice boat. · …Kenny! · This is Sparta! · …Captain Alex? 를 retired).
+  - 결정 칸이 빈 문자열이라 큐에 안 보이던 5건(역주행·썬연료·kocak·High key·Hawk tuah)을 다시 보이게.
+  - 급증 이유 351개·지구 주제의 나라별 차이에 일본어판(Sonnet), 기존 말 37개의 뜻 번역을 Sonnet 판으로.
+  - 정리 전 백업: 수집 서버 `data/backup/trend.db.bak-20261014-before-cleanup`.
+- 아직 사람이 볼 것: 검수 대기의 '밈 아님(두 판정 일치)' 1,006건·'빈말' 88건은 한꺼번에 닫을 수 있다(10-14 권한 확인으로 보류), 이미 실린 말의 고칠 안 140건·제외 제안(???, Bob Ross, Bohemian Rhapsody, Blood Sugar).
+
 ## 전환 전 확인 (새 DB, API를 바꾸기 전)
 
 1. `compare` 결과 빠진 사람 결정 0.
 2. 새로 추천 후보가 된 말 목록을 지금 DB와 견준다. 쓰임 낱말은 `fit_backfill --gemini --relabel-local`, 리스크가 비어 있으면 표로 내 사람 판정.
 3. 같은 12사례를 새 DB 사본으로 잰다. 9차(어울림 91%, 위험 누락 0)보다 나쁘면 원인을 고치거나 전환하지 않는다.
-4. 통과하면 secret 버전 추가와 API·Job 전환.
+4. 화면 점검(10-14): 영어·일본어 화면 첫 화면·둘러보기에 밈 아닌 말(Know Your Meme·relatable·Deepfake)이 없고, 첫 화면 말이 모두 그 화면 언어의 뜻을 갖는다(草 'English explanation not available yet' 이었다). 나라 화면 1초 안.
+5. 통과하면 secret 버전 추가와 API·Job 전환. 코드도 함께 배포한다(develop 의 10-14 수정: 첫 방문 언어·나라 화면 brief·빈 뜻 비공개·급증 이유 일본어판).
 
 ## 이전 DB로 되돌리기 – 왜 하나
 

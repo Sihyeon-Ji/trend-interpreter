@@ -122,12 +122,13 @@ def build(con: Connection) -> TrendBoard:
         for r in regions:
             n = notes.get(r)
             share = max((u["share"] for u in usage if u["region"] == r), default=0.0)
-            if n and n.get("self_confidence", 0) >= 0.5:
+            # '근거 부족' 이라고 쓴 메모는 조사한 것이 아니다 — 확신도가 높아도 '조사 중' 으로(230개 중 76개가 'Insufficient evidence' 로 나갔다, 10-14)
+            if n and n.get("self_confidence", 0) >= 0.5 and not (n.get("what_changed") or {}).get("ko", "").startswith("근거 부족"):
                 wc = Text2(**n["what_changed"])
-                memes = [TopicVariantLink(label=x["label"], note=Text2(ko=x.get("note_ko", ""), en=x.get("note_en", ""))) for x in n.get("local_memes", [])]
+                memes = [TopicVariantLink(label=x["label"], note=Text2(ko=x.get("note_ko", ""), en=x.get("note_en", ""), ja=x.get("note_ja"))) for x in n.get("local_memes", [])]
                 local_name = n.get("local_name") or t.canonical
             else:
-                wc = Text2(ko="나라별 차이는 조사 중입니다.", en="Country differences are still being researched.")
+                wc = Text2(ko="나라별 차이는 조사 중입니다.", en="Country differences are still being researched.", ja="国ごとの違いは調査中です。")
                 memes, local_name = [], t.canonical
             tl = timeline.get(r)
             if tl:

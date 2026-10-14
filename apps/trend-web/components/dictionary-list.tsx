@@ -33,7 +33,7 @@ function toQuery(s: DictionaryState): string {
   if (s.kind) q.set("kind", s.kind);
   if (s.lang) q.set("lang", s.lang);
   if (s.risk) q.set("risk", s.risk);
-  if (s.sort !== "name") q.set("sort", s.sort);
+  if (s.sort !== "used") q.set("sort", s.sort);
   if (s.page > 1) q.set("page", String(s.page));
   const out = q.toString();
   return out ? `?${out}` : "";
