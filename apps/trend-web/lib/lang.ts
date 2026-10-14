@@ -8,8 +8,11 @@ export const langTag = (lang?: string | null) => (lang ? TERM_LANG[lang] ?? lang
 /** 언어 칸이 없는 글(현지 이름·검색어·기사 제목)의 말을 글자로 짐작한다. 라틴 글자는 달지 않는다(화면 언어를 따른다).
  *  한자만 있으면 나라로 가른다: 일본은 ja, 대만·홍콩은 zh-Hant. */
 export function scriptLang(text: string, region?: string | null): string | undefined {
-  if (/[぀-ヿ]/.test(text)) return "ja";
-  if (/[가-힣]/.test(text)) return "ko";
+  // 가나와 한글이 함께 있으면 많은 쪽 — 한국어 뜻이 '推し活(오시카츠)' 를 인용하면 일본어로 잡혀 일본어 화면에 한국어 이전 뜻이 나왔다(10-14)
+  const kana = text.match(/[぀-ヿ]/g)?.length ?? 0;
+  const hangul = text.match(/[가-힣]/g)?.length ?? 0;
+  if (kana && kana >= hangul) return "ja";
+  if (hangul) return "ko";
   if (/[฀-๿]/.test(text)) return "th";
   if (/[一-鿿]/.test(text)) return region === "JP" ? "ja" : "zh-Hant";
   return undefined;

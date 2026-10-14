@@ -4,7 +4,8 @@ import { expect, test } from "@playwright/test";
 import { tx } from "../components/stage/copy";
 import { explainMessage, jaUntranslated, textFor } from "../lib/explain";
 import { glossFor } from "../lib/gloss";
-import { localeOf, t } from "../lib/i18n";
+import { scriptLang } from "../lib/lang";
+import { localeOf, t, text2 } from "../lib/i18n";
 import { fmtDateTime, listJoin, sourceLabel } from "../lib/labels";
 import { SAMPLE_RECORDS } from "../lib/sample/dictionary";
 
@@ -86,4 +87,18 @@ test("message explanations join the Japanese fragments in Japanese order without
   expect(r.greeting).toBe("太郎さん、このメッセージで確認された表現を1件見つけました。");
   expect(r.items[0].notes[0]).toBe("50代以上の利用者にはなじみが薄いかもしれない言葉です。");
   expect(r.items[0].headline).toBe(`「${r.items[0].text?.expansion}」の略。${r.items[0].text?.definition}`);
+});
+
+test("spike reasons use the Japanese version when there is one, else English on the Japanese screen", () => {
+  const old = { ko: "가수가 방송에서 불렀다", en: "A singer sang it on TV" };
+  expect(text2(old, "ja")).toBe(old.en);
+  expect(text2({ ...old, ja: "歌手が番組で歌った" }, "ja")).toBe("歌手が番組で歌った");
+  expect(text2({ ...old, ja: "歌手が番組で歌った" }, "ko")).toBe(old.ko);
+  expect(text2({ ...old, ja: null }, "en")).toBe(old.en);
+});
+
+test("text with both kana and Hangul takes the language with more letters", () => {
+  expect(scriptLang("주로 아이돌을 응원하는 활동인 '推し活(오시카츠)' 으로 넓어졌다")).toBe("ko");
+  expect(scriptLang("오살힘がファンの間で広まった")).toBe("ja");
+  expect(scriptLang("推し活")).toBe("ja");
 });
