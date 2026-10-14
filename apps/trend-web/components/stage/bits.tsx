@@ -1,6 +1,7 @@
 /* 무대 화면의 작은 부품 — 서버·클라이언트 어디서나 쓴다(훅 없음). */
 import { Ban, CircleHelp, CircleCheck, ListChecks, Sparkles, Stamp, TriangleAlert } from "lucide-react";
 import { LOCALE_TAG, type Locale } from "@/lib/i18n";
+import { fmtDateTime } from "@/lib/labels";
 import { langTag } from "@/lib/lang";
 import { tx } from "./copy";
 
@@ -99,11 +100,11 @@ export function fmtDay(iso: string | null | undefined, locale: Locale, withYear 
   return d.toLocaleDateString(LOCALE_TAG[locale], { timeZone: TZ, ...(withYear ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }) });
 }
 
+/** 자료 시각 — 다른 화면(fmtDateTime)과 같은 꼴·시간대로. 영어 화면에서 첫 화면만 서울 시간 'Oct 12, 02:17 PM' 이고 나머지는
+ *  '2026.10.12 05:17 UTC' 라 다른 시각처럼 읽혔다(10-14 점검) */
 export function fmtStamp(iso: string | null | undefined, locale: Locale): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(LOCALE_TAG[locale], { timeZone: TZ, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "";
+  return fmtDateTime(iso, locale);
 }
 
 export const fmtN = (n: number) => n.toLocaleString("en-US");

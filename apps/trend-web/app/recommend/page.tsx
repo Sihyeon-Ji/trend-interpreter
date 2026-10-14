@@ -23,7 +23,8 @@ export default async function RecommendPage({ searchParams }: { searchParams: Pr
   const asked = [sp.regions].flat().filter(Boolean).join(",").split(",").map((s) => s.trim().toUpperCase());
   const fromUrl = TARGET_REGIONS.filter((r) => asked.includes(r));
   // 주소에 지역이 없으면 로그인한 사람의 나라, 익명은 한국 (목표 지역 밖 나라면 한국)
-  const initial = fromUrl.length ? fromUrl : reader.region && TARGET_REGIONS.includes(reader.region) ? [reader.region] : ["KR"];
+  // 설정이 없으면 일본어 화면은 일본 — 한국이 골라져 시안이 한국어로 나왔다(10-14 점검)
+  const initial = fromUrl.length ? fromUrl : reader.region && TARGET_REGIONS.includes(reader.region) ? [reader.region] : [locale === "ja" ? "JP" : "KR"];
   const termId = [sp.term].flat()[0]?.trim() ?? "";
   const [record, meta] = await Promise.all([
     /^[\w.:-]{1,64}$/.test(termId) ? getTermRecord(termId) : Promise.resolve(null),

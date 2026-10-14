@@ -50,9 +50,9 @@ const en: Labels = {
   region: {
     KR: "Korea", JP: "Japan", TW: "Taiwan", HK: "Hong Kong", TH: "Thailand", VN: "Vietnam", ID: "Indonesia", PH: "Philippines", MY: "Malaysia",
     SG: "Singapore", IN: "India", AU: "Australia", US: "United States", CA: "Canada", GB: "United Kingdom", DE: "Germany", FR: "France", ES: "Spain", IT: "Italy",
-    BR: "Brazil", MX: "Mexico", CN: "China", AE: "UAE", AR: "Argentina", TR: "Türkiye", SA: "Saudi Arabia", EG: "Egypt", NG: "Nigeria", ZA: "South Africa", GLOBAL: "worldwide",
+    BR: "Brazil", MX: "Mexico", CN: "China", AE: "UAE", AR: "Argentina", TR: "Türkiye", SA: "Saudi Arabia", EG: "Egypt", NG: "Nigeria", ZA: "South Africa", GLOBAL: "Worldwide",
   },
-  lifecycle: { emerging: "just spreading", rising: "on the rise", peak: "at its peak", steady: "in steady use", declining: "fading", dormant: "rarely used now", unknown: "no recent usage data" },
+  lifecycle: { emerging: "just spreading", rising: "on the rise", peak: "at its peak", steady: "in steady use", declining: "in decline", dormant: "rarely used now", unknown: "no recent usage data" },
   lifecycleSentence: { emerging: "It is just starting to spread.", rising: "It is being used more and more.", peak: "It is at the height of its use right now.", steady: "It is still in steady use.", declining: "It is used less and less these days.", dormant: "It is rarely used now.", unknown: "" },
   verification: { verified_human: "reviewed", verified_auto: "reviewed", unverified: "under review", rejected: "excluded" },
   termStatus: { candidate: "candidate", researching: "researching", needs_review: "under review", verified: "reviewed", retired: "retired" },
@@ -130,11 +130,12 @@ export const sourceLabel = (locale: Locale, name: string, noun: string) => (!nou
 
 /** 용어 원문의 언어 (Term.lang) */
 const TERM_LANG: Record<Locale, Record<string, string>> = {
-  ko: { ko: "한국어", en: "영어", ja: "일본어", id: "인도네시아어", th: "태국어", vi: "베트남어", zh: "중국어" },
-  en: { ko: "Korean", en: "English", ja: "Japanese", id: "Indonesian", th: "Thai", vi: "Vietnamese", zh: "Chinese" },
-  ja: { ko: "韓国語", en: "英語", ja: "日本語", id: "インドネシア語", th: "タイ語", vi: "ベトナム語", zh: "中国語" },
+  ko: { ko: "한국어", en: "영어", ja: "일본어", id: "인도네시아어", th: "태국어", vi: "베트남어", zh: "중국어", hi: "힌디어", te: "텔루구어", de: "독일어", fr: "프랑스어" },
+  en: { ko: "Korean", en: "English", ja: "Japanese", id: "Indonesian", th: "Thai", vi: "Vietnamese", zh: "Chinese", hi: "Hindi", te: "Telugu", de: "German", fr: "French" },
+  ja: { ko: "韓国語", en: "英語", ja: "日本語", id: "インドネシア語", th: "タイ語", vi: "ベトナム語", zh: "中国語", hi: "ヒンディー語", te: "テルグ語", de: "ドイツ語", fr: "フランス語" },
 };
-export const termLangLabel = (locale: Locale, code: string) => TERM_LANG[locale][code] ?? code;
+/** 'in' 은 인도네시아어의 옛 코드(데이터에 1개) — 날 코드가 필터에 그대로 보였다(10-14) */
+export const termLangLabel = (locale: Locale, code: string) => TERM_LANG[locale][code === "in" ? "id" : code] ?? code;
 
 /** 뉘앙스가 근거로 확인됐는가. 출처는 뜻 전체에 참고 문서로만 붙고 뉘앙스 칸을 따로 대조한 기록은 없다 —
  *  사람 판정(10-04)에서 근거에 없는 뉘앙스가 여럿 나왔다. 사람이 검수한 뜻만 확인된 것으로 본다. */

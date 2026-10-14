@@ -564,7 +564,8 @@
   .r-stage .rs-who { display: none; }
   .r-stage .rs-menu-account { display: block; }
   .r-stage .rs-menu > button { padding: 0 6px; font-size: 14px; }
-  .r-stage .rs-nav { order: 3; flex-basis: 100%; margin: 4px -4px 0; overflow-x: auto; scrollbar-width: none; }
+  /* 옆으로 밀리는 줄은 표시가 없어 '세계 지도' 가 화면 밖에 숨었다(390px, 10-14) — 접어서 다 보이게 */
+  .r-stage .rs-nav { order: 3; flex-basis: 100%; margin: 4px -4px 0; flex-wrap: wrap; row-gap: 2px; overflow: visible; }
   .r-stage .rs-lang button { height: 28px; padding: 0 10px; }
   .r-stage .rs-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
   .r-stage .rs-flow li + li::before { display: none; }

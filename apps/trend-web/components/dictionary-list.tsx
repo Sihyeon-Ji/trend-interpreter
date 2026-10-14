@@ -233,7 +233,7 @@ export function DictionaryList({ packed, locale, readerGen = null, initial }: { 
               <li key={r.term_id} className="py-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <span className="min-w-0">
-                    <Link href={`/dictionary/${r.term_id}`} lang={r.name ? LOCALE_TAG[locale] : langTag(r.lang)} className="text-[16px] font-semibold text-ink hover:underline">{r.name ?? r.canonical}</Link>
+                    <Link href={`/dictionary/${r.term_id}`} lang={r.name ? LOCALE_TAG[locale] : langTag(r.lang)} className="inline-block min-h-[32px] py-1 text-[16px] font-semibold text-ink hover:underline">{r.name ?? r.canonical}</Link>
                     {r.reading && <span lang={LOCALE_TAG[locale]} className="ml-2 text-[12px] text-steel">{r.reading}</span>}
                   </span>
                   <RiskCell item={r} locale={locale} />

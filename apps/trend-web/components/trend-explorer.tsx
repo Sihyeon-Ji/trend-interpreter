@@ -10,7 +10,7 @@ import { ListTabs } from "@/components/list-tabs";
 import { PageHeader } from "@/components/page-header";
 import { StatePanel } from "@/components/state-panel";
 import { StatusBadge } from "@/components/status-badge";
-import { koOrEn, t, type Locale } from "@/lib/i18n";
+import { koOrEn, t, text2, type Locale } from "@/lib/i18n";
 import { fmtDate, fmtDateTime, regionLabel } from "@/lib/labels";
 import { langTag, localWord, scriptLang } from "@/lib/lang";
 import { TARGET_REGIONS } from "@/lib/reader";
@@ -98,7 +98,7 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
   return (
     <section aria-labelledby="mp-compare" className="space-y-3">
       <h2 id="mp-compare" className="text-[18px] font-semibold text-ink">{fill(t(locale, "mp_compare_title"), { meme: topic.name[koOrEn(locale)] })}</h2>
-      {topic.summary[koOrEn(locale)] && <p className="max-w-[720px] text-[15px] leading-[1.55] text-charcoal">{topic.summary[koOrEn(locale)]}</p>}
+      {text2(topic.summary, locale) && <p className="max-w-[720px] text-[15px] leading-[1.55] text-charcoal">{text2(topic.summary, locale)}</p>}
       {!origin && <p className="max-w-[720px] text-[13px] text-steel">{t(locale, "map_no_path")}</p>}
 
       {/* 768px 이상: 표 */}
@@ -131,7 +131,7 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
               <td className="px-3 py-3 text-charcoal">{since(v)}</td>
               {done && <>
                 <td className="px-3 py-3 text-right"><Heat value={v.heat} /></td>
-                <td className="px-3 py-3 leading-[1.55] text-charcoal">{v.what_changed[koOrEn(locale)] || <span className="text-steel">—</span>}</td>
+                <td className="px-3 py-3 leading-[1.55] text-charcoal">{text2(v.what_changed, locale) || <span className="text-steel">—</span>}</td>
                 <td className="px-3 py-3 text-charcoal"><Named items={v.local_memes} locale={locale} region={v.region} /></td>
                 <td className="px-3 py-3 text-charcoal"><Named items={v.linked} locale={locale} region={v.region} /></td>
               </>}
@@ -153,8 +153,8 @@ function VariantDetail({ topic, locale }: { topic: Topic; locale: Locale }) {
               <div className="flex gap-2"><dt className="text-steel">{t(locale, "mp_first_confirmed")}</dt><dd className="text-charcoal">{since(v)}</dd></div>
               {done && <div className="flex gap-2"><dt className="text-steel">{t(locale, "ex_heat")}</dt><dd className="tabular-nums text-charcoal">{v.heat}</dd></div>}
             </dl>
-            {done && v.what_changed[koOrEn(locale)] && (
-              <div><p className="text-[13px] text-steel">{t(locale, "ex_what_changed")}</p><p className="leading-[1.55] text-charcoal">{v.what_changed[koOrEn(locale)]}</p></div>
+            {done && text2(v.what_changed, locale) && (
+              <div><p className="text-[13px] text-steel">{t(locale, "ex_what_changed")}</p><p className="leading-[1.55] text-charcoal">{text2(v.what_changed, locale)}</p></div>
             )}
             {done && v.local_memes.length > 0 && <div><p className="text-[13px] text-steel">{t(locale, "ex_local_memes")}</p><Named items={v.local_memes} locale={locale} region={v.region} /></div>}
             {done && v.linked.length > 0 && <div><p className="text-[13px] text-steel">{t(locale, "ex_linked")}</p><Named items={v.linked} locale={locale} region={v.region} /></div>}

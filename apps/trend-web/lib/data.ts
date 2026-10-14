@@ -247,7 +247,7 @@ export async function getCountryPage(region: string): Promise<CountryView | null
     return { region, items, ...recentWhy(SAMPLE_WHY, region, SAMPLE_BOARD.generated_at), board: target ? sampleKeywordBoard([region]) : null, updated_at: SAMPLE_BOARD.generated_at };
   }
   const [page, board] = await Promise.all([
-    apiOrNull<CountryPage>(`/countries/${encodeURIComponent(region)}`, 30),
+    apiOrNull<CountryPage>(`/countries/${encodeURIComponent(region)}?brief=1`, 30),   // 용어 목록 없이(13MB → 수백 KB, 10-14)
     target ? apiOrNull<KeywordBoard>(`/dashboard?regions=${encodeURIComponent(region)}`, false) : Promise.resolve(null),
   ]);
   if (!page || (target && !board)) return null;

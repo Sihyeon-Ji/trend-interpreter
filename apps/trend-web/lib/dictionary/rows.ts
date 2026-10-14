@@ -55,7 +55,10 @@ export function toRow(r: TermRecord, locale: Locale): DictionaryRow {
     regions: termRegions(r), last_used: lastUsedOf(r), changed: m?.valid_from?.slice(0, 10) ?? null,
     risk_level: r.term.risk_level ?? null, risk_checked_at: r.term.risk_checked_at?.slice(0, 10) ?? null,
     generations: [...new Set(measuredUsage(r.usage).map((u) => u.segment.generation))],
-    alt: m?.definition && m.definition !== definition ? m.definition : null,
+    // 다른 언어의 읽기·원어 이름도 찾기에 — 한국어 화면에서 'lucky vicky' 로 럭키비키가 안 나왔다(10-14 점검)
+    alt: [m?.definition && m.definition !== definition ? m.definition : "",
+      ...Object.entries(r.readings ?? {}).filter(([l]) => l !== locale).map(([, v]) => v),
+      ...Object.values(r.names ?? {})].filter(Boolean).join(" ") || null,
     // 화면 언어 이름이면 읽기는 붙이지 않고, 다른 나라 원어(goblin mode·牛丼)를 세울 때는 화면 언어 글자의 읽기를 곁에
     reading: shown.local && shown.lang === locale ? null : r.readings?.[locale] ?? null,
     name: shown.local ? shown.text : null,
@@ -111,14 +114,18 @@ export const unfamiliarTo = (row: DictionaryRow, gen: string | null) =>
 export function sortRows(rows: DictionaryRow[], sort: SortKey, locale: Locale, readerGen: string | null = null): DictionaryRow[] {
   const collators = new Map<string, Intl.Collator>();
   const coll = (lang: string) => {
-    if (!collators.has(lang)) collators.set(lang, new Intl.Collator(lang === "zh" ? "zh-Hant" : lang));
+    if (!collators.has(lang)) collators.set(lang, new Intl.Collator(lang));
     return collators.get(lang)!;
   };
-  const byName = (a: DictionaryRow, b: DictionaryRow) => {
-    const d = scriptRank(a.canonical, locale) - scriptRank(b.canonical, locale);
-    // 같은 글자 갈래 안에서는 표제어 언어의 순서로(일본어 표제어가 한국 한자음 순으로 서던 것)
-    return d || coll(a.lang === b.lang ? a.lang : locale).compare(a.canonical, b.canonical);
+  // 글자 갈래마다 한 가지 순서로 — 가나·한자는 일본어(일본어 표제어가 한국 한자음 순으로 서던 것), 한글은 한국어, 라틴은 영어.
+  // 두 표제어의 언어로 순서를 바꾸면 비교가 앞뒤로 어긋나(A<B·B<C 인데 C<A) 서버와 브라우저의 A→Z 가 달라졌다(hydration 오류, 10-14)
+  const collFor = (s: string) => {
+    const c = s.trim().charAt(0);
+    return coll(/[぀-ヿ一-鿿]/.test(c) ? "ja" : /[가-힣ㄱ-ㅎ]/.test(c) ? "ko" : "en");
   };
+  const byName = (a: DictionaryRow, b: DictionaryRow) =>
+    scriptRank(a.canonical, locale) - scriptRank(b.canonical, locale) || collFor(a.canonical).compare(a.canonical, b.canonical)
+    || (a.canonical < b.canonical ? -1 : a.canonical > b.canonical ? 1 : 0);
   const desc = (x: string | null, y: string | null) => (y ?? "").localeCompare(x ?? "");
   const out = [...rows];
   if (sort === "used") return out.sort((a, b) => desc(a.last_used, b.last_used) || byName(a, b));

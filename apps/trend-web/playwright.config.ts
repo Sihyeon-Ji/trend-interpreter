@@ -9,6 +9,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
+    // 쿠키가 없으면 브라우저 언어를 따른다(10-14) — 기존 시험은 한국어 화면을 본다
+    locale: "ko-KR",
   },
   reporter: "list",
 });

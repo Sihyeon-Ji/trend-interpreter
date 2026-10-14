@@ -5,7 +5,7 @@ import { tx } from "../components/stage/copy";
 import { explainMessage, jaUntranslated, textFor } from "../lib/explain";
 import { glossFor } from "../lib/gloss";
 import { scriptLang } from "../lib/lang";
-import { localeOf, t, text2 } from "../lib/i18n";
+import { localeFromAcceptLanguage, localeOf, t, text2 } from "../lib/i18n";
 import { fmtDateTime, listJoin, sourceLabel } from "../lib/labels";
 import { SAMPLE_RECORDS } from "../lib/sample/dictionary";
 
@@ -101,4 +101,13 @@ test("text with both kana and Hangul takes the language with more letters", () =
   expect(scriptLang("주로 아이돌을 응원하는 활동인 '推し活(오시카츠)' 으로 넓어졌다")).toBe("ko");
   expect(scriptLang("오살힘がファンの間で広まった")).toBe("ja");
   expect(scriptLang("推し活")).toBe("ja");
+});
+
+test("without a saved language the browser language decides, English when none of ours is listed", () => {
+  expect(localeFromAcceptLanguage("en-US,en;q=0.9")).toBe("en");
+  expect(localeFromAcceptLanguage("ja,en-US;q=0.8")).toBe("ja");
+  expect(localeFromAcceptLanguage("de-DE,de;q=0.9,ko;q=0.5")).toBe("ko");
+  expect(localeFromAcceptLanguage("en;q=0.4,ja;q=0.9")).toBe("ja");
+  expect(localeFromAcceptLanguage("fr-FR")).toBe("en");
+  expect(localeFromAcceptLanguage(null)).toBe("ko");
 });

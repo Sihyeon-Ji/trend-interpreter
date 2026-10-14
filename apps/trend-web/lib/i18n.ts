@@ -9,6 +9,18 @@ export const LOCALE_TAG: Record<Locale, string> = { ko: "ko-KR", en: "en-US", ja
 export const isLocale = (v: unknown): v is Locale => typeof v === "string" && (LOCALES as string[]).includes(v);
 /** 모르는 값이면 한국어 — 쿠키·<html lang> 을 읽는 곳이 함께 쓴다 */
 export const localeOf = (v: unknown): Locale => (isLocale(v) ? v : "ko");
+/** 쿠키가 없을 때 브라우저 언어(Accept-Language)에서 고른다 — q 값이 높은 순으로 우리가 가진 첫 언어, 없으면 영어.
+ *  심사·해외 방문자가 처음부터 한국어 화면을 보던 것(10-14 점검)을 고친다. 헤더가 아예 없으면(봇·curl) 한국어 */
+export function localeFromAcceptLanguage(header: string | null | undefined): Locale {
+  if (!header?.trim()) return "ko";
+  const tags = header.split(",").map((part, i) => {
+    const [tag, ...params] = part.trim().split(";");
+    const q = Number(params.find((p) => p.trim().startsWith("q="))?.trim().slice(2) ?? 1);
+    return { lang: tag.trim().toLowerCase().split("-")[0], q: Number.isFinite(q) ? q : 0, i };
+  });
+  const hit = tags.filter((t) => t.q > 0).sort((a, b) => b.q - a.q || a.i - b.i).find((t) => isLocale(t.lang));
+  return hit ? (hit.lang as Locale) : "en";
+}
 /** 서버 글이 한국어·영어 두 가지로만 올 때(Text2, 모델이 화면 언어로 쓰는 글) 고를 쪽 — 일본어 화면은 영어판 */
 export const koOrEn = (locale: Locale): "ko" | "en" => (locale === "ko" ? "ko" : "en");
 /** Text2 에서 화면 언어 글 — 일본어판(ja)이 있으면 그것(급증 이유, 10-14), 없으면 일본어 화면은 영어판 */
@@ -1086,7 +1098,6 @@ const ko = {
   graph_retry: "다시 불러오기",
   graph_nf_title: "찾을 수 없는 콘텐츠입니다",
   graph_nf_body: "주소가 바뀌었거나 아직 모이지 않은 콘텐츠입니다.",
-  graph_loading: "불러오는 중",
   nav_briefing: "브리핑 보고서",
   nav_check: "카피 검사",
   brief_title: "트렌드 브리핑",
@@ -1903,7 +1914,7 @@ const en = {
   pg_ex_result: "Result",
   pg_ex_sample_note: "This is a sample comment, explained. Try your own above.",
   pg_ex_example_loading: "Loading the example",
-  pg_ex_found: "{n} expressions found",
+  pg_ex_found: "Expressions found: {n}",
   pg_ex_answer: "Answer from the dictionary",
   pg_ex_not_in_dict: "Not in the dictionary yet",
   pg_ex_sample_only: "With sample data, only pasted text can be explained. Answers to questions need live data.",
@@ -2292,7 +2303,6 @@ const en = {
   graph_retry: "Reload",
   graph_nf_title: "Content not found",
   graph_nf_body: "The address may have changed, or this content hasn't been collected yet.",
-  graph_loading: "Loading",
   nav_briefing: "Trend briefing",
   nav_check: "Copy check",
   brief_title: "Trend briefing",
@@ -2332,7 +2342,7 @@ const en = {
   check_submit: "Check",
   check_running: "Checking…",
   check_count: "{n}/{max} characters",
-  check_found: "{n} memes found in your copy",
+  check_found: "Memes found in your copy: {n}",
   check_none: "No dictionary memes found. Check the spelling or search the dictionary.",
   check_ok: "Nothing to fix",
   check_unsafe: "Your copy contains profanity or sexual wording. Remove it from brand copy.",
@@ -3496,7 +3506,6 @@ const ja = {
   graph_retry: "もう一度読み込む",
   graph_nf_title: "作品が見つかりません",
   graph_nf_body: "URLが変わったか、まだ収集されていない作品です。",
-  graph_loading: "読み込み中",
   nav_briefing: "ブリーフィング",
   nav_check: "文言チェック",
   brief_title: "トレンドブリーフィング",
