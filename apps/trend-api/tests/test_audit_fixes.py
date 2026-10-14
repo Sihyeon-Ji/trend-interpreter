@@ -311,3 +311,22 @@ def test_model_cannot_deny_what_the_tools_found(monkeypatch):
     ask.reset_breaker()
     out = ask.run(con, "그 나무 통 캐릭터 밈 뭐였지?")
     assert "Tung Tung Tung Sahur" in out.text and "없습니다" not in out.text
+
+
+def test_japanese_screen_gets_japanese_answer_and_japanese_denials_are_caught(monkeypatch):
+    """일본어 화면은 일본어로 답한다(10-14) — 지시문이 일본어 답을 시키고, 모델의 일본어 '없다' 도 찾은 것으로 덮는다."""
+    from trend_agents.interpreters import local_chat
+    from trend_agents.pipeline import ask, tools as T
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    seen = []
+    monkeypatch.setattr(T, "run_tool", lambda ctx, n, a: (ctx.offer("Tung Tung Tung Sahur", "イタリアン・ブレインロットのキャラクター"), "찾음")[1])
+    turns = iter([("", [local_chat.ToolCall(id="1", name="search_terms", args={"query": "木の樽のキャラ"})]),
+                  ("辞書にはまだ載っていません。", [])])
+    monkeypatch.setattr(local_chat, "chat_with_tools", lambda messages, tools: (seen.append(messages[0]["content"]), next(turns))[1])
+    ask.reset_breaker()
+    out = ask.run(con, "木の樽のキャラのミームって何だっけ？", "ja")
+    assert "日本語で" in seen[0] and "한국어로, 군더더기" not in seen[0]
+    assert out.text.startswith("お探しの言葉は「Tung Tung Tung Sahur」")
+    assert ask.CAN_DO["ja"] and ask.MSG["ja"]["none"].endswith("。")

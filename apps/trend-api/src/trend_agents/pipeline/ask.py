@@ -58,6 +58,29 @@ SYSTEM = """너는 검증된 유행어 사전의 안내자다. 사람들이 유�
 - 근거는 표제어 이름과 근거 건수로 적는다. 도구 이름(lookup_term 같은 것)은 적지 않는다.
 - 한국어로, 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다."""
 
+# 답하는 말 — 화면 언어 그대로(ko·en·ja). 일본어 화면은 영어 답을 받았다(10-14 점검)
+LANG_LINE = {"ko": "- 한국어로, 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다.",
+             "en": "- 영어로(in English), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다.",
+             "ja": "- 일본어로(日本語で、である調), 군더더기 없이 3문장 안에. 유행어 원문은 번역하지 않고 그대로 쓴다."}
+LANG_WORD = {"ko": "한국어로", "en": "in English", "ja": "日本語で"}
+# 코드가 직접 쓰는 문장
+MSG = {
+    "ko": {"none": "사전에 아직 없습니다.", "none_live": "사전에 아직 없습니다. 지금 인터넷에서도 찾지 못했습니다.",
+           "live": "사전에는 아직 없습니다. 지금 찾아보니 {s}", "guess": "찾으시는 게 '{name}' 인 것 같습니다. {defn}"},
+    "en": {"none": "It is not in the dictionary yet.", "none_live": "It is not in the dictionary yet, and nothing turned up on the web just now.",
+           "live": "It is not in the dictionary yet. A quick web search says: {s}", "guess": "You may be looking for '{name}'. {defn}"},
+    "ja": {"none": "辞書にはまだ載っていない。", "none_live": "辞書にはまだ載っていない。今ウェブで探しても見つからなかった。",
+           "live": "辞書にはまだ載っていない。今ウェブで調べたところ、{s}", "guess": "お探しの言葉は「{name}」かもしれない。{defn}"},
+}
+
+
+def _lang(lang: str) -> str:
+    return lang if lang in LANG_LINE else "ko"
+
+
+def _system(lang: str) -> str:
+    return SYSTEM.replace(LANG_LINE["ko"], LANG_LINE[_lang(lang)])
+
 
 def _tool(name: str, desc: str, props: dict, required: list[str]) -> dict:
     return {"type": "function", "function": {"name": name, "description": desc,
@@ -131,7 +154,7 @@ def _tidy(text: str) -> str:
 _LEAK = re.compile(r"([a-z_]+)\s*[\{(]\s*([a-z_]+)\s*[:=]\s*(.+?)\s*[\})]", re.S)
 _NOISE = re.compile(r"<\|?[^<>|]{0,20}\|?>")
 _DENIES = re.compile(r"(제공된|주어진)\s*(목록|자료|정보)\S*\s[^.]{0,60}없|사전에\S*\s*(아직\s*)?없|찾을 수 없|찾기\s*어렵|정보(는|가)?\s*없|알 수 없|없습니다\.?$|"
-                     r"not in the dictionary", re.I)
+                     r"not in the dictionary|辞書に(は)?(まだ)?(ない|ありません|載って(い)?(な|ません))|見つかりません|見つからなかった|見つけられ|分かりません|わかりません", re.I)
 # "이 계열의 표제어들을 보여드릴까요?" — 이미 찾아 놓고 되묻는다. 사용자가 싫어한 그 버릇이다(2026-09-16).
 # 찾은 것이 있으면 되묻지 말고 그것을 내보낸다.
 # 도구가 뱉은 목록 줄이 그대로 답으로 나온 꼴 — "사전에 12개 (최근 본 순):\n- 무공해: ..."
@@ -148,6 +171,8 @@ CAN_DO = {
     "en": ("I look up current slang and memes. I can tell you what a word means and where it came from, "
            "find it from a description when you forget the name, show who uses it and where, "
            "and search the web on the spot for anything not in the dictionary yet."),
+    "ja": ("最近の言葉やミームを調べる。意味と由来を伝え、名前を忘れても説明から探せる。どの世代がどの国で使うかも分かり、"
+           "辞書にない言葉はその場でウェブを調べておおよその意味を伝える。"),
 }
 # 도구 이름이 둘 이상 적힌 답은 속을 그대로 내보인 것이다
 _TOOL_LIST = re.compile(r"(lookup_term|search_terms|why_trending|country_trends|term_usage|list_terms)")
@@ -248,7 +273,7 @@ def _check_asked_word(con: Connection, ctx: "T.Ctx", question: str) -> None:
         ctx.missed(word)
 
 
-def _sum_list(con: Connection, question: str, card: dict) -> str:
+def _sum_list(con: Connection, question: str, card: dict, lang: str = "ko") -> str:
     """목록을 사람 말로 간추린다. 도구가 뱉은 줄을 그대로 답으로 내보내면 표를 두 번 읽히는 꼴이 된다
     (사용자 지적 09-16: "너무 답변이 단조로워")."""
     from .gemini import generate
@@ -260,7 +285,8 @@ def _sum_list(con: Connection, question: str, card: dict) -> str:
         why = f" · 유래: {it['origin'][:70]}" if it.get("origin") else ""
         lines.append(f"- {it['canonical']} ({it.get('lifecycle','')}): {it.get('definition','')[:60]}{why}")
     try:
-        text = (generate(con, LIST_SUM_PROMPT.format(question=question.strip()[:200], items="\n".join(lines)))[0].text or "").strip()
+        prompt = LIST_SUM_PROMPT.format(question=question.strip()[:200], items="\n".join(lines)) + f"\n\n답은 {LANG_WORD[_lang(lang)]} 써라."
+        text = (generate(con, prompt)[0].text or "").strip()
     except Exception:
         text = ""
     if len(text) < 20:      # 모델이 못 쓰면 이름만이라도
@@ -293,7 +319,7 @@ def _live_answer(con: Connection, ctx: "T.Ctx", lang: str) -> str:
                   "seconds": round(r.seconds, 1)})
         live.queue_for_research(con, cand, lang if cand == word else "en",
                                 alias=word if cand != word else "")
-        return _tidy(local_chat.sanitize(f"사전에는 아직 없습니다. 지금 찾아보니 {r.summary}"))
+        return _tidy(local_chat.sanitize(MSG[_lang(lang)]["live"].format(s=r.summary)))
     # 사전에도 없고 지금 찾아봐도 없다. 후보로도 넘기지 않는다 — 인터넷에 흔적이 없는 말은 조사할 거리가
     # 아니고, 넘기면 오타·헛소리가 사전 대기열을 채운다(2026-09-16 실측: 시험용으로 친 말이 표제어가 됐다).
     # 모델이 지어낸 말을 내보내느니 없다고 하는 게 낫다.
@@ -369,14 +395,14 @@ def _index_answer(con: Connection, question: str, pre: str, lang: str) -> str:
 
     try:
         if gemini.configured():
-            resp, _ = gemini.generate(con, INDEX_ANSWER.format(lang="한국어로" if lang == "ko" else "in English", q=question, ctx=pre),
+            resp, _ = gemini.generate(con, INDEX_ANSWER.format(lang=LANG_WORD[_lang(lang)], q=question, ctx=pre),
                                       model=CHAT_MODEL, allow_local=False, request=True)
             text = (resp.text or "").strip()
         else:
-            text = local_chat.chat_text(INDEX_ANSWER.format(lang="한국어로" if lang == "ko" else "in English", q=question, ctx=pre))
+            text = local_chat.chat_text(INDEX_ANSWER.format(lang=LANG_WORD[_lang(lang)], q=question, ctx=pre))
     except Exception:
         return ""
-    return "" if (not text or "찾지 못" in text or "not found" in text.lower()) else _tidy(text)
+    return "" if (not text or "찾지 못" in text or "not found" in text.lower() or "見つから" in text) else _tidy(text)
 
 
 def _wrong_subject(con: Connection, ctx: "T.Ctx", question: str) -> bool:
@@ -398,13 +424,13 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
     if _fails >= BREAKER_TRIP:
         return Answer(text="", fallback=f"모델 연속 실패 {_fails}회 — 이번에는 건너뜀")
 
-    ctx = T.Ctx(con, lang=lang if lang in ("ko", "en") else "ko", progress=progress)
+    ctx = T.Ctx(con, lang=_lang(lang), progress=progress)
     if _META_ASK.search(question):
         # 무엇을 할 수 있냐는 물음. 모델을 거치면 도구 이름을 늘어놓거나 답이 비어 버린다.
         return Answer(text=CAN_DO.get(lang, CAN_DO["ko"]), seconds=time.time() - t0)
     ctx.say("start", "사전을 보는 중")
     # 바로 앞 대화를 함께 넘긴다 — "비슷한 것도 없어?" 처럼 앞을 받는 말이 오면 무엇을 묻는지 알아야 한다.
-    messages: list[dict] = [{"role": "system", "content": SYSTEM}]
+    messages: list[dict] = [{"role": "system", "content": _system(lang)}]
     for h in (history or [])[-4:]:
         role = "assistant" if h.get("role") == "assistant" else "user"
         text = str(h.get("content", "")).strip()[:400]
@@ -459,7 +485,7 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
                 used.append("lookup_term")
                 try:
                     text, _ = _chat(con,
-                        [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question.strip()},
+                        [{"role": "system", "content": _system(lang)}, {"role": "user", "content": question.strip()},
                          {"role": "user", "content": f"사전에서 찾은 내용이다. 이것만 보고 질문에 답해라.\n\n{found}"}], [])
                     last_text = _tidy(local_chat.sanitize(_NOISE.sub("", text or "").strip()))
                 except Exception:
@@ -497,11 +523,11 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
     if listed:
         ctx.say("write", "찾은 것들을 간추리는 중")
     if listed and (not last_text or _DENIES.search(last_text) or _ASKS_BACK.search(last_text) or _DUMPED.search(last_text)):
-        last_text = _sum_list(con, question, listed)
+        last_text = _sum_list(con, question, listed, lang)
     elif not last_text or _DENIES.search(last_text) or _ASKS_BACK.search(last_text):
         if ctx.best:
             name, defn = ctx.best
-            last_text = f"찾으시는 게 '{name}' 인 것 같습니다. {defn}".strip()
+            last_text = MSG[_lang(lang)]["guess"].format(name=name, defn=defn).strip()
     # 사전이 답하지 못했다. 여기서 끝내지 말고 **지금 인터넷에서 찾아본다** — 대신 검증 전이라고 밝힌다.
     # 찾아본 말은 후보로 넘겨, 뒤에서 research 가 근거를 모으고 게이트가 사전에 올릴지 정한다.
     # ctx.tried 는 '물어본 말을 사전에서 못 찾았다' 는 기록이다. 다른 목록이 곁들여 나왔더라도
@@ -514,9 +540,9 @@ def run(con: Connection, question: str, lang: str = "ko", history: list[dict] | 
         elif not ctx.best and not ctx.cards:
             # 사전에도 없고 지금 찾아봐도 없다. 모델이 제 말로 둘러대게 두지 않는다 —
             # 없을 때는 늘 같은 문장으로 답해야 사람이 상태를 알아본다.
-            last_text = "사전에 아직 없습니다. 지금 인터넷에서도 찾지 못했습니다."
+            last_text = MSG[_lang(lang)]["none_live"]
     if not last_text and not ctx.best:
-        last_text = "사전에 아직 없습니다."     # 찾아봤는데 정말 없다 — 지어내지 않는다
+        last_text = MSG[_lang(lang)]["none"]     # 찾아봤는데 정말 없다 — 지어내지 않는다
     if not last_text:
         return Answer(text="", used=used, term_ids=ctx.term_ids, turns=MAX_TURNS, seconds=time.time() - t0,
                       fallback="도구만 부르고 답을 내지 않음", cards=ctx.cards)

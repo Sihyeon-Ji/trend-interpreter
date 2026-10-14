@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api-fetch";
 import { NextResponse } from "next/server";
 import { explain } from "@/lib/data";
-import { koOrEn, localeOf, type Locale } from "@/lib/i18n";
+import { localeOf, type Locale } from "@/lib/i18n";
 import { getReader } from "@/lib/reader-server";
 
 /** 물음표나 의문사가 있으면 질문으로 본다. "AI slop 누가 써?" 처럼 사전 용어가 들어 있어도 묻는 말이면
@@ -56,8 +56,8 @@ export async function POST(req: Request) {
     const res = await apiFetch(`/ask/stream`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // 답은 모델이 쓰는 글이라 한국어·영어뿐 — 일본어 화면은 영어로(docs/트렌드/일본어-용어집.md §6)
-      body: JSON.stringify({ question: text, lang: koOrEn(locale), history, log_miss: !isEval }),
+      // 답은 화면 언어 그대로(ko·en·ja) — 일본어 화면이 영어 답을 받았다(10-14 점검)
+      body: JSON.stringify({ question: text, lang: locale, history, log_miss: !isEval }),
       cache: "no-store",
       signal: req.signal,
     });
