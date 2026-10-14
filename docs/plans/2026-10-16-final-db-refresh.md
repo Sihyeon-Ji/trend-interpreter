@@ -1,6 +1,6 @@
 # 10-16 마지막 운영 DB 갱신
 
-실행일 **2026-10-16** · 담당 **shji(지시현)** · 상태 **준비 중** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
+실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **전환 완료 – 아래 '10-14 실행 기록'** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
 
 [계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · 경위 [옛 Plan 19](archive/19-production-data-refresh.md)
 
@@ -46,6 +46,28 @@
 ## 이전 DB로 되돌리기 – 왜 하나
 
 전환 뒤에야 드러나는 문제(얹기에서 빠진 것, 화면 오류, 새 후보의 나쁜 추천)가 있으면 API를 바로 지금 DB로 돌려야 한다. 되돌리기는 secret 버전을 이전 것으로 바꾸고 API·Job revision을 다시 만드는 일이라 release 되돌리기(revision 트래픽만 옮기기)와 다르고, 아직 한 번도 해 보지 않았다. 녹화·제출 직전이라 막히면 시간이 없으므로, **10-16 전환 직후 한 번 이전 DB로 돌렸다가 다시 새 DB로 오는 것**을 실행해 기록한다(따로 날을 잡을 필요는 없다).
+
+## 10-14 실행 기록
+
+사용자 요청으로 10-16 갱신을 10-14 에 했다. 도커를 쓰지 않으므로 `refresh-production-db.sh` 와 같은 순서를 이 서버의 로컬 PostgreSQL(:55432)·`cloud-sql-proxy` 로 손으로 돌렸다. 운영 GCP 를 바꾸는 명령(Cloud SQL 사용자·DB, secret, Cloud Run)은 ktwoo 가 직접 실행했다.
+
+| 단계 | 결과 |
+| --- | --- |
+| 스냅숏 | `20261014T134313-8887867`(13:43 업로드, 표제어 11,723) – 10-14 수집 DB 정리 뒤 |
+| 적재·얹기 | 로컬 `trend_build_1014`. 사람 손댄 말 196개를 운영 값으로. 얹기가 그 말들의 번역을 운영의 옛 판으로 되돌려, 뜻이 같은 230개(영어 102·일본어 128)는 Sonnet 판을, 지구 메모 70개는 일본어판을 다시 넣었다. 운영 사람 판 뜻에 번역이 없던 草·도도독은 Sonnet 으로 번역, 草 언어 zh → ja |
+| 재계산 | track 11,642 · risk 6,509 · dashboard 6,206 · board 81 (14분) |
+| 쓰임 낱말 | 추천 후보 117/122 를 Gemma 4 12B 로(어제와 같은 relabel) |
+| 대조 | 빌드·새 클라우드 DB 모두 빠진 사람 결정 0 – 그사이 결정이 없어 전환 직전 다시 얹기는 하지 않았다(다시 얹으면 위 번역이 또 옛 판으로 돌아간다) |
+| 새 DB | Cloud SQL `trend_20261014`(소유 trend_app, 표 59), 게시 역할(읽기 40·쓰기 14), 임시 관리자 삭제 |
+| 전환 전 백업 | `trend-production-backup-m4zdp` 성공 |
+| secret | `trend-production-database-url` **v4**, `trend-production-publisher-database` **v2** (계정 `trend-production-accounts` v2 는 같은 날 심사용 계정) |
+| API | 새 리비전 `trend-production-api-db20261014`(Cloud Run v2 REST, 트래픽 100%). 되돌리기: `--to-revisions=trend-production-api-judge2=100`(이전 DB `trend_20261009`) |
+| Job | backup·maintenance → database-url v4, publication → publisher-database v2 (REST) |
+| 확인 | 운영 자료 시각 2026.10.14 09:17, 草 웃음 뜻, 일본어 화면 급증 이유 22/22 일본어, 표제어 읽기(럭키비키 'Lucky Vicky') |
+
+Terraform 변수는 아직 옛 버전이다. 다음 apply 전에 `services.database_secret_version` → `…/trend-production-database-url/versions/4`, `services.accounts_secret_version` → `…/trend-production-accounts/versions/2`, `publisher.database_secret_version` → `…/trend-production-publisher-database/versions/2` 로 맞춘다. 이 서버의 gcloud 584 는 `--update-secrets` 가 Terraform 의 secret 경로를 못 읽어, secret 버전은 REST 로 바꿨다. 이전 DB `trend_20261009` 는 지우지 않는다.
+
+이날 이후 수집 서버에 쌓이는 새 말은 운영에 없다 – 녹화 전에 한 번 더 갱신할지는 따로 정한다.
 
 ## 절차
 
