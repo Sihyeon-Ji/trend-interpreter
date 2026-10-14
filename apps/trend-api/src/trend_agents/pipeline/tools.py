@@ -67,7 +67,7 @@ class Ctx:
     def card(self, d: dict) -> None:
         """도구가 찾은 것을 화면용으로 함께 내보낸다 — 글로만 답하면 목록·비율이 눈에 안 들어온다."""
         if len(self.cards) < 4 and d not in self.cards:
-            self.cards.append(d)
+            self.cards.append(_in_lang(self.con, d, self.lang))
 
     def offer(self, canonical: str, definition: str) -> None:
         if self.best is None:
@@ -158,6 +158,38 @@ def _romanized_find(ctx: "Ctx", q: str):
         t.aliases = [*t.aliases, q][:12]
         ds.upsert_term(ctx.con, t)
     return t
+
+
+_TITLE = [(re.compile(r"^'(.+)' 와 같은 계열$"), {"en": "Same family as '{0}'", "ja": "「{0}」と同じ系統"}),
+          (re.compile(r"^'(.+)' 와 가까운 표제어$"), {"en": "Close to '{0}'", "ja": "「{0}」に近い見出し語"})]
+
+
+def _in_lang(con, d: dict, lang: str) -> dict:
+    """영어·일본어 화면의 카드: 뜻·유래는 그 언어판이 있으면 그것으로, 목록 제목도 화면 언어로 — 일본어 답 아래 카드가 한국어 원문 뜻이었다(운영 10-14)."""
+    if lang not in ("en", "ja"):
+        return d
+
+    def fill(x: dict, cut: int | None = None) -> dict:
+        tr = ds.get_translation(con, x["term_id"], lang) if x.get("term_id") else None
+        if tr and tr.definition:
+            x = {**x, "definition": _clean(tr.definition)[:cut] if cut else _clean(tr.definition)}
+            if x.get("origin") and tr.origin and tr.origin != "unknown":
+                x["origin"] = _clean(tr.origin)[:120] if cut else _clean(tr.origin)
+        return x
+
+    if d.get("type") == "term":
+        return fill(d)
+    if d.get("type") == "list":
+        title = d.get("title", "")
+        for rx, out in _TITLE:
+            if m := rx.match(title):
+                title = out[lang].format(m.group(1))
+                break
+        else:
+            if re.search("[가-힣]", title):
+                title = {"en": "Matching terms", "ja": "条件に合う言葉"}[lang]
+        return {**d, "title": title, "items": [fill(i, 90) for i in d.get("items", [])]}
+    return d
 
 
 def _status_codes(t) -> dict:

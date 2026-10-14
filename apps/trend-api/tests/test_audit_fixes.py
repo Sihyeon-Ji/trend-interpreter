@@ -331,3 +331,28 @@ def test_japanese_screen_gets_japanese_answer_and_japanese_denials_are_caught(mo
     assert out.text.startswith("お探しの言葉は「Tung Tung Tung Sahur」")
     assert ask.CAN_DO["ja"] and ask.MSG["ja"]["none"].endswith("。")
     assert ask._COUNT.sub(ask._COUNT_OUT["ja"], "（出典：推し活、근거 65건）") == "（出典：推し活、根拠65件）"
+
+
+def test_chat_cards_use_the_screen_language_version():
+    """일본어·영어 화면의 카드는 그 언어판 뜻과 화면 언어 제목으로(운영 10-14: 일본어 답 아래 카드가 한국어 원문 뜻)."""
+    from datetime import datetime, timezone
+
+    from trend_agents.pipeline import tools as T
+    from trend_agents.schemas import MeaningDraft, MeaningText, Term
+    from trend_agents.storage import dictionary_store as ds
+    from trend_agents.storage import store as db
+
+    con = db.connect(":memory:")
+    now = datetime.now(timezone.utc)
+    ds.upsert_term(con, Term(term_id="o", canonical="推し活", lang="ja", status="verified", first_seen=now, last_seen=now))
+    m = ds.add_meaning(con, "o", MeaningDraft(definition="좋아하는 아이돌을 응원하는 활동.", origin="아이돌 팬 문화", nuance="", generations=["20s"],
+                                              regions=["JP"], self_confidence=0.9), "verified_auto", [])
+    ds.set_translation(con, "o", "ja", MeaningText(definition="好きなアイドルを応援する活動。", origin="アイドルファン文化", nuance=""), "claude-sonnet-5-5")
+    ctx = T.Ctx(con, lang="ja")
+    ctx.card(T._term_card(con, ds.get_term(con, "o"), m))
+    ctx.card(T._list_card(con, "'推し' 와 같은 계열", [ds.get_term(con, "o")]))
+    assert ctx.cards[0]["definition"] == "好きなアイドルを応援する活動。" and ctx.cards[0]["origin"] == "アイドルファン文化"
+    assert ctx.cards[1]["title"] == "「推し」と同じ系統" and ctx.cards[1]["items"][0]["definition"] == "好きなアイドルを応援する活動。"
+    ko = T.Ctx(con, lang="ko")
+    ko.card(T._term_card(con, ds.get_term(con, "o"), m))
+    assert ko.cards[0]["definition"] == "좋아하는 아이돌을 응원하는 활동."
