@@ -13,7 +13,7 @@ behind the deployed service.
 | Human review | 107 review decisions and 121 human-approved meanings in production | Reviews cover about 1.6% of verified meanings |
 | List filtering | Korea "in use now" list 2,564 → 712 after rules that drop non-meme catalogue entries | Precision and recall: 230-item labelled sample prepared, labels not yet done |
 | Risk verdicts | Every verified term judged by rules; 51 avoid, 823 caution, 73 no issue | 6,708 terms lack enough classified evidence to judge |
-| Recommendation and copy | Same 12 cases measured nine times (10-10): fitting picks 40% → 91%, no risky pick shown as safe, copy usability 2.50/3 | 4 of 12 cases get no pick; one reviewer, AI-drafted judgments |
+| Recommendation and copy | Same 12 cases, rounds 4 to 9 (10-10 data): fitting picks 40% → 91%, no risky pick shown as safe, copy usability 2.50/3. Round 10 on production after the 10-14 refresh: 11/12 completed, 12/28 picks fit (more candidates per case), still no risky pick shown as safe | Rounds 4–9: one reviewer, AI-drafted judgments; round 10: AI judges only |
 | Auditor (Gemma 4 QLoRA) | Fine-tuned on Kaggle; the JSON verdict format goes from 0/32 to 32/32 | Stopped 10-09: separation of "fix" from "ok" was not established, so the adapter is not used |
 
 ## 1. Dictionary pipeline
@@ -73,14 +73,15 @@ production database so the evaluation does not use production's daily call ledge
 English-language group × cosmetics, a drink, running shoes and a budgeting app = 12. Each round fixes something the
 previous round's judgments pointed to, then measures the same 12 cases again.
 
-| | Round 4 (10-09) | Round 9 (10-10) |
-| --- | --- | --- |
-| Cases completed end to end | 7 / 12 | 8 / 12 |
-| Picks that fit the product | 6 / 15 (40%) | **10 / 11 (91%)** |
-| Risky picks shown as "no issue" | 0 | **0** |
-| Copy uses the meme in its meaning | 4 / 7 | 7 / 8 |
-| Copy usability (1 unusable – 3 ready) | 2.0 | **2.50** |
-| Copy ready to post as is | 2 / 7 | 4 / 8 |
+| | Round 4 (10-09) | Round 9 (10-10) | Round 10 (10-15) |
+| --- | --- | --- | --- |
+| Cases completed end to end | 7 / 12 | 8 / 12 | 11 / 12 |
+| Picks that fit the product | 6 / 15 (40%) | **10 / 11 (91%)** | 12 / 28 (43%) |
+| The pick the copy was written with fits | – | – | 7 / 11 |
+| Risky picks shown as "no issue" | 0 | **0** | **0** |
+| Copy uses the meme in its meaning | 4 / 7 | 7 / 8 | 9 / 11 |
+| Copy usability (1 unusable – 3 ready) | 2.0 | **2.50** | 2.00 |
+| Copy ready to post as is | 2 / 7 | 4 / 8 | 2 / 11 |
 
 What changed between rounds: copy no longer introduces the meme by name ("like …") and is re-checked for that;
 non-meme entries (site names, generic words) were removed by reviewer decision; a person fixed the usage words
@@ -88,7 +89,17 @@ that rank candidates for 56 of 170 candidates; 36 candidates with no risk verdic
 one; mixed-language copy is now rejected and regenerated. Round 8 dropped to 67% after the 10-09 data refresh
 brought new, unjudged candidates, which is why round 9 follows the human risk decisions.
 
-Latency in round 4: recommend p50 6.6 s (max 14.1 s), create p50 16.3 s (max 27.9 s).
+Round 10 ran on the production service itself after the 10-14 data refresh (snapshot `20261014T134313-8887867`)
+and the 10-15 cleanup (14 non-meme entries retired, two human risk decisions), through the same web API the
+Create screen uses. It is not directly comparable to round 9: the refreshed dictionary gives most cases three
+candidates instead of one or two (28 picks against 11), and the judgments were made by Claude Sonnet agents with a
+written rubric and were not reviewed by a person (rounds 4–9: AI drafts reviewed by one team member). Weak spots
+the judges named: Backrooms-core and Wojak suggested for a cushion and a budgeting app, an outfit hashtag (OOTD)
+for a cushion, a part-time-job word for a budgeting app; the Korean budgeting-app case ended with no copy because
+the rules removed every line. No pick with risk "none" was judged risky.
+
+Latency in round 4: recommend p50 6.6 s (max 14.1 s), create p50 16.3 s (max 27.9 s). Round 10 (production,
+cached product briefs on repeat words): recommend p50 1.5 s (max 7.6 s), create p50 11.4 s (max 14.2 s).
 
 Per-round totals are in [`evals/recommend-rounds.csv`](evals/recommend-rounds.csv). To run the cases again
 against a database (a read-only copy of production, so the evaluation does not use production's daily call

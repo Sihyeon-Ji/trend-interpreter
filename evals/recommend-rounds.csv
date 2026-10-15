@@ -5,3 +5,4 @@ round,date,data,cases_completed,cases,fitting_picks,picks,risky_shown_as_no_issu
 7,2026-10-09,production copy 20261005,8,12,11,13,0,8,8,2.75,6,usage words fixed by people for 56 of 170 candidates; generic words only for matching categories
 8,2026-10-10,production copy 20261009,9,12,10,15,2,6,9,2.22,3,data refreshed on 10-09 brought new candidates without a risk verdict
 9,2026-10-10,production copy 20261009,8,12,10,11,0,7,8,2.50,4,human risk decisions for 36 candidates; usage words fixed for 4 more; hashtag duplication fixed
+10,2026-10-15,production 20261014 (after 10-15 cleanup),11,12,12,28,0,9,11,2.00,2,"10-14 data refresh and 10-15 non-meme cleanup; run through the production web API; more candidates per case (28 vs 11); judged by Claude Sonnet agents with a rubric, not reviewed by a person"

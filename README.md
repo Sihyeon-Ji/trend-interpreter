@@ -85,19 +85,20 @@ recommendation ranking are deterministic code; a model never sets a status.
 
 Where this shows in the deployed app:
 
-- Each dictionary entry lists the evidence sentences behind its risk level, with the tone and risk type each was
-  classified as, and a short "how this entry was made" summary. Community posts are counted, never quoted.
+- Each dictionary entry says that rules decided its risk level from real sentences Gemma labelled, and the Explore
+  detail sums them up (for example "Of 12 sentences: 12 positive"), with a short "how this entry was made" note.
+  Community posts are counted, never quoted.
 - [`/about`](apps/trend-web/app/about/page.tsx) explains in plain words what Gemini, Gemma, the rules and people
   each do. Model names stay off the other user-facing screens.
 - The reviewer status page shows, per pipeline step, how many published results each model produced and the
   model calls and time spent in the last 24 hours.
-- Reviewers can ask Gemma on the GPU VM to classify a term's latest news headlines again, or re-run the batch risk
-  step on up to five chosen terms, and see the result next to the published verdict. Nothing is saved, the same
-  rules grade both, and the page says so at once when the GPU is off. The GPU VM is started only for demos to keep
-  cost down; while it is off the page shows the last recorded run.
+- Reviewer tools can send a term's latest news headlines, or up to five chosen terms, to Gemma on an on-demand GPU
+  VM and show the result next to the published verdict, graded by the same rules and never saved. The GPU VM is not
+  running in the deployment (it costs money and is started by the team only for demos), so these two buttons answer
+  at once that the GPU is off. Gemma's batch work is shown in the model records on the reviewer status page.
 
-Judges can sign in with the read-only reviewer account given in the submission form: every admin screen opens, the two
-Gemma preview buttons work, and approve, reject and risk decisions are refused.
+Judges can sign in with the read-only reviewer account given in the submission form: every admin screen opens, and
+approve, reject and risk decisions are refused.
 
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
 
