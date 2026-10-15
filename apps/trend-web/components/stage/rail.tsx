@@ -27,8 +27,9 @@ export function stepsOf(col: Column, run: Run): Steps {
   const write: StepState = col.status === "none" ? "skip" : col.status === "writing" ? "working" : col.gen ? "done" : col.status === "failed" || col.status === "stopped" ? "fail" : "idle";
   const checked = !!col.checks || col.checkFailed || col.status === "poster" || col.status === "done";
   const blocked = blockedAt(col).length > 0;
+  // 검사가 돌아오지 않았으면(504) 통과처럼 'done' 이 아니라 실패 — 데모 점검 10-14 에서 검은 막대가 통과로 읽혔다
   const check: StepState = col.status === "none" ? "skip" : col.status === "checking" ? "working"
-    : checked ? (blocked ? "block" : flaggedCount(col) > 0 ? "flag" : "done") : col.status === "stopped" && col.gen ? "fail" : "idle";
+    : col.checkFailed ? "fail" : checked ? (blocked ? "block" : flaggedCount(col) > 0 ? "flag" : "done") : col.status === "stopped" && col.gen ? "fail" : "idle";
   const a = col.approval?.status;
   const sign: StepState = a === "approved" ? "done" : a === "rejected" ? "fail" : col.status === "none" ? "skip"
     : col.status === "done" ? (blocked && !a ? "block" : "ready") : "idle";

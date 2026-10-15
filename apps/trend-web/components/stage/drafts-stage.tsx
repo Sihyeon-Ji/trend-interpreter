@@ -8,14 +8,14 @@ import { glossFor } from "@/lib/gloss";
 import { koOrEn, type Locale } from "@/lib/i18n";
 import { L, gap, sep, sourceLabel, sourceName } from "@/lib/labels";
 import { langTag, localWord, scriptLang } from "@/lib/lang";
-import type { ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
+import type { CopyCheck, ExcludedItem, RecommendItem, RecommendResult, SocialCopy } from "@/lib/types";
 import { ActorTag, MemeWord, Reading, fmtDay, fmtStamp, type VerdictKind, verdictOf, wordVT } from "./bits";
 import { Count } from "./count";
 import { LANG_NAME, MARKET_LANG, diffusionWord, marketName, tx, type CopyKey, type Market } from "./copy";
 import { MiniGlobe } from "./globe";
 import { useElapsed, useFirstPlay, useHydrated } from "./play";
 import { StepRail, blockedAt, flaggedCount, issuesAt, stepsOf } from "./rail";
-import { focusMarket, opinionOf, redo, refreshApprovals, restart, submitApproval, useStage, type Column, type Run } from "./store";
+import { focusMarket, opinionOf, recheck, redo, refreshApprovals, restart, submitApproval, useStage, type Column, type Run } from "./store";
 
 /* 시장별 초안 — 같은 무대에서 세 시장이 차례로 조립된다. 고른 말이 셋 나란히 선 한 박자 뒤, 일하는 시장이 앞(가운데 넓은 칸)으로 나오고
    나머지 둘은 옆으로 비켜서서 진행만 보인다. 사람이 시장을 누르면 그 시장을 앞으로 부르고, 그 뒤로는 자동으로 따라가지 않는다. */
@@ -52,6 +52,13 @@ function Marked({ text, word, play }: { text: string; word?: string; play: boole
 /** 규칙 코드 하나의 짧은 말(cp_issue_*) — 문구마다의 다시 검사와 막힌 이유에 */
 const codeLabel = (code: string, locale: Locale) => tx(locale, `cp_issue_${code}` as CopyKey);
 
+/** 규칙 코드에 그 코드를 받은 말을 붙인다 — 'Risk not decided' 만으로는 문구의 어느 말인지 몰라 고른 밈이 위험한 것처럼 읽혔다
+ *  (여름 문구의 'Summer', 10-14 데모 점검). 욕설·길이처럼 말에 붙지 않는 코드는 그대로 */
+function withWords(code: string, check: CopyCheck | null | undefined, locale: Locale): string {
+  const words = [...new Set((check?.memes ?? []).filter((m) => m.issues.some((x) => x.code === code)).map((m) => m.matched || m.canonical))];
+  return words.length ? `${codeLabel(code, locale)} (${words.join(sep(locale))})` : codeLabel(code, locale);
+}
+
 /** 규칙의 다시 보기 결과 — 문구마다 따로 검사한다. 결과가 오면 위에서부터 차례로 찍힌다(처음 한 번) */
 function Checks({ i, col, run, locale }: { i: number; col: Column; run: Run; locale: Locale }) {
   const play = useFirstPlay(`${run.id}-${col.market}-${col.rev}-check-${i}`);
@@ -61,10 +68,10 @@ function Checks({ i, col, run, locale }: { i: number; col: Column; run: Run; loc
   return (
     <div className="rs-copy-checks" data-play={play}>
       {col.checkFailed && i > 0 ? null : (
-        <span className="rs-check" data-state={issues.length ? "flag" : "ok"} data-avoid={issues.some(isBlocking)}>
+        <span className="rs-check" data-state={issues.length || col.checkFailed ? "flag" : "ok"} data-avoid={issues.some(isBlocking)}>
           <ListChecks aria-hidden="true" size={14} />
           <span className="rs-sr">{tx(locale, "cp_rule")}: </span>
-          {issues.length ? [...new Set(issues.map((x) => codeLabel(x, locale)))].join(sep(locale)) : col.checkFailed ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
+          {issues.length ? [...new Set(issues.map((x) => withWords(x, col.checks?.[i], locale)))].join(sep(locale)) : col.checkFailed ? tx(locale, "cp_check_missing") : tx(locale, "cp_rule_ok")}
         </span>
       )}
       {fit?.fit ? (
@@ -221,6 +228,13 @@ function Approval({ col, run, locale, viewer, name, nums, onCopyAll }: {
         <div className="rs-approve-block" id={why}>
           <p>{tx(locale, "ap_blocked")}</p>
           <ul>{blocked.map((i) => <li key={i}><b>{label(i)}</b> {issuesAt(col, i).filter(isBlocking).map((c) => codeLabel(c, locale)).join(sep(locale))}</li>)}</ul>
+        </div>
+      ) : col.checkFailed ? (
+        <div className="rs-approve-flag">
+          <p>{tx(locale, "ap_check_failed")}</p>
+          <button type="button" className="rs-btn" data-kind="ghost" data-size="s" onClick={() => void recheck(m)}>
+            <RotateCw aria-hidden="true" size={14} />{tx(locale, "ap_recheck")}
+          </button>
         </div>
       ) : flagged ? <p className="rs-approve-flag">{tx(locale, "ap_flag", { n: flagged })}</p> : null}
       {!viewer ? (

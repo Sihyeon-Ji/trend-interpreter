@@ -294,6 +294,22 @@ export async function redo(market: Market, termId?: string) {
   await draft(run.id, market, item, abort.signal);
 }
 
+/** 다시 확인만 — 규칙 검사가 시간 안에 안 돌아왔을 때(504) 같은 문구를 다시 본다. 문구는 그대로 둔다(10-15 데모 점검) */
+export async function recheck(market: Market) {
+  const run = state.run;
+  const col = run?.cols.find((c) => c.market === market);
+  if (!run || !col?.gen?.copies.length) return;
+  if (!abort || abort.signal.aborted) abort = new AbortController();
+  const gen = col.gen;
+  patchCol(run.id, market, { status: "checking", checkFailed: false });
+  const ask = Math.max(0, gen.copies.findIndex((c) => c.platform === "instagram"));
+  const got = await post<CopyChecks>("/api/copy-check/all", { texts: gen.copies.map(fullText), region: market, lang: run.locale, opinion: ask }, abort.signal)
+    .catch(() => null);
+  if (!live(run.id)) return;
+  const checks = got && got.items.length === gen.copies.length ? got.items : null;
+  patchCol(run.id, market, { checks, opinion: checks ? got!.opinion : null, checkFailed: !checks, status: "done" });
+}
+
 /** 처음부터 다시(멈춘 실행). 같은 입력으로 */
 export function restart(locale: Locale) {
   const run = state.run;
