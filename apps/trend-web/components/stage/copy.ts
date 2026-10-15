@@ -87,7 +87,7 @@ const ko = {
   s_pending: "검수를 기다려요",
   s_rejected: "{who} 반려",
 
-  pk_funnel: "확인된 말 {pool}개 중 {n}개를 견줘 이 말을 골랐어요",
+  pk_funnel: "확인된 말 {pool}개 중 규칙을 통과한 {n}개에서 이 말을 골랐어요",
   pk_none: "확인된 말 {pool}개를 견줬지만 이 제품과 말투에 맞는 말이 없어서 억지로 넣지 않았어요.",
   pk_browse: "{market}에서 쓰이는 말 보기",
   pk_why: "고른 이유",
@@ -420,7 +420,7 @@ const en: Record<Key, string> = {
   s_pending: "Waiting for review",
   s_rejected: "Rejected by {who}",
 
-  pk_funnel: "Compared {n} of {pool} verified words and picked this one",
+  pk_funnel: "{n} of {pool} verified words passed the rules; this one was picked",
   pk_none: "Compared {pool} verified words, but none fit this product and tone, so we didn't force one in.",
   pk_browse: "See words used in {market}",
   pk_why: "Why this word",
@@ -751,7 +751,7 @@ const ja: Record<Key, string> = {
   s_pending: "レビュー待ち",
   s_rejected: "{who}が差し戻し",
 
-  pk_funnel: "確認済みの言葉{pool}件のうち{n}件を比較して選定",
+  pk_funnel: "確認済みの言葉{pool}件のうちルールを通過した{n}件から選定",
   pk_none: "確認済みの言葉{pool}件を比較しましたが、この商品とトーンに合う言葉がなかったため、無理に入れていません。",
   pk_browse: "{market}で使われている言葉を見る",
   pk_why: "選んだ理由",
