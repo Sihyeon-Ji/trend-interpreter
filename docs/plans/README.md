@@ -27,7 +27,7 @@
 2. **10-15 밤** – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
 3. **10-16** – [마지막 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) – 10-14 에 ktwoo 가 앞당겨 마쳤다(보관).
 4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi).
-5. **10-17** – [저장소 공개 전환과 배포 승인](2026-10-17-public-repository.md)(shji). 10-18 제출.
+5. **10-17** – 저장소 공개는 10-16에 앞당겨 마쳤다([보관](archive/2026-10-17-public-repository.md)). 10-18 제출.
 6. **10-20 ~ 10-26** – [Cloud SQL 체험 종료 전 전환](2026-10-20-cloud-sql-transition.md), **10-27 ~ 10-28** [청구 확인](2026-10-27-billing-check.md)(shji).
 
 GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확인 뒤에 한다(`apps/trend-api/AGENTS.md`). 로컬 검사 통과는 운영 반영이나 AI 품질의 근거가 아니다.
@@ -38,7 +38,6 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-17 → 10-16 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | 공개 완료, `gcp` 배포는 `release/gcp`에서만(승인 없음). 남은 것: 외부 계정 확인 | 외부 계정 push 거부 |
 | 10-20 ~ 26 | [2026-10-20-cloud-sql-transition](2026-10-20-cloud-sql-transition.md) | shji | 체험 종료 전 유료 전환 또는 이전 | 체험 표시 소멸, 서비스 확인 |
 | 10-27 ~ 28 | [2026-10-27-billing-check](2026-10-27-billing-check.md) | shji | 실제 청구 확인 | 항목별 예상치와 차이 |
 
@@ -55,6 +54,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
+| [저장소 공개 전환](archive/2026-10-17-public-repository.md) | `Sihyeon-Ji/trend-interpreter` 공개, 배포는 `release/gcp`에서만(승인 없음), 외부 계정 push 거부 확인(10-16, 하루 앞당김) |
 | [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) | 1·2단계 코드 운영 반영, 심사용 읽기 전용 계정. 운영 GPU는 만들지 않음(10-16 보관) |
 | [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) | 스냅숏 `20261014T134313-8887867` → `trend_20261014`, 사람 결정 누락 0, API·Job 전환(10-14, ktwoo 마무리). 복원 검증·되돌리기 훈련은 하지 않음(10-16 보관) |
 | [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md) | 마지막 스냅숏 `20261014T134313-8887867`, fit 빼기, 일본 보강(카드 46 → 124)(10-16 보관) |

@@ -27,7 +27,7 @@
 | [현행 Plan 12](12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조(10-09) |
 | [현행 Plan 15](15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별(10-09) |
 | [현행 Plan 06](06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – 하지 않기로 하고 중단(10-09). 완료가 아니다 |
-| [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 제출 전후 운영으로 합쳤다가(10-09) 날짜별 문서로 나눔(10-10) – [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)·[10-17 저장소 공개](../2026-10-17-public-repository.md)·[10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md) |
+| [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 제출 전후 운영으로 합쳤다가(10-09) 날짜별 문서로 나눔(10-10) – [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)·[10-17 저장소 공개](2026-10-17-public-repository.md)·[10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md) |
 | [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md) |
 | [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모 영상은 [sng_j](../sng_j-demo-video.md), 발표 자료는 [ejchoi](../ejchoi-submission-deck.md) |
 | [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류(ejchoi)](ejchoi-gemma-live-classify.md) |

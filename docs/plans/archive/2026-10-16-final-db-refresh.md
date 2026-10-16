@@ -1,6 +1,6 @@
 # 10-16 마지막 운영 DB 갱신
 
-실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **완료(10-16 보관, ktwoo 마무리) – 아래 '10-14 실행 기록'·'완료 기록'** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](../2026-10-17-public-repository.md)
+실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **완료(10-16 보관, ktwoo 마무리) – 아래 '10-14 실행 기록'·'완료 기록'** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
 
 [계획 목록](../README.md) · [GCP 운영](../../운영/GCP-운영.md) · [승인 배치 게시](../../개발환경/승인-배치-게시.md) · 경위 [옛 Plan 19](19-production-data-refresh.md)
 
