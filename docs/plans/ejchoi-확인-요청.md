@@ -2,7 +2,18 @@
 
 작성일 **2026-10-11** · 담당 **ejchoi** · 받는 사람 **shji(지시현)**, 팀 · 제출 **10-18**
 
-[계획 목록](README.md) · [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) · [발표 자료](ejchoi-submission-deck.md) · [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)
+[계획 목록](README.md) · [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) · [발표 자료](ejchoi-submission-deck.md) · [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)
+
+## 10-16 결과
+
+| # | 결과 |
+| --- | --- |
+| 1 | 해결. 10-14 갱신 뒤 화면 점검에서 Know Your Meme·relatable·Deepfake가 영어·일본어 첫 화면·둘러보기에 없었다([10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)) |
+| 2 | 하지 않음. 운영 GPU VM은 만들지 않는다(ejchoi·지시현 논의) |
+| 3 | 완료(10-14, ktwoo). `judge` 읽기 전용 계정, 비밀번호는 ktwoo가 갖고 있다 |
+| 5 | 완료(10-16). 저장소 이름을 `Sihyeon-Ji/trend-interpreter`로 바꿨다. 옛 주소는 GitHub가 넘겨 준다. 저장소 안의 주소는 고쳤다(보관 문서는 그대로) |
+| 6 | 권장: README에는 넣지 않고 제출 양식에만 적는다(10-16 지시현 검토 중) |
+
 
 ejchoi 몫의 코드와 문서는 끝났다. 감사관 사람 라벨 요청(10-03)은 ejchoi가 판정해 전달했다. 아래는 확인이나 결정을 받아야 진행할 수 있는 일이다. 결정이 나면 ejchoi가 이어서 한다.
 

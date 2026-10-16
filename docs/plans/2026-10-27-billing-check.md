@@ -6,7 +6,7 @@
 
 ## 할 일
 
-- Billing 보고서에서 Cloud SQL·Cloud Run·Vertex AI(Gemini)·GCS·Artifact Registry·GPU(쓴 경우, [Gemma 실시간 분류](ejchoi-gemma-live-classify.md))의 실제 청구와 SKU를 확인한다.
+- Billing 보고서에서 Cloud SQL·Cloud Run·Vertex AI(Gemini)·GCS·Artifact Registry·GPU(쓴 경우, [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md))의 실제 청구와 SKU를 확인한다.
 - 전환 때 정한 월 비용 상한·예상치와 비교하고, 넘은 항목은 원인과 조치를 적는다.
 
 ## 완료 기준

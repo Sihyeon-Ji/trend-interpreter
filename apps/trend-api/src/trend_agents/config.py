@@ -104,7 +104,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://trend:trend@localhost:543
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "8"))  # API 연결 풀 크기 = Cloud Run 인스턴스당 동시 요청 수
 # 위키미디어·위키·KYM 에 보내는 User-Agent. 위키미디어는 연락처(주소) 없는 UA 를 묶어서 막는다 — 연락처를 넣자 429 가 나던
 # 위키백과 검색·위키데이터가 그대로 200 이 됐다(2026-10-01 실측). 개인 메일은 넣지 않는다.
-BOT_UA = os.getenv("BOT_UA", "trend-agents/0.1 (+https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup) httpx")
+BOT_UA = os.getenv("BOT_UA", "trend-agents/0.1 (+https://github.com/Sihyeon-Ji/trend-interpreter) httpx")
 
 # 수집 대상 국가 (ISO 3166-1 alpha-2). 트렌드는 전세계 대상.
 # REGIONS_ALL: mostPopular 는 1 unit/회 → 넓게 돈다. REGIONS_FOCUS: search 는 100 unit/회 → 쿼터상 집중 국가만.

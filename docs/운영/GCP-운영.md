@@ -393,8 +393,8 @@ Terraform remote state와 실제 resource의 일관성을 유지하도록 Terraf
    export PATH="$PWD/.tools:$PATH"
    export TF_VAR_github_repository_id
    export TF_VAR_github_owner_id
-   TF_VAR_github_repository_id=$(gh api repos/Sihyeon-Ji/2026-google-ai-builder-cup --jq '.id | tostring')
-   TF_VAR_github_owner_id=$(gh api repos/Sihyeon-Ji/2026-google-ai-builder-cup --jq '.owner.id | tostring')
+   TF_VAR_github_repository_id=$(gh api repos/Sihyeon-Ji/trend-interpreter --jq '.id | tostring')
+   TF_VAR_github_owner_id=$(gh api repos/Sihyeon-Ji/trend-interpreter --jq '.owner.id | tostring')
 
    terraform -chdir=infra/gcp init -reconfigure \
      -backend-config="bucket=stunning-crane-508614-c1-tfstate" \
@@ -418,9 +418,9 @@ Terraform remote state와 실제 resource의 일관성을 유지하도록 Terraf
 
    ```bash
    gh variable delete GCP_WORKLOAD_IDENTITY_PROVIDER \
-     --repo Sihyeon-Ji/2026-google-ai-builder-cup
+     --repo Sihyeon-Ji/trend-interpreter
    gh variable delete GCP_DEPLOY_SERVICE_ACCOUNT \
-     --repo Sihyeon-Ji/2026-google-ai-builder-cup
+     --repo Sihyeon-Ji/trend-interpreter
    ```
 
 Terraform은 Artifact Registry, service account 두 개와 IAM binding, Workload Identity Federation,
@@ -450,7 +450,7 @@ gcloud iam service-accounts describe \
   builder-cup-runtime@stunning-crane-508614-c1.iam.gserviceaccount.com \
   --project=stunning-crane-508614-c1
 gcloud secrets describe builder-cup-demo-key --project=stunning-crane-508614-c1
-gh variable list --repo Sihyeon-Ji/2026-google-ai-builder-cup
+gh variable list --repo Sihyeon-Ji/trend-interpreter
 ```
 
 Secret을 삭제했다면 bootstrap이 새 team access code를 만듭니다. 예전 code는 더 이상 동작하지 않으므로
@@ -462,10 +462,10 @@ Secret을 삭제했다면 bootstrap이 새 team access code를 만듭니다. 예
 Release 완료를 기다리고 배포된 서비스를 확인합니다.
 
 ```bash
-RUN_ID=$(gh run list --repo Sihyeon-Ji/2026-google-ai-builder-cup \
+RUN_ID=$(gh run list --repo Sihyeon-Ji/trend-interpreter \
   --workflow="Release GCP" --branch=release/gcp --limit=1 \
   --json=databaseId --jq='.[0].databaseId')
-gh run watch "$RUN_ID" --repo Sihyeon-Ji/2026-google-ai-builder-cup --exit-status
+gh run watch "$RUN_ID" --repo Sihyeon-Ji/trend-interpreter --exit-status
 
 SERVICE_URL=$(gcloud run services describe builder-cup \
   --project=stunning-crane-508614-c1 --region=asia-northeast1 \

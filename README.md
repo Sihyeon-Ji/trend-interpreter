@@ -129,8 +129,8 @@ Install Git and Docker with Compose v2. No host Node, Python, uv, model key or G
 for the default workflow. Docker Desktop must be running.
 
 ```bash
-git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup.git
-cd 2026-google-ai-builder-cup
+git clone --branch develop https://github.com/Sihyeon-Ji/trend-interpreter.git
+cd trend-interpreter
 docker compose up -d
 ```
 
@@ -238,7 +238,7 @@ docs/                        Korean documentation: setup, operations, Trend desi
 - [Architecture](docs/운영/시스템-아키텍처.md)
 - [Operations](docs/운영/GCP-운영.md)
 - [Team workflow](docs/개발환경/팀-작업-방식.md)
-- [Repository](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup)
+- [Repository](https://github.com/Sihyeon-Ji/trend-interpreter)
 - [Project board](https://github.com/users/Sihyeon-Ji/projects/1)
 
 ## License

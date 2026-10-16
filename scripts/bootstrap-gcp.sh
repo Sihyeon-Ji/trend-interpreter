@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 export PATH="$PWD/.tools:$PATH"
 PROJECT_ID=stunning-crane-508614-c1
 REGION=asia-northeast1
-REPO=Sihyeon-Ji/2026-google-ai-builder-cup
+REPO=Sihyeon-Ji/trend-interpreter
 STATE_BUCKET="$PROJECT_ID-tfstate"
 for command in gcloud gh terraform python3; do command -v "$command" >/dev/null; done
 gcloud projects describe "$PROJECT_ID" --format='value(projectId)' >/dev/null

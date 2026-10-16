@@ -4,6 +4,14 @@
 
 [계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [WIF 배포 계정 분리](../운영/WIF-배포-계정-분리.md) · 경위 [옛 Plan 11](archive/11-public-repository-release-protection.md)
 
+## 10-16 미리 한 것
+
+- 저장소 이름을 `Sihyeon-Ji/trend-interpreter`로 바꿨다. 배포 인증(WIF)은 저장소 ID·environment 속성으로 묶여 있어 그대로 동작한다. 로컬 remote는 `git remote set-url origin https://github.com/Sihyeon-Ji/trend-interpreter.git`(옛 주소도 넘겨 준다).
+- 오래된 원격 브랜치 `claude/focused-gagarin-383da1`·`security/wif-environment`를 지웠다(develop에 없는 커밋 0). 남은 원격 브랜치는 `develop`·`release/gcp`.
+- 10-10 뒤 커밋 비밀값 재검사 0건, 모든 원격 브랜치에 Claude 공동 작성자 표시 0.
+- 이전 DB로 되돌리기 훈련은 하지 않는다(10-16 결정).
+
+
 ## 미리 할 일 (10-17 전)
 
 - **이력 재검사(10-10 실행).** `gitleaks 8.30.1 git --log-opts=--all --redact=100`(노트북 diff는 `cat`으로, [공개 전 보안 점검](../운영/공개-전-보안-점검.md)). 473개 커밋 중 줄이 더해진 457개를 검사, 3건 – 10-06에 오탐으로 판별한 것과 같은 파일·커밋(이미지 digest, 빈 `.env.example` 값, 공개 프로젝트 ID)이다. 공개 당일에는 10-10 뒤 커밋만 다시 본다.

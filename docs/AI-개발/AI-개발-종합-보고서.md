@@ -266,11 +266,11 @@ CI에는 앱 검사, DB·그래프·이력·실패 실습, 브라우저 검사, 
 
 | 단계 | 주요 구현 커밋 | 코드 근거 |
 | --- | --- | --- |
-| 1 | [eb2faf6](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/eb2faf6) | [DB 연결·초기화](../../apps/api/src/builder_cup/database.py), [Compose](../../compose.yaml) |
-| 2 | [69b8b74](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/69b8b74) | [그래프](../../apps/api/src/builder_cup/graph_lab.py), [호출 정책](../../apps/api/src/builder_cup/workflow.py) |
-| 3 | [5d742c3](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/5d742c3) | [이력 저장](../../apps/api/src/builder_cup/history.py), [이력 화면](../../apps/web/src/WorkflowHistory.tsx) |
-| 4 | [8ebe8c8](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/8ebe8c8) | [실패 주입](../../apps/api/src/builder_cup/lab_scenarios.py), [실습 검증](../../scripts/failure_lab.py) |
-| 5 | [2af238f](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/2af238f) | [모델 어댑터](../../apps/api/src/builder_cup/providers.py), [비교 실행](../../scripts/ollama_lab.py), [평가 입력](../../evaluation-cases/ollama-lab.json) |
+| 1 | [eb2faf6](https://github.com/Sihyeon-Ji/trend-interpreter/commit/eb2faf6) | [DB 연결·초기화](../../apps/api/src/builder_cup/database.py), [Compose](../../compose.yaml) |
+| 2 | [69b8b74](https://github.com/Sihyeon-Ji/trend-interpreter/commit/69b8b74) | [그래프](../../apps/api/src/builder_cup/graph_lab.py), [호출 정책](../../apps/api/src/builder_cup/workflow.py) |
+| 3 | [5d742c3](https://github.com/Sihyeon-Ji/trend-interpreter/commit/5d742c3) | [이력 저장](../../apps/api/src/builder_cup/history.py), [이력 화면](../../apps/web/src/WorkflowHistory.tsx) |
+| 4 | [8ebe8c8](https://github.com/Sihyeon-Ji/trend-interpreter/commit/8ebe8c8) | [실패 주입](../../apps/api/src/builder_cup/lab_scenarios.py), [실습 검증](../../scripts/failure_lab.py) |
+| 5 | [2af238f](https://github.com/Sihyeon-Ji/trend-interpreter/commit/2af238f) | [모델 어댑터](../../apps/api/src/builder_cup/providers.py), [비교 실행](../../scripts/ollama_lab.py), [평가 입력](../../evaluation-cases/ollama-lab.json) |
 
 개별 실행 ID·모델 digest·원본 보고서 파일명은 [단계별 실습 기록](AI-실습-기록.md)에 있습니다.
 생성된 보고서와 DB 데이터는 clone으로 전달되지 않습니다. 다른 PC에서는 같은 명령으로 새 증거를 만듭니다.

@@ -1,8 +1,10 @@
 # 배포본에서 Gemma가 도는 모습 – 실시간 분류 버튼과 관리자 수동 실행
 
-작성일 **2026-10-10** · 담당 **ejchoi** · 상태 **진행 중 – 1·2단계 운영 배포(10-10), 심사용 읽기 전용 계정·실행 기록 구현(10-11), 운영 GPU 생성 전** · 코드 동결 **10-14** · 제출 **10-18**
+작성일 **2026-10-10** · 담당 **ejchoi** · 상태 **마무리(10-16) – 1·2단계 코드는 운영에 있음, 운영 GPU VM은 만들지 않음(ejchoi·지시현 논의)** · 코드 동결 **10-14** · 제출 **10-18**
 
-[계획 목록](README.md) · 이어받은 계획 [Plan 14](archive/14-gemma-visible-in-deployment.md)(0단계 완료) · [Plan 17](archive/17-hybrid-infrastructure.md)(GCE 추론) · [Gemma 운영 라이브 분류 제안](../AI-개발/Gemma-운영-라이브-분류-제안.md) · [GPU VM 배포 계약](../개발환경/GPU-VM-배포-계약.md)
+[계획 목록](../README.md) · 이어받은 계획 [Plan 14](14-gemma-visible-in-deployment.md)(0단계 완료) · [Plan 17](17-hybrid-infrastructure.md)(GCE 추론) · [Gemma 운영 라이브 분류 제안](../../AI-개발/Gemma-운영-라이브-분류-제안.md) · [GPU VM 배포 계약](../../개발환경/GPU-VM-배포-계약.md)
+
+> **10-16 결정(지시현).** ejchoi와 논의해 운영 GPU VM을 만들지 않기로 했다. 실시간 분류 버튼과 수동 실행은 운영에서 '준비 안 됨'으로 안내되고 공개 서비스에는 영향이 없다. 덱·영상·README는 Gemma를 수집 서버·Kaggle의 배치 단계와 0단계 화면(모델 기록·근거 문장)으로 설명하고, '배포본의 GPU에서 돈다'고 쓰지 않는다. GPU 부트 이미지(40GB)·모델 버킷(6.9GB)은 지울지 따로 정한다.
 
 ## 1. 왜 하나
 
@@ -12,22 +14,22 @@ Gemma는 사전을 만드는 배치 단계(분류·리스크·쓰임 낱말·번
 
 | 항목 | 상태 |
 | --- | --- |
-| 0단계 – 기록 표시 | **운영에 있음.** 사전 항목 '이 판정의 근거 문장', 공개 `/about`, 관리 `/admin/status`의 '모델 기록'·최근 24시간 호출 수([Plan 14 0단계](archive/14-gemma-visible-in-deployment.md#2026-10-06-0단계-구현)) |
+| 0단계 – 기록 표시 | **운영에 있음.** 사전 항목 '이 판정의 근거 문장', 공개 `/about`, 관리 `/admin/status`의 '모델 기록'·최근 24시간 호출 수([Plan 14 0단계](14-gemma-visible-in-deployment.md#2026-10-06-0단계-구현)) |
 | 1단계 – 실시간 분류 버튼 | 로컬 구현·시험 통과(아래 4-1), 운영 미배포 |
 | 2단계 – 관리자 수동 실행 | `risk` 미리보기 로컬 구현·시험 통과(아래 4-1), 운영 미배포 |
 | 운영 GPU VM | 없음 |
-| GPU 시험(staging) | L4 1장, 기본 `gemma4:12b`. 추론 3/3, VRAM 7.9GB/23GB, 무인증·잘못된 token 401 확인. 첫 모델 적재가 gateway deadline 30초를 넘어 `/ready`가 4번 504였다 – 설치기가 gateway를 띄우기 전에 모델을 GPU에 올리고 긴 프롬프트로 예열하도록 고쳤다(`a3cb2bd`, 예열 한도 600초). 운영 VM에서 다시 확인해야 한다. 시험 뒤 VM·디스크·IP 삭제([실행 기록](archive/17-hybrid-infrastructure-실행기록.md)) |
+| GPU 시험(staging) | L4 1장, 기본 `gemma4:12b`. 추론 3/3, VRAM 7.9GB/23GB, 무인증·잘못된 token 401 확인. 첫 모델 적재가 gateway deadline 30초를 넘어 `/ready`가 4번 504였다 – 설치기가 gateway를 띄우기 전에 모델을 GPU에 올리고 긴 프롬프트로 예열하도록 고쳤다(`a3cb2bd`, 예열 한도 600초). 운영 VM에서 다시 확인해야 한다. 시험 뒤 VM·디스크·IP 삭제([실행 기록](17-hybrid-infrastructure-실행기록.md)) |
 | GPU 할당량 | 도쿄 `NVIDIA_L4_GPUS` 1, 프로젝트 `GPUS_ALL_REGIONS` 1(승인됨) |
-| 인프라 코드 | `infra/gcp/hybrid/gpu.tf`에 GPU VM(`g2-standard-8`·L4)·모델 디스크·내부 IP, 설치기·TLS gateway([GPU gateway 인프라 기반](../개발환경/GPU-gateway-인프라-기반.md)). **예약 종료는 정의돼 있지 않다**(10-10 확인) |
+| 인프라 코드 | `infra/gcp/hybrid/gpu.tf`에 GPU VM(`g2-standard-8`·L4)·모델 디스크·내부 IP, 설치기·TLS gateway([GPU gateway 인프라 기반](../../개발환경/GPU-gateway-인프라-기반.md)). **예약 종료는 정의돼 있지 않다**(10-10 확인) |
 
 ## 3. 할 일
 
-설계는 [Plan 14의 1·2단계](archive/14-gemma-visible-in-deployment.md#1-라이브-분류-버튼)를 그대로 따른다. 요약하면 다음과 같다.
+설계는 [Plan 14의 1·2단계](14-gemma-visible-in-deployment.md#1-라이브-분류-버튼)를 그대로 따른다. 요약하면 다음과 같다.
 
 1. **GPU 준비.** 운영 GPU VM을 Terraform으로 띄울 수 있게 하고(평소에는 꺼 둠), cold start 504를 고친다(→ 설치기 예열로 고침, `a3cb2bd`). 데모 전에 켜서 예열하고 끝나면 끈다.
 2. **1단계 – `POST /terms/{term_id}/live-risk`.** 최신 기사 문장을 모아 `pipeline/risk.py`와 같은 프롬프트·규칙으로 분류하고, 배치 결과와 나란히 보인다. 공개 사전에는 쓰지 않는다. GPU가 준비되지 않았으면 '준비 안 됨'으로 알리고 기다리게 하지 않는다. 실행 기록에는 시각·용어 ID·문장 수·시간·결과 수준만 남긴다.
 3. **2단계 – `/admin/status` 수동 실행.** 검수자만, 용어 1~5개에 `risk`(먼저)·`fit`·`translate`·`crosscheck` 중 하나. 첫 판은 결과를 화면에만 보이는 미리보기로 하고, 검수 큐 연결은 여유가 있을 때 한다.
-4. **데모·README.** 결과에 맞춰 영상 장면과 README의 Gemma 설명을 고친다([데모 영상(sng_j)](sng_j-demo-video.md)와 맞춘다).
+4. **데모·README.** 결과에 맞춰 영상 장면과 README의 Gemma 설명을 고친다([데모 영상(sng_j)](../sng_j-demo-video.md)와 맞춘다).
 
 ## 4. 정할 것 (시작 전에)
 
@@ -111,7 +113,7 @@ GPU는 데모·녹화 때만 켜므로 심사위원이 들어왔을 때는 꺼�
 2. 기다린다: 관리 화면 `/admin/status` 맨 아래 'Gemma 수동 실행'의 **GPU** 표시가 '준비됨 · gemma4:12b'가 될 때까지 '다시 확인'을 누른다. 설치기가 모델을 올리고 예열한 뒤 gateway를 띄우므로(예열 한도 600초) 그 전까지는 '꺼져 있거나 모델을 올리는 중'이다. 켠 시각과 준비된 시각을 이 문서에 적는다.
 3. 잰다(처음 한 번): 사전 항목 '지금 다시 분류해 보기' 한 번, 수동 실행 한 용어 한 번. 화면의 걸린 시간과 결과를 적는다. 30초 deadline에 걸려 '모델이 답하지 못했어요'가 나오면 한 번에 분류하는 문장 수(지금은 배치와 같은 `risk.PER_TERM` 12건)를 줄이는 코드 수정이 필요하다.
 4. 끈다: `gcloud compute instances stop trend-production-gpu --zone <zone> --project stunning-crane-508614-c1`, 그다음 `gcloud compute instances describe trend-production-gpu --zone <zone> --project stunning-crane-508614-c1 --format 'value(status)'`가 `TERMINATED`인지 본다. GPU 표시가 다시 '꺼져 있거나…'가 되는지도 본다.
-5. 청구: 다음 날 Billing 보고서에서 GPU·VM·디스크 SKU를 확인해 적는다([10-27 청구 확인](2026-10-27-billing-check.md)과 별도로).
+5. 청구: 다음 날 Billing 보고서에서 GPU·VM·디스크 SKU를 확인해 적는다([10-27 청구 확인](../2026-10-27-billing-check.md)과 별도로).
 
 ## 5. 완료 기준
 

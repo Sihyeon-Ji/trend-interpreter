@@ -4,7 +4,7 @@
 
 [운영 명령](../개발환경/개발-명령어.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · [결정 기록](../adr/README.md) · [완료 계획과 지난 점검](archive/README.md)
 
-인프라는 [Plan 17](archive/17-hybrid-infrastructure.md)의 구성(웹·API는 Cloud Run, DB는 Cloud SQL)으로 운영 중이다. Gemma는 수집 서버·Kaggle의 배치 단계에서 쓰고, 배포본에서 도는 모습은 [Gemma 실시간 분류(ejchoi)](ejchoi-gemma-live-classify.md)에서 다룬다. Gemma 실행 위치가 바뀐 경위는 [Plan 06](archive/06-gemma-on-cloud-run-gpu.md)과 [Gemma 로컬 편집 엔진 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에 남아 있다.
+인프라는 [Plan 17](archive/17-hybrid-infrastructure.md)의 구성(웹·API는 Cloud Run, DB는 Cloud SQL)으로 운영 중이다. Gemma는 수집 서버·Kaggle의 배치 단계에서 쓰고, 배포본에서 도는 모습은 [Gemma 실시간 분류(ejchoi)](archive/ejchoi-gemma-live-classify.md)에서 다룬다. Gemma 실행 위치가 바뀐 경위는 [Plan 06](archive/06-gemma-on-cloud-run-gpu.md)과 [Gemma 로컬 편집 엔진 결정](../AI-개발/Gemma-로컬-편집-엔진-결정.md)에 남아 있다.
 
 ## 지금 상태 (10-10)
 
@@ -17,11 +17,13 @@
 
 **10-16 갱신.** 운영 DB 갱신을 10-14 에 앞당겨 했다(`trend_20261014`, [실행 기록](archive/2026-10-16-final-db-refresh.md#10-14-실행-기록)). 10-15 에 비밈 14개 제외·요청 제한 180/150초·`reviewer` 계정을 더했고, 같은 12사례 10차를 운영에서 쟀다(11/12 완료, 위험 누락 0, AI 채점만). ktwoo 가 마친 계획 넷 – [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)·[수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)·[문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) – 을 보관했다.
 
+**10-16 결정(지시현).** 운영 GPU VM은 만들지 않는다(Gemma 실시간 분류는 코드만 운영에, [보관](archive/ejchoi-gemma-live-classify.md)). 저장소 이름을 `Sihyeon-Ji/trend-interpreter`로 바꾸고 오래된 원격 브랜치를 지웠다. 덱·영상 숫자는 4~9차(사람 검토)를 그대로 쓴다. 이전 DB 되돌리기 훈련은 하지 않는다.
+
 ## 다음 순서
 
 계획 문서 이름은 두 가지다. 정해진 날에 하는 일은 실행일(`2026-10-16-` 등), 마감까지 하는 일은 담당자(`shji-`·`ejchoi-`·`ktwoo-`·`sng_j-`)로 시작한다.
 
-1. **10-14 코드 동결까지** – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)(ktwoo).
+1. **10-14 코드 동결까지** – [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)(ktwoo).
 2. **10-15 밤** – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
 3. **10-16** – [마지막 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) – 10-14 에 ktwoo 가 앞당겨 마쳤다(보관).
 4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi).
@@ -44,7 +46,6 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 마감 |
 | --- | --- | --- | --- | --- | --- |
-| [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 진행 중 – 1·2단계 로컬 구현 | 운영 GPU VM(지시현 확인), 버튼 실행 한 번과 청구 확인 | 10-14 |
 | [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
 | [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |
 
@@ -54,13 +55,14 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
+| [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) | 1·2단계 코드 운영 반영, 심사용 읽기 전용 계정. 운영 GPU는 만들지 않음(10-16 보관) |
 | [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) | 스냅숏 `20261014T134313-8887867` → `trend_20261014`, 사람 결정 누락 0, API·Job 전환(10-14, ktwoo 마무리). 복원 검증·되돌리기 훈련은 하지 않음(10-16 보관) |
 | [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md) | 마지막 스냅숏 `20261014T134313-8887867`, fit 빼기, 일본 보강(카드 46 → 124)(10-16 보관) |
 | [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) | 빈 시장 해소, 10차 재측정(운영, 11/12·위험 누락 0, AI 채점)(10-16 보관) |
 | [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인(승인 2건)(10-16 보관). ⑥ 조사 요청 등은 제출 뒤 과제 |
 | [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) |
 | [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [데모 영상](sng_j-demo-video.md) |
-| [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) |
+| [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) |
 | [Plan 17](archive/17-hybrid-infrastructure.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10) |
 | [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) |
 | [Archive 01](archive/01-environment-reproducibility.md) | 개발환경 재현성과 진단 |

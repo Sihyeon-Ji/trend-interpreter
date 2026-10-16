@@ -105,7 +105,7 @@ docker compose restart db
 
 ### 검증 기록 – 2026-09-20
 
-구현 커밋은 [`eb2faf6`](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/eb2faf6)입니다.
+구현 커밋은 [`eb2faf6`](https://github.com/Sihyeon-Ji/trend-interpreter/commit/eb2faf6)입니다.
 
 | 검증 | 실제 결과 |
 | --- | --- |
@@ -201,7 +201,7 @@ API 경로는 `POST /api/lab/workflow`입니다. http://localhost:8000/docs 에�
 - DB 실습을 비활성화한 앱에서도 워크플로우 API가 동작합니다.
 - 실습 API는 기본·배포 미리보기에서 꺼져 있고 Cloud Run에서는 활성화를 거부합니다.
 
-구현 커밋은 [`69b8b74`](https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup/commit/69b8b74)입니다.
+구현 커밋은 [`69b8b74`](https://github.com/Sihyeon-Ji/trend-interpreter/commit/69b8b74)입니다.
 전체 Python 테스트 23개, 기존 브라우저 테스트 2개와 배포 이미지 smoke test가 통과했습니다.
 
 현재 Mock 응답은 즉시 완료되므로 콘솔에서 두 분기가 차례로 끝나 보일 수 있습니다.

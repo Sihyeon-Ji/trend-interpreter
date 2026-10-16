@@ -30,7 +30,7 @@
 | [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 제출 전후 운영으로 합쳤다가(10-09) 날짜별 문서로 나눔(10-10) – [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)·[10-17 저장소 공개](../2026-10-17-public-repository.md)·[10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md) |
 | [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md) |
 | [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모 영상은 [sng_j](../sng_j-demo-video.md), 발표 자료는 [ejchoi](../ejchoi-submission-deck.md) |
-| [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md) |
+| [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류(ejchoi)](ejchoi-gemma-live-classify.md) |
 | [현행 Plan 17](17-hybrid-infrastructure.md)·[실행 기록](17-hybrid-infrastructure-실행기록.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10). GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB 되돌리기는 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) |
 | [현행 Plan 20](20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일과 일본어 화면은 [문구 흐름과 일본어 화면(ktwoo)](ktwoo-copy-flow-and-japanese-ui.md) |
 | [현행 Plan 05](05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09). 남은 두 가지는 Plan 17로 넘김 |

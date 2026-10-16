@@ -114,8 +114,8 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 Docker Desktop을 켠 뒤 실행하세요. 처음이라면 [상세 설치 가이드](docs/개발환경/처음-설치.md)를 참고하세요.
 
 ```bash
-git clone --branch develop https://github.com/Sihyeon-Ji/2026-google-ai-builder-cup.git
-cd 2026-google-ai-builder-cup
+git clone --branch develop https://github.com/Sihyeon-Ji/trend-interpreter.git
+cd trend-interpreter
 docker compose up -d
 ```
 
