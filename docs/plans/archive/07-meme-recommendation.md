@@ -2,7 +2,7 @@
 
 작성일 **2026-09-28** · 상태 **완료 – 남은 일은 밈 추천 남은 일(ktwoo)로 넘김(10-10)** (예시 모드·pytest·e2e 확인. 로컬 gemma4:e4b 확인은 09-29 구조 변경 전이고, 사진 경로 추천·Gemini 품질·사람 판정은 [Plan 09](09-generation-quality-evaluation.md), 사진 표본은 사용자/팀 준비 대기. 09-30 점수 개선 반영) · 근거 [ADR 0002 §4](../../adr/0002-고도화-방안.md) · 목표일 **2026-10-12** · 선행 [Plan 02](02-lifecycle-stages.md), [Plan 03](03-term-risk.md), [Plan 04](04-target-regions-and-keyword-dashboard.md)
 
-> **2026-10-10 마무리.** 추천 규칙·쓰임 낱말 고정·사진 흐름까지 이 계획에서 끝냈다. 빈 시장(일본 화장품·러닝화·가계부, 한국 화장품) 보강, 실사진 평가, 분야 구분(`fashion_beauty`), 추천 개수 기준은 [밈 추천 남은 일](../ktwoo-meme-recommendation-remaining.md)(ktwoo)가 이어받는다. 아래 기록은 당시 그대로 둔다.
+> **2026-10-10 마무리.** 추천 규칙·쓰임 낱말 고정·사진 흐름까지 이 계획에서 끝냈다. 빈 시장(일본 화장품·러닝화·가계부, 한국 화장품) 보강, 실사진 평가, 분야 구분(`fashion_beauty`), 추천 개수 기준은 [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)(ktwoo)가 이어받는다. 아래 기록은 당시 그대로 둔다.
 
 ## 2026-10-09 밈 종류·사용층 거르기와 쓰임 낱말 모델 변경
 

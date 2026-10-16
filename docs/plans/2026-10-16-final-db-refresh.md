@@ -1,6 +1,6 @@
 # 10-16 마지막 운영 DB 갱신
 
-실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **전환 완료 – 아래 '10-14 실행 기록'** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
+실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **전환 완료 – 아래 '10-14 실행 기록'** · 선행 [10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
 
 [계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · 경위 [옛 Plan 19](archive/19-production-data-refresh.md)
 
@@ -83,12 +83,12 @@ Terraform 변수는 아직 옛 버전이다. 다음 apply 전에 `services.datab
 
 10-16 갱신에 더할 일(10-10)
 
-- **스냅숏:** ktwoo가 10-15 밤까지 `db/latest`를 올린다([10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)). 받은 업로드 시각의 스냅숏으로 capture한다.
+- **스냅숏:** ktwoo가 10-15 밤까지 `db/latest`를 올린다([10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)). 받은 업로드 시각의 스냅숏으로 capture한다.
 - **쓰임 낱말:** 사람(`human:`)·Gemini(`gemini-`) 값은 `carry_fits`가 운영에서 이어 받는다. 새로 추천 후보가 된 말 가운데 쓰임 낱말이 없거나 로컬 모델(`local:`) 값인 것은 Gemini로 다시 붙인다. 지금 `fit_backfill.py`는 칸이 찬 로컬 값을 건너뛰므로, 추천 후보의 `local:` 값을 다시 붙이는 옵션을 갱신 전에 더한다.
 - **리스크:** 새로 추천 후보가 된 말 가운데 리스크가 비어 있는 것은 표로 내 사람 판정을 받는다(10-10의 36개와 같은 방법).
-- **재측정:** 갱신본으로 같은 12사례를 다시 잰다([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)의 완료 기준).
+- **재측정:** 갱신본으로 같은 12사례를 다시 잰다([밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)의 완료 기준).
 - **이전 DB로 되돌리기:** 위 완료 기준의 되돌리기 명령을 이번 전환 때 한 번 실행해 기록한다(release 되돌리기는 10-10에 실행했다).
-- **표제어 읽기(10-13):** 스냅숏에 `term_readings`(마이그레이션 026)가 새로 들고 영어·일본어 뜻이 Sonnet 판으로 바뀐다([10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)). 이관은 코드의 표 목록으로 옮기므로 026 이 든 코드로 돌린다. 게시 역할은 마이그레이션 027 이 이미 등록된 역할에 이 표 읽기 권한을 주고, 새 DB 에서 `configure_publisher_role.py` 를 돌릴 때도 받는다.
+- **표제어 읽기(10-13):** 스냅숏에 `term_readings`(마이그레이션 026)가 새로 들고 영어·일본어 뜻이 Sonnet 판으로 바뀐다([10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)). 이관은 코드의 표 목록으로 옮기므로 026 이 든 코드로 돌린다. 게시 역할은 마이그레이션 027 이 이미 등록된 역할에 이 표 읽기 권한을 주고, 새 DB 에서 `configure_publisher_role.py` 를 돌릴 때도 받는다.
 - **나라별 이름(10-13):** 외국에서 온 한글 표제어(규동·고블린 모드)는 원어 이름(`term_names`, 마이그레이션 028)을 가지고, 그 화면 언어에서는 이 이름이 크게 보인다(일본어 화면 牛丼, 사전 항목에만 '韓国語の見出し語 규동'). 수집 서버가 문서에 글자 그대로 있고 표제어 바로 뒤 괄호 안이거나 소리가 맞는 것만 넣었다(111개). 028 도 게시 역할에 읽기 권한을 준다.
 
 완료 기준(옛 Plan 19)

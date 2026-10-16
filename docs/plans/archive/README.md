@@ -28,11 +28,11 @@
 | [현행 Plan 15](15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별(10-09) |
 | [현행 Plan 06](06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – 하지 않기로 하고 중단(10-09). 완료가 아니다 |
 | [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 제출 전후 운영으로 합쳤다가(10-09) 날짜별 문서로 나눔(10-10) – [10-16 운영 DB 갱신](../2026-10-16-final-db-refresh.md)·[10-17 저장소 공개](../2026-10-17-public-repository.md)·[10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md) |
-| [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일(ktwoo)](../ktwoo-meme-recommendation-remaining.md) |
+| [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md) |
 | [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모 영상은 [sng_j](../sng_j-demo-video.md), 발표 자료는 [ejchoi](../ejchoi-submission-deck.md) |
 | [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류(ejchoi)](../ejchoi-gemma-live-classify.md) |
 | [현행 Plan 17](17-hybrid-infrastructure.md)·[실행 기록](17-hybrid-infrastructure-실행기록.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10). GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB 되돌리기는 [10-16 운영 DB 갱신](../2026-10-16-final-db-refresh.md) |
-| [현행 Plan 20](20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일과 일본어 화면은 [문구 흐름과 일본어 화면(ktwoo)](../ktwoo-copy-flow-and-japanese-ui.md) |
+| [현행 Plan 20](20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일과 일본어 화면은 [문구 흐름과 일본어 화면(ktwoo)](ktwoo-copy-flow-and-japanese-ui.md) |
 | [현행 Plan 05](05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09). 남은 두 가지는 Plan 17로 넘김 |
 | [현행 Plan 01](01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09). 수집 서버 PostgreSQL 전환은 그 담당자에게 넘김 |
 | [현행 Plan 16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재 – 용어 3,006개까지 하고 보류(10-09). 완료가 아니다 |
@@ -51,3 +51,6 @@
 | 2026-10-08 | 계획 대비 진행 상태 | 계획 목록(10-09)에 합쳐 지웠다(git 기록에 남음) |
 
 점검 종료는 해당 보고서에 등장하는 실행 계획의 완료를 뜻하지 않는다. 현행 Plan 02·04는 명시된 완료 기준을 충족해 10-08에 보관했다. 다른 현행 계획은 데이터·품질·운영 또는 사람 확인 조건이 남아 상위 목록에 유지한다.
+| [수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md) | 10-15 수집 서버 스냅숏 – 스냅숏 `20261014T134313-8887867`로 운영 DB 갱신까지(10-14), 일본 카드 46 → 124(10-16) |
+| [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) | 빈 시장·10차 재측정(운영, 11/12 완료·어울림 12/28·위험 누락 0, Claude Sonnet 채점)(10-16) |
+| [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인, 승인 2건(10-16). 조사 요청·화면 합치기 등은 남김 |

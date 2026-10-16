@@ -1,6 +1,6 @@
 # 계획
 
-작성일 **2026-09-23** · 최종 갱신 **2026-10-10** · 제출 마감 **2026-10-18**
+작성일 **2026-09-23** · 최종 갱신 **2026-10-16** · 제출 마감 **2026-10-18**
 
 [운영 명령](../개발환경/개발-명령어.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · [결정 기록](../adr/README.md) · [완료 계획과 지난 점검](archive/README.md)
 
@@ -13,14 +13,16 @@
 - **품질:** 같은 12사례 9차 측정(사람 검토) – 어울리는 추천 91%, 위험한데 '없음' 0, 카피 즉시 사용성 2.50/3([Plan 09](archive/09-generation-quality-evaluation.md)). AI 초안을 지시현이 검토한 값이라 독립된 사람 판정으로 세지 않는다.
 - **운영 데이터(10-10):** 추천 후보 36개 리스크 사람 판정, 드림코어·Meme coin·草·The cake is a lie 쓰임 낱말 고정, 草·도도독 뜻 수정.
 - **배포(10-10):** 해시태그 중복 수정, 만들기 결과물의 언어 섞임 차단, 되돌리기 점검의 secret 별칭 수정. release 되돌리기 훈련 실행.
-- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)).
+- **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)). → 10-14 갱신·일본 보강으로 풀렸다(아래).
+
+**10-16 갱신.** 운영 DB 갱신을 10-14 에 앞당겨 했다(`trend_20261014`, [실행 기록](2026-10-16-final-db-refresh.md#10-14-실행-기록)). 10-15 에 비밈 14개 제외·요청 제한 180/150초·`reviewer` 계정을 더했고, 같은 12사례 10차를 운영에서 쟀다(11/12 완료, 위험 누락 0, AI 채점만). ktwoo 의 계획 셋 – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)·[문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) – 을 보관했다.
 
 ## 다음 순서
 
 계획 문서 이름은 두 가지다. 정해진 날에 하는 일은 실행일(`2026-10-16-` 등), 마감까지 하는 일은 담당자(`shji-`·`ejchoi-`·`ktwoo-`·`sng_j-`)로 시작한다.
 
-1. **10-14 코드 동결까지** – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)(ktwoo).
-2. **10-15 밤** – [수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
+1. **10-14 코드 동결까지** – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)(ktwoo).
+2. **10-15 밤** – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
 3. **10-16** – [마지막 운영 DB 갱신](2026-10-16-final-db-refresh.md)(shji).
 4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi).
 5. **10-17** – [저장소 공개 전환과 배포 승인](2026-10-17-public-repository.md)(shji). 10-18 제출.
@@ -34,8 +36,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-15 밤 | [2026-10-15-collection-server-snapshot](2026-10-15-collection-server-snapshot.md) | ktwoo | fit 단계 빼기(10-12 완료), 일본 후보 보강(진행 중), `db/latest` 업로드 | 업로드 시각 |
-| 10-16 | [2026-10-16-final-db-refresh](2026-10-16-final-db-refresh.md) | shji | 마지막 운영 DB 갱신, 새 후보 쓰임 낱말·리스크, 12사례 재측정, 이전 DB 되돌리기 | 사람 결정 유지, 새 snapshot 시각으로 웹 열림 |
+| 10-16(10-14 실행) | [2026-10-16-final-db-refresh](2026-10-16-final-db-refresh.md) | shji(전환은 ktwoo) | 전환·12사례 재측정 완료(10-14~15). **남음:** 전환 전 백업의 복원 검증, 이전 DB 되돌리기 한 번 실행 | 복원 보고서, 되돌리기 실행 기록 |
 | 10-17 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | WIF 계정 분리, 이력 재검사, 공개, `gcp` environment 보호 | 외부·collaborator 계정의 거부·승인 확인 |
 | 10-20 ~ 26 | [2026-10-20-cloud-sql-transition](2026-10-20-cloud-sql-transition.md) | shji | 체험 종료 전 유료 전환 또는 이전 | 체험 표시 소멸, 서비스 확인 |
 | 10-27 ~ 28 | [2026-10-27-billing-check](2026-10-27-billing-check.md) | shji | 실제 청구 확인 | 항목별 예상치와 차이 |
@@ -44,8 +45,6 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 마감 |
 | --- | --- | --- | --- | --- | --- |
-| [ktwoo-copy-flow-and-japanese-ui](ktwoo-copy-flow-and-japanese-ui.md) | ktwoo | 문구 흐름 남은 일(승인 기록·재검사)과 일본어 화면(Plan 20) | 코드 완료 – develop 반영(10-12), 배포 전 | 승인 기록 서버 저장, 日本語 전환 | 10-14 |
-| [ktwoo-meme-recommendation-remaining](ktwoo-meme-recommendation-remaining.md) | ktwoo | 밈 추천 남은 일 – 빈 시장, 실사진, 분야 구분(Plan 07) | 진행 중 – 결정 반영(10-12), 일본 보강 | 10-16 갱신본 12사례 재측정 | 10-14·10-16 |
 | [ejchoi-gemma-live-classify](ejchoi-gemma-live-classify.md) | ejchoi | 배포본에서 Gemma가 도는 모습 – 실시간 분류·관리자 수동 실행(Plan 14 1·2단계, Plan 17 GCE) | 진행 중 – 1·2단계 로컬 구현 | 운영 GPU VM(지시현 확인), 버튼 실행 한 번과 청구 확인 | 10-14 |
 | [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
 | [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |
@@ -56,11 +55,14 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
-| [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) |
+| [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md) | 마지막 스냅숏 `20261014T134313-8887867`, fit 빼기, 일본 보강(카드 46 → 124)(10-16 보관) |
+| [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) | 빈 시장 해소, 10차 재측정(운영, 11/12·위험 누락 0, AI 채점)(10-16 보관) |
+| [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인(승인 2건)(10-16 보관). ⑥ 조사 요청 등은 제출 뒤 과제 |
+| [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) |
 | [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [데모 영상](sng_j-demo-video.md) |
 | [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) |
 | [Plan 17](archive/17-hybrid-infrastructure.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10) |
-| [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md)·[문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md) |
+| [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) |
 | [Archive 01](archive/01-environment-reproducibility.md) | 개발환경 재현성과 진단 |
 | [Plan 02](archive/02-lifecycle-stages.md) | 쓰임 근거 있는 검증 용어의 생애주기·확산 판정과 화면 표시(10-06) |
 | [Plan 04](archive/04-target-regions-and-keyword-dashboard.md) | 목표 지역 선택·키워드 대시보드, 10개국 검색어 수집 확인(10-08) |
