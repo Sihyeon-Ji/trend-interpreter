@@ -38,7 +38,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-17 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | WIF 계정 분리, 이력 재검사, 공개, `gcp` environment 보호 | 외부·collaborator 계정의 거부·승인 확인 |
+| 10-17 → 10-16 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | 공개·`gcp` 보호 완료(승인자 지시현·ejchoi). 남은 것: 실제 계정 확인 | 외부 계정 push 거부, 배포 승인 대기 확인 |
 | 10-20 ~ 26 | [2026-10-20-cloud-sql-transition](2026-10-20-cloud-sql-transition.md) | shji | 체험 종료 전 유료 전환 또는 이전 | 체험 표시 소멸, 서비스 확인 |
 | 10-27 ~ 28 | [2026-10-27-billing-check](2026-10-27-billing-check.md) | shji | 실제 청구 확인 | 항목별 예상치와 차이 |
 
