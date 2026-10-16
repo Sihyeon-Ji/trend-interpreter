@@ -1,6 +1,6 @@
 # 10-17 저장소 공개 전환과 배포 승인
 
-실행일 **2026-10-17** · 담당 **shji(지시현)** · 상태 **준비 중** · 선행 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) · 제출 **10-18**
+실행일 **2026-10-17** · 담당 **shji(지시현)** · 상태 **준비 중** · 선행 [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) · 제출 **10-18**
 
 [계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [WIF 배포 계정 분리](../운영/WIF-배포-계정-분리.md) · 경위 [옛 Plan 11](archive/11-public-repository-release-protection.md)
 

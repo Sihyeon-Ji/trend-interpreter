@@ -70,7 +70,8 @@ resource "google_cloud_run_v2_service" "api" {
     execution_environment            = "EXECUTION_ENVIRONMENT_GEN2"
     service_account                  = google_service_account.runtime["api"].email
     max_instance_request_concurrency = 8
-    timeout                          = "90s"
+    # 만들기 한 번(생성 + 다시 쓰기)이 90초를 넘을 때가 있다 – 10-15 운영과 맞춤
+    timeout                          = "150s"
     scaling {
       min_instance_count = 0
       max_instance_count = 2
@@ -193,7 +194,8 @@ resource "google_cloud_run_v2_service" "web" {
   template {
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
     service_account       = google_service_account.runtime["web"].email
-    timeout               = "60s"
+    # 문구 생성·검사가 60초를 넘어 504 가 났다(데모 점검 10-14, 모델 요청 22건 중 4건) – 10-15 운영과 맞춤
+    timeout               = "180s"
     scaling {
       min_instance_count = 0
       max_instance_count = 2

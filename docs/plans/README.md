@@ -15,7 +15,7 @@
 - **배포(10-10):** 해시태그 중복 수정, 만들기 결과물의 언어 섞임 차단, 되돌리기 점검의 secret 별칭 수정. release 되돌리기 훈련 실행.
 - **남은 문제:** 일본 화장품·러닝화·가계부와 한국 화장품은 추천 후보가 없다([밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)). → 10-14 갱신·일본 보강으로 풀렸다(아래).
 
-**10-16 갱신.** 운영 DB 갱신을 10-14 에 앞당겨 했다(`trend_20261014`, [실행 기록](2026-10-16-final-db-refresh.md#10-14-실행-기록)). 10-15 에 비밈 14개 제외·요청 제한 180/150초·`reviewer` 계정을 더했고, 같은 12사례 10차를 운영에서 쟀다(11/12 완료, 위험 누락 0, AI 채점만). ktwoo 의 계획 셋 – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)·[문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) – 을 보관했다.
+**10-16 갱신.** 운영 DB 갱신을 10-14 에 앞당겨 했다(`trend_20261014`, [실행 기록](archive/2026-10-16-final-db-refresh.md#10-14-실행-기록)). 10-15 에 비밈 14개 제외·요청 제한 180/150초·`reviewer` 계정을 더했고, 같은 12사례 10차를 운영에서 쟀다(11/12 완료, 위험 누락 0, AI 채점만). ktwoo 가 마친 계획 넷 – [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)·[수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)·[문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) – 을 보관했다.
 
 ## 다음 순서
 
@@ -23,7 +23,7 @@
 
 1. **10-14 코드 동결까지** – [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)(ktwoo).
 2. **10-15 밤** – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
-3. **10-16** – [마지막 운영 DB 갱신](2026-10-16-final-db-refresh.md)(shji).
+3. **10-16** – [마지막 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) – 10-14 에 ktwoo 가 앞당겨 마쳤다(보관).
 4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi).
 5. **10-17** – [저장소 공개 전환과 배포 승인](2026-10-17-public-repository.md)(shji). 10-18 제출.
 6. **10-20 ~ 10-26** – [Cloud SQL 체험 종료 전 전환](2026-10-20-cloud-sql-transition.md), **10-27 ~ 10-28** [청구 확인](2026-10-27-billing-check.md)(shji).
@@ -36,7 +36,6 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-16(10-14 실행) | [2026-10-16-final-db-refresh](2026-10-16-final-db-refresh.md) | shji(전환은 ktwoo) | 전환·12사례 재측정 완료(10-14~15). **남음:** 전환 전 백업의 복원 검증, 이전 DB 되돌리기 한 번 실행 | 복원 보고서, 되돌리기 실행 기록 |
 | 10-17 | [2026-10-17-public-repository](2026-10-17-public-repository.md) | shji | WIF 계정 분리, 이력 재검사, 공개, `gcp` environment 보호 | 외부·collaborator 계정의 거부·승인 확인 |
 | 10-20 ~ 26 | [2026-10-20-cloud-sql-transition](2026-10-20-cloud-sql-transition.md) | shji | 체험 종료 전 유료 전환 또는 이전 | 체험 표시 소멸, 서비스 확인 |
 | 10-27 ~ 28 | [2026-10-27-billing-check](2026-10-27-billing-check.md) | shji | 실제 청구 확인 | 항목별 예상치와 차이 |
@@ -55,6 +54,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
+| [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) | 스냅숏 `20261014T134313-8887867` → `trend_20261014`, 사람 결정 누락 0, API·Job 전환(10-14, ktwoo 마무리). 복원 검증·되돌리기 훈련은 하지 않음(10-16 보관) |
 | [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md) | 마지막 스냅숏 `20261014T134313-8887867`, fit 빼기, 일본 보강(카드 46 → 124)(10-16 보관) |
 | [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) | 빈 시장 해소, 10차 재측정(운영, 11/12·위험 누락 0, AI 채점)(10-16 보관) |
 | [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인(승인 2건)(10-16 보관). ⑥ 조사 요청 등은 제출 뒤 과제 |
@@ -71,7 +71,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | [Plan 12](archive/12-dictionary-crosscheck.md) | 확인된 사전 항목의 위키 대조와 '문서 대조' 단계(10-09). 확대 사전 대조는 제출 뒤 |
 | [Plan 15](archive/15-overseas-generation-signals.md) | 해외 세대의 실측·추정 구별과 검색 관심 분리(10-09). 계정 기반 2·3단계는 제출 뒤 |
 | [Plan 06](archive/06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – **중단**(10-09). 전체 QLoRA·사람 정답 봉인·영어 뜻 첫 승인 게시까지. 팀 재현·모델 비교는 하지 않음 |
-| [옛 Plan 11·13·19](archive/19-production-data-refresh.md) | 공개 저장소·Cloud SQL 유료 전환·운영 DB 갱신 – 새 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)에 합침(10-09) |
+| [옛 Plan 11·13·19](archive/19-production-data-refresh.md) | 공개 저장소·Cloud SQL 유료 전환·운영 DB 갱신 – 새 [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)에 합침(10-09) |
 | [Plan 05](archive/05-trend-cloud-run-deployment.md) | 웹·API·Cloud SQL 배포와 백업·유지보수·승인 게시(10-09 보관, 완료 기준 8개 중 5개). Job 이미지·Gemini 0회 확인은 Plan 17, 체험 결정은 Plan 13 |
 | [Plan 01](archive/01-import-latest-trend-data.md) | 고정 스냅숏의 Cloud SQL 이관(10-09 보관). 운영 이관·갱신은 Plan 19, 게시는 승인 게시가 이어받음. 수집 서버 PostgreSQL 전환은 수집 서버 담당 |
 | [Plan 16](archive/16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재와 성향 분석 – 뜬 해 있는 용어 3,006개까지 하고 **보류**(10-09). 재시도·뜻 품질 검수는 제출 뒤 |

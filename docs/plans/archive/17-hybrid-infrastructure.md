@@ -2,7 +2,7 @@
 
 작성일 **2026-10-01** · 상태 **마무리(10-10) – 운영 웹/API·Cloud SQL·승인 게시·거부 경로·Gemini 0회·Job 이미지·release 되돌리기 확인. GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB로 되돌리기는 Plan 11로 넘김** · 구축 목표 **10-12**, 통합 평가·데모 **10-15** · 제출 **10-18**
 
-> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Gemma 실시간 분류](../ejchoi-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [10-16 운영 DB 갱신](../2026-10-16-final-db-refresh.md), ⑨ 데모는 [sng_j](../sng_j-demo-video.md)·[ejchoi](../ejchoi-submission-deck.md)로 넘겼다.
+> **2026-10-10 마무리.** 9절 기준 ①②는 하지 않기로 했고(사용자 결정), ③ GCE 실제 추론과 ⑦ GPU 중단은 [Gemma 실시간 분류](../ejchoi-gemma-live-classify.md)(ejchoi), ⑧의 이전 DB로 되돌리기는 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md), ⑨ 데모는 [sng_j](../sng_j-demo-video.md)·[ejchoi](../ejchoi-submission-deck.md)로 넘겼다.
 
 [계획 목록](../README.md) · [10-02 실행 기록](17-hybrid-infrastructure-실행기록.md) · [확정한 아키텍처 제안서](../../AI-개발/Gemma-Gemini%20하이브리드%20아키텍처%20제안서.md) · [현재 구현 점검](구현-완료도-실측-점검-2026-10-03.md)
 
@@ -23,7 +23,7 @@
 | ⑤ 거부 경로 | 완료 | 아래 10-10 확인 |
 | ⑥ 승인 배치 게시 | 완료 | 10-09 운영 게시와 Job 재실행, [승인 배치 게시](../../개발환경/승인-배치-게시.md) |
 | ⑦ GPU·PC 중단 | Gemma 실시간 분류(ejchoi)로 넘김 | 운영에 GPU가 없다 |
-| ⑧ 백업·복원·이전 release 복구 | 일부 | release 되돌리기 10-10 실행. 이전 DB로 되돌리기는 [10-16 운영 DB 갱신](../2026-10-16-final-db-refresh.md) |
+| ⑧ 백업·복원·이전 release 복구 | 일부 | release 되돌리기 10-10 실행. 이전 DB로 되돌리기는 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) |
 | ⑨ 품질·데모 | 품질은 Plan 09 완료, 데모는 제출 데모·영상·발표 자료(담당 미정) | 데모는 다른 팀원 |
 
 **거부 경로(10-10).** staging 서비스 계정은 운영 API invoker와 운영 secret 6개 어디에도 권한이 없다. 로그인 없이, 또는 위조 쿠키로 검수·리스크·게시 쓰기를 보내면 401이고, API에 직접 보내면 403이다. 운영에 GPU VM은 없다.

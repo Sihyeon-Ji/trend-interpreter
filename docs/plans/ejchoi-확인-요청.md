@@ -2,7 +2,7 @@
 
 작성일 **2026-10-11** · 담당 **ejchoi** · 받는 사람 **shji(지시현)**, 팀 · 제출 **10-18**
 
-[계획 목록](README.md) · [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) · [발표 자료](ejchoi-submission-deck.md) · [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)
+[계획 목록](README.md) · [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) · [발표 자료](ejchoi-submission-deck.md) · [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)
 
 ejchoi 몫의 코드와 문서는 끝났다. 감사관 사람 라벨 요청(10-03)은 ejchoi가 판정해 전달했다. 아래는 확인이나 결정을 받아야 진행할 수 있는 일이다. 결정이 나면 ejchoi가 이어서 한다.
 

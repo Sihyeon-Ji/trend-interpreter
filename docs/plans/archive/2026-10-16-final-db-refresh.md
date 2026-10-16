@@ -1,10 +1,10 @@
 # 10-16 마지막 운영 DB 갱신
 
-실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **전환 완료 – 아래 '10-14 실행 기록'** · 선행 [10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](2026-10-17-public-repository.md)
+실행일 **2026-10-14(앞당김)** · 담당 **ktwoo**(원래 shji) · 상태 **완료(10-16 보관, ktwoo 마무리) – 아래 '10-14 실행 기록'·'완료 기록'** · 선행 [10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)(ktwoo) · 다음 [10-17 저장소 공개](../2026-10-17-public-repository.md)
 
-[계획 목록](README.md) · [GCP 운영](../운영/GCP-운영.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · 경위 [옛 Plan 19](archive/19-production-data-refresh.md)
+[계획 목록](../README.md) · [GCP 운영](../../운영/GCP-운영.md) · [승인 배치 게시](../../개발환경/승인-배치-게시.md) · 경위 [옛 Plan 19](19-production-data-refresh.md)
 
-수집 서버의 마지막 스냅숏으로 운영 DB를 새로 만들고, 운영에서 사람이 정한 것(사전에서 뺀 말·리스크 결정·쓰임 낱말 고정·뜻 수정·승인 게시)을 이어 받는다. 녹화([데모 영상](sng_j-demo-video.md))가 이 갱신본으로 한다.
+수집 서버의 마지막 스냅숏으로 운영 DB를 새로 만들고, 운영에서 사람이 정한 것(사전에서 뺀 말·리스크 결정·쓰임 낱말 고정·뜻 수정·승인 게시)을 이어 받는다. 녹화([데모 영상](../sng_j-demo-video.md))가 이 갱신본으로 한다.
 
 ## 갱신이 지키는 것과 새로 들어오는 것
 
@@ -73,7 +73,7 @@ Terraform 변수는 아직 옛 버전이다. 다음 apply 전에 `services.datab
 
 ## 절차
 
-절차는 [GCP 운영의 운영 DB 갱신](../운영/GCP-운영.md)을 따른다(capture → build → create → upload → overlay → secret → Terraform·API 전환). 10-09 두 번째 전환에서 바뀐 점을 지킨다.
+절차는 [GCP 운영의 운영 DB 갱신](../../운영/GCP-운영.md)을 따른다(capture → build → create → upload → overlay → secret → Terraform·API 전환). 10-09 두 번째 전환에서 바뀐 점을 지킨다.
 
 - Terraform은 `infra/gcp/hybrid`에서 `TF_DATA_DIR=.terraform/production`으로 실행한다. 기본 `.terraform`은 staging 상태다.
 - API는 배포 스크립트가 revision 이름을 정해 Terraform이 409로 실패한다. Cloud Run v2 API로 template의 secret 버전과 revision 이름만 바꾼다.
@@ -83,12 +83,12 @@ Terraform 변수는 아직 옛 버전이다. 다음 apply 전에 `services.datab
 
 10-16 갱신에 더할 일(10-10)
 
-- **스냅숏:** ktwoo가 10-15 밤까지 `db/latest`를 올린다([10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)). 받은 업로드 시각의 스냅숏으로 capture한다.
+- **스냅숏:** ktwoo가 10-15 밤까지 `db/latest`를 올린다([10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)). 받은 업로드 시각의 스냅숏으로 capture한다.
 - **쓰임 낱말:** 사람(`human:`)·Gemini(`gemini-`) 값은 `carry_fits`가 운영에서 이어 받는다. 새로 추천 후보가 된 말 가운데 쓰임 낱말이 없거나 로컬 모델(`local:`) 값인 것은 Gemini로 다시 붙인다. 지금 `fit_backfill.py`는 칸이 찬 로컬 값을 건너뛰므로, 추천 후보의 `local:` 값을 다시 붙이는 옵션을 갱신 전에 더한다.
 - **리스크:** 새로 추천 후보가 된 말 가운데 리스크가 비어 있는 것은 표로 내 사람 판정을 받는다(10-10의 36개와 같은 방법).
-- **재측정:** 갱신본으로 같은 12사례를 다시 잰다([밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)의 완료 기준).
+- **재측정:** 갱신본으로 같은 12사례를 다시 잰다([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md)의 완료 기준).
 - **이전 DB로 되돌리기:** 위 완료 기준의 되돌리기 명령을 이번 전환 때 한 번 실행해 기록한다(release 되돌리기는 10-10에 실행했다).
-- **표제어 읽기(10-13):** 스냅숏에 `term_readings`(마이그레이션 026)가 새로 들고 영어·일본어 뜻이 Sonnet 판으로 바뀐다([10-15 수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)). 이관은 코드의 표 목록으로 옮기므로 026 이 든 코드로 돌린다. 게시 역할은 마이그레이션 027 이 이미 등록된 역할에 이 표 읽기 권한을 주고, 새 DB 에서 `configure_publisher_role.py` 를 돌릴 때도 받는다.
+- **표제어 읽기(10-13):** 스냅숏에 `term_readings`(마이그레이션 026)가 새로 들고 영어·일본어 뜻이 Sonnet 판으로 바뀐다([10-15 수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md)). 이관은 코드의 표 목록으로 옮기므로 026 이 든 코드로 돌린다. 게시 역할은 마이그레이션 027 이 이미 등록된 역할에 이 표 읽기 권한을 주고, 새 DB 에서 `configure_publisher_role.py` 를 돌릴 때도 받는다.
 - **나라별 이름(10-13):** 외국에서 온 한글 표제어(규동·고블린 모드)는 원어 이름(`term_names`, 마이그레이션 028)을 가지고, 그 화면 언어에서는 이 이름이 크게 보인다(일본어 화면 牛丼, 사전 항목에만 '韓国語の見出し語 규동'). 수집 서버가 문서에 글자 그대로 있고 표제어 바로 뒤 괄호 안이거나 소리가 맞는 것만 넣었다(111개). 028 도 게시 역할에 읽기 권한을 준다.
 
 완료 기준(옛 Plan 19)
@@ -96,3 +96,16 @@ Terraform 변수는 아직 옛 버전이다. 다음 apply 전에 `services.datab
 - 새 snapshot 반영 뒤에도 `review_history`·`verified_human` 뜻·사람 리스크·`gemini_calls`가 전환 전과 같다.
 - 전환 전 백업과 그 복원 검증 보고서가 있고, 이전 DB로 되돌리는 명령을 한 번 실행해 본 기록이 있다. **되돌리기 실행은 아직 하지 않았다.**
 - 운영 웹의 사전·지도·해석이 새 snapshot 시각으로 열리고, 오류 경보가 없다.
+
+## 완료 기록 (10-16, ktwoo)
+
+| 완료 기준 | 결과 |
+| --- | --- |
+| 새 snapshot 반영 뒤에도 사람 결정(`review_history`·`verified_human`·사람 리스크·`gemini_calls`)이 전환 전과 같다 | 충족 – 빌드·새 클라우드 DB 대조 모두 빠진 결정 0(10-14) |
+| 운영 웹의 사전·지도·해석이 새 snapshot 시각으로 열리고 오류 경보가 없다 | 충족 – 자료 시각 2026.10.14, 10-15 데모 점검(만들기 세 시장 504 없음) |
+| 전환 전 백업 | 충족 – `trend-production-backup-m4zdp`(10-14 전환 전), 전환 뒤 새 DB 백업도 실행 |
+| 백업의 복원 검증 보고서, 이전 DB 되돌리기 한 번 실행 | **하지 않았다.** 이전 DB `trend_20261009`·이전 API 리비전·이전 secret 버전을 그대로 두어 트래픽만 옮기면 돌아갈 수 있게 했다(되돌리기 명령은 위 실행 기록). 녹화·제출 직전이라 운영을 일부러 흔들지 않기로 했다 |
+| 새 추천 후보 쓰임 낱말·리스크, 12사례 재측정 | 쓰임 낱말 117/122 Gemma 4 12B, 리스크는 데모 후보 사람 판정(10-15), 10차 재측정 완료([밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md#5-완료-기록-10-16)) |
+
+Terraform 은 운영과 맞췄다(10-16): `production.tfvars.json` 의 DB secret v4·계정 v3·게시 v2·API/웹 이미지를 지금 운영 digest 로 바꿔 `terraform-vars.sh save`(Secret Manager `trend-terraform-vars` v5), `services.tf` 의 요청 제한을 API 150s·웹 180s 로. 이전 DB `trend_20261009` 는 다음 갱신 때까지 지우지 않는다.
+

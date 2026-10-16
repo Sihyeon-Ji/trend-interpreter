@@ -1,6 +1,6 @@
 # Plan 19. 운영 DB 데이터 갱신 경로
 
-작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **[10-16 운영 DB 갱신](../2026-10-16-final-db-refresh.md)으로 이어짐(10-10). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
+작성일 **2026-10-04** · 변경일 **2026-10-05** · 상태 **[10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)으로 이어짐(10-10). 남은 일은 그 문서에서 관리한다. 아래는 경위·절차 기록** · 연계 [Plan 01](01-import-latest-trend-data.md), [Plan 05](05-trend-cloud-run-deployment.md), [Plan 13](13-cloud-sql-trial-to-paid-transition.md), [Plan 17](17-hybrid-infrastructure.md) · 목표일 **첫 갱신 2026-10-10, 제출 전 마지막 갱신 10-16**
 
 [계획 목록](../README.md) · [운영 DB 백업](../../운영/GCP-운영.md#운영-db-백업) · [Cloud SQL 복원 리허설](../../개발환경/Cloud-SQL-복원-리허설.md)
 
