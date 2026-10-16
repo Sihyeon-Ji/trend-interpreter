@@ -8,11 +8,13 @@
 
 - 마지막 이력 검사: 전체 554개 커밋, 3건 – 10-06에 오탐으로 판별한 것과 같음. 원격 브랜치 둘 다 Claude 공동 작성자 표시 0, 비밀 파일 추적 없음.
 - 공개 전환(22시경, `gh repo edit --visibility public`).
-- `gcp` environment: 필수 승인자 `Sihyeon-Ji`·`onzl-c`(ejchoi), 본인 승인 금지, 배포 브랜치 `release/gcp`만. 두 사람이 서로의 배포를 승인한다(한 사람만 두면 그 사람이 올린 배포를 아무도 승인하지 못한다).
+- `gcp` environment: 필수 승인자 collaborator 네 명(`Sihyeon-Ji`·`ktw1998`·`onzl-c`·`sng-j`) 중 한 명, 본인 승인 금지, 배포 브랜치 `release/gcp`만(10-16 사용자 결정으로 두 명 → 네 명).
+- develop 보호(ruleset): PR과 다른 사람 승인 1명 필요, 마지막 push 뒤 승인, 강제 push·삭제 금지, 예외 없음. 직접 push가 `GH013 … Changes must be made through a pull request`로 거부되는 것을 확인했다. 작업 방식은 [팀 작업 방식](../개발환경/팀-작업-방식.md#브랜치와-배포-규칙-2026-10-16-저장소-공개부터).
+- collaborator가 아닌 사람은 원래 push·브랜치 생성을 할 수 없다(공개 저장소의 기본). fork·PR만 된다.
 - Actions 기본 `GITHUB_TOKEN`은 읽기 전용(이미 그랬음). 워크플로는 `release/gcp` push·수동 실행에만 돌아 fork PR에서 secret·OIDC가 나갈 길이 없다. 외부 기여자의 PR 워크플로는 모두 승인 뒤 돌게 했다.
 - 운영 주소는 README·문서에서 뺐다(제출 양식에만). 10-04·10-14 커밋 기록에는 남아 있다 – 이력을 다시 쓰지 않았다.
 
-남은 확인: 외부 계정으로 push 거부(지시현), 다음 `release/gcp` push가 승인을 기다리는지(배포는 ejchoi 또는 지시현이 상대 것을 승인).
+남은 확인: 외부 계정으로 push 거부(지시현), 다음 `release/gcp` push가 승인을 기다리는지(push한 사람이 아닌 승인자가 승인).
 
 ## 10-16 미리 한 것
 

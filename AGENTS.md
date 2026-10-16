@@ -1,6 +1,6 @@
 # Repository instructions
 
-- Work on `develop`; pushing `release/gcp` triggers a real GCP deployment.
+- Work on a branch and merge into `develop` through a pull request approved by another collaborator (direct pushes are blocked). Pushing `release/gcp` starts a GCP deployment that waits for an approver other than the pusher.
 - Keep web, API, model runtime and infrastructure responsibilities separate.
 - The main application is the Trend Interpreter in `apps/trend-api` and `apps/trend-web`; `apps/trend-api/AGENTS.md` holds its domain rules. `prototype/` holds earlier candidates only.
 - Use `docker compose run --rm --build check` for application checks, tests and builds; add `docker compose run --rm --build e2e` for user flows.
