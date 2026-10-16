@@ -127,8 +127,8 @@ docker compose run --rm infra-check
 
 | 항목 | 값 |
 | --- | --- |
-| 웹 | `https://trend-production-web-7jftqxfz3q-an.a.run.app` (주소를 아는 사람에게 공개, 검수는 로그인) |
-| API | `https://trend-production-api-7jftqxfz3q-an.a.run.app` (IAM 인증 필수) |
+| 웹 | `trend-production-web` (주소를 아는 사람에게 공개, 검수는 로그인). 주소는 `gcloud run services describe trend-production-web --region asia-northeast1 --format='value(status.url)'` – 저장소에 적지 않는다(10-16 결정) |
+| API | `trend-production-api` (IAM 인증 필수) |
 | Terraform | `infra/gcp/hybrid`, state prefix `hybrid/production`, 로컬 `production.tfvars.json`(Git 제외). 네트워크 10.41 대역과 SA 6개는 staging과 분리 |
 | DB | 체험 인스턴스의 `trend` DB. `trend_app`이 소유하고 `cloudsqlsuperuser`에 속하지 않는다. 두 DB 모두 PUBLIC 접속을 회수해 staging·production 사용자가 상대 DB에 접속하지 못하는 것을 확인했다 |
 | secret | `trend-production-database-url`·`-accounts`(staging과 같은 검수 계정 해시)·`-frontend-token`·`-session-secret` |

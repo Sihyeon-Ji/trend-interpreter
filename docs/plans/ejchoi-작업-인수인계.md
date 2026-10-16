@@ -92,7 +92,7 @@ BASE_URL=https://<운영 웹 주소> docker compose run --rm --build --no-deps -
 
 1. 덱 15쪽 'Demo Video Link'와 `docs/대회/제출/제출-양식-문안.md`·`README.md`·`README.kr.md` 링크 표의 영상 칸을 채운다.
 2. 제출용 PDF는 덱을 복사해 15쪽 'Final Product Link'의 `[Cloud Run URL]`에 운영 웹 주소를 넣고 PowerPoint '다른 이름으로 저장 → PDF'로 뽑는다. 이 사본과 PDF는 `artifacts/submission/`에 두고 커밋하지 않는다(운영 주소가 들어 있다). 10-11 초안 `artifacts/submission/COPYBARA-deck-draft-20261011b.pdf`는 ejchoi PC에만 있다.
-3. README 링크 표의 배포본 칸에 주소를 넣을지는 팀 결정이다([확인 요청](ejchoi-확인-요청.md) 6번).
+3. README 링크 표의 배포본 칸에는 주소를 넣지 않는다. **10-16 결정(지시현): 운영 주소는 README·문서에 적지 않고 제출 양식에만 적는다.** 공개 저장소는 봇이 훑어 주소가 퍼지고, 그러면 하루 Gemini 요청 몫을 봇이 먼저 써서 심사위원이 막힐 수 있다. 심사위원은 제출 양식의 링크로 들어온다. 10-14에 README에 넣었던 주소는 10-16에 뺐다.
 
 ## 7. 제출 양식
 

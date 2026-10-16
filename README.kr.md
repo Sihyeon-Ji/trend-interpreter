@@ -11,7 +11,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 | | |
 | --- | --- |
-| 배포본 | [trend-production-web-7jftqxfz3q-an.a.run.app](https://trend-production-web-7jftqxfz3q-an.a.run.app/?lang=ko) (Cloud Run, 주소의 `?lang=ko`·`en`·`ja` 로 화면 언어) |
+| 배포본 | 제출 양식에 적는다(Cloud Run, 주소 뒤에 `?lang=ko`·`en`·`ja` 를 붙이면 화면 언어가 바뀐다) |
 | 데모 영상(3분 미만) | 제출 때 추가 |
 | 평가 | [EVALUATION.md](EVALUATION.md)(영어) · 회차별 집계 [`evals/`](evals/recommend-rounds.csv) |
 | 구조 | [그림](#구조) · [시스템 아키텍처](docs/운영/시스템-아키텍처.md) |
