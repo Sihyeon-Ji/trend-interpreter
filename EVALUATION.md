@@ -143,8 +143,8 @@ fix 10) was prepared as the independent test; the comparison was not run. The ad
 
 ## 7. Operations
 
-- Gemini on Vertex AI runs under a monthly spending cap of US$20 enforced by an in-database ledger, separate from
-  budget alerts. The development stack never calls a paid model.
+- Gemini on Vertex AI runs under a monthly spending cap enforced by an in-database ledger (US$20 decided on 10-03; production is
+  currently set to US$15), separate from budget alerts. The development stack never calls a paid model.
 - First request to the dictionary page took 21.3 s in production (10-05) because the background warm-up gets no
   CPU under request-based billing. The index is now built by the pipeline and stored (local first request 1.9 s);
   this reaches production with the next deployment and data refresh.
