@@ -5,7 +5,6 @@
 **트렌드 통역(Trend Interpreter)** 서비스의 팀 공통 저장소입니다. 세대와 나라를 건너 유행어·밈을
 해석해 주는 서비스로, Next.js 화면(`apps/trend-web`), FastAPI API와 수집·사전 파이프라인
 (`apps/trend-api`), Discord 운영 알림 중계기(`apps/alert-relay`), GCP 인프라(`infra/gcp`)로 구성됩니다.
-`prototype/`의 다른 후보 프로젝트는 참고용으로만 남겨 두었습니다.
 
 Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Experiences** · 팀 **COPYBARA**
 
@@ -201,7 +200,6 @@ infra/gcp/                   GCP 인프라 설정
 .github/workflows/           자동 검증과 배포
 scripts/                     릴리스·smoke 검사·운영 작업의 구현
 tests/                       릴리스 분류·복구 테스트
-prototype/                   이전 후보 프로젝트(빌드·검사 대상 아님)
 docs/                        설치, 운영, 트렌드 설계 기록, 계획 문서
 ```
 

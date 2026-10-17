@@ -1,5 +1,4 @@
 artifacts/
 .venv/
 apps/
-prototype/
 infra/

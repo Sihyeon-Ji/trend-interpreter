@@ -2,7 +2,7 @@
 
 - Work on `develop`; pushing `release/gcp` triggers a real GCP deployment.
 - Keep web, API, model runtime and infrastructure responsibilities separate.
-- The main application is the Trend Interpreter in `apps/trend-api` and `apps/trend-web`; `apps/trend-api/AGENTS.md` holds its domain rules. `prototype/` holds earlier candidates only.
+- The main application is the Trend Interpreter in `apps/trend-api` and `apps/trend-web`; `apps/trend-api/AGENTS.md` holds its domain rules. Earlier candidate projects were removed from `prototype/` on 2026-10-17 (see Git history).
 - Use `docker compose run --rm --build check` for application checks, tests and builds; add `docker compose run --rm --build e2e` for user flows.
 - Passing checks are not evidence of AI quality. The default development stack never calls a paid model (`MODEL_PROVIDER=mock`, `MODEL_REQUESTS_ENABLED=false`); Gemini clients are created only in `model_client.py` through Vertex AI.
 - The Trend application deploys through `release/gcp` (`scripts/deploy-trend.sh`); the earlier `builder-cup` Cloud Run service was removed (`docs/plans/archive/05-trend-cloud-run-deployment.md`).

@@ -18,8 +18,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Ex
 ![Create: for each market, rules pick a meme that is safe to use now, AI writes the copy, rules check it again and a person approves](docs/images/create.png)
 
 The repository holds the Next.js web app, the FastAPI API with its collection and dictionary pipeline, the
-Discord alert relay, and the GCP infrastructure. Other candidate projects under `prototype/` are kept for
-reference only.
+Discord alert relay, and the GCP infrastructure.
 
 ## What it does
 
@@ -225,7 +224,6 @@ infra/gcp/                   Terraform infrastructure
 .github/workflows/           CI and release/gcp deployment
 scripts/                     Release, smoke-test and cloud operation implementation
 tests/                       Release routing and recovery tests
-prototype/                   Earlier candidate projects, not built or scanned
 docs/                        Korean documentation: setup, operations, Trend design records, plans
 ```
 

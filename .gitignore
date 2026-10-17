@@ -25,6 +25,10 @@ gha-creds-*.json
 .DS_Store
 .tools/
 artifacts/
+# Submission decks are shared outside Git (the submitted copy carries the reviewer account)
+docs/대회/제출/*.pptx
+# Removed candidate projects (2026-10-17); local leftovers stay out of Git
+prototype/
 # Trend local state: collected data, logs, transfer archives, third-party design tokens
 apps/trend-api/data/
 apps/trend-web/design/
