@@ -45,8 +45,8 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 마감 |
 | --- | --- | --- | --- | --- | --- |
-| [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 초안 파일 있음 | 양식 완성, 숫자마다 출처 | 10-17 |
-| [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 시나리오 초안 v3 | 배포본 녹화 3분 미만 | 10-17 |
+| [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 완료(10-17) – 링크·GPU 문장 정리, 제출용 PDF | 제출 양식 작성(10-18) | 10-17 |
+| [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 완료(10-17) – [YouTube](https://youtu.be/KHXkWvGHFx4) 2분 53초, 일부 공개 | 제출 양식 작성(10-18) | 10-17 |
 
 ## 완료 계획
 

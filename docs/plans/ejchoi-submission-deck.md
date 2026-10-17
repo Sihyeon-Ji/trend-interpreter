@@ -1,6 +1,6 @@
 # 제출 발표 자료
 
-작성일 **2026-10-10** · 담당 **ejchoi** · 상태 **진행 중 – 숫자·비용·기술 슬라이드 갱신(10-10)** · 제출 **10-18**
+작성일 **2026-10-10** · 담당 **ejchoi** · 상태 **완료(10-17) – 링크·GPU 문장 정리, 제출용 PDF** · 제출 **10-18**
 
 [계획 목록](README.md) · 초안 `docs/대회/제출/AI-Builder-Cup-제출-초안.pptx` · 양식 `docs/대회/제출/AI-Builder-Cup-제출-양식.pptx` · [제출 양식 설명](../대회/제출/제출-양식-설명.md) · [공식 제출 기준](../대회/제출/공식-제출-기준.md) · [제출 준비 체크리스트](../대회/제출/제출-준비-체크리스트.md) · 영상 [sng_j](sng_j-demo-video.md)
 
@@ -47,6 +47,8 @@
 | Gemma 슬라이드 | sng_j | 운영 GPU를 만들지 않았다(10-16). 비용·기술 슬라이드에 'L4 VM에서 Gemma가 돈다'는 문장이 있으면 '수집 서버·Kaggle 배치에서 돈다, 배포본은 모델 기록을 보인다'로 고친다 |
 | 링크 | ejchoi | 15쪽 데모 영상·제품 주소. 저장소의 덱에는 제품 주소를 넣지 않고, 제출용 PDF(`artifacts/submission/`, 커밋하지 않음)에만 채운다. 8쪽 각주는 Cloud SQL 무료 체험(10-30경 종료)으로 고쳤다(10-11) |
 | 영어 검수·PDF | ejchoi | 마지막에 영어를 다시 읽고 PDF로 바꾼다 |
+
+**10-17 마무리(ejchoi).** 10-16 결정(운영 GPU VM 없음)에 맞춰 6쪽 GPU VM 상자를 'L4 · Gemma, not deployed'로, 7·8쪽의 'on-demand L4 VM' 문장을 '배치에서 돈다, L4 VM은 Terraform에만 있고 배포하지 않음'으로 고쳤다. 8쪽 제목은 'no GPU running in production', 각주는 Cloud SQL 10-20 db-g1-small 이전으로. 12쪽 '제출 전'은 끝난 마지막 갱신을 빼고 'Now'로, 제목도 바꿨다. 15쪽 저장소 주소는 `trend-interpreter`, 영상은 YouTube 링크, 제품 주소는 'given in the submission form'. 제품 주소를 넣은 제출용 PDF는 `artifacts/submission/COPYBARA-Trend-Interpreter-deck.pdf`(17쪽, 커밋하지 않음). 화면 사진(9쪽)은 10-11 것을 그대로 둔다.
 
 **디자인(10-11).** 웹 무대 화면의 톤에 맞췄다 – 글자 #121826, 보조 #566074, 판 #f2f4f7, 파란색 #2448e0은 사람 승인에만. 색 번호 원·테두리 카드·긴 대시를 걷어 냈고, 지정 템플릿의 머리·꼬리 띠와 제목 자리는 그대로다. 2쪽 'Why now'에 최신 사례(스타벅스 코리아 탱크데이 2026-05, Journal of Marketing Research 2025)와 Morning Consult 그래프, 3쪽에 기존 도구 비교표, 10쪽에 회차별 어울림 그래프를 넣었다. 출처는 각 슬라이드 발표자 노트에 있다. 쪽 번호는 아래 '구성 보강(10-11)' 뒤 17쪽 기준이다.
 

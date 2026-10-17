@@ -11,7 +11,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Ex
 | | |
 | --- | --- |
 | Live prototype | Link in the submission form (Cloud Run; add `?lang=en`, `ko` or `ja` to the address to set the language) |
-| Demo video (under 3 minutes) | Added at submission |
+| Demo video (2:53) | [YouTube](https://youtu.be/KHXkWvGHFx4) |
 | Evaluation | [EVALUATION.md](EVALUATION.md) · per-round totals in [`evals/`](evals/recommend-rounds.csv) |
 | Architecture | [Diagram](#architecture) · [architecture document](docs/운영/시스템-아키텍처.md) (Korean) |
 
@@ -71,7 +71,7 @@ recommendation ranking are deterministic code; a model never sets a status.
 - **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): researches new terms with
   grounding, reads trending short videos, turns a product photo or copy into a product brief, writes campaign
   copy, summarises the briefing and judges whether copy uses a meme in the right sense.
-- **Gemma 4** (local, Kaggle or an on-demand GPU VM): drafts headword readings and meaning translations for newly
+- **Gemma 4** (local or Kaggle, in the batch pipeline): drafts headword readings and meaning translations for newly
   listed terms, classifies evidence sentences for risk and audits dictionary meanings against their sources. A QLoRA fine-tune of the auditor
   learned the verdict format but did not show better judgement, so the base model is used
   ([EVALUATION.md](EVALUATION.md)).
@@ -92,10 +92,11 @@ Where this shows in the deployed app:
   each do. Model names stay off the other user-facing screens.
 - The reviewer status page shows, per pipeline step, how many published results each model produced and the
   model calls and time spent in the last 24 hours.
-- Reviewer tools can send a term's latest news headlines, or up to five chosen terms, to Gemma on an on-demand GPU
-  VM and show the result next to the published verdict, graded by the same rules and never saved. The GPU VM is not
-  running in the deployment (it costs money and is started by the team only for demos), so these two buttons answer
-  at once that the GPU is off. Gemma's batch work is shown in the model records on the reviewer status page.
+- Reviewer tools can send a term's latest news headlines, or up to five chosen terms, to Gemma on a GPU VM and show
+  the result next to the published verdict, graded by the same rules and never saved. The L4 VM is defined in
+  Terraform ([`infra/gcp/hybrid/gpu.tf`](infra/gcp/hybrid/gpu.tf)) but not deployed, to keep the cost down, so these
+  two buttons answer at once that the GPU is off. Gemma's batch work is shown in the model records on the reviewer
+  status page.
 
 Judges can sign in with the read-only reviewer account given in the submission form: every admin screen opens, and
 approve, reject and risk decisions are refused.
@@ -115,7 +116,6 @@ Solid boxes are code and rules, dashed boxes are models, and the blue icon marks
 | Cloud Run | Web app, private API and alert relay; new revisions are tested before traffic moves |
 | Cloud SQL for PostgreSQL | Published dictionary, evidence and dashboard data |
 | Vertex AI (Gemini) | Request-time research, generation and summaries |
-| Compute Engine GPU (L4) | Gemma gateway for the reviewer tools above, defined in Terraform and started only when needed |
 | Cloud Storage | Fixed data snapshots handed from the collection server |
 | Cloud Logging, Monitoring, Pub/Sub | Alerts relayed to the team's Discord channel |
 | Secret Manager | Runtime secrets |

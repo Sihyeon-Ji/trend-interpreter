@@ -12,7 +12,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 | | |
 | --- | --- |
 | 배포본 | 제출 양식에 적는다(Cloud Run, 주소 뒤에 `?lang=ko`·`en`·`ja` 를 붙이면 화면 언어가 바뀐다) |
-| 데모 영상(3분 미만) | 제출 때 추가 |
+| 데모 영상(2분 53초) | [YouTube](https://youtu.be/KHXkWvGHFx4) |
 | 평가 | [EVALUATION.md](EVALUATION.md)(영어) · 회차별 집계 [`evals/`](evals/recommend-rounds.csv) |
 | 구조 | [그림](#구조) · [시스템 아키텍처](docs/운영/시스템-아키텍처.md) |
 
@@ -65,7 +65,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 
 - **Vertex AI의 Gemini** (런타임 service account, API key 없음, 월 금액 상한): 새 말의 grounding 조사, 인기 쇼츠 해석,
   제품 사진·문구의 제품 설명, 캠페인 카피 생성, 브리핑 요약, 카피가 밈을 뜻에 맞게 썼는지 의견.
-- **Gemma 4** (로컬·Kaggle 또는 필요할 때 켜는 GPU VM): 새로 실린 말의 표제어 읽기·뜻 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
+- **Gemma 4** (로컬·Kaggle, 배치 파이프라인): 새로 실린 말의 표제어 읽기·뜻 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
   감사관 QLoRA 파인튜닝은 판정 형식은 배웠지만 판단이 나아졌다는 근거가 없어 기본 모델을 씁니다([EVALUATION.md](EVALUATION.md)).
 - **Agent Development Kit(ADK)**: 네 에이전트 팀(수집 → 조사 → 사전 편집 → 게시)이 같은 결정론 단계를 도구로 부르고 실행 보고서를 남깁니다.
   에이전트는 상태를 정하지 않습니다([`agents/team.py`](apps/trend-api/src/trend_agents/agents/team.py)).
@@ -80,8 +80,9 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 - [`/about`](apps/trend-web/app/about/page.tsx)은 Gemini·Gemma·규칙·사람이 각각 무엇을 하는지 쉬운 말로 설명합니다.
   다른 이용자 화면에는 모델 이름을 두지 않습니다.
 - 검수자용 상태 화면은 파이프라인 단계마다 모델별 공개 결과 수와, 최근 24시간의 모델 호출 수·걸린 시간을 보입니다.
-- 검수자 도구는 용어의 최신 기사 제목이나 고른 용어(5개까지)를 필요할 때 켜는 GPU VM 의 Gemma 에게 보내 공개 판정과 나란히 보일 수 있게
-  만들어 두었습니다(같은 규칙으로 매기고 저장하지 않음). GPU VM 은 비용 때문에 배포본에서 켜 두지 않아 두 버튼은 'GPU 꺼짐'을 바로 알립니다.
+- 검수자 도구는 용어의 최신 기사 제목이나 고른 용어(5개까지)를 GPU VM 의 Gemma 에게 보내 공개 판정과 나란히 보일 수 있게
+  만들어 두었습니다(같은 규칙으로 매기고 저장하지 않음). L4 VM 은 Terraform([`infra/gcp/hybrid/gpu.tf`](infra/gcp/hybrid/gpu.tf))에
+  정의돼 있지만 비용 때문에 배포하지 않아, 두 버튼은 'GPU 꺼짐'을 바로 알립니다.
   Gemma 의 배치 작업 실적은 검수자 상태 화면의 모델 기록에 있습니다.
 
 심사위원은 제출 양식에 적은 읽기 전용 검수 계정으로 로그인할 수 있습니다. 관리 화면은 모두 열리고, 승인·제외·리스크 결정은 막힙니다.
@@ -101,7 +102,6 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 | Cloud Run | 웹·비공개 API·알림 중계기. 새 revision을 검사한 뒤 트래픽을 옮긴다 |
 | Cloud SQL for PostgreSQL | 게시된 사전·근거·대시보드 데이터 |
 | Vertex AI (Gemini) | 요청 때 조사·생성·요약 |
-| Compute Engine GPU (L4) | 위 검수자 기능의 Gemma gateway. Terraform에 정의돼 있고 필요할 때만 켠다 |
 | Cloud Storage | 수집 서버가 넘기는 고정 데이터 스냅숏 |
 | Cloud Logging·Monitoring·Pub/Sub | 팀 Discord 채널로 가는 운영 알림 |
 | Secret Manager | 런타임 비밀값 |
