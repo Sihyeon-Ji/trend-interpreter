@@ -67,7 +67,7 @@ GEMINI_DAILY_BUDGET = int(os.getenv("GEMINI_DAILY_BUDGET", "1500"))
 # 그날 조사·해석이 멈췄다(2026-09-29 검토). 다 쓰면 로컬 Gemma 로, 그것도 없으면 '오늘 한도' 로 알린다.
 REQUEST_GEMINI_DAILY = int(os.getenv("REQUEST_GEMINI_DAILY", "300"))  # 이용자 요청 하루 상한 — 챗봇을 Gemini 로 돌리면서(질문 하나에 2~3회) 12 → 300(Flash Lite 하루 500 두 개가 받친다, 10-01)
 # Vertex AI 유료 호출의 한 달 금액 상한(USD). 0 이면 금액으로 막지 않는다 — 개발 기본값은 호출 자체가 꺼져 있다.
-# Cloud Run 서비스는 Terraform 이 넣는다(10-03 사용자 결정: 월 $20). 예산 알림은 지출을 막지 않으므로 이 장부가 실제로 막는다.
+# Cloud Run 서비스는 Terraform 이 넣는다(10-03 사용자 결정 월 $20, 운영 값은 지금 $15). 예산 알림은 지출을 막지 않으므로 이 장부가 실제로 막는다.
 GEMINI_MONTHLY_USD = float(os.getenv("GEMINI_MONTHLY_USD", "0"))
 # 출력(추론 토큰 포함) 상한 — 호출 한 번의 최악 비용을 정해 두려고. 구조화 응답·질문 답은 수백~수천 토큰이다.
 GEMINI_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192"))
