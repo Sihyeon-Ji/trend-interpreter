@@ -1,0 +1,2211 @@
+{
+ "run": "2026-10-18",
+ "model": "gemini-3.8-flash (Vertex AI)",
+ "arms": {
+  "A": "rules only – fixed templates, no model",
+  "B": "Gemini only – product and meme name, no dictionary meaning, no rule check",
+  "C": "Trend Interpreter – pipeline/generate.py GEN_PROMPT with the dictionary meaning, rule check and one rewrite"
+ },
+ "cases": "3 markets (KR, JP, English-language) x 4 products, one fixed meme per case for all arms; 4 copies each",
+ "judging": "two Claude agents (copy editor, brand manager), blind to arm, copies shuffled within each case",
+ "summary": {
+  "A": {
+   "copies": 48,
+   "rule_pass": 48,
+   "meaning_yes": [
+    0,
+    1
+   ],
+   "usable_mean": [
+    1,
+    1.04
+   ]
+  },
+  "B": {
+   "copies": 48,
+   "rule_pass": 44,
+   "meaning_yes": [
+    46,
+    45
+   ],
+   "usable_mean": [
+    2.79,
+    2.77
+   ]
+  },
+  "C": {
+   "copies": 48,
+   "rule_pass": 48,
+   "meaning_yes": [
+    47,
+    47
+   ],
+   "usable_mean": [
+    2.88,
+    2.75
+   ]
+  }
+ },
+ "copies": [
+  {
+   "id": "C001",
+   "case": "KR-food",
+   "arm": "C",
+   "copy": "[x] 오후에 집중력 흐려질 때마다 꺼내 마시는 여름 한정 아이스 흑당 라떼! 갓생 브이로그 재질로 시원하게 한 잔 들이켜면 남은 하루도 힘낼 수 있어요. #갓생 #아이스흑당라떼 #기분전환",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C002",
+   "case": "KR-food",
+   "arm": "B",
+   "copy": "[instagram] 더위에 지친 오후 3시, 갓생 살려면 당 충전부터 해야죠! 달콤시원한 여름 한정 아이스 흑당 라떼 한 잔 들고 다시 힘내봐요. 올여름에만 만날 수 있는 특별한 달콤함 놓치지 마세요! #갓생 #아이스흑당라떼 #여름한정 #당충전 #오후의활력",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C003",
+   "case": "KR-food",
+   "arm": "C",
+   "copy": "[x] 무더위에 지친 오후 갓생 살기 힘들 땐 시원한 여름 한정 아이스 흑당 라떼로 당 충전하기. 진한 흑당에 얼음 가득이라 마시자마자 기분 전환 완료입니다. #갓생 #흑당라떼 #여름한정",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C004",
+   "case": "KR-food",
+   "arm": "A",
+   "copy": "[x] 갓생 하고 싶을 땐 여름 한정 아이스 흑당 라떼. #갓생",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C005",
+   "case": "KR-food",
+   "arm": "A",
+   "copy": "[instagram] 갓생! 여름 한정 아이스 흑당 라떼로 시원함을(를) 느껴 보세요. #갓생",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C006",
+   "case": "KR-food",
+   "arm": "C",
+   "copy": "[instagram] 오늘도 갓생 살려고 열일한 나를 위한 달콤한 보상! 시원하게 얼음 동동 띄운 여름 한정 아이스 흑당 라떼 한 잔 마시니까 나른했던 오후 피로가 싹 풀려요. 올여름에만 만날 수 있는 달콤함 놓치지 마세요! #갓생 #흑당라떼 #여름한정 #카페스타그램 #오후힐링",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C007",
+   "case": "KR-food",
+   "arm": "B",
+   "copy": "[x] 갓생 살려고 출근했는데 날씨 실화인가요... 녹아내리기 일보직전이라 여름 한정 아이스 흑당 라떼 수혈함. 시원달콤해서 정신 번쩍 든다 역시 사람은 당이 들어가야 갓생을 산다 #갓생 #흑당라떼 #여름한정",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C008",
+   "case": "KR-food",
+   "arm": "C",
+   "copy": "[instagram] 더운 날씨에 공부하고 일하느라 지칠 땐 시원 달콤한 게 최고죠. 오늘 하루 갓생 사는 법 알려줄게, 바로 얼음 가득 여름 한정 아이스 흑당 라떼 마시기! 이번 여름 시즌 지나면 못 먹으니까 지금 바로 충전하세요. #갓생 #아이스흑당라떼 #여름시즌 #당충전 #홈카페",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C009",
+   "case": "KR-food",
+   "arm": "B",
+   "copy": "[x] 진정한 갓생러 특: 여름 한정 메뉴 절대 안 놓침. 뙤약볕 뚫고 마시는 시원한 아이스 흑당 라떼 한 모금이면 오후 업무 스트레스 완전 퇴치 가능 #갓생러 #아이스흑당라떼 #시즌한정",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C010",
+   "case": "KR-food",
+   "arm": "A",
+   "copy": "[instagram] 오늘의 갓생: 여름 한정 아이스 흑당 라떼. #갓생",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C011",
+   "case": "KR-food",
+   "arm": "B",
+   "copy": "[instagram] 오늘도 갓생 살기 대성공 루틴! 푹푹 찌는 날씨엔 얼음 동동 띄운 여름 한정 아이스 흑당 라떼로 기분 전환 끝판왕 달성. 이번 시즌 지나면 못 마시니까 지금 바로 충전하러 가요! #갓생루틴 #여름디저트 #흑당라떼 #한정판음료 #기분전환",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C012",
+   "case": "KR-food",
+   "arm": "A",
+   "copy": "[x] 여름 한정 아이스 흑당 라떼, 지금이 바로 갓생. #갓생",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C013",
+   "case": "KR-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] 건조해서 뜨는 베이스 메이크업에 지치셨나요? 한 번만 톡톡 두드려도 보습과 롱래스팅 둘 다 알잘딱깔센하게 챙겨주는 수분 쿠션이 여기 있습니다. 아침 첫 터치 그대로 저녁까지 촉촉하게 유지되는 깐달걀 피부, 여러분도 바로 경험해 보세요! #물광쿠션 #보습쿠션 #인생쿠션 #베이스추천 #무너짐없는쿠션",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C014",
+   "case": "KR-cosmetics",
+   "arm": "B",
+   "copy": "[x] 수정 화장 파우치 무겁게 들고 다닐 필요 없음. 알잘딱깔센 그 자체인 수분 쿠션 하나면 됨... 첫 발림성은 촉촉 그 자체인데 종일 무너짐 1도 없이 픽싱되는 거 실화냐고ㅠㅠ 건성러 복합성러 무조건 품으세요 #파우치공개 #인생쿠션 #촉촉한쿠션 #메이크업꿀팁",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C015",
+   "case": "KR-cosmetics",
+   "arm": "A",
+   "copy": "[x] 알잘딱깔센 하고 싶을 땐 촉촉한 수분 쿠션. #알잘딱깔센",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C016",
+   "case": "KR-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] 바쁜 아침 쿠션 유목민들 주목! 촉촉한 수분감은 꽉 채워주고 무너짐 없이 하루 종일 착 붙어있는 피부 표현 끝판왕 등장했습니다. 알아서 잘 딱 깔끔하고 센스있게 피부 결 정리해 주니까 수정 화장 귀찮은 분들에게 완전 딱이에요. 겉보속촉 베이스 메이크업, 이제 알잘딱깔센하게 완성해 보세요! #수분쿠션 #쿠션추천 #지속력좋은쿠션 #촉촉한쿠션 #피부표현 #데일리메이크업",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C017",
+   "case": "KR-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] 외출 후 밤까지 수정 화장 한 번도 안 했는데 무너짐 없는 거 실화인가요? 촉촉함은 속까지 채워주고 겉은 들뜸 없이 착 붙어있으니까 그야말로 알잘딱깔센 그 자체! 파우치 속 필수템으로 바로 등극했습니다. #알잘딱깔센 #촉촉한쿠션 #물광피부 #인생쿠션 #쿠션팩트추천",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C018",
+   "case": "KR-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] 오늘의 알잘딱깔센: 촉촉한 수분 쿠션. #알잘딱깔센",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C019",
+   "case": "KR-cosmetics",
+   "arm": "B",
+   "copy": "[x] 보습 챙기면 지속력이 울고 지속력 챙기면 피부 당기는 사람들 다 모여봐... 이 수분 쿠션이 수분 충전이랑 하루 종일 안 무너지는 롱래스팅을 알잘딱깔센하게 알아서 다 해줌. 진짜 아침 화장 그대로 퇴근할 때까지 살아있음 대박임 #쿠션추천 #수분쿠션 #지속력쿠션",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C020",
+   "case": "KR-cosmetics",
+   "arm": "A",
+   "copy": "[x] 촉촉한 수분 쿠션, 지금이 바로 알잘딱깔센. #알잘딱깔센",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C021",
+   "case": "KR-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] 알잘딱깔센! 촉촉한 수분 쿠션로 촉촉함을(를) 느껴 보세요. #알잘딱깔센",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C022",
+   "case": "KR-cosmetics",
+   "arm": "C",
+   "copy": "[x] 건조한 히터 바람에도 저녁까지 안 뜨는 수분 쿠션 찾았음. 보습이랑 지속력을 알잘딱깔센하게 다 잡아줘서 하루 종일 피부가 편안하다. #수분쿠션 #알잘딱깔센 #쿠션추천",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C023",
+   "case": "KR-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] 아침에 톡톡 두드려만 주면 건조함 싹 잡고 저녁까지 안 무너지는 베이스 완성! 촉촉함이랑 지속력 둘 다 알잘딱깔센하게 챙겨줘서 요즘 파우치 최애템 등극했어요. 수분광은 살아있는데 묻어남 없이 착 붙으니까 하루 종일 수정화장 걱정도 뚝! #수분쿠션 #쿠션추천 #알잘딱깔센 #지속력좋은쿠션 #물광피부",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C024",
+   "case": "KR-cosmetics",
+   "arm": "C",
+   "copy": "[x] 아침 8시에 바르고 밤 10시에 거울 봤는데 왜 피부가 그대로 촉촉하지? 베이스 알아서 알잘딱깔센 해주는 수분 쿠션 찾던 분들은 이거 정착하시면 됩니다. #알잘딱깔센 #지속력쿠션 #데일리메이크업",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C025",
+   "case": "KR-fashion",
+   "arm": "B",
+   "copy": "[x] Q. 피곤한 퇴근길에도 러닝을 포기하지 않는 비결은? A. 중요한 것은 꺾이지 않는 마음... 이 아니라 신은 줄도 모르게 가벼운 러닝화 덕분입니다. 발이 편하니까 집 가다 말고 공원으로 발길이 절로 감 #오운완 #러닝화추천 #중꺾마",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C026",
+   "case": "KR-fashion",
+   "arm": "A",
+   "copy": "[x] 중꺾마 하고 싶을 땐 가볍고 편한 러닝화. #중꺾마",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C027",
+   "case": "KR-fashion",
+   "arm": "B",
+   "copy": "[instagram] 출근길 만원 지하철부터 퇴근 후 가벼운 러닝까지! 지치고 힘든 하루에도 '중요한 것은 꺾이지 않는 마음'이잖아요? 🏃‍♂️ 하지만 발바닥 컨디션마저 꺾여버리면 안 되니까! 깃털처럼 가볍고 구름처럼 푹신한 착화감으로 여러분의 꺾이지 않는 발걸음을 든든하게 지켜드릴게요. 오늘도 우리 가볍게 달려봐요! #러닝화추천 #출근길신발 #중꺾마 #편한신발 #데일리운동화",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C028",
+   "case": "KR-fashion",
+   "arm": "B",
+   "copy": "[x] 지옥철 출근길을 버티고 야간 러닝까지 해내는 우리들에게 필요한 건? 바로 '중요한 것은 꺾이지 않는 마음'과... 진짜로 꺾이지 않는 발목과 발바닥 편안함임. 깃털 무게라 신고 뛰어도 발이 하나도 안 무거움 #중꺾마 #러닝화 #출근길",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C029",
+   "case": "KR-fashion",
+   "arm": "C",
+   "copy": "[x] 출근길 지옥철 환승 구간 전력질주부터 퇴근 후 한강 조깅까지 버텨내는 중꺾마 정신. 신발이 깃털처럼 가벼우니까 발끝부터 의지가 살아남. #중꺾마 #러닝화 #출근러",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C030",
+   "case": "KR-fashion",
+   "arm": "A",
+   "copy": "[instagram] 중꺾마! 가볍고 편한 러닝화로 가벼움을(를) 느껴 보세요. #중꺾마",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C031",
+   "case": "KR-fashion",
+   "arm": "B",
+   "copy": "[instagram] 오늘도 갓생 살기 성공! 프로 통근러와 러너들에게 전하는 오늘의 교훈: 중요한 것은 꺾이지 않는 마음, 그리고 가벼운 발걸음입니다 ✨ 신은 듯 안 신은 듯 가벼운 무게에 하루 종일 신어도 편안하니까 출퇴근길도 오운완도 전혀 두렵지 않아요. 발 편한 게 최고의 힐링! #가벼운러닝화 #출근룩신발 #오운완 #중꺾마러닝 #발편한운동화",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C032",
+   "case": "KR-fashion",
+   "arm": "A",
+   "copy": "[instagram] 오늘의 중꺾마: 가볍고 편한 러닝화. #중꺾마",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C033",
+   "case": "KR-fashion",
+   "arm": "C",
+   "copy": "[x] 오늘 야근각이어도 퇴근 러닝은 절대 포기 못 하지. 중꺾마 마인드로 신발 끈 묶었는데 신발이 너무 편해서 발걸음이 절로 가벼워짐. #중꺾마 #러닝화추천 #오운완",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C034",
+   "case": "KR-fashion",
+   "arm": "C",
+   "copy": "[instagram] 오늘도 만원 지하철부터 퇴근 후 5km 러닝까지 완주 완료! 신발이 워낙 가벼우니까 하루 종일 신고 돌아다녀도 발이 정말 편안해요. 지치지 않고 계속 나아가는 나만의 중꺾마, 가벼운 발걸음으로 내일도 달려봅니다. #중꺾마 #러닝화추천 #출퇴근룩 #오운완 #편한신발",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C035",
+   "case": "KR-fashion",
+   "arm": "A",
+   "copy": "[x] 가볍고 편한 러닝화, 지금이 바로 중꺾마. #중꺾마",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C036",
+   "case": "KR-fashion",
+   "arm": "C",
+   "copy": "[instagram] 아침 알람에 꺾일 뻔했지만 편안하게 챙겨 신고 집을 나섰어요. 출근길 계단 오를 때도 깃털처럼 가볍고 저녁 가벼운 조깅까지 완벽하게 소화 중! 매일의 루틴을 지켜내는 중꺾마 러닝 라이프 함께해요. #중꺾마 #러닝화 #직장인러너 #출근길 #가벼운신발",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C037",
+   "case": "KR-app",
+   "arm": "C",
+   "copy": "[instagram] 약속 취소돼서 집콕하게 됐다고? 오히려 좋아. 외식비 아껴서 이번 주 친구랑 정한 가계부 목표 달성하고 보상까지 두 배로 받게 생겼잖아? 이것이 바로 갓생러의 원영적 사고✨ 친구랑 같이 실시간으로 지출 체크하고 목표 채우면 보상이 쏟아지니까 저축이 게임보다 쉬워짐! 우리 같이 모아서 다음 달 여행 통장 채워볼 파티원 구함! #원영적사고 #함께저축 #가계부앱 #티끌모아태산 #앱테크",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C038",
+   "case": "KR-app",
+   "arm": "A",
+   "copy": "[x] 친구와 함께 모으는 가계부 앱, 지금이 바로 원영적 사고. #원영적사고",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C039",
+   "case": "KR-app",
+   "arm": "B",
+   "copy": "[instagram] 월급 로그아웃 당해서 슬플 틈이 어디 있어? 친구 손잡고 가계부 앱 켜서 목표 금액 채우면 보상까지 두 배로 받게 될 텐데🍀 친구랑 매일 지출 공유하면서 으쌰으쌰 모으다 보면 통장도 두둑해지고 보상도 팡팡 터지는 거 완전 럭키비키잔앙✨ 나랑 같이 이번 달 보상 달릴 럭키 메이트 소환! #가계부앱 #친구랑저축 #원영적사고 #럭키비키잖아 #앱테크",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C040",
+   "case": "KR-app",
+   "arm": "B",
+   "copy": "[x] 나 이번 달 통장 잔고 보고 눈물 날 뻔했는데 친구랑 같이 목표 채우면 보상 주는 가계부 앱 시작했잖아. 친구랑 매일 절약 경쟁하면서 저축 습관도 잡히고 달성 보상까지 챙기니까 이건 나를 부자로 만들어주려는 원영적 사고 그 자체임🍀 완전 럭키비키잖아 #원영적사고 #럭키비키 #가계부앱",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C041",
+   "case": "KR-app",
+   "arm": "B",
+   "copy": "[x] 혼자 저축하기 힘들다고 생각했는데 마침 친구랑 같이 모으고 목표 달성 시 보상까지 주는 가계부 앱을 발견하다니? 돈도 모으고 혜택도 받는 완전 럭키비키잖아🍀 친구야 너도 이번 달 나랑 같이 목표 달성하고 보상 털러 가자 #가계부앱 #럭키비키 #앱테크",
+   "rule_fail": "no_meme",
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C042",
+   "case": "KR-app",
+   "arm": "B",
+   "copy": "[instagram] 이번 달 지출 폭발해서 거지방 들어갈 뻔했는데 친구랑 같이 모으는 가계부 앱 발견했잖아🍀 혼자 모으면 작심삼일인데 둘이 같이 절약하고 목표 채우면 보상까지 챙겨주다니? 이건 그냥 완전 럭키비키잖아✨ 혼자 돈 아끼는 외로운 싸움은 이제 끝! 지금 친구 태그하고 이번 달 목표 보상까지 싹 쓸어가자💖 #원영적사고 #럭키비키 #가계부앱 #돈모으기 #앱테크추천",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C043",
+   "case": "KR-app",
+   "arm": "C",
+   "copy": "[x] 점심값 아끼려고 편의점 삼각김밥 먹었는데 덕분에 친구랑 설정한 이번 주 저축 목표 채워서 앱에서 바로 리워드 포인트 들어옴. 절약도 하고 공돈도 생기는 완전 원영적 사고잖아🍀 친구랑 같이 쓰는 가계부 짱 편함 #원영적사고 #가계부앱 #앱테크",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C044",
+   "case": "KR-app",
+   "arm": "C",
+   "copy": "[instagram] 월급날 직전에 통장 잔고 3천 원 남았다고 슬퍼할 필요 없어. 친구랑 목표 금액 딱 채워서 앱에서 보상 포인트 받았잖아? 덕분에 오늘 커피는 공짜로 마시는 완전 원영적 사고잖아🍀 혼자 모을 땐 작심삼일이었는데 친구랑 같이 가계부 쓰니까 저축도 재밌어지는 매직! 이번 달도 다 같이 절약 성공하고 보상까지 챙겨가자구. 프로필 링크에서 지금 친구 초대하고 바로 시작해봐! #원영적사고 #가계부어플 #절약챌린지 #돈모으기",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C045",
+   "case": "KR-app",
+   "arm": "A",
+   "copy": "[instagram] 원영적 사고! 친구와 함께 모으는 가계부 앱로 함께 모으는 재미을(를) 느껴 보세요. #원영적사고",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C046",
+   "case": "KR-app",
+   "arm": "A",
+   "copy": "[instagram] 오늘의 원영적 사고: 친구와 함께 모으는 가계부 앱. #원영적사고",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C047",
+   "case": "KR-app",
+   "arm": "A",
+   "copy": "[x] 원영적 사고 하고 싶을 땐 친구와 함께 모으는 가계부 앱. #원영적사고",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C048",
+   "case": "KR-app",
+   "arm": "C",
+   "copy": "[x] 쇼핑 욕구 꾹 참고 친구랑 같이 쓰는 가계부에 0원 지출 기록했더니 이번 달 보상 뱃지랑 상품권 바로 들어옴. 갖고 싶던 옷 안 샀더니 통장에 돈도 남고 선물도 받는 대박적 원영적 사고 실천 완료! #원영적사고 #저축챌린지 #함께가계부",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C049",
+   "case": "JP-food",
+   "arm": "A",
+   "copy": "[x] エモいな気分なら夏限定アイス黒糖ラテ。 #エモい",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C050",
+   "case": "JP-food",
+   "arm": "B",
+   "copy": "[instagram] 暑すぎる午後に飲むひとくち、染みわたる〜！🧊✨ ひんやり冷たいミルクと濃厚な黒糖の組み合わせ、どこか懐かしくてエモい味わいです。今しか飲めない夏限定の『アイス黒糖ラテ』と一緒に、ゆったり涼しいチルタイムを過ごしませんか？午後のお仕事や勉強のご褒美にもぴったりです🙌 #黒糖ラテ #期間限定ドリンク #エモい夏 #午後のおやつ #涼活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C051",
+   "case": "JP-food",
+   "arm": "A",
+   "copy": "[instagram] エモい！夏限定アイス黒糖ラテで涼しさを。 #エモい",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C052",
+   "case": "JP-food",
+   "arm": "C",
+   "copy": "[x] 暑い日に飲むキンキンに冷えた黒糖ラテ、染み渡るおいしさに胸がきゅっとなってエモい…！この夏だけの限定だから見かけたら即チェック推奨です。 #黒糖ラテ #夏限定ドリンク #カフェ部",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C053",
+   "case": "JP-food",
+   "arm": "B",
+   "copy": "[x] あっつい午後のブレイクに『アイス黒糖ラテ』はいかがですか？🧊 カランと氷が鳴る音と黒糖の甘さ、なんかめちゃくちゃエモい…。今しか飲めない夏限定なので、ひんやりチャージしにきてね！午後もゆるっと乗り切ろう〜☀️ #夏限定 #アイス黒糖ラテ #エモい #カフェ気分",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C054",
+   "case": "JP-food",
+   "arm": "B",
+   "copy": "[instagram] 夏の午後の日差しに溶けていく黒糖のグラデーション、眺めてるだけでなんかエモい…💭✨ 暑い日はこれに限る！ひんやり甘い『アイス黒糖ラテ』で最高の気分転換はいかがですか？今だけの夏限定ドリンクなので、ぜひお見逃しなく！グラスが汗をかいてる姿まで夏らしくてエモすぎる…🥤🤎 #アイス黒糖ラテ #夏限定ドリンク #エモいカフェ時間 #ひんやりスイーツ #カフェ巡り",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C055",
+   "case": "JP-food",
+   "arm": "C",
+   "copy": "[instagram] 夕暮れ前のちょっと疲れた時間に、心までじんわり満たされる甘さ。夏の終わりの切なさと混ざり合う黒糖の香りがたまらなくエモいんです。今しか味わえない限定のひんやり感、ぜひ体験してみてね。 #黒糖ラテ #期間限定 #ひんやりご褒美 #カフェスタグラム #エモい夏",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C056",
+   "case": "JP-food",
+   "arm": "C",
+   "copy": "[x] 午後の日差しの中で飲む夏限定のアイス黒糖ラテ、氷が溶ける音までエモい。ひんやり甘くて一気に気分転換できた！今だけの特別な味だから絶対飲んでみてほしい。 #アイス黒糖ラテ #夏限定 #ひんやり気分転換",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C057",
+   "case": "JP-food",
+   "arm": "A",
+   "copy": "[x] 夏限定アイス黒糖ラテ、今こそエモい。 #エモい",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C058",
+   "case": "JP-food",
+   "arm": "C",
+   "copy": "[instagram] 暑い午後の日差しに溶け出す黒糖のグラデーション、見ているだけでなんだかエモい気分になっちゃう。今だけの夏限定アイス黒糖ラテで、ひんやり特別なひと息をどうぞ。氷がカランと鳴る音まで愛おしい、この夏一番のご褒美ドリンクです。 #アイス黒糖ラテ #夏限定ドリンク #ひんやりスイーツ #カフェ巡り #エモい時間",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C059",
+   "case": "JP-food",
+   "arm": "B",
+   "copy": "[x] 猛暑の午後にひんやり染みる夏限定『アイス黒糖ラテ』が登場！夕暮れ前のエモい光の中で飲む黒糖ラテ、控えめに言って最高すぎます…🥤✨ 今だけの限定なのでリフレッシュしたい時にぜひお試しあれ！ #期間限定 #エモい #黒糖ラテ #ひんやりドリンク",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C060",
+   "case": "JP-food",
+   "arm": "A",
+   "copy": "[instagram] 今日のエモい：夏限定アイス黒糖ラテ。 #エモい",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C061",
+   "case": "JP-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] 推し活で朝から晩まで遠征する日も、これさえあれば安心✨",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C062",
+   "case": "JP-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] 推しに会いに行く日は一番可愛い私でいたいよね🥺🫧ひと塗りでうるおい満点のツヤ肌が完成して、夜までずーっと崩れない神クッション！推し活遠征のお供にもおすすめだよ。みんなの現場メイクの定番にしてみてね！ #推し活 #参戦メイク #崩れないベースメイク #ツヤ肌 #神コスメ #コスメ紹介",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C063",
+   "case": "JP-cosmetics",
+   "arm": "B",
+   "copy": "[x] 推し活全力勢に教えたい…！朝塗ってライブ参戦して帰宅するまで乾燥知らず＆崩れ知らずの水分クッションが優勝すぎる🫧推しに会う日のベースメイク迷子、これ使ってみてほしい！",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C064",
+   "case": "JP-cosmetics",
+   "arm": "A",
+   "copy": "[x] 推し活な気分ならしっとり保湿クッション。 #推し活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C065",
+   "case": "JP-cosmetics",
+   "arm": "B",
+   "copy": "[x] 長時間の推し活現場でもずっと朝のうるツヤ肌キープできた🥹乾燥もしないしテカリ崩れも防いでくれるから、遠征バッグに絶対入れてるお守りコスメです✨",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C066",
+   "case": "JP-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] 推し活で朝から晩まで全力疾走する日も、これさえあれば肌の治安はカンペキ✨みずみずしいうるおいが一日中ずっと続いて、ライブ後まで崩れ知らずのツヤ肌をキープできるよ！大事な現場の日の必須アイテムとしてポーチに忍ばせてみてね💖 #推し活 #現場メイク #クッションファンデ #水光肌 #保湿ケア #コスメレポ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C067",
+   "case": "JP-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] 今日の推し活：しっとり保湿クッション。 #推し活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C068",
+   "case": "JP-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] 推し活！しっとり保湿クッションでうるおいを。 #推し活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C069",
+   "case": "JP-cosmetics",
+   "arm": "C",
+   "copy": "[x] 大事な推し活の日は絶対崩したくないよね🥹一日中うるおって肌にピタッと密着、朝の仕上がりが夜まで続く！乾燥知らずのツヤ肌で現場楽しもう✨ #推し活 #保湿ファンデ #美肌キープ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C070",
+   "case": "JP-cosmetics",
+   "arm": "A",
+   "copy": "[x] しっとり保湿クッション、今こそ推し活。 #推し活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C071",
+   "case": "JP-cosmetics",
+   "arm": "C",
+   "copy": "[x] 推し活の遠征や長時間の現場でメイク崩れが気になる人必見！水分たっぷりで乾燥しないのに、夜まで崩れない優秀クッション見つけた🫧これがあれば推しに最高の肌で会いに行けるよ〜！ #推し活 #水光クッション #持続力",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C072",
+   "case": "JP-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] 長時間のライブでもヨレたくない推し活女子へ🥺🫧",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C073",
+   "case": "JP-fashion",
+   "arm": "B",
+   "copy": "[x] 出勤とジムで靴履き替えるの地味に面倒じゃないですか？🤔 このランニングシューズ、羽根みたいに軽くて一日中履いても疲れないのに、見た目もシンプルで通勤に馴染みすぎる。仕事終わりに靴替えずそのまま走れるの、移動も荷物も減ってタイパ良すぎて天才かもしれない…👟✨ #タイパ #ランニングシューズ #通勤スニーカー",
+   "rule_fail": "x_too_long",
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C074",
+   "case": "JP-fashion",
+   "arm": "A",
+   "copy": "[x] 軽くて快適なランニングシューズ、今こそタイパ。 #タイパ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C075",
+   "case": "JP-fashion",
+   "arm": "A",
+   "copy": "[x] タイパな気分なら軽くて快適なランニングシューズ。 #タイパ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C076",
+   "case": "JP-fashion",
+   "arm": "C",
+   "copy": "[instagram] 毎日の通勤も夜のランも、これ1足で全部こなせるの本当にタイパ最高すぎない？とにかく軽くてふわっふわの履き心地だから、1日中歩き回っても全然疲れないのが嬉しいポイント。履き替える手間もゼロだし、忙しい毎日の相棒にぴったりです！ #ランニングシューズ #スニーカー #通勤コーデ #タイパ #疲れにくい靴 #足元倶楽部",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C077",
+   "case": "JP-fashion",
+   "arm": "B",
+   "copy": "[instagram] 毎朝バタバタな毎日に朗報です…！🏃‍♀️💨「仕事用と運動用のシューズ、分けるの面倒じゃない？」って思ってた人、これ履いたら戻れなくなります。とにかく驚くほど軽くて、歩くたびに雲の上みたいにふわっふわ☁️✨ 出勤ダッシュも疲れ知らずで、まさに足元から【タイパ】爆上がり！仕事終わりにそのままジムやランニングへ直行できちゃうから、靴を履き替える手間もゼロです🙆‍♀️ 朝の1分1秒を大事にしたい方、ぜひお試しあれ👟 #タイパ #ランニングシューズ #スニーカー通勤 #軽快スニーカー #通勤ラン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C078",
+   "case": "JP-fashion",
+   "arm": "C",
+   "copy": "[x] 通勤とランニングで靴を履き分けるのやめたらめちゃくちゃタイパ良くなった！ feather級に軽くてクッション性も抜群だから1日中快適。移動時間をそのまま軽い運動に変えられるの天才すぎる。 #ランニングシューズ #タイパ #通勤スニーカー",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C079",
+   "case": "JP-fashion",
+   "arm": "A",
+   "copy": "[instagram] 今日のタイパ：軽くて快適なランニングシューズ。 #タイパ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C080",
+   "case": "JP-fashion",
+   "arm": "B",
+   "copy": "[x] 朝の駅までダッシュも余裕でこなせる超軽量シューズが快適すぎて優勝してる🏃💨 軽くてラクだから歩くスピード爆上がりして、まさかの通勤タイパ爆誕。スーツにも浮かないデザインだし、このまま帰宅ランできるの便利すぎるから全社会人に推したい…！ #タイパ #ランニングシューズ #通勤ラン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C081",
+   "case": "JP-fashion",
+   "arm": "C",
+   "copy": "[instagram] 履いた瞬間、羽が生えたみたいに軽くて感動した…！通勤ダッシュも休日のジョギングもこの靴があれば問題なし。靴選びの時間を節約できてタイパ抜群だし、何よりずっと履いていたくなる快適さです。ぜひ一度試してみてね！ #軽量スニーカー #ランニング女子 #通勤スニーカー #タイパ最高 #快適シューズ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C082",
+   "case": "JP-fashion",
+   "arm": "B",
+   "copy": "[instagram] 1足で通勤もランニングもこなせるって、究極のタイパ神シューズでは…？🥹👟 片足持ってみてびっくりする軽さと、一日中歩き回っても全然痛くならないフィット感！忙しい平日でも『とりあえずこれ履いて出ればOK』っていう安心感がすごいです。スマートなデザインだからオフィスカジュアルにもばっちり馴染むよ🤍 自分の時間を大切にしたい忙しい毎日の相棒にどうぞ！ #タイパ最強 #軽量シューズ #オフィスカジュアル #ランニング女子 #時短アイテム",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C083",
+   "case": "JP-fashion",
+   "arm": "C",
+   "copy": "[x] とにかく軽くて足が喜ぶ履き心地。仕事にも運動にもそのまま使えるからタイパ重視の毎日に手放せない1足になった！ #スニーカー #タイパ #軽い靴",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C084",
+   "case": "JP-fashion",
+   "arm": "A",
+   "copy": "[instagram] タイパ！軽くて快適なランニングシューズで軽さを。 #タイパ",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C085",
+   "case": "JP-app",
+   "arm": "A",
+   "copy": "[instagram] ワンチャン！友だちと一緒に貯める家計簿アプリでみんなで貯める楽しさを。 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C086",
+   "case": "JP-app",
+   "arm": "B",
+   "copy": "[x] 1人だと毎回挫折する貯金、友達とこの家計簿アプリ使ったらワンチャンいける気がしてきた🤝 目標達成したらご褒美もらえるの熱すぎん？？今月こそ勝ち取るぞ🔥 #家計簿アプリ #貯金仲間募集 #ワンチャン達成",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C087",
+   "case": "JP-app",
+   "arm": "C",
+   "copy": "[x] 毎月金欠な人、友達とこの家計簿アプリやってみて！目標達成したらワンチャン豪華リワード狙えるからモチベ爆上がりする。一緒に貯金しよ！ #節約 #貯金仲間募集 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C088",
+   "case": "JP-app",
+   "arm": "C",
+   "copy": "[x] 一人だと続かない貯金も友達と一緒ならワンチャン今月目標達成できる説！目標クリアでご褒美ももらえる家計簿アプリ最高すぎん？みんなで楽しくお金貯めよ！ #家計簿アプリ #貯金 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C089",
+   "case": "JP-app",
+   "arm": "C",
+   "copy": "[instagram] 推し活や旅行のためにお金貯めたいけど挫折しがち…そんな時は友達と一緒に頑張るのが一番！この家計簿アプリなら進捗を共有しながら励まし合えるし、今月達成できたらワンチャン欲しかったあれが手に入るかも！？一緒に楽しく貯金生活始めよう！ #貯金術 #家計簿 #ワンチャン #推し活貯金 #節約生活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C090",
+   "case": "JP-app",
+   "arm": "B",
+   "copy": "[x] 友達と「今月ワンチャン旅行代貯めよ！」って始めてみた家計簿アプリがめっちゃ良い。お互いの進捗見れるし、クリアでリワードまであるからサボれないの最高すぎる😂 一緒に貯金する相棒求む！ #ペア家計簿 #ワンチャン貯金 #旅行貯金",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C091",
+   "case": "JP-app",
+   "arm": "B",
+   "copy": "[instagram] 1人じゃ絶対続かない貯金も、友達と一緒ならワンチャン達成できる説…！？🔥 今月目標クリアで嬉しいご褒美もゲットできちゃう！一緒に楽しく貯めたい友達をコメントでメンションしてね👇✨ #家計簿アプリ #貯金部 #友達と貯金 #ワンチャンある #節約生活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C092",
+   "case": "JP-app",
+   "arm": "B",
+   "copy": "[instagram] 「推し活費用、今月ワンチャン貯まるかも！？」友達と共有できる家計簿アプリで、一緒に目標に向かってコツコツ挑戦中💪 目標達成で限定リワードももらえるからモチベ爆上がり！みんなも一緒にワンチャン狙ってみない？🎁 #推し活貯金 #家計簿 #ペア家計簿 #ワンチャン貯金 #ご褒美GET",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C093",
+   "case": "JP-app",
+   "arm": "A",
+   "copy": "[instagram] 今日のワンチャン：友だちと一緒に貯める家計簿アプリ。 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C094",
+   "case": "JP-app",
+   "arm": "C",
+   "copy": "[instagram] 毎月気づいたら財布がピンチ…って人、集合！友達と一緒に目標を決めて貯金できる家計簿アプリ使ってみない？今月みんなで目標クリアできたら、ワンチャン豪華なご褒美ゲットできるかも！一人じゃサボっちゃう節約も、友達と一緒なら楽しく続くよ。プロフィールリンクから早速ダウンロードしてみてね！ #家計簿アプリ #貯金女子 #友達と節約 #ワンチャン #ポイ活",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C095",
+   "case": "JP-app",
+   "arm": "A",
+   "copy": "[x] 友だちと一緒に貯める家計簿アプリ、今こそワンチャン。 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C096",
+   "case": "JP-app",
+   "arm": "A",
+   "copy": "[x] ワンチャンな気分なら友だちと一緒に貯める家計簿アプリ。 #ワンチャン",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C097",
+   "case": "GLOBAL-food",
+   "arm": "A",
+   "copy": "[instagram] banger! Try our summer-only iced brown sugar latte for a cool break. #banger",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C098",
+   "case": "GLOBAL-food",
+   "arm": "B",
+   "copy": "[instagram] We promised a summer mood-booster and delivered nothing but a banger. Meet our Ice-Cold Brown Sugar Latte! Sweet, refreshing, and strictly here for the summer heat. Tag a bestie who needs this afternoon pick-me-up right now. #LimitedEditionLatte #SummerCoffee #BrownSugarBanger #AfternoonVibes #IcedCoffee",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C099",
+   "case": "GLOBAL-food",
+   "arm": "A",
+   "copy": "[instagram] Today's banger: our summer-only iced brown sugar latte. #banger",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C100",
+   "case": "GLOBAL-food",
+   "arm": "C",
+   "copy": "[instagram] Beat the 3 PM heat with our new Summer Limited Iced Brown Sugar Latte! Sweet, refreshing, and honestly an absolute banger of a drink. Grab yours before summer slips away! #IcedLatte #BrownSugarLatte #SummerVibes #LimitedEdition #CoffeeTime",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C101",
+   "case": "GLOBAL-food",
+   "arm": "C",
+   "copy": "[x] Whoever decided brown sugar syrup and ice belong together created a summer banger. Limited run only, so go get that afternoon reset. #BrownSugarLatte #CoffeeLovers",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C102",
+   "case": "GLOBAL-food",
+   "arm": "B",
+   "copy": "[instagram] Need an instant reset this hot afternoon? Our Limited Edition Iced Brown Sugar Latte is an absolute certified banger. Rich brown sugar swirls meet ice-cold espresso to save your summer day. Grab yours before it leaves the menu! #IcedLatte #BrownSugarLatte #SummerSips #CertifiedBanger #CoffeeLover",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C103",
+   "case": "GLOBAL-food",
+   "arm": "B",
+   "copy": "[x] the afternoon slump is real, but this limited edition iced brown sugar latte is an absolute banger. stay cool out there besties. #BrownSugarLatte #SummerVibes #CoffeeBanger",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C104",
+   "case": "GLOBAL-food",
+   "arm": "A",
+   "copy": "[x] Our summer-only iced brown sugar latte – it's time for banger. #banger",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C105",
+   "case": "GLOBAL-food",
+   "arm": "C",
+   "copy": "[x] Hot summer afternoon officially defeated. Our limited edition Iced Brown Sugar Latte is an undeniable banger and it's here for a good time, not a long time. #SummerVibes #IcedLatte #LimitedEdition",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C106",
+   "case": "GLOBAL-food",
+   "arm": "B",
+   "copy": "[x] who gave our baristas permission to drop such a certified banger? ice cold, brown sugar goodness available for a limited time only. go get refreshed! #IcedLatte #CertifiedBanger #SummerLimited",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C107",
+   "case": "GLOBAL-food",
+   "arm": "C",
+   "copy": "[instagram] Summer afternoons just found their soundtrack. This limited edition Iced Brown Sugar Latte is a certified banger from the first sip to the last drop of caramel goodness. Don't miss out! #SummerDrinks #IcedCoffee #BrownSugar #LimitedDrop #CoolDown",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C108",
+   "case": "GLOBAL-food",
+   "arm": "A",
+   "copy": "[x] Feeling banger? Grab our summer-only iced brown sugar latte. #banger",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C109",
+   "case": "GLOBAL-cosmetics",
+   "arm": "C",
+   "copy": "[x] Giving your base routine the ultimate rizz upgrade. It keeps your skin completely moisturized and locked in all day. #dewybase #longlasting #cushioncompact",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C110",
+   "case": "GLOBAL-cosmetics",
+   "arm": "B",
+   "copy": "[x] you don't need pickup lines when your cushion gives you ultimate hydration rizz. dewy all day, no mid-day meltdowns. #hydrationrizz #cushionfoundation #dewyskin",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C111",
+   "case": "GLOBAL-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] All-day hydration gives your skin that effortless unspoken rizz. Tap into dewy coverage that stays locked in from morning coffee to late-night plans without fading or caking. Ready to rizz up your daily glow routine? #cushionfoundation #dewyskin #skinrizz #hydratingmakeup #flawlessbase",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C112",
+   "case": "GLOBAL-cosmetics",
+   "arm": "A",
+   "copy": "[x] Feeling rizz? Grab our dewy hydrating cushion. #rizz",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C113",
+   "case": "GLOBAL-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] Unspoken rizz? Nah, our moisture cushion does all the talking. 💦 Locked-in hydration that actually lasts all day without caking. Glow check passed! #unspokenrizz #moisturizingcushion #flawlessbase #longlastingglow",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C114",
+   "case": "GLOBAL-cosmetics",
+   "arm": "B",
+   "copy": "[x] my skin having zero-effort rizz simply because this cushion refuses to dry out or cake after 12 hours straight 💧 #skinrizz #hydrationcushion #glowgoals",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C115",
+   "case": "GLOBAL-cosmetics",
+   "arm": "B",
+   "copy": "[instagram] Serving pure hydration rizz all day long ✨ No touch-ups needed when your skin looks this fresh from 9 AM to 9 PM. Tap to unlock your ultimate dewy glow! #dewyvibes #hydrationrizz #cushionglow #alldayfresh #glassskinlook",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C116",
+   "case": "GLOBAL-cosmetics",
+   "arm": "C",
+   "copy": "[x] The all-day staying power on this cushion has unmatched rizz. Zero flaking, pure hydration from 9 AM to midnight. #cushion #skinrizz #glowyskin",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C117",
+   "case": "GLOBAL-cosmetics",
+   "arm": "C",
+   "copy": "[instagram] Dry patches could never. Level up your skin rizz with ultra-moisturizing cushion coverage that refuses to melt down all day long. One gentle tap delivers plump hydration and all-day staying power. #dewyglow #cushioncompact #hydration #longlastingmakeup #skinrizz",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C118",
+   "case": "GLOBAL-cosmetics",
+   "arm": "A",
+   "copy": "[x] Our dewy hydrating cushion – it's time for rizz. #rizz",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C119",
+   "case": "GLOBAL-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] rizz! Try our dewy hydrating cushion for all-day glow. #rizz",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C120",
+   "case": "GLOBAL-cosmetics",
+   "arm": "A",
+   "copy": "[instagram] Today's rizz: our dewy hydrating cushion. #rizz",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C121",
+   "case": "GLOBAL-fashion",
+   "arm": "A",
+   "copy": "[x] Feeling brainrot? Grab our light, comfy running shoes. #brainrot",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C122",
+   "case": "GLOBAL-fashion",
+   "arm": "C",
+   "copy": "[instagram] Two hours of late night doomscrolling gave me full brainrot, but slipping into these featherlight runners at 7 AM honestly reset my whole system. Built for sprinting to catch the subway and effortless evening runs. #brainrot #runningcommunity #commutecomfort #lightweightshoes",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C123",
+   "case": "GLOBAL-fashion",
+   "arm": "C",
+   "copy": "[instagram] Curing my morning commute brainrot with shoes so light my feet literally forgot we are walking to work. From daily rush hour to evening track miles, your feet deserve absolute cloud comfort. Slip them on and feel the difference. #brainrot #comfortablerunningshoes #commuterstyle #dailykicks #cloudwalk",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C124",
+   "case": "GLOBAL-fashion",
+   "arm": "A",
+   "copy": "[instagram] Today's brainrot: our light, comfy running shoes. #brainrot",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C125",
+   "case": "GLOBAL-fashion",
+   "arm": "B",
+   "copy": "[instagram] My brainrot is pretending I'm floating in Ohio, but it's just these kicks being illegally lightweight. 💀 Zero clunk, pure skibidi comfort from desk grind to 5K run. Your feet deserve that elite tier boost bestie. #RunningShoes #SneakerHead #OOTD #ComfortFirst #DailyRun",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C126",
+   "case": "GLOBAL-fashion",
+   "arm": "A",
+   "copy": "[x] Our light, comfy running shoes – it's time for brainrot. #brainrot",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C127",
+   "case": "GLOBAL-fashion",
+   "arm": "C",
+   "copy": "[x] Escaping my digital brainrot by actually stepping outside and walking to the office. These shoes are so lightweight and comfortable it feels like walking on air. #brainrot #comfortfirst #running",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C128",
+   "case": "GLOBAL-fashion",
+   "arm": "C",
+   "copy": "[x] My brainrot reached peak levels after 40 minutes of mindless scrolling on the train, but at least my feet are floating in these ultralight runners. Ready for workout before I even clock in. #brainrot #runningshoes #dailycommute",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C129",
+   "case": "GLOBAL-fashion",
+   "arm": "B",
+   "copy": "[x] me: i need sensible shoes for commuting",
+   "rule_fail": "no_meme",
+   "judge1": {
+    "meaning": "no",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C130",
+   "case": "GLOBAL-fashion",
+   "arm": "A",
+   "copy": "[instagram] brainrot! Try our light, comfy running shoes for light steps. #brainrot",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C131",
+   "case": "GLOBAL-fashion",
+   "arm": "B",
+   "copy": "[x] these running shoes have +1000 aura. walking into the office feeling like I just hit the griddy on gravity itself. so light it’s actually curing my brainrot. 10/10 comfort. #Sneakers #RunnersOfX #EverydayKicks",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C132",
+   "case": "GLOBAL-fashion",
+   "arm": "B",
+   "copy": "[instagram] Tell me why these shoes got infinite cloud rizz rn?? Literally leveling up my aura whether I'm mewing through the morning commute or sprinting like a total sigma. Unmatched featherweight comfort, no cap. Tap the link in bio before your soles get fanum taxed by heavy sneakers. #BrainrotFit #ShoeGame #DailyCommute #LightweightSneakers #ComfyKicks",
+   "rule_fail": "no_meme",
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C133",
+   "case": "GLOBAL-app",
+   "arm": "B",
+   "copy": "[instagram] Remember when you said you'd save 500 dollars this month and everyone called you delulu? Well, jokes on them because you and your best friend just unlocked this month's reward! Turn your financial daydreams into reality together. Link in bio to start tracking and earning rewards with your crew. #staydelulu #savingschallenge #friendshipgoals #budgetapp #financialfreedom",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C134",
+   "case": "GLOBAL-app",
+   "arm": "C",
+   "copy": "[x] Was definitely delulu thinking my savings would magically grow while living my best life. Started tracking with my friend on this app, smashed our monthly goal, and actually got rewarded for it. Teamwork always wins. #delulu #savingsgoal #budgeting",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C135",
+   "case": "GLOBAL-app",
+   "arm": "B",
+   "copy": "[x] being delulu: thinking you can save money alone. the solulu: dragging your best friend into a shared budget app, hitting monthly goals together, and getting rewarded for it. #delulu #moneytips #savingsgoals",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C136",
+   "case": "GLOBAL-app",
+   "arm": "B",
+   "copy": "[instagram] They said being rich on a budget was delulu... but baby, delulu is the solulu when you have the right squad! Grab your bestie, track your spending together, and unlock real cash rewards when you hit this month's savings goal. Who says saving money can't be fun? Tag your accountability buddy and let's get that bag! #deluluisthrsolelu #savingsgoals #budgetingtips #moneytok #bestiesquad",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 2
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 2
+   }
+  },
+  {
+   "id": "C137",
+   "case": "GLOBAL-app",
+   "arm": "A",
+   "copy": "[instagram] Today's delulu: our budgeting app you save with friends. #delulu",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C138",
+   "case": "GLOBAL-app",
+   "arm": "C",
+   "copy": "[instagram] They say staying delulu is the solulu, but our bank accounts said otherwise until we started tracking together! Team up with your besties, hit your monthly savings target, and unlock actual rewards. Who knew saving could be this rewarding? #staydelulu #savingmoney #budgetapp #friendshipgoals",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C139",
+   "case": "GLOBAL-app",
+   "arm": "A",
+   "copy": "[instagram] delulu! Try our budgeting app you save with friends for saving together. #delulu",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C140",
+   "case": "GLOBAL-app",
+   "arm": "C",
+   "copy": "[x] Me being delulu believing I would save $1k solo this month vs me and my bestie tracking daily expenses together and claiming our monthly reward: #delulu #moneyhacks #budgetapp",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C141",
+   "case": "GLOBAL-app",
+   "arm": "A",
+   "copy": "[x] Feeling delulu? Grab our budgeting app you save with friends. #delulu",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C142",
+   "case": "GLOBAL-app",
+   "arm": "A",
+   "copy": "[x] Our budgeting app you save with friends – it's time for delulu. #delulu",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "no",
+    "usable": 1
+   },
+   "judge2": {
+    "meaning": "no",
+    "usable": 1
+   }
+  },
+  {
+   "id": "C143",
+   "case": "GLOBAL-app",
+   "arm": "B",
+   "copy": "[x] stay delulu until your shared savings account actually hits the goal and you both get paid rewards for budgeting. tag the friend who needs to lock in with you this month. #delulu #budgeting #savingschallenge",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  },
+  {
+   "id": "C144",
+   "case": "GLOBAL-app",
+   "arm": "C",
+   "copy": "[instagram] I was completely delulu thinking I could hit my monthly savings goal all by myself. Now my bestie and I track our budgets together in the app, crush our targets, and cash in on real rewards at the end of the month! Tag your friend who needs to stop being broke with you. #delulu #savingsgoals #moneytok #budgetwithfriends #rewards",
+   "rule_fail": null,
+   "judge1": {
+    "meaning": "yes",
+    "usable": 3
+   },
+   "judge2": {
+    "meaning": "yes",
+    "usable": 3
+   }
+  }
+ ]
+}

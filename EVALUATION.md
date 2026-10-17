@@ -118,23 +118,46 @@ the filled tables stay outside the repository.
 pick (Korean cosmetics and three Japanese products): most Japanese cards are fading memes or entertainment-only.
 Using a meme image such as Wojak in an ad needs a rights check that the tool does not do.
 
-## 5b. Meaning check: rules alone vs rules + Gemini
+## 5b. Meaning check: rules alone vs Gemini without and with the dictionary
 
 Copy check finds a meme with rules and decides risk, lifecycle and market with rules; rules cannot tell whether the
-meme is used in its dictionary sense. On 2026-10-17 we wrote 20 sentences for 10 memes in English, Korean and
-Japanese – one using the meme as its dictionary entry defines it, one using it against that meaning (a literal or
-different sense, e.g. "cooked" as food, 호갱 as a term of endearment for loyal customers) – and fixed the labels
-before running. Each sentence went through the product's meaning-check prompt (`pipeline/copycheck.py`
-`FIT_PROMPT`, Gemini 3.8 Flash on Vertex AI, temperature 0.1) once.
+meme is used in its dictionary sense. We wrote 36 sentences for 18 memes in English, Korean and Japanese – one using
+the meme as its dictionary entry defines it, one using it against that meaning (a literal or different sense, e.g.
+"cooked" as food, 호갱 as a term of endearment for loyal customers) – and fixed the labels before running. Each
+sentence went through the product's meaning-check prompt (`pipeline/copycheck.py` `FIT_PROMPT`, Gemini 3.8 Flash on
+Vertex AI, temperature 0.1) three times with the dictionary meaning, and once with the meaning left out.
 
-| | Misused memes flagged | Correct uses kept |
-| --- | ---: | ---: |
-| Rules alone (no meaning check exists) | 0 / 10 | 10 / 10 |
-| Rules + Gemini meaning check | **10 / 10** | **10 / 10** |
+| | Misused memes flagged | Correct uses kept | Runs |
+| --- | ---: | ---: | ---: |
+| Rules alone (no meaning check exists) | 0 / 18 | 18 / 18 | – |
+| Gemini without the dictionary meaning | 17 / 18 | 17 / 18 | 1 |
+| Gemini with the dictionary meaning (product) | **18 / 18** | **18 / 18** | 3, no verdict changed |
 
-Median 5.6 s per sentence, about 370 input and 420 output tokens (including thinking), US$0.04 for all 20. The set is
-small and written by the team, so it shows that the check works on clear cases, not its accuracy on real copy.
+Without the meaning, Gemini read "banger" in its British sense (an old car) and got both of its sentences the wrong
+way round; the dictionary fixes the sense to the market. Median 4.5 s per sentence, US$0.26 for all 144 calls. The set
+is small and written by the team, so it shows that the check works on clear cases, not its accuracy on real copy.
 Cases and verdicts: [`evals/meaning-check-ablation.json`](evals/meaning-check-ablation.json).
+
+## 5c. Create: rules only vs Gemini only vs Trend Interpreter
+
+On 2026-10-18 we wrote copy for the same 12 cases three ways (3 markets × 4 products, one fixed meme per case for
+all three, four social copies each): **A** fixed rule templates with no model; **B** Gemini 3.8 Flash given only the
+product and the meme name, no dictionary meaning and no rule check; **C** the product's Create step
+(`pipeline/generate.py` prompt with the dictionary meaning, the rule check and one rewrite). Two Claude agents, one
+briefed as a copy editor and one as a brand manager, rated all 144 copies blind to the arm, shuffled within each case.
+
+| | Pass the rule check | Meme used in its dictionary sense (judge 1 / 2) | Usable, 1–3 (judge 1 / 2) |
+| --- | ---: | ---: | ---: |
+| A Rules only | 48 / 48 | 0 / 48 · 1 / 48 | 1.00 · 1.04 |
+| B Gemini only | 44 / 48 | 46 / 48 · 45 / 48 | 2.79 · 2.77 |
+| C Trend Interpreter | **48 / 48** | **47 / 48 · 47 / 48** | 2.88 · 2.75 |
+
+The judges agreed on meaning for 140 of 144 copies. Rule templates always contain the meme but neither judge would
+post them. Against Gemini alone, our flow's quality is about the same; what it adds is that every copy passes the
+checks (B left the meme out of three copies and one X post ran over the limit) and a slightly higher meaning score,
+at about twice the tokens (13 calls against 12, with one rewrite). The judges are AI agents, the memes were fixed by
+hand rather than picked by the recommender, and each case ran once. Copies and ratings:
+[`evals/create-ablation.json`](evals/create-ablation.json).
 
 ## 6. Auditor: Gemma 4 QLoRA (stopped 10-09)
 
