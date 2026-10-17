@@ -118,6 +118,24 @@ the filled tables stay outside the repository.
 pick (Korean cosmetics and three Japanese products): most Japanese cards are fading memes or entertainment-only.
 Using a meme image such as Wojak in an ad needs a rights check that the tool does not do.
 
+## 5b. Meaning check: rules alone vs rules + Gemini
+
+Copy check finds a meme with rules and decides risk, lifecycle and market with rules; rules cannot tell whether the
+meme is used in its dictionary sense. On 2026-10-17 we wrote 20 sentences for 10 memes in English, Korean and
+Japanese – one using the meme as its dictionary entry defines it, one using it against that meaning (a literal or
+different sense, e.g. "cooked" as food, 호갱 as a term of endearment for loyal customers) – and fixed the labels
+before running. Each sentence went through the product's meaning-check prompt (`pipeline/copycheck.py`
+`FIT_PROMPT`, Gemini 3.8 Flash on Vertex AI, temperature 0.1) once.
+
+| | Misused memes flagged | Correct uses kept |
+| --- | ---: | ---: |
+| Rules alone (no meaning check exists) | 0 / 10 | 10 / 10 |
+| Rules + Gemini meaning check | **10 / 10** | **10 / 10** |
+
+Median 5.6 s per sentence, about 370 input and 420 output tokens (including thinking), US$0.04 for all 20. The set is
+small and written by the team, so it shows that the check works on clear cases, not its accuracy on real copy.
+Cases and verdicts: [`evals/meaning-check-ablation.json`](evals/meaning-check-ablation.json).
+
 ## 6. Auditor: Gemma 4 QLoRA (stopped 10-09)
 
 A second model audits each published meaning against its cited sources and answers `ok` or `fix`. We stopped this

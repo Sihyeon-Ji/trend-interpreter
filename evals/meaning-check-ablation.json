@@ -1,0 +1,250 @@
+{
+ "run": "2026-10-17",
+ "model": "gemini-3.8-flash",
+ "prompt": "pipeline/copycheck.py FIT_PROMPT (same schema FitResult, temperature 0.1, Vertex AI)",
+ "ground_truth": "label fixed in advance: ok = meme used in its dictionary sense, off = used against it",
+ "dictionary_meanings": {
+  "갓생": {
+   "term_id": "t_c3f92e6dc0",
+   "gloss_ko": "다른 사람들에게 본보기가 될 만한 바람직하고 부지런한 삶을 의미하며, 주로 '갓생 브이로그' 같은 콘텐츠에서 언급되거나, '하루라도 갓생 사는 법 알려줄게'와 같은 방식으로 인터넷 밈으로 사용된다."
+  },
+  "호갱": {
+   "term_id": "t_bc69c61d39",
+   "gloss_ko": "비싼 값에 물건을 사거나 계약에 속는 일부 소비자를 가리키는 인터넷 신조어."
+  },
+  "エモい": {
+   "term_id": "t_4dac8d8d86",
+   "gloss_ko": "감정이 움직이거나 고조되어 강하게 호소되는 마음의 움직임. '애수(哀愁)를 띠는 듯한 느낌', '운치 있음', '가슴에 와닿는 느낌' 등에 사용되며, 말로 직접 표현하기 어려운 복합적인 감정을 나타낼 때 쓰인다."
+  },
+  "ワンチャン": {
+   "term_id": "t_b7b2de80fd",
+   "gloss_ko": "'ワンチャンス(one chance)'의 줄임말로, 희박하지만 아직 가능성이 남아 있음을 뜻하며, 요즘은 '어쩌면·혹시'처럼 부사로 가장 많이 쓴다."
+  },
+  "banger": {
+   "term_id": "t_8c03499da0",
+   "gloss_ko": "매우 인기 있거나 신나는 노래, 또는 전반적으로 흥을 돋우는 무언가를 가리키는 속어."
+  },
+  "cooked": {
+   "term_id": "t_510cb64124",
+   "gloss_ko": "어떤 대상이나 상황이 망했거나, 끝장났거나, 더 이상 회복할 수 없는 상태에 처했음을 의미하는 속어입니다."
+  },
+  "delulu": {
+   "term_id": "t_0d8bcf0dec",
+   "gloss_ko": "'delusional(망상에 빠진)'을 줄인 영어 속어. 좋아하는 아이돌과 이어질 수 있다고 믿는 팬처럼 현실과 동떨어진 믿음이나 기대를 품은 사람, 또는 그런 생각을 가리키며, 지금은 자기 연애 같은 개인적인 일에 대한 비현실적인 기대를 두고도 쓴다."
+  },
+  "rizz": {
+   "term_id": "t_afa1bcab12",
+   "gloss_ko": "스타일·매력, 특히 이성을 끄는 능력을 뜻하는 영어 인터넷 속어. 'rizz (someone) up'처럼 동사로 쓰면 매력을 발휘해 상대를 끈다는 뜻이다."
+  },
+  "sus": {
+   "term_id": "t_9f469e9f6e",
+   "gloss_ko": "수상하거나 의심스러운 상황이나 대상을 가리키는 인터넷 밈으로, 주로 'Among Us' 게임에서 유래하여 사용된다. 특정 상황이나 인물이 의심스러울 때 사용되는 경향이 있다."
+  },
+  "推し活": {
+   "term_id": "t_oshikatsu",
+   "gloss_ko": "좋아하는 아이돌·캐릭터('推し')를 응원하는 활동 전반. 굿즈 구매, 공연 참석, SNS 홍보 등."
+  }
+ },
+ "cases": [
+  {
+   "meme": "banger",
+   "label": "ok",
+   "text": "Our new summer playlist is a total banger – stream it while you sip your iced latte.",
+   "verdict": "ok",
+   "note": "The term 'banger' is appropriately used to describe an exciting and energetic music collection.",
+   "seconds": 15.2,
+   "in_tok": 352,
+   "out_tok": 654
+  },
+  {
+   "meme": "banger",
+   "label": "off",
+   "text": "Trade in your old banger for our new electric scooter and ride to work in style.",
+   "verdict": "off",
+   "note": "The sentence uses 'banger' in the British slang sense of an old, beat-up vehicle rather than the defined slang meaning of an energetic hit song or exciting thing.",
+   "seconds": 4.1,
+   "in_tok": 351,
+   "out_tok": 482
+  },
+  {
+   "meme": "cooked",
+   "label": "ok",
+   "text": "Missed the flash sale again? You're cooked – turn on price alerts next time.",
+   "verdict": "ok",
+   "note": "The term is used appropriately to humorously indicate that someone who missed the flash sale is completely out of luck.",
+   "seconds": 4.8,
+   "in_tok": 355,
+   "out_tok": 475
+  },
+  {
+   "meme": "cooked",
+   "label": "off",
+   "text": "Chef-made meals, perfectly cooked and delivered hot to your door in 20 minutes.",
+   "verdict": "off",
+   "note": "The word is used in its literal culinary sense rather than the slang definition of being ruined or doomed, so it should be used in a context referring to an inescapable bad situation.",
+   "seconds": 5.8,
+   "in_tok": 355,
+   "out_tok": 417
+  },
+  {
+   "meme": "rizz",
+   "label": "ok",
+   "text": "Fresh cushion, all-day glow – instant rizz for your first date.",
+   "verdict": "ok",
+   "note": "The term is used correctly as a noun meaning romantic charm or the ability to attract a partner, fitting the context of getting ready for a first date.",
+   "seconds": 4.2,
+   "in_tok": 364,
+   "out_tok": 357
+  },
+  {
+   "meme": "rizz",
+   "label": "off",
+   "text": "Low on rizz after a long week? Our sleep tracker shows how many hours you really rested.",
+   "verdict": "off",
+   "note": "The term 'rizz' specifically denotes romantic charm or charisma rather than general physical energy or vitality, so it should be replaced with words like 'energy' or 'stamina'.",
+   "seconds": 5.4,
+   "in_tok": 368,
+   "out_tok": 489
+  },
+  {
+   "meme": "sus",
+   "label": "ok",
+   "text": "A deal this good looks sus – but our prices really are this low.",
+   "verdict": "ok",
+   "note": "The term 'sus' is correctly used to convey that the deal appears suspiciously good or too good to be true.",
+   "seconds": 41.2,
+   "in_tok": 368,
+   "out_tok": 368
+  },
+  {
+   "meme": "sus",
+   "label": "off",
+   "text": "These running shoes are so sus: light, comfy and ready for your morning run.",
+   "verdict": "off",
+   "note": "The term 'sus' means suspicious or untrustworthy rather than positive or impressive, so replace it with a positive slang term like 'fire' or 'legit'.",
+   "seconds": 4.1,
+   "in_tok": 370,
+   "out_tok": 376
+  },
+  {
+   "meme": "delulu",
+   "label": "ok",
+   "text": "Think you'll save $500 this month without a plan? That's delulu – start with our budget app.",
+   "verdict": "ok",
+   "note": "It accurately uses delulu to characterize the unrealistic expectation of saving $500 without a plan as delusional.",
+   "seconds": 4.0,
+   "in_tok": 404,
+   "out_tok": 436
+  },
+  {
+   "meme": "delulu",
+   "label": "off",
+   "text": "Our delulu moisturizer keeps your skin calm and hydrated all day, backed by dermatologists.",
+   "verdict": "off",
+   "note": "The term delulu means delusional or having unrealistic beliefs, making it nonsensical as a direct adjective describing the physical qualities or performance of a moisturizer; it should instead describe a person's mindset or be replaced with a word that reflects actual skincare benefits.",
+   "seconds": 7.7,
+   "in_tok": 395,
+   "out_tok": 584
+  },
+  {
+   "meme": "호갱",
+   "label": "ok",
+   "text": "더 이상 호갱 되지 마세요 – 요금 비교로 매달 통신비를 아끼세요.",
+   "verdict": "ok",
+   "note": "The term is used appropriately to refer to consumers who pay excessively high prices without comparing their options.",
+   "seconds": 3.7,
+   "in_tok": 351,
+   "out_tok": 292
+  },
+  {
+   "meme": "호갱",
+   "label": "off",
+   "text": "늘 찾아 주시는 우리 호갱님들께 감사의 뜻으로 10% 할인 쿠폰을 드립니다.",
+   "verdict": "off",
+   "note": "The term refers to a gullible consumer who is easily ripped off or deceived, but it is incorrectly used here to affectionately refer to loyal customers, so it should be replaced with a respectful term like '고객님'.",
+   "seconds": 4.7,
+   "in_tok": 355,
+   "out_tok": 357
+  },
+  {
+   "meme": "갓생",
+   "label": "ok",
+   "text": "아침 6시 러닝으로 시작하는 갓생, 가벼운 러닝화와 함께.",
+   "verdict": "ok",
+   "note": "The term is used appropriately to represent an exemplary and diligent lifestyle characterized by an early morning running routine.",
+   "seconds": 30.5,
+   "in_tok": 387,
+   "out_tok": 388
+  },
+  {
+   "meme": "갓생",
+   "label": "off",
+   "text": "오늘은 갓생 모드! 하루 종일 침대에서 드라마 정주행.",
+   "verdict": "off",
+   "note": "The term refers to living a diligent and productive lifestyle, which contradicts staying in bed all day binge-watching dramas, so it should be used for productive or self-improving activities instead.",
+   "seconds": 5.7,
+   "in_tok": 382,
+   "out_tok": 327
+  },
+  {
+   "meme": "推し活",
+   "label": "ok",
+   "text": "推し活の遠征費、このアプリで毎月かんたん管理。",
+   "verdict": "ok",
+   "note": "The term is used correctly because traveling for concerts and fan events is a well-known activity associated with supporting one's favorite idol or character.",
+   "seconds": 4.4,
+   "in_tok": 348,
+   "out_tok": 360
+  },
+  {
+   "meme": "推し活",
+   "label": "off",
+   "text": "推し活で節約！推しを持たずに趣味にお金を使わない毎日を。",
+   "verdict": "off",
+   "note": "The term oshikatsu specifically refers to actively supporting a favorite figure or character, so using it to describe saving money by not having an oshi contradicts its core meaning and should instead focus on mindful spending while supporting an actual favorite.",
+   "seconds": 19.8,
+   "in_tok": 351,
+   "out_tok": 395
+  },
+  {
+   "meme": "エモい",
+   "label": "ok",
+   "text": "夕暮れに飲むアイスラテ、なんだかエモい夏の一杯。",
+   "verdict": "ok",
+   "note": "The term is used appropriately to convey a nostalgic and sentimental atmosphere associated with drinking an iced latte at sunset.",
+   "seconds": 6.2,
+   "in_tok": 391,
+   "out_tok": 383
+  },
+  {
+   "meme": "エモい",
+   "label": "off",
+   "text": "エモいほど速い！0.5秒で起動する家計簿アプリ。",
+   "verdict": "off",
+   "note": "The term 'エモい' describes deep emotional, nostalgic, or sentimental feelings, making its use as an intensifier for speed ('エモいほど速い') unnatural, so it should be replaced with words like 'ヤバい' or '驚く'.",
+   "seconds": 2.8,
+   "in_tok": 392,
+   "out_tok": 362
+  },
+  {
+   "meme": "ワンチャン",
+   "label": "ok",
+   "text": "ワンチャン、今月こそ貯金目標を達成できるかも。",
+   "verdict": "ok",
+   "note": "The term is used adverbially to mean 'maybe' or 'there is a slight chance', which perfectly matches the colloquial dictionary definition.",
+   "seconds": 5.8,
+   "in_tok": 362,
+   "out_tok": 294
+  },
+  {
+   "meme": "ワンチャン",
+   "label": "off",
+   "text": "安心のワンチャン保証：ご不満なら必ず全額返金します。",
+   "verdict": "off",
+   "note": "The term denotes a slim possibility or casual 'maybe,' which contradicts a definitive, reliable guarantee, and should be replaced with words like 'お試し' or '全額返金'.",
+   "seconds": 6.8,
+   "in_tok": 365,
+   "out_tok": 598
+  }
+ ]
+}
