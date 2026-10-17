@@ -13,7 +13,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Ex
 | Live prototype | Link in the submission form (Cloud Run; add `?lang=en`, `ko` or `ja` to the address to set the language) |
 | Demo video (2:53) | [YouTube](https://youtu.be/KHXkWvGHFx4) |
 | Evaluation | [EVALUATION.md](EVALUATION.md) · per-round totals in [`evals/`](evals/recommend-rounds.csv) |
-| Architecture | [Diagram](#architecture) · [architecture document](docs/운영/시스템-아키텍처.md) (Korean) |
+| Architecture | [Diagram](#architecture) · [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ![Create: for each market, rules pick a meme that is safe to use now, AI writes the copy, rules check it again and a person approves](docs/images/create.png)
 
@@ -120,7 +120,7 @@ Solid boxes are code and rules, dashed boxes are models, and the blue icon marks
 | Secret Manager | Runtime secrets |
 
 Collection runs on a separate team server; only verified snapshots are published to Cloud SQL.
-Details are in the [architecture document](docs/운영/시스템-아키텍처.md) (Korean).
+Details are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Local development
 
@@ -233,7 +233,7 @@ docs/                        Korean documentation: setup, operations, Trend desi
 - [Trend direction, pipeline and research records in Korean](docs/트렌드/방향.md)
 - [Current plans in Korean](docs/plans/README.md)
 - [First-time setup in Korean](docs/개발환경/처음-설치.md)
-- [Architecture](docs/운영/시스템-아키텍처.md)
+- [Architecture](ARCHITECTURE.md)
 - [Operations](docs/운영/GCP-운영.md)
 - [Team workflow](docs/개발환경/팀-작업-방식.md)
 - [Repository](https://github.com/Sihyeon-Ji/trend-interpreter)
