@@ -1,4 +1,4 @@
-# AI Builder Cup 2026
+# Trend Interpreter
 
 English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/개발환경/처음-설치.md)
 
