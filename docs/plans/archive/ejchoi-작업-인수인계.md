@@ -1,18 +1,18 @@
 # ejchoi 작업 인수인계 (10-12 ~ 10-18)
 
-작성일 **2026-10-11** · 상태 **제출 대기 – 7절만 남음(10-17)** · 보내는 사람 **ejchoi** · 받는 사람 **sng_j** · 함께 볼 사람 **shji(지시현)** · 제출 **10-18**
+작성일 **2026-10-11** · 상태 **인수인계 종료·보관(10-17) – 최종 제출은 별도 계획으로 이관** · 보내는 사람 **ejchoi** · 받는 사람 **sng_j** · 함께 볼 사람 **shji(지시현)** · 제출 **10-18**
 
-[계획 목록](README.md) · [ejchoi 확인 요청](archive/ejchoi-확인-요청.md) · [발표 자료](archive/ejchoi-submission-deck.md) · [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) · [제출 양식 문안](../대회/제출/제출-양식-문안.md) · [데모 영상(sng_j)](archive/sng_j-demo-video.md)
+[계획 목록](../README.md) · [최종 제출 계획](../2026-10-18-final-submission.md) · [ejchoi 확인 요청](ejchoi-확인-요청.md) · [발표 자료](ejchoi-submission-deck.md) · [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) · [제출 양식 문안](../../대회/제출/제출-양식-문안.md) · [데모 영상(sng_j)](sng_j-demo-video.md)
 
 > **10-16 결정(지시현).** 표의 GPU 일(10-15 VM 만들기, 10-16 실행 기록 남기기, 2절)은 하지 않는다. 10-16 갱신은 10-14에 ktwoo가 끝냈고, 그 뒤 확인(3절)도 끝났다. 덱·제출 문안의 숫자는 지금처럼 4~9차(사람 검토)를 쓴다 – 10차는 AI 채점만이라 대표 숫자로 바꾸지 않고, 쓰려면 'AI 채점, 사람 검토 없음'이라고 붙인다(4절의 숫자 교체는 하지 않아도 된다). 심사용 계정(5절)은 완료.
 
-> **10-17 ejchoi 복귀.** 영상(https://youtu.be/KHXkWvGHFx4, 2분 53초)이 올라와 6절(링크·제출용 PDF)을 ejchoi가 끝냈다. 덱·README·제출 문안에서 'L4 VM을 필요할 때 켠다'는 문장도 '정의만 있고 배포하지 않음'으로 고쳤다. 운영 GPU가 없어 '기록된 Gemma 실행'은 비어 있으므로, 7절의 심사용 계정 안내는 [제출 양식 문안](../대회/제출/제출-양식-문안.md#심사위원-안내-양식에-메모추가-정보-칸이-있으면)의 문장을 쓴다. 남은 것은 10-18 제출 양식 작성(7절)뿐이다.
+> **10-17 ejchoi 복귀.** 영상(https://youtu.be/KHXkWvGHFx4, 2분 53초)이 올라와 6절(링크·제출용 PDF)을 ejchoi가 끝냈다. 덱·README·제출 문안에서 'L4 VM을 필요할 때 켠다'는 문장도 '정의만 있고 배포하지 않음'으로 고쳤다. 운영 GPU가 없어 '기록된 Gemma 실행'은 비어 있으므로, 7절의 심사용 계정 안내는 [제출 양식 문안](../../대회/제출/제출-양식-문안.md#심사위원-안내-양식에-메모추가-정보-칸이-있으면)의 문장을 쓴다. 남은 것은 10-18 제출 양식 작성(7절)뿐이다.
 
 10-12부터 제출까지 ejchoi 몫으로 생기는 일을 sng_j가 이어서 한다. 코드·문서는 10-11에 끝났고 운영 배포까지 마쳤다(`34d3ea7`). 남은 것은 결과를 채워 넣는 일과 운영 작업이다. GCP 자원·운영 비밀값·배포는 지시현 확인이 필요하다(표의 '확인').
 
-제출 전 PDF의 문구·현재 상태 불일치는 [10-17 덱 검토](../대회/제출/제출-덱-검토-2026-10-17.md)에 정리했다. 원본 PPT 수정과 최종 PDF 재확인이 필요하다.
+제출 전 PDF의 문구·현재 상태 불일치는 [10-17 덱 검토](../../대회/제출/제출-덱-검토-2026-10-17.md)에 정리했다. 원본 PPT 수정과 최종 PDF 재확인이 필요하다.
 
-현재 실행할 일은 **7절 제출 양식 작성·최종 확인**이다. 아래 1~6절은 당시 절차를 남긴 기록이며, GPU 생성·실행과 숫자 교체는 상단의 10-16 결정으로 취소됐다. 제출 완료는 [제출 준비 체크리스트](../대회/제출/제출-준비-체크리스트.md)에 form 캡처와 제출 시각을 남긴 뒤 표시한다.
+**10-17 보관.** 남은 제출 양식 작성·덱 검수 반영·최종 확인은 [최종 제출 계획](../2026-10-18-final-submission.md)으로 이관했다. 아래 1~7절은 당시 인수인계 기록이다. GPU 생성·실행과 숫자 교체는 상단의 10-16 결정으로 취소됐으며, 이 문서의 보관은 실제 제출 완료를 뜻하지 않는다.
 
 ## 한눈에
 
@@ -46,7 +46,7 @@ GitHub Actions의 'Release GCP'가 끝나면 운영 웹의 첫 화면·사전 �
 
 10-10 결정: GPU는 데모·녹화 때만 켠다. 심사위원은 꺼진 GPU 대신 마지막 실제 실행 기록을 본다.
 
-1. **VM 만들기(지시현).** 운영 Terraform 설정에 `gpu`(boot image·모델 릴리스·TLS·토큰)를 채워 적용한다. 디스크 250GB가 꺼져 있어도 요금이 나간다(한 달 $25 안팎). 지울 날짜를 함께 정한다. 자세한 것은 [Gemma 실시간 분류 4-2](archive/ejchoi-gemma-live-classify.md#4-2-확인이-필요한-것-10-10)·[4-3](archive/ejchoi-gemma-live-classify.md#4-3-데모녹화-때-gpu-켜고-끄기).
+1. **VM 만들기(지시현).** 운영 Terraform 설정에 `gpu`(boot image·모델 릴리스·TLS·토큰)를 채워 적용한다. 디스크 250GB가 꺼져 있어도 요금이 나간다(한 달 $25 안팎). 지울 날짜를 함께 정한다. 자세한 것은 [Gemma 실시간 분류 4-2](ejchoi-gemma-live-classify.md#4-2-확인이-필요한-것-10-10)·[4-3](ejchoi-gemma-live-classify.md#4-3-데모녹화-때-gpu-켜고-끄기).
 2. **켜기.** `gcloud compute instances start trend-production-gpu --zone <zone> --project stunning-crane-508614-c1`
 3. **준비 확인.** 검수자로 로그인해 `/admin/status` 맨 아래 'Gemma 수동 실행'의 GPU 표시가 '준비됨 · gemma4:12b'가 될 때까지 '다시 확인'을 누른다. 켠 시각과 준비된 시각을 적는다.
 4. **실행 기록 남기기(10-16 갱신 뒤).** 데모에 나오는 말 3~5개에 대해
@@ -54,13 +54,13 @@ GitHub Actions의 'Release GCP'가 끝나면 운영 웹의 첫 화면·사전 �
    - `/admin/status`의 'Gemma 수동 실행'에 같은 말을 넣고 실행한다.
    - '기록된 Gemma 실행' 목록에 그 말들이 생겼는지 본다. 결과는 공개 사전에 쓰이지 않는다(미리보기).
 5. **끄기.** `gcloud compute instances stop trend-production-gpu --zone <zone> --project stunning-crane-508614-c1` 뒤 `gcloud compute instances describe … --format 'value(status)'`가 `TERMINATED`인지 본다.
-6. **청구.** 다음 날 Billing에서 GPU·VM·디스크 금액을 [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) 문서에 적는다.
+6. **청구.** 다음 날 Billing에서 GPU·VM·디스크 금액을 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) 문서에 적는다.
 7. **영상에 버튼 장면을 넣을 경우**, 녹화 시간에 맞춰 2~3을 다시 하고 녹화가 끝나면 끈다.
 
 ## 3. 10-16 갱신 뒤 확인
 
 - 영어권 둘러보기(`/trends?m=GLOBAL`)·브리핑(Global)·만들기 첫 화면 영어권 칸에 **Know Your Meme·relatable**이 없어야 한다. 10-09에 사람 결정으로 뺐는데 10-09 DB 전환 때 다시 나왔다. 남아 있으면 지시현에게 알린다 – 덱 11쪽('밈 아닌 말을 뺐다')과 어긋나고 영상에도 찍힌다.
-- 이 확인은 지시현의 [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md)과 함께 본다.
+- 이 확인은 지시현의 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)과 함께 본다.
 
 ## 4. 재측정 숫자와 화면 사진
 
@@ -108,5 +108,5 @@ BASE_URL=https://<운영 웹 주소> docker compose run --rm --build --no-deps -
 
 - 커밋 메시지·`docs/` 문서는 한국어, 덱·README·EVALUATION·제출 문안은 영어다. Markdown과 커밋 메시지에는 긴 대시(U+2014) 대신 줄표(U+2013, –)를 쓴다.
 - 운영 데이터를 바꾸는 일(게시·갱신)이 돌고 있을 때는 배포하지 않는다.
-- 승인 배치를 게시할 때는 `gcloud run jobs execute trend-production-publication --update-env-vars PUBLICATION_BATCH_ID=<id> --wait`로 실행한다. 기본 제한은 900초(15분, 10-12 조정)다([승인 배치 게시](../개발환경/승인-배치-게시.md)).
+- 승인 배치를 게시할 때는 `gcloud run jobs execute trend-production-publication --update-env-vars PUBLICATION_BATCH_ID=<id> --wait`로 실행한다. 기본 제한은 900초(15분, 10-12 조정)다([승인 배치 게시](../../개발환경/승인-배치-게시.md)).
 - 덱은 PowerPoint에서 직접 고쳐도 된다. 디자인 규칙: 글자 #121826, 보조 #566074, 판 #F2F4F7, 파란색 #2448E0은 사람 승인에만, 좌우 여백 0.4인치, 내용은 1.4~5.05인치.
