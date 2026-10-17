@@ -10,7 +10,7 @@ behind the deployed service.
 | Area | What we can show | What is still open |
 | --- | --- | --- |
 | Dictionary pipeline | 11,292 terms, 7,651 verified; every published meaning passed a rule gate that needs a matching reference document | Meaning accuracy against people beyond the 20-case sealed set |
-| Human review | 107 review decisions and 121 human-approved meanings in production | Reviews cover about 1.6% of verified meanings |
+| Human review | 107 review decisions and 121 human-approved meanings in production | Reviews cover about 1.6% of verified terms |
 | List filtering | Korea "in use now" list 2,564 → 712 after rules that drop non-meme catalogue entries | Precision and recall: 230-item labelled sample prepared, labels not yet done |
 | Risk verdicts | Every verified term judged by rules; 51 avoid, 823 caution, 73 no issue | 6,708 terms lack enough classified evidence to judge |
 | Recommendation and copy | Same 12 cases, rounds 4 to 9 (10-10 data): fitting picks 40% → 91%, no risky pick shown as safe, copy usability 2.50/3. Round 10 on production after the 10-14 refresh: 11/12 completed, 12/28 picks fit (more candidates per case), still no risky pick shown as safe | Rounds 4–9: one reviewer, AI-drafted judgments; round 10: AI judges only |
@@ -56,7 +56,7 @@ Risk levels are rules over classified evidence sentences, quoted reasons and the
 more than half of the classified uses; this moved four terms such as 懶人包 ("summary pack") from avoid to caution
 because their only risky evidence was unrelated news headlines.
 
-| Level (production, verified terms) | Terms |
+| Level (production on 10-05: 7,655 verified terms; the 7,651 above is the local copy) | Terms |
 | --- | ---: |
 | Avoid | 51 |
 | Caution | 823 |
@@ -154,4 +154,5 @@ fix 10) was prepared as the independent test; the comparison was not run. The ad
 - Recommendation fit and copy quality judged by more than one person, or beyond the 12 cases.
 - Meaning accuracy at scale, and precision and recall of the list filters (labels pending).
 - That a fine-tuned auditor beats the base model (experiment stopped).
-- Recommendations for every market and product: Japan returns no pick for three of four products.
+- Recommendations for every market and product: in round 9 Japan returned no pick for three of four products; in
+  round 10 on the refreshed data 11 of 12 cases completed, and the Korean budgeting-app case ended with no copy.
