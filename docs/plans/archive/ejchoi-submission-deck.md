@@ -2,24 +2,24 @@
 
 작성일 **2026-10-10** · 담당 **ejchoi** · 상태 **완료(10-17) – 링크·GPU 문장 정리, 제출용 PDF** · 제출 **10-18**
 
-[계획 목록](README.md) · 초안·양식 PPTX는 10-17부터 Git에 두지 않는다(제출본에 심사용 계정이 들어가 팀이 따로 공유, `docs/대회/제출/*.pptx`는 `.gitignore`) · [제출 양식 설명](../대회/제출/제출-양식-설명.md) · [공식 제출 기준](../대회/제출/공식-제출-기준.md) · [제출 준비 체크리스트](../대회/제출/제출-준비-체크리스트.md) · 영상 [sng_j](sng_j-demo-video.md)
+[계획 목록](../README.md) · 초안·양식 PPTX는 10-17부터 Git에 두지 않는다(제출본에 심사용 계정이 들어가 팀이 따로 공유, `docs/대회/제출/*.pptx`는 `.gitignore`) · [제출 양식 설명](../../대회/제출/제출-양식-설명.md) · [공식 제출 기준](../../대회/제출/공식-제출-기준.md) · [제출 준비 체크리스트](../../대회/제출/제출-준비-체크리스트.md) · 영상 [sng_j](sng_j-demo-video.md)
 
 > **10-16 결정(지시현): 운영 주소는 README·문서에 적지 않고 제출 양식에만 적는다.** 공개 저장소는 봇이 훑어 주소가 퍼지고, 그러면 하루 Gemini 요청 몫을 봇이 먼저 써서 심사위원이 막힐 수 있다. 심사위원은 제출 양식의 링크로 들어온다. 10-14에 README에 넣었던 주소는 10-16에 뺐다.
 
 ## 1. 맡는 일
 
-제출 양식에 맞춘 발표 자료(PPT). 숫자와 장면은 데모 영상([sng_j](sng_j-demo-video.md))과 맞춘다. Gemma 설명은 [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md)의 결과에 맞춘다.
+제출 양식에 맞춘 발표 자료(PPT). 숫자와 장면은 데모 영상([sng_j](sng_j-demo-video.md))과 맞춘다. Gemma 설명은 [Gemma 실시간 분류](ejchoi-gemma-live-classify.md)의 결과에 맞춘다.
 
 ## 2. 쓸 수 있는 근거 (10-10)
 
 | 근거 | 값 | 출처 |
 | --- | --- | --- |
-| 추천·만들기 품질(같은 12사례, 9차, 사람 검토) | 끝까지 된 사례 8/12, 어울리는 추천 10/11(91%), 위험한데 '없음' 0, 카피 즉시 사용성 2.50/3, 바로 쓸 카피 4/8 | [Plan 09](archive/09-generation-quality-evaluation.md) 9차 절 |
+| 추천·만들기 품질(같은 12사례, 9차, 사람 검토) | 끝까지 된 사례 8/12, 어울리는 추천 10/11(91%), 위험한데 '없음' 0, 카피 즉시 사용성 2.50/3, 바로 쓸 카피 4/8 | [Plan 09](09-generation-quality-evaluation.md) 9차 절 |
 | 측정을 거듭해 고친 것 | 1차 어울림 40% → 7차 85% → 8차 67%(새 DB의 새 후보) → 쓰임 낱말 고정·리스크 사람 판정 → 9차 91% | Plan 09 |
 | 리스크 사람 판정 | 추천 후보 36개(avoid 5 · caution 14 · none 17), 지시현 10-10 | Plan 09, 표는 `artifacts/risk_review/candidates-20261010.csv`(커밋하지 않음) |
-| 판정과 생성의 역할 | 판정은 규칙, 문장은 모델(Gemini), 사람이 승인. 만들기 결과물은 규칙으로 다시 검사(밈이 들어갔나·욕설·X 글자 수·피할 표현·밈 소개·언어 섞임)하고 걸리면 한 번 다시 만든다 | `pipeline/generate.py`, [Plan 08](archive/08-content-generation.md) |
-| Gemma | 배치 단계(분류·리스크·쓰임 낱말·번역·문서 대조)에서 쓰고, 모델 기록이 `/admin/status`·사전 항목에 보인다 | [Plan 14](archive/14-gemma-visible-in-deployment.md) |
-| 운영 | Cloud Run 웹·API, Cloud SQL, 승인 배치 게시(영어 뜻 60개), release 되돌리기 훈련(10-10) | [Plan 17](archive/17-hybrid-infrastructure.md), [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) |
+| 판정과 생성의 역할 | 판정은 규칙, 문장은 모델(Gemini), 사람이 승인. 만들기 결과물은 규칙으로 다시 검사(밈이 들어갔나·욕설·X 글자 수·피할 표현·밈 소개·언어 섞임)하고 걸리면 한 번 다시 만든다 | `pipeline/generate.py`, [Plan 08](08-content-generation.md) |
+| Gemma | 배치 단계(분류·리스크·쓰임 낱말·번역·문서 대조)에서 쓰고, 모델 기록이 `/admin/status`·사전 항목에 보인다 | [Plan 14](14-gemma-visible-in-deployment.md) |
+| 운영 | Cloud Run 웹·API, Cloud SQL, 승인 배치 게시(영어 뜻 60개), release 되돌리기 훈련(10-10) | [Plan 17](17-hybrid-infrastructure.md), [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) |
 
 ## 3. 지키는 것
 
@@ -32,7 +32,7 @@
 
 - 제출 양식의 칸을 모두 채웠고, 각 숫자에 출처가 있다.
 - 영상과 숫자·용어가 같다.
-- [제출 준비 체크리스트](../대회/제출/제출-준비-체크리스트.md)의 발표 자료 항목을 증거와 함께 갱신했다.
+- [제출 준비 체크리스트](../../대회/제출/제출-준비-체크리스트.md)의 발표 자료 항목을 증거와 함께 갱신했다.
 
 ## 5. 남은 일 (10-10)
 

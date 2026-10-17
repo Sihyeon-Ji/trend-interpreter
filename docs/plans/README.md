@@ -1,6 +1,6 @@
 # 계획
 
-작성일 **2026-09-23** · 최종 갱신 **2026-10-16** · 제출 마감 **2026-10-18**
+작성일 **2026-09-23** · 최종 갱신 **2026-10-17** · 제출 마감 **2026-10-18**
 
 [운영 명령](../개발환경/개발-명령어.md) · [승인 배치 게시](../개발환경/승인-배치-게시.md) · [결정 기록](../adr/README.md) · [완료 계획과 지난 점검](archive/README.md)
 
@@ -21,14 +21,9 @@
 
 ## 다음 순서
 
-계획 문서 이름은 두 가지다. 정해진 날에 하는 일은 실행일(`2026-10-16-` 등), 마감까지 하는 일은 담당자(`shji-`·`ejchoi-`·`ktwoo-`·`sng_j-`)로 시작한다.
-
-1. **10-14 코드 동결까지** – [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md)(ejchoi), [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md)·[밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md)(ktwoo).
-2. **10-15 밤** – [수집 서버 스냅숏](archive/2026-10-15-collection-server-snapshot.md)(ktwoo). 그때까지 서버 파이프라인은 fit 단계를 뺀다.
-3. **10-16** – [마지막 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) – 10-14 에 ktwoo 가 앞당겨 마쳤다(보관).
-4. **10-16 ~ 10-17** – 녹화([데모 영상](sng_j-demo-video.md), sng_j)와 [발표 자료](ejchoi-submission-deck.md)(ejchoi).
-5. **10-17** – 저장소 공개는 10-16에 앞당겨 마쳤다([보관](archive/2026-10-17-public-repository.md)). 10-18 제출.
-6. **10-20 ~ 10-26** – [Cloud SQL 체험 종료 전 전환](2026-10-20-cloud-sql-transition.md), **10-27 ~ 10-28** [청구 확인](2026-10-27-billing-check.md)(shji).
+1. **10-18** – [제출 인수인계](ejchoi-작업-인수인계.md#7-제출-양식)에 따라 제출 양식을 작성하고, 링크·첨부 파일·심사용 계정을 확인한 뒤 제출 시각과 화면을 기록한다. 발표 자료·영상 제작은 10-17에 끝나 보관했다.
+2. **10-20 밤** – [Cloud SQL 체험 종료 전 전환](2026-10-20-cloud-sql-transition.md)(shji).
+3. **10-27 ~ 10-28** – [청구 확인](2026-10-27-billing-check.md)(shji).
 
 GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확인 뒤에 한다(`apps/trend-api/AGENTS.md`). 로컬 검사 통과는 운영 반영이나 AI 품질의 근거가 아니다.
 
@@ -45,8 +40,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 계획 | 담당 | 작업 | 상태 | 다음 완료 증거 | 마감 |
 | --- | --- | --- | --- | --- | --- |
-| [ejchoi-submission-deck](ejchoi-submission-deck.md) | ejchoi | 제출 발표 자료 | 완료(10-17) – 링크·GPU 문장 정리, 제출용 PDF | 제출 양식 작성(10-18) | 10-17 |
-| [sng_j-demo-video](sng_j-demo-video.md) | sng_j | 데모 시나리오와 영상 | 완료(10-17) – [YouTube](https://youtu.be/KHXkWvGHFx4) 2분 53초, 일부 공개 | 제출 양식 작성(10-18) | 10-17 |
+| [제출 인수인계](ejchoi-작업-인수인계.md#7-제출-양식) | sng_j | 제출 양식 작성·최종 제출 | 대기 – 발표 자료·영상 제작은 완료 | 제출 form 캡처·제출 시각, 첨부 파일·링크·계정 확인 | 10-18 |
 
 ## 완료 계획
 
@@ -54,6 +48,9 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
+| [제출 발표 자료](archive/ejchoi-submission-deck.md) | 제출용 PDF·링크·GPU 문장 정리 완료(10-17). 이번 PDF 검수의 후속 수정과 실제 제출은 별도 확인 |
+| [제출 데모 영상](archive/sng_j-demo-video.md) | 2분 53초 영상 업로드 완료(10-17). 실제 제출은 인수인계 7절 |
+| [ejchoi 확인 요청](archive/ejchoi-확인-요청.md) | 10-16 결정·10-17 제작 완료로 요청 기록 종료. GPU는 미구축 결정이며 실행 완료가 아님 |
 | [저장소 공개 전환](archive/2026-10-17-public-repository.md) | `Sihyeon-Ji/trend-interpreter` 공개, 배포는 `release/gcp`에서만(승인 없음), 외부 계정 push 거부 확인(10-16, 하루 앞당김) |
 | [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) | 1·2단계 코드 운영 반영, 심사용 읽기 전용 계정. 운영 GPU는 만들지 않음(10-16 보관) |
 | [10-16 운영 DB 갱신](archive/2026-10-16-final-db-refresh.md) | 스냅숏 `20261014T134313-8887867` → `trend_20261014`, 사람 결정 누락 0, API·Job 전환(10-14, ktwoo 마무리). 복원 검증·되돌리기 훈련은 하지 않음(10-16 보관) |
@@ -61,7 +58,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 | [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) | 빈 시장 해소, 10차 재측정(운영, 11/12·위험 누락 0, AI 채점)(10-16 보관) |
 | [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인(승인 2건)(10-16 보관). ⑥ 조사 요청 등은 제출 뒤 과제 |
 | [Plan 07](archive/07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일](archive/ktwoo-meme-recommendation-remaining.md) |
-| [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [데모 영상](sng_j-demo-video.md) |
+| [Plan 09](archive/09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 같은 12사례 9차 측정·사람 검토(10-10). 데모는 [데모 영상](archive/sng_j-demo-video.md) |
 | [Plan 14](archive/14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) |
 | [Plan 17](archive/17-hybrid-infrastructure.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10) |
 | [Plan 20](archive/20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일은 [문구 흐름과 일본어 화면](archive/ktwoo-copy-flow-and-japanese-ui.md) |

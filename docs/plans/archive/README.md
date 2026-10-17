@@ -1,6 +1,6 @@
 # 완료 계획 Archive
 
-다음 계획은 구현과 검증을 마쳐 보관한 문서입니다. 현재 실행할 계획은 [상위 계획 목록](../README.md)을 확인합니다.
+완료했거나 중단·보류·다른 계획으로 이관해 종료한 문서입니다. 보관이 모든 항목의 구현·검증 완료를 뜻하지는 않습니다. 현재 실행할 계획은 [상위 계획 목록](../README.md)을 확인합니다.
 
 ## 2026-10-03 재점검
 
@@ -29,7 +29,7 @@
 | [현행 Plan 06](06-gemma-on-cloud-run-gpu.md) | Kaggle 학습·DVC/GCS – 하지 않기로 하고 중단(10-09). 완료가 아니다 |
 | [현행 Plan 11](11-public-repository-release-protection.md)·[13](13-cloud-sql-trial-to-paid-transition.md)·[19](19-production-data-refresh.md) | 제출 전후 운영으로 합쳤다가(10-09) 날짜별 문서로 나눔(10-10) – [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md)·[10-17 저장소 공개](2026-10-17-public-repository.md)·[10-20 Cloud SQL 전환](../2026-10-20-cloud-sql-transition.md) |
 | [현행 Plan 07](07-meme-recommendation.md) | 사진·문구 기반 밈 추천 – 규칙·쓰임 낱말 고정까지(10-10). 남은 일은 [밈 추천 남은 일(ktwoo)](ktwoo-meme-recommendation-remaining.md) |
-| [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모 영상은 [sng_j](../sng_j-demo-video.md), 발표 자료는 [ejchoi](../ejchoi-submission-deck.md) |
+| [현행 Plan 09](09-generation-quality-evaluation.md) | 추천·생성 품질 평가 – 9차 측정·사람 검토(10-10). 데모 영상은 [sng_j](sng_j-demo-video.md), 발표 자료는 [ejchoi](ejchoi-submission-deck.md) |
 | [현행 Plan 14](14-gemma-visible-in-deployment.md) | 배포본 Gemma 기록 표시(0단계)에서 마무리(10-10). 1·2단계는 [Gemma 실시간 분류(ejchoi)](ejchoi-gemma-live-classify.md) |
 | [현행 Plan 17](17-hybrid-infrastructure.md)·[실행 기록](17-hybrid-infrastructure-실행기록.md) | 하이브리드 인프라 – 운영·승인 게시·거부 경로·되돌리기 확인(10-10). GCE 추론은 Gemma 실시간 분류(ejchoi), 이전 DB 되돌리기는 [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) |
 | [현행 Plan 20](20-copy-check-localization-flow.md) | 문구 검사·현지화 흐름 – 방향·무대 화면(10-10). 남은 일과 일본어 화면은 [문구 흐름과 일본어 화면(ktwoo)](ktwoo-copy-flow-and-japanese-ui.md) |
@@ -38,6 +38,20 @@
 | [현행 Plan 16](16-wiki-meme-catalog-and-tendency.md) | 위키 밈 분류 등재 – 용어 3,006개까지 하고 보류(10-09). 완료가 아니다 |
 | [현행 Plan 10](10-term-relation-graph.md) | 용어 관계 그래프 – 미착수로 보류(10-09). 완료가 아니다 |
 | [20](20-trend-operations-schedule.md) | 운영 일정 8개·후속 작업 4개 GitHub Project 등록 및 검증(10-05) |
+
+## 10-16 ~ 10-17 보관
+
+| 기록 | 보관 이유 |
+| --- | --- |
+| [수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md) | 10-15 수집 서버 스냅숏 – 스냅숏 `20261014T134313-8887867`로 운영 DB 갱신까지(10-14), 일본 카드 46 → 124(10-16) |
+| [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) | 빈 시장·10차 재측정(운영, 11/12 완료·어울림 12/28·위험 누락 0, Claude Sonnet 채점)(10-16) |
+| [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인, 승인 2건(10-16). 조사 요청·화면 합치기 등은 남김 |
+| [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) | 마지막 운영 DB 갱신 – 10-14 앞당겨 실행(ktwoo), 사람 결정 누락 0, 복원 검증·되돌리기 훈련은 하지 않음(10-16) |
+| [저장소 공개 전환](2026-10-17-public-repository.md) | 10-16 공개·저장소 이름 변경·외부 push 거부 확인 |
+| [Gemma 실시간 분류](ejchoi-gemma-live-classify.md) | 코드 운영 반영, 운영 GPU는 만들지 않기로 결정(10-16). 실제 GPU 추론 완료가 아님 |
+| [제출 발표 자료](ejchoi-submission-deck.md) | 제출용 PDF·링크·GPU 문장 정리 완료(10-17). PDF 검수 후속 수정과 실제 제출은 별도 확인 |
+| [제출 데모 영상](sng_j-demo-video.md) | 2분 53초 영상 업로드 완료(10-17). 실제 제출은 [인수인계 7절](../ejchoi-작업-인수인계.md#7-제출-양식) |
+| [ejchoi 확인 요청](ejchoi-확인-요청.md) | 팀 결정·제작 완료로 종료한 확인 요청. 예전 요청표를 현재 할 일로 쓰지 않음 |
 
 ## 종료된 점검 보고서
 
@@ -50,8 +64,4 @@
 | 2026-10-06 | [구현·완료도 재점검](구현-완료도-실측-점검-2026-10-06.md) | 점검 종료, 계획 목록(10-09)으로 갱신 |
 | 2026-10-08 | 계획 대비 진행 상태 | 계획 목록(10-09)에 합쳐 지웠다(git 기록에 남음) |
 
-점검 종료는 해당 보고서에 등장하는 실행 계획의 완료를 뜻하지 않는다. 현행 Plan 02·04는 명시된 완료 기준을 충족해 10-08에 보관했다. 다른 현행 계획은 데이터·품질·운영 또는 사람 확인 조건이 남아 상위 목록에 유지한다.
-| [수집 서버 스냅숏](2026-10-15-collection-server-snapshot.md) | 10-15 수집 서버 스냅숏 – 스냅숏 `20261014T134313-8887867`로 운영 DB 갱신까지(10-14), 일본 카드 46 → 124(10-16) |
-| [밈 추천 남은 일](ktwoo-meme-recommendation-remaining.md) | 빈 시장·10차 재측정(운영, 11/12 완료·어울림 12/28·위험 누락 0, Claude Sonnet 채점)(10-16) |
-| [문구 흐름과 일본어 화면](ktwoo-copy-flow-and-japanese-ui.md) | 승인 기록·재검사·일본어 화면 운영 확인, 승인 2건(10-16). 조사 요청·화면 합치기 등은 남김 |
-| [10-16 운영 DB 갱신](2026-10-16-final-db-refresh.md) | 마지막 운영 DB 갱신 – 10-14 앞당겨 실행(ktwoo), 사람 결정 누락 0, 복원 검증·되돌리기 훈련은 하지 않음(10-16) |
+점검 종료는 해당 보고서에 등장하는 실행 계획의 완료를 뜻하지 않는다. 현행 Plan 02·04는 명시된 완료 기준을 충족해 10-08에 보관했다. 당시 남은 현행 계획의 후속 종료·이관은 위 표와 상위 계획 목록의 최신 상태를 따른다.
