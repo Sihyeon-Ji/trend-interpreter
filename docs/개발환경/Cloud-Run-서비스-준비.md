@@ -49,8 +49,8 @@ docker compose run --rm infra-check
 
 | 항목 | 값 |
 | --- | --- |
-| 웹 | `https://trend-staging-web-7jftqxfz3q-an.a.run.app` |
-| API | `https://trend-staging-api-7jftqxfz3q-an.a.run.app` (IAM 인증 필수) |
+| 웹 | Cloud Run `trend-staging-web` (지금은 없음 – 주소는 운영 주소를 짐작할 수 있어 10-17에 뺐다) |
+| API | Cloud Run `trend-staging-api` (IAM 인증 필수, 지금은 없음) |
 | 이미지 | `trend-api@sha256:9c279a4a…`, `trend-web@sha256:adbc4c38…` (`a3cb2bd`·`c499d6b` 기준) |
 | DB | 체험 인스턴스의 `trend_staging`, `trend-staging-database-url` version 2 |
 | secret | `trend-staging-accounts` 1(검수 계정 1개), `trend-staging-frontend-token` 1, `trend-staging-session-secret` 1 |

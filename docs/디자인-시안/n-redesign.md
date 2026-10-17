@@ -1,4 +1,4 @@
-# 시안 n-redesign — '누가 정했나' 원장(ledger)
+# 시안 n-redesign – '누가 정했나' 원장(ledger)
 
 주소: `/lab/n-redesign`(만들기), `/lab/n-redesign/drafts`(시장별 초안), `/lab/n-redesign/explore?m=KR`(둘러보기), `/lab/n-redesign/term/[id]`(표제어: `jangwonyoung`, `bamti`, `luckyvicky`, `oshikatsu`, `mugunghwa`).
 데이터는 `apps/trend-web/lib/lab/n-redesign/data.ts` 의 손으로 옮긴 예시뿐이다(백엔드 호출 없음).
@@ -30,7 +30,7 @@
 
 ## 글자
 
-Pretendard Variable 하나(한·일·중·태 모두). 두 번째 서체는 쓰지 않았다 — 로컬에 쓸 만한 짝이 없고, 원문 표본이 이미 충분히 '목소리'를 낸다.
+Pretendard Variable 하나(한·일·중·태 모두). 두 번째 서체는 쓰지 않았다 – 로컬에 쓸 만한 짝이 없고, 원문 표본이 이미 충분히 '목소리'를 낸다.
 
 | 단계 | 크기/행간/굵기 | 쓰임 |
 |---|---|---|
