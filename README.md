@@ -3,8 +3,8 @@
 English | [한국어](README.kr.md) | [First-time setup guide in Korean](docs/개발환경/처음-설치.md)
 
 **Trend Interpreter** turns one product into local copy for Korea, Japan and English-language markets, using
-memes that are in use there now and safe for a brand – with a source behind every claim and a person approving
-before anything goes out.
+memes in use there now – with evidence-backed brand-risk checks and a person approving before the copy can be
+used.
 
 Google Cloud AI Builder Cup 2026 (JAPAC) · Theme: **Media, Content & Digital Experiences** · Team **COPYBARA**
 
@@ -60,15 +60,15 @@ A marketer needs the meaning, where it lives, whether it is fading and where it 
 | **Trend briefing: a one-page market report** | **World map: memes per market and across borders** |
 | ![Trend briefing](docs/images/briefing.png) | ![World map](docs/images/map.png) |
 
-Screens of the deployed service in English, on data collected on 9 October 2026. Memes stay in their own script; explanations follow the interface language.
+Screens of the deployed service in English, on data collected on 14 October 2026 (captured 17 October). Memes stay in their own script; explanations follow the interface language.
 
 ## How AI is used
 
 Rules decide, models write. Listing, lifecycle, verification status, risk level, list filtering and
 recommendation ranking are deterministic code; a model never sets a status.
 
-- **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): researches new terms with
-  grounding, reads trending short videos, turns a product photo or copy into a product brief, writes campaign
+- **Gemini on Vertex AI** (runtime service account, no API key, monthly spend cap): drafts meanings of new terms
+  from reference pages (Search grounding is coded but switched off), reads trending short videos, turns a product photo or copy into a product brief, writes campaign
   copy, summarises the briefing and judges whether copy uses a meme in the right sense.
 - **Gemma 4** (local or Kaggle, in the batch pipeline): drafts headword readings and meaning translations for newly
   listed terms, classifies evidence sentences for risk and audits dictionary meanings against their sources. A QLoRA fine-tune of the auditor
@@ -77,7 +77,7 @@ recommendation ranking are deterministic code; a model never sets a status.
 - **Agent Development Kit (ADK)**: an optional four-agent team (collector → investigator → lexicographer → publisher)
   calls the same deterministic pipeline steps as tools and writes a run report; the agents never set a status
   ([`agents/team.py`](apps/trend-api/src/trend_agents/agents/team.py)).
-- The collection server calls Gemini through the Gemini API (Google AI Studio key) under a daily call budget.
+- The collection server calls Gemini on Vertex AI through the same client ([`model_client.py`](apps/trend-api/src/trend_agents/model_client.py)) under a daily call budget.
 - Every model output is checked by rules before it is shown: a meaning needs a matching reference document,
   generated copy is re-checked for the chosen meme, profanity and length, and empty or note-like meanings are
   held back.
@@ -97,7 +97,7 @@ Where this shows in the deployed app:
   two buttons answer at once that the GPU is off. Gemma's batch work is shown in the model records on the reviewer
   status page.
 
-Judges can sign in with the read-only reviewer account given in the submission form: every admin screen opens, and
+Judges can sign in with the read-only reviewer account given on the links slide of the submitted deck: every admin screen opens, and
 approve, reject and risk decisions are refused.
 
 What we measured, with numbers and limits, and what is still open: [EVALUATION.md](EVALUATION.md).
@@ -203,10 +203,12 @@ Production and development builds reject out-of-date lockfiles.
 | `MODEL_PROVIDER` | `mock` | `vertex` |
 | `MODEL_REQUESTS_ENABLED` | `false` | `true` only while the service is meant to spend |
 | `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | empty | Vertex AI project and location |
-| `GEMINI_DAILY_BUDGET` | `36` | daily call cap recorded in the database |
+| `GEMINI_DAILY_BUDGET` | `120` (`.env.example`) | daily pipeline call cap recorded in the database |
 
 Gemini clients are created only in `apps/trend-api/src/trend_agents/model_client.py`, through Vertex AI
-with the Cloud Run runtime service account. There is no Gemini API key anywhere in the codebase.
+with a service-account identity (the Cloud Run runtime service account in production); the optional ADK team uses
+ADK's built-in Vertex AI client. There is no Gemini API key anywhere in the codebase. Gemini daily and monthly caps
+are enforced in the database; the billing budget only sends alerts.
 Local Gemma runs through Ollama or an OpenAI-compatible server (`LOCAL_LLM_BASE_URL`); see
 [Gemma/vLLM](models/vllm/README.md). Collector keys (YouTube, Naver) belong only in
 `apps/trend-api/.env`; see `apps/trend-api/.env.example`.

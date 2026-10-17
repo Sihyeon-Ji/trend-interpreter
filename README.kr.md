@@ -55,20 +55,20 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
 | **트렌드 브리핑: 시장 보고서 한 장** | **세계 지도: 시장별·나라를 건넌 밈** |
 | ![트렌드 브리핑](docs/images/briefing.png) | ![세계 지도](docs/images/map.png) |
 
-배포본 화면이고, 자료는 2026년 10월 9일에 모은 것입니다(영어 화면).
+배포본 화면이고, 자료는 2026년 10월 14일에 모은 것입니다(10월 17일 촬영, 영어 화면).
 
 ## AI를 어떻게 쓰나요
 
 판정은 규칙, 서술은 모델입니다. 등재·생애주기·검증 상태·리스크 수준·목록 거르기·추천 순위는 결정론적 코드가 정하고,
 모델이 상태를 정하지 않습니다.
 
-- **Vertex AI의 Gemini** (런타임 service account, API key 없음, 월 금액 상한): 새 말의 grounding 조사, 인기 쇼츠 해석,
+- **Vertex AI의 Gemini** (런타임 service account, API key 없음, 월 금액 상한): 새 말의 뜻을 참고 문서로 조사(Search grounding은 코드만 있고 꺼져 있음), 인기 쇼츠 해석,
   제품 사진·문구의 제품 설명, 캠페인 카피 생성, 브리핑 요약, 카피가 밈을 뜻에 맞게 썼는지 의견.
 - **Gemma 4** (로컬·Kaggle, 배치 파이프라인): 새로 실린 말의 표제어 읽기·뜻 언어판 초안, 근거 문장의 리스크 분류, 사전 뜻을 출처와 대조하는 감사관.
   감사관 QLoRA 파인튜닝은 판정 형식은 배웠지만 판단이 나아졌다는 근거가 없어 기본 모델을 씁니다([EVALUATION.md](EVALUATION.md)).
-- **Agent Development Kit(ADK)**: 네 에이전트 팀(수집 → 조사 → 사전 편집 → 게시)이 같은 결정론 단계를 도구로 부르고 실행 보고서를 남깁니다.
+- **Agent Development Kit(ADK)**: 선택적으로 돌리는 네 에이전트 팀(수집 → 조사 → 사전 편집 → 게시)이 같은 결정론 단계를 도구로 부르고 실행 보고서를 남깁니다.
   에이전트는 상태를 정하지 않습니다([`agents/team.py`](apps/trend-api/src/trend_agents/agents/team.py)).
-- 수집 서버는 Gemini API(Google AI Studio 키)로 Gemini 를 하루 호출 예산 안에서 부릅니다.
+- 수집 서버도 같은 클라이언트([`model_client.py`](apps/trend-api/src/trend_agents/model_client.py))로 Vertex AI의 Gemini 를 하루 호출 예산 안에서 부릅니다.
 - 모델 결과는 화면에 나가기 전에 규칙이 검사합니다. 뜻은 맞는 참고 문서가 있어야 하고, 생성한 카피는 고른 밈·욕설·길이를
   다시 확인하며, 비었거나 메모 같은 뜻은 내보내지 않습니다.
 
@@ -84,7 +84,7 @@ Google Cloud AI Builder Cup 2026 (JAPAC) · 테마 **Media, Content & Digital Ex
   정의돼 있지만 비용 때문에 배포하지 않아, 두 버튼은 'GPU 꺼짐'을 바로 알립니다.
   Gemma 의 배치 작업 실적은 검수자 상태 화면의 모델 기록에 있습니다.
 
-심사위원은 제출 양식에 적은 읽기 전용 검수 계정으로 로그인할 수 있습니다. 관리 화면은 모두 열리고, 승인·제외·리스크 결정은 막힙니다.
+심사위원은 제출한 발표 자료의 링크 쪽에 적은 읽기 전용 검수 계정으로 로그인할 수 있습니다. 관리 화면은 모두 열리고, 승인·제외·리스크 결정은 막힙니다.
 
 무엇을 어떻게 쟀는지, 수치와 한계, 남은 과제는 [EVALUATION.md](EVALUATION.md)(영어)에 있습니다.
 
@@ -180,10 +180,12 @@ docker compose up -d --build
 | `MODEL_PROVIDER` | `mock` | `vertex` |
 | `MODEL_REQUESTS_ENABLED` | `false` | 비용을 쓸 때만 `true` |
 | `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | 비움 | Vertex AI 프로젝트·위치 |
-| `GEMINI_DAILY_BUDGET` | `36` | DB에 기록하는 하루 호출 상한 |
+| `GEMINI_DAILY_BUDGET` | `120` (`.env.example`) | DB에 기록하는 파이프라인 하루 호출 상한 |
 
 Gemini 클라이언트는 `apps/trend-api/src/trend_agents/model_client.py` 한 곳에서만 만들며, API 키 대신
-Cloud Run 런타임 서비스 계정으로 Vertex AI에 접속합니다. 저장소 어디에도 Gemini API 키는 없습니다.
+서비스 계정(운영에서는 Cloud Run 런타임 서비스 계정)으로 Vertex AI에 접속합니다. 선택 사항인 ADK 팀은 ADK에 들어 있는
+Vertex AI 클라이언트를 씁니다. 저장소 어디에도 Gemini API 키는 없습니다. Gemini 하루·한 달 상한은 DB 장부로 막고,
+청구 예산은 알림만 보냅니다.
 로컬 Gemma는 Ollama 또는 OpenAI 호환 서버(`LOCAL_LLM_BASE_URL`)로 연결합니다.
 수집기 키(YouTube, Naver)는 `apps/trend-api/.env`에만 둡니다. 자세한 내용은 [AI 호출 제어](docs/운영/AI-호출-제어.md)를 보세요.
 

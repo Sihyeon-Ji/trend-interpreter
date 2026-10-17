@@ -15,7 +15,7 @@ Solid boxes are code and rules, dashed boxes are models, and the blue icon marks
 | Split | Heavy work (collection, classification, research, translation) runs in a batch on a separate team server. Google Cloud serves only verified, published data |
 | Who decides | Rules decide listing, lifecycle, risk level and ranking. Models draft and describe. A person approves copy and dictionary changes |
 | Request-time AI | Gemini on Vertex AI, through the runtime service account – no API key |
-| Batch AI | Gemma 4 (local or Kaggle) classifies evidence, drafts translations and audits meanings; Gemini (Gemini API key, daily budget) reads Shorts and runs Search-grounded research |
+| Batch AI | Gemma 4 (local or Kaggle) classifies evidence, drafts translations and audits meanings; Gemini on Vertex AI (same client, daily budget) reads Shorts and drafts meanings from reference pages (Search grounding is coded but switched off) |
 | Data | PostgreSQL everywhere: Docker Compose locally, Cloud SQL for PostgreSQL in production |
 | Region | Tokyo (`asia-northeast1`) |
 | Deployment | Pushing `release/gcp` runs the checks, then deploys a candidate revision and moves traffic only after it passes |
@@ -112,7 +112,7 @@ flowchart LR
 | `MODEL_PROVIDER` | `mock` | A Gemini client is created only when this is `vertex` |
 | `MODEL_REQUESTS_ENABLED` | `false` | No Gemini call is made unless this is `true` |
 | `GCP_PROJECT_ID`, `GOOGLE_CLOUD_LOCATION` | empty | Vertex AI project and location |
-| `GEMINI_DAILY_BUDGET` | `36` | Daily call cap, counted in the `gemini_calls` ledger table |
+| `GEMINI_DAILY_BUDGET` | `120` (`.env.example`) | Daily pipeline call cap, counted in the `gemini_calls` ledger table |
 | `LOCAL_LLM_BASE_URL` | empty | Ollama or an OpenAI-compatible server for Gemma |
 
 Request-time Gemini clients are created in one place, `src/trend_agents/model_client.py`. The pipeline goes through
@@ -193,7 +193,8 @@ flowchart LR
 - **Access.** GitHub Actions deploys through Workload Identity Federation; no service-account JSON key exists. Secret
   values stay out of Terraform state.
 - **Scaling and limits.** Web and API scale from 0 to 2 instances. Recommend and create have a per-instance request
-  limit, Gemini has a daily call cap, and Cloud Run has a monthly spend limit.
+  limit, and Gemini has daily call caps and a monthly spend cap enforced in the database; a billing budget
+  sends alerts but does not stop spending.
 - **Scheduled jobs.** A backup job dumps the database daily at 03:00 KST to a private bucket kept for 14 days. A
   maintenance job at 04:00 KST deletes expired user text and checks that the published data is not stale.
 - **Monitoring.** An uptime check watches the web app, and error alerts watch 5xx responses on web and API and failed
