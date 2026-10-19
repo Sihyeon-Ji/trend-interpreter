@@ -26,6 +26,8 @@ small이면 한 달 약 $36, 결선(12-04)까지 약 $55. 옛 체험 인스턴�
 
 ## 10-20 실행 순서
 
+실행 전에 새 인스턴스의 자동 백업·PITR 사용 여부와 예상 비용을 확정한다. 기존 [#15 일정](https://github.com/Sihyeon-Ji/trend-interpreter/issues/15)의 미결정 항목이다.
+
 1. 새 인스턴스 만들기(위 사양). Terraform `infra/gcp/hybrid`의 `sql_connection_name`을 새 인스턴스로 바꿀 준비.
 2. 지금 운영 DB 백업: `pg_dump` 사본을 `artifacts/backups/`에 두고 로컬 복원으로 확인.
 3. 새 인스턴스에 DB·역할 만들기: `trend_app`(소유자)과 게시 역할 `trend_publisher`(`configure_publisher_role.py --role trend_publisher`, `GRANT CONNECT`).
