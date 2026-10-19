@@ -9,7 +9,7 @@
 ## 10-16 결정
 
 - **경로 B – 작은 새 인스턴스를 만들어 운영 DB를 옮긴다.** 지금 인스턴스를 그대로 유료로 바꾸는 A(8 vCPU·64GB Enterprise Plus, 월 수백 달러)와, 바꾼 뒤 그 자리에서 줄이는 C(디스크 100GB가 줄지 않아 +월 $22)는 하지 않는다.
-- **크기는 `db-g1-small`**(공유 코어, RAM 1.7GB), PostgreSQL 18, Enterprise 등급, 단일 영역 `asia-northeast1`, SSD 10GB(자동 증가 켬), 삭제 보호 켬. 월 $30 상한을 지키려면 `db-f1-micro`로 시작하고 느리면 올린다(크기 변경은 몇 분 중단).
+- **크기는 `db-g1-small`**(공유 코어, RAM 1.7GB), PostgreSQL 18, Enterprise 등급, 단일 영역 `asia-northeast1`, SSD 10GB(자동 증가 켬), 삭제 보호 켬.
 - **옮기는 것은 운영 DB(`trend_20261014`) 하나.** 이전 DB(`trend`·`trend_20261005`·`trend_20261009`)는 `pg_dump` 사본을 Git 밖(`artifacts/backups/`)에 두고 옮기지 않는다.
 - **날짜는 10-20 밤.** 제출물은 PPT·영상이고 심사위원은 11월에 사이트를 본다. 녹화(10-17까지)가 끝난 뒤, 심사 전이라 보는 사람이 거의 없는 때에 한다. 몇 분 끊김이 있다.
 
@@ -24,6 +24,8 @@
 
 small이면 한 달 약 $36, 결선(12-04)까지 약 $55. 옛 체험 인스턴스는 10-30까지 무료라 옮기는 동안 함께 둬도 요금이 없다. 새 인스턴스가 검증되면 옛 인스턴스를 지운다(10-27 청구 확인 때).
 
+**10-19 비용 결정(지시현).** 월 $30은 상한이 아니다. 월 약 $36인 `db-g1-small` 비용을 수용하고 심사 기간의 운영 안정성을 우선한다. 비용 절감만을 위해 `db-f1-micro`로 시작하지 않는다. 다만 `db-g1-small`도 공유 코어로 SLA 대상이 아니므로, 전환 직후 응답 시간·메모리·연결 수와 Job 실행을 확인하고 부족하면 더 큰 인스턴스를 별도 결정한다.
+
 ## 10-20 실행 순서
 
 실행 전에 새 인스턴스의 자동 백업·PITR 사용 여부와 예상 비용을 확정한다. 기존 [#15 일정](https://github.com/Sihyeon-Ji/trend-interpreter/issues/15)의 미결정 항목이다.
@@ -34,7 +36,7 @@ small이면 한 달 약 $36, 결선(12-04)까지 약 $55. 옛 체험 인스턴�
 4. 덤프를 새 인스턴스에 복원하고, 운영과 표 행 수를 대조한다(`refresh_production.py compare`와 같은 기준 – 사람 결정·기록 누락 0).
 5. Secret Manager에 새 연결 주소 version 추가: `trend-production-database-url`, `trend-production-publisher-database`.
 6. API(Cloud Run v2 REST로 secret 버전·Cloud SQL 연결 바꾸기), 백업·유지보수·게시 Job을 새 secret·인스턴스로. Terraform과 운영을 맞춘다(`TF_DATA_DIR=.terraform/production`).
-7. 확인: 웹 첫 화면·사전·둘러보기·만들기 200, API health, 검수 로그인, 백업·유지보수 Job 한 번 실행 성공.
+7. 확인: 웹 첫 화면·사전·둘러보기·만들기 200, API health, 검수 로그인, 백업·유지보수 Job 한 번 실행 성공. 응답 시간·메모리·DB 연결 수를 함께 기록한다.
 8. 문제가 있으면 secret 버전을 이전 것으로 되돌려 옛 인스턴스로 돌아간다(옛 인스턴스는 10-30까지 그대로).
 
 ## 10-10 확인
