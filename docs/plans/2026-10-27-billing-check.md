@@ -9,7 +9,7 @@
 - Billing 보고서에서 Cloud SQL·Cloud Run·Vertex AI(Gemini)·GCS·Artifact Registry·GPU(쓴 경우, [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md))의 실제 청구와 SKU를 확인한다.
 - 전환 때 정한 월 비용 상한·예상치와 비교하고, 넘은 항목은 원인과 조치를 적는다.
 - 새 인스턴스의 운영 서비스·백업·유지보수·게시 Job 검증 기록을 확인하고, 10-20에 삭제한 옛 체험 인스턴스의 청구가 더 발생하지 않는지 확인한다.
-- 옛 인스턴스에만 있던 이전 DB 세 개의 로컬 덤프를 GCS에 보관할지 폐기할지 결정하고 기록한다. 새 인스턴스 백업에는 이 DB들이 없다.
+- 이전 DB 세 개의 덤프는 10-20 사용자 결정으로 비공개 버킷 `stunning-crane-508614-c1-trend-db-archive`에 옮겼다(MD5 일치·`pg_restore -l` 확인 후 로컬 사본 삭제). 이 버킷의 청구(월 1센트 미만 예상)도 함께 확인한다.
 
 ## 완료 기준
 

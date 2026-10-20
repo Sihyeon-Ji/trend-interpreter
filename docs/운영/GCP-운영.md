@@ -508,6 +508,8 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 | 권한 | `trend-production-backup` SA는 Cloud SQL 연결, 운영 DB secret 읽기, 이 버킷 객체 읽기·쓰기, 이 Job 실행만 가진다. DB 접속은 앱과 같은 `trend_app` 계정이다(10-04 결정) |
 | 경보 | Job 실행이 실패하면 "Trend scheduled job failed", Scheduler가 Job을 실행하지 못하면 "Trend scheduled job was not started"가 Discord와 운영 이메일로 온다. 두 경보는 유지보수 Job도 함께 본다 |
 
+이전 운영 DB 세 개(`trend`·`trend_20261005`·`trend_20261009`)의 custom dump는 10-20 옛 체험 인스턴스 삭제 전에 떠서 비공개 버킷 `stunning-crane-508614-c1-trend-db-archive`의 `cloud-sql-transition-20261020/`에 둔다. 자동 삭제 규칙이 없고 Terraform 밖에서 만든 버킷이다. 사용자 입력 문장이 남아 있을 수 있으므로 과거 평가 재현 외에는 복원하지 않고, 복원한 사본에는 `prune_user_text`를 실행한다. 운영을 끝낼 때 이 버킷도 정리한다.
+
 수동 실행과 상태 확인은 다음과 같다.
 
 ```bash
