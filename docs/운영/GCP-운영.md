@@ -498,7 +498,7 @@ curl --silent --show-error --output /dev/null --write-out '%{http_code}\n' \
 
 ## 운영 DB 백업
 
-운영 Cloud SQL의 `trend` DB는 매일 03:00 KST에 논리 백업한다. 체험 인스턴스는 관리형 백업·PITR을 지원하지 않으므로 이 백업이 유일한 복구 수단이다([Plan 13](../plans/archive/13-cloud-sql-trial-to-paid-transition.md)). 리소스는 `infra/gcp/hybrid/backup.tf`에 있다.
+운영 Cloud SQL `trend-production-sql`의 `trend_20261014` DB는 매일 03:00 KST에 논리 백업한다. 인스턴스에는 자동 백업과 PITR도 켜져 있다([10-20 전환 기록](../plans/archive/2026-10-20-cloud-sql-transition.md#10-20-실행-기록)). 논리 백업 리소스는 `infra/gcp/hybrid/backup.tf`에 있다.
 
 | 항목 | 값 |
 | --- | --- |

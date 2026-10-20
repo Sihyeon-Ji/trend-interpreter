@@ -16,7 +16,7 @@
 set -euo pipefail
 
 project_id=${PROJECT_ID:-stunning-crane-508614-c1}
-instance=${SQL_INSTANCE:-trend-project}
+instance=${SQL_INSTANCE:-trend-production-sql}
 secret=trend-production-database-url
 proxy_image=gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.0@sha256:86e4f3cc266020e7ee07740df78d7511e2c340c274b56f84d80b7251913af9ad
 postgres_image=postgres:18.6-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
