@@ -1,7 +1,8 @@
 locals {
   maintenance_enabled = local.services_enabled
-  # The production database is refreshed every few days (Plan 19), so a publication older than eight days means a missed refresh.
-  maintenance_stale_after_hours = 192
+  # Collection stopped after the 2026-10-14 snapshot and the last publication is 2026-10-11, so the data stays frozen through
+  # judging and the 2026-12-04 final. 62 days keeps the stale alert quiet until 2026-12-12 while failures still exit 1.
+  maintenance_stale_after_hours = 1488
 }
 resource "google_project_iam_member" "maintenance_sql" {
   count   = local.maintenance_enabled ? 1 : 0

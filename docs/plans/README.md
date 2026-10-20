@@ -21,14 +21,13 @@
 
 **10-19 비용 결정(지시현).** Cloud SQL 월 $30은 상한이 아니며, 심사 기간의 운영 안정성을 비용 절감보다 우선한다. 계획대로 `db-g1-small`을 선택하고 전환 뒤 응답 시간·메모리·연결 수를 확인한다([10-20 전환](archive/2026-10-20-cloud-sql-transition.md)).
 
-**10-20 전환 완료.** 운영 DB·API·Job을 `trend-production-sql`로 옮기고 복원·조회·검수 로그인을 확인했다. 옛 체험 인스턴스는 삭제됐다([실행 기록](archive/2026-10-20-cloud-sql-transition.md)). 실제 청구는 10-27에 확인하고, 게시 신선도 경보는 [#16 일정](https://github.com/Sihyeon-Ji/trend-interpreter/issues/16)에서 다룬다.
+**10-20 전환 완료.** 운영 DB·API·Job을 `trend-production-sql`로 옮기고 복원·조회·검수 로그인을 확인했다. 옛 체험 인스턴스는 삭제됐다([실행 기록](archive/2026-10-20-cloud-sql-transition.md)). 실제 청구는 10-27에 확인하고, 게시 신선도 경보는 수집 중단에 맞춰 유지보수 Job 기준을 1488시간으로 올려 해소했다([#16](https://github.com/Sihyeon-Ji/trend-interpreter/issues/16), [운영 문서](../운영/GCP-운영.md#유지보수-job)).
 
 **10-20 제출 확인.** 사용자가 최종 제출 완료를 확인했고 포털의 `Submitted` 상태와 평가 진행 화면을 공유했다. 화면은 Git 제외 경로에 보관했다. 정확한 접수 시각과 양식 입력 세부는 보이지 않는다([제출 기록](archive/2026-10-18-final-submission.md), [체크리스트](../대회/제출/제출-준비-체크리스트.md)).
 
 ## 다음 순서
 
-1. **10-22경** – 유지보수 Job에서 확인한 게시 오래됨 경보를 [운영 문서](../운영/GCP-운영.md#유지보수-job)와 [#16 일정](https://github.com/Sihyeon-Ji/trend-interpreter/issues/16)에 따라 처리한다.
-2. **10-27 ~ 10-28** – [청구 확인](2026-10-27-billing-check.md)(shji).
+1. **10-27 ~ 10-28** – [청구 확인](2026-10-27-billing-check.md)(shji).
 
 GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확인 뒤에 한다(`apps/trend-api/AGENTS.md`). 로컬 검사 통과는 운영 반영이나 AI 품질의 근거가 아니다.
 
@@ -38,7 +37,6 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | 실행일 | 계획 | 담당 | 할 일 | 완료 증거 |
 | --- | --- | --- | --- | --- |
-| 10-22경 | [#16 유지보수 Job 경보 확인](https://github.com/Sihyeon-Ji/trend-interpreter/issues/16) | 미정 | 마지막 정상 게시 시각과 유지보수 Job 결과 확인 | 경보 유무와 처리 결과 |
 | 10-27 ~ 28 | [2026-10-27-billing-check](2026-10-27-billing-check.md) | shji | 실제 청구와 옛 인스턴스 삭제 후 과금 확인 | 항목별 예상치와 차이 |
 
 ## 완료 계획
@@ -47,7 +45,7 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 | ID | 완료 작업 |
 | --- | --- |
-| [Cloud SQL 전환](archive/2026-10-20-cloud-sql-transition.md) | `trend-production-sql`로 운영 DB·서비스·Job 이전, 로컬·GCS 복원 검증, 옛 인스턴스 삭제(10-20). 청구는 10-27, 게시 경보는 #16에서 확인 |
+| [Cloud SQL 전환](archive/2026-10-20-cloud-sql-transition.md) | `trend-production-sql`로 운영 DB·서비스·Job 이전, 로컬·GCS 복원 검증, 옛 인스턴스 삭제(10-20). 청구는 10-27. 게시 경보는 10-20 기준 상향으로 해소(#16) |
 | [최종 제출](archive/2026-10-18-final-submission.md) | 최종 제출 완료(10-19 사용자 확인, 10-20 `Submitted` 화면 확인·비공개 보관). 정확한 접수 시각과 양식 세부는 화면에 없음 |
 | [제출 발표 자료](archive/ejchoi-submission-deck.md) | 제출용 PDF·링크·GPU 문장 정리 완료(10-17). 이번 PDF 검수의 후속 수정과 실제 제출은 별도 확인 |
 | [제출 데모 영상](archive/sng_j-demo-video.md) | 2분 53초 영상 업로드 완료(10-17). 실제 제출은 [최종 제출 기록](archive/2026-10-18-final-submission.md) |
