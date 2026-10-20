@@ -23,7 +23,7 @@
 
 **10-20 전환 완료.** 운영 DB·API·Job을 `trend-production-sql`로 옮기고 복원·조회·검수 로그인을 확인했다. 옛 체험 인스턴스는 삭제됐다([실행 기록](archive/2026-10-20-cloud-sql-transition.md)). 실제 청구는 10-27에 확인하고, 게시 신선도 경보는 [#16 일정](https://github.com/Sihyeon-Ji/trend-interpreter/issues/16)에서 다룬다.
 
-**10-19 제출 상태.** 사용자가 최종 제출 완료를 확인했다. 접수 시각·완료 화면의 비공개 보관 여부는 이 저장소에서 확인하지 못했다. [제출 계획](2026-10-18-final-submission.md)과 [체크리스트](../대회/제출/제출-준비-체크리스트.md)에 이 구분을 남긴다.
+**10-20 제출 확인.** 사용자가 최종 제출 완료를 확인했고 포털의 `Submitted` 상태와 평가 진행 화면을 공유했다. 화면은 Git 제외 경로에 보관했다. 정확한 접수 시각과 양식 입력 세부는 보이지 않는다([제출 기록](archive/2026-10-18-final-submission.md), [체크리스트](../대회/제출/제출-준비-체크리스트.md)).
 
 ## 다음 순서
 
@@ -43,15 +43,15 @@ GCP 리소스 생성·배포·결제와 운영 데이터 변경은 사용자 확
 
 ## 완료 계획
 
-구현과 검증을 마친 계획은 [archive](archive/)에 보관한다. 최종 제출 계획은 접수 증빙 보관 여부를 확인할 때까지 현재 경로에 둔다. 과거 계획은 번호가 같아도 현재 계획과 별개다. 지난 점검 보고서(09-29~10-06)와 변경 공유(10-05)도 [archive](archive/README.md)에 있다.
+구현과 검증을 마친 계획은 [archive](archive/)에 보관한다. 최종 제출 상태 화면도 10-20에 비공개로 보관하고 계획을 archive로 옮겼다. 과거 계획은 번호가 같아도 현재 계획과 별개다. 지난 점검 보고서(09-29~10-06)와 변경 공유(10-05)도 [archive](archive/README.md)에 있다.
 
 | ID | 완료 작업 |
 | --- | --- |
 | [Cloud SQL 전환](archive/2026-10-20-cloud-sql-transition.md) | `trend-production-sql`로 운영 DB·서비스·Job 이전, 로컬·GCS 복원 검증, 옛 인스턴스 삭제(10-20). 청구는 10-27, 게시 경보는 #16에서 확인 |
-| [최종 제출](2026-10-18-final-submission.md) | 최종 제출 완료(10-19 사용자 확인). 접수 화면·시각의 비공개 보관은 이 저장소에서 미확인 |
+| [최종 제출](archive/2026-10-18-final-submission.md) | 최종 제출 완료(10-19 사용자 확인, 10-20 `Submitted` 화면 확인·비공개 보관). 정확한 접수 시각과 양식 세부는 화면에 없음 |
 | [제출 발표 자료](archive/ejchoi-submission-deck.md) | 제출용 PDF·링크·GPU 문장 정리 완료(10-17). 이번 PDF 검수의 후속 수정과 실제 제출은 별도 확인 |
-| [제출 데모 영상](archive/sng_j-demo-video.md) | 2분 53초 영상 업로드 완료(10-17). 실제 제출은 [최종 제출 계획](2026-10-18-final-submission.md) |
-| [ejchoi 작업 인수인계](archive/ejchoi-작업-인수인계.md) | 인수인계 종료(10-17). 남은 수정·실제 제출은 [최종 제출 계획](2026-10-18-final-submission.md)으로 이관 |
+| [제출 데모 영상](archive/sng_j-demo-video.md) | 2분 53초 영상 업로드 완료(10-17). 실제 제출은 [최종 제출 기록](archive/2026-10-18-final-submission.md) |
+| [ejchoi 작업 인수인계](archive/ejchoi-작업-인수인계.md) | 인수인계 종료(10-17). 남은 수정·실제 제출은 [최종 제출 기록](archive/2026-10-18-final-submission.md)으로 이관 |
 | [ejchoi 확인 요청](archive/ejchoi-확인-요청.md) | 10-16 결정·10-17 제작 완료로 요청 기록 종료. GPU는 미구축 결정이며 실행 완료가 아님 |
 | [저장소 공개 전환](archive/2026-10-17-public-repository.md) | `Sihyeon-Ji/trend-interpreter` 공개, 배포는 `release/gcp`에서만(승인 없음), 외부 계정 push 거부 확인(10-16, 하루 앞당김) |
 | [Gemma 실시간 분류](archive/ejchoi-gemma-live-classify.md) | 1·2단계 코드 운영 반영, 심사용 읽기 전용 계정. 운영 GPU는 만들지 않음(10-16 보관) |
